@@ -9,6 +9,7 @@ using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Status;
+using Enigma.GitClient.Core.Sync;
 using Enigma.GitClient.Core.Tags;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -46,6 +47,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IGitIgnoreService, GitIgnoreService>();
             services.AddSingleton<IStagingService, StagingService>();
             services.AddSingleton<ICommitService, CommitService>();
+            services.AddSingleton<ISyncService, SyncService>();
+            services.AddSingleton<IRemoteService, RemoteService>();
             services.AddSingleton<IDiffService, DiffService>();
             services.AddSingleton<IBranchService, BranchService>();
             services.AddSingleton<ITagService, TagService>();

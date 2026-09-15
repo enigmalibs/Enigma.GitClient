@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Enigma.GitClient.Core.Git;
 using Xunit;
 
@@ -60,4 +61,53 @@ public sealed class ForbiddenGitOperationsTests
 
     private static string[] Split(string commandLine)
         => commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
+    /// Scans the shipped source for any argument vector that would invoke the forbidden verb.
+    /// </summary>
+    /// <remarks>
+    /// The command factory refuses it at runtime, which is the real guard. This is the second one:
+    /// a quoted <c>"rebase"</c> anywhere outside the refusal itself means somebody wrote the
+    /// invocation, and a runtime refusal a user never triggers is a failure nobody sees until a
+    /// user does.
+    /// </remarks>
+    [Fact]
+    public void NoShippedCodeEverAsksGitToRebase()
+    {
+        System.IO.DirectoryInfo? root = new(AppContext.BaseDirectory);
+
+        while (root is not null && !System.IO.File.Exists(System.IO.Path.Combine(root.FullName, "Enigma.GitClient.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        if (root is null)
+        {
+            Assert.Skip("The solution root is not reachable from the test output directory.");
+            return;
+        }
+
+        string source = System.IO.Path.Combine(root.FullName, "src");
+        List<string> offenders = [];
+
+        foreach (string file in System.IO.Directory.EnumerateFiles(source, "*.cs", System.IO.SearchOption.AllDirectories))
+        {
+            if (string.Equals(System.IO.Path.GetFileName(file), "ForbiddenGitOperations.cs", StringComparison.Ordinal))
+            {
+                // The refusal itself has to name what it refuses.
+                continue;
+            }
+
+            string text = System.IO.File.ReadAllText(file);
+
+            if (text.Contains("\"rebase\"", StringComparison.Ordinal))
+            {
+                offenders.Add(System.IO.Path.GetRelativePath(root.FullName, file));
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            $"these files name \"rebase\" as a git argument: {string.Join(", ", offenders)}");
+    }
 }

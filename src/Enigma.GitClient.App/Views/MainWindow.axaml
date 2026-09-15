@@ -61,6 +61,49 @@
           </StackPanel>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+
+            <!-- Fetch, pull and push, with the counters that say whether either is worth doing. -->
+            <Button Classes="toolbar"
+                    IsVisible="{Binding CanSync}"
+                    Command="{Binding FetchCommand}"
+                    ToolTip.Tip="Fetch from every remote"
+                    AutomationProperties.Name="Fetch from every remote">
+              <ei:Icon Kind="ArrowsDownUp" Size="16" />
+            </Button>
+
+            <Button Classes="toolbar"
+                    IsVisible="{Binding CanSync}"
+                    Command="{Binding PullCommand}"
+                    ToolTip.Tip="Pull into the current branch"
+                    AutomationProperties.Name="Pull into the current branch">
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <ei:Icon Kind="ArrowDown" Size="16" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Behind}"
+                           IsVisible="{Binding IsBehind}"
+                           VerticalAlignment="Center"
+                           FontSize="12" />
+              </StackPanel>
+            </Button>
+
+            <Button Classes="toolbar"
+                    IsVisible="{Binding CanSync}"
+                    Command="{Binding PushCommand}"
+                    ToolTip.Tip="Push the current branch"
+                    AutomationProperties.Name="Push the current branch">
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <ei:Icon Kind="ArrowUp" Size="16" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Ahead}"
+                           IsVisible="{Binding IsAhead}"
+                           VerticalAlignment="Center"
+                           FontSize="12" />
+              </StackPanel>
+            </Button>
+
+            <Border Width="1"
+                    Margin="4,6"
+                    IsVisible="{Binding CanSync}"
+                    Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
             <Button Classes="toolbar"
                     Command="{Binding RefreshCommand}"
                     ToolTip.Tip="Refresh the repository state"
