@@ -45,6 +45,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IBranchOperations _branchOperations;
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
+    private readonly IMergeOperations _mergeOperations;
 
     private DiffTarget? _diffTarget;
     private readonly IInfoBarService _infoBar;
@@ -74,6 +75,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IBranchOperations branchOperations,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
+        IMergeOperations mergeOperations,
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
@@ -86,6 +88,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(branchOperations);
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
+        ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
@@ -98,6 +101,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _branchOperations = branchOperations;
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
+        _mergeOperations = mergeOperations;
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -105,6 +109,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnDeleteBranchAsync, row => row?.HasBranch == true),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
+            new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
             new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null));
 
         Files = new ChangedFilesPanelViewModel(interop);
@@ -689,6 +694,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
+
+    private async Task OnMergeBranchAsync(CommitRowViewModel? row)
+    {
+        if (row is null || !row.CanMergeBranch)
+        {
+            return;
+        }
+
+        Core.Merging.MergeOutcome outcome = await _mergeOperations.MergeAsync(row.BranchName).ConfigureAwait(true);
+
+        if (outcome.ChangedAnything)
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
 
     private async Task OnCheckoutCommitAsync(CommitRowViewModel? row)
     {

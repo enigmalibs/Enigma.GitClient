@@ -31,6 +31,7 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// <param name="DeleteBranch">Deletes the branch pointing at the row's commit.</param>
 /// <param name="CheckoutCommit">Checks out the row's commit itself, detaching HEAD.</param>
 /// <param name="CreateTagHere">Creates a tag at the row's commit.</param>
+/// <param name="MergeBranch">Merges the branch pointing at the row's commit into the current one.</param>
 /// <param name="Activate">
 /// What a double-click does: check out the row's branch when it has one, the commit itself
 /// otherwise.
@@ -41,6 +42,7 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> DeleteBranch,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
     AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
+    AsyncRelayCommand<CommitRowViewModel> MergeBranch,
     AsyncRelayCommand<CommitRowViewModel> Activate);
 
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
@@ -199,6 +201,15 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     /// <summary>Gets the header of the menu item that deletes this row's branch.</summary>
     public string DeleteBranchHeader => $"Delete \"{BranchName}\"…";
+
+    /// <summary>Gets the header of the menu item that merges this row's branch in.</summary>
+    public string MergeHeader => $"Merge \"{BranchName}\" into the current branch";
+
+    /// <summary>
+    /// Gets a value indicating whether this row's branch is one the current branch could merge —
+    /// merging a branch into itself means nothing.
+    /// </summary>
+    public bool CanMergeBranch => HasBranch && CanCheckoutBranch;
 
     /// <summary>
     /// Gets a value indicating whether the row's branch can be checked out — it must not already be

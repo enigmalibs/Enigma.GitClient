@@ -5,6 +5,7 @@ using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Staging;
@@ -51,6 +52,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ISyncService, SyncService>();
             services.AddSingleton<IRemoteService, RemoteService>();
             services.AddSingleton<IStashService, StashService>();
+            services.AddSingleton<IMergeService, MergeService>();
+            services.AddSingleton<IConflictService, ConflictService>();
             services.AddSingleton<IDiffService, DiffService>();
             services.AddSingleton<IBranchService, BranchService>();
             services.AddSingleton<ITagService, TagService>();

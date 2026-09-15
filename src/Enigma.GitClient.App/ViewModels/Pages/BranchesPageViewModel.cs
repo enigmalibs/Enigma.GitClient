@@ -95,6 +95,9 @@ public sealed class BranchRowViewModel : ViewModelBase
     /// <summary>Gets the command that points the branch at an upstream.</summary>
     public AsyncRelayCommand<BranchRowViewModel> SetUpstreamCommand => _owner.SetUpstreamCommand;
 
+    /// <summary>Gets the command that merges the branch into the one checked out.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> MergeCommand => _owner.MergeCommand;
+
     /// <inheritdoc />
     public override string ToString() => FullName;
 }
@@ -182,6 +185,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private readonly IBranchOperations _operations;
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
+    private readonly IMergeOperations _mergeOperations;
 
     /// <summary>
     /// Initialises a new instance.
@@ -190,20 +194,24 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// <param name="operations">Performs the branch operations, dialogs and all.</param>
     /// <param name="tagOperations">Performs the tag operations.</param>
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
+    /// <param name="mergeOperations">Merges a branch into the current one.</param>
     public BranchesPageViewModel(
         IRepositoryContext repositoryContext,
         IBranchOperations operations,
         ITagOperations tagOperations,
-        ICheckoutOperations checkoutOperations)
+        ICheckoutOperations checkoutOperations,
+        IMergeOperations mergeOperations)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
+        ArgumentNullException.ThrowIfNull(mergeOperations);
 
         _operations = operations;
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
+        _mergeOperations = mergeOperations;
 
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => IsRepositoryOpen);
         CreateBranchCommand = new AsyncRelayCommand(OnCreateAsync, () => IsRepositoryOpen);
@@ -213,6 +221,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         RenameCommand = new AsyncRelayCommand<BranchRowViewModel>(OnRenameAsync, IsLocal);
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
+        MergeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnMergeAsync, CanMerge);
 
         ShowBranchesCommand = new RelayCommand(() => ShowTags = false);
         ShowTagsCommand = new RelayCommand(() => ShowTags = true);
@@ -306,6 +315,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that points a branch at an upstream.</summary>
     public AsyncRelayCommand<BranchRowViewModel> SetUpstreamCommand { get; }
+
+    /// <summary>Gets the command that merges a branch into the one checked out.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> MergeCommand { get; }
 
     /// <summary>Gets the command that shows the branch list.</summary>
     public RelayCommand ShowBranchesCommand { get; }
@@ -439,6 +451,11 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     private static bool CanDelete(BranchRowViewModel? row) => row is { IsCurrent: false };
 
+    /// <summary>
+    /// Merging a branch into itself is the one case that means nothing.
+    /// </summary>
+    private static bool CanMerge(BranchRowViewModel? row) => row is { IsCurrent: false };
+
     // ---------------------------------------------------------------- commands
 
     private async Task OnCheckoutAsync(BranchRowViewModel? row)
@@ -454,6 +471,20 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         await Run(() => row.IsRemote
             ? _operations.CheckoutAsync(row.FullName, true)
             : _checkoutOperations.CheckoutAsync(row.FullName)).ConfigureAwait(true);
+    }
+
+    private async Task OnMergeAsync(BranchRowViewModel? row)
+    {
+        if (row is not null)
+        {
+            await Run(async () =>
+            {
+                Core.Merging.MergeOutcome outcome = await _mergeOperations.MergeAsync(row.FullName)
+                    .ConfigureAwait(true);
+
+                return outcome.ChangedAnything;
+            }).ConfigureAwait(true);
+        }
     }
 
     private Task OnCreateTagAsync() => Run(() => _tagOperations.CreateAsync());
