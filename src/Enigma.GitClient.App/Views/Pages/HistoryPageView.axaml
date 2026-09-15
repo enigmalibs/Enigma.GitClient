@@ -135,6 +135,25 @@
               <ColumnDefinition Width="70" />
             </Grid.ColumnDefinitions>
 
+            <!-- The row's own menu. It opens in its own popup tree, so the row carries the
+                 commands rather than reaching the page through a visual ancestor. -->
+            <Grid.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Create branch here…"
+                          Command="{Binding Commands.CreateBranchHere}"
+                          CommandParameter="{Binding}" />
+                <Separator IsVisible="{Binding HasBranch}" />
+                <MenuItem Header="{Binding CheckoutHeader}"
+                          IsVisible="{Binding HasBranch}"
+                          Command="{Binding Commands.CheckoutBranch}"
+                          CommandParameter="{Binding}" />
+                <MenuItem Header="{Binding DeleteBranchHeader}"
+                          IsVisible="{Binding HasBranch}"
+                          Command="{Binding Commands.DeleteBranch}"
+                          CommandParameter="{Binding}" />
+              </ContextMenu>
+            </Grid.ContextMenu>
+
             <graph:CommitGraphCell Grid.Column="0"
                                    Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).GraphColumnWidth}"
                                    Row="{Binding Row}"

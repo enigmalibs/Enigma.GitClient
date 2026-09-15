@@ -51,6 +51,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
+            services.AddSingleton<IBranchOperations, BranchOperations>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
@@ -75,6 +76,9 @@ public static class ServiceCollectionExtensions
             // ViewModel, so a cancelled dialog never leaves its half-typed state behind.
             services.AddTransient<CloneRepositoryDialogView>();
             services.AddTransient<InitRepositoryDialogView>();
+            services.AddTransient<CreateBranchDialogView>();
+            services.AddTransient<RenameBranchDialogView>();
+            services.AddTransient<SetUpstreamDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.

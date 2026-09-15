@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
@@ -18,6 +19,21 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// is checked out, and a template bound to the base type cannot see that — which is exactly how the
 /// checked-out branch ends up drawn like any other.
 /// </remarks>
+/// <summary>
+/// The commands a history row's context menu runs.
+/// </summary>
+/// <remarks>
+/// A context menu opens in its own popup tree and cannot reach the page through a visual ancestor,
+/// so the row carries the commands and the bindings stay plain.
+/// </remarks>
+/// <param name="CreateBranchHere">Creates a branch starting at the row's commit.</param>
+/// <param name="CheckoutBranch">Checks out the branch pointing at the row's commit.</param>
+/// <param name="DeleteBranch">Deletes the branch pointing at the row's commit.</param>
+public sealed record HistoryRowCommands(
+    AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
+    AsyncRelayCommand<CommitRowViewModel> CheckoutBranch,
+    AsyncRelayCommand<CommitRowViewModel> DeleteBranch);
+
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 {
     /// <summary>
@@ -54,16 +70,19 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// <param name="refs">The references pointing at it.</param>
     /// <param name="isHead">Whether HEAD resolves to it.</param>
     /// <param name="now">The moment relative timestamps are measured from.</param>
+    /// <param name="commands">The commands the row's own context menu runs.</param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
         IReadOnlyList<GitRef>? refs,
         bool isHead,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        HistoryRowCommands? commands = null)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
 
+        Commands = commands;
         Commit = commit;
         Row = row;
         Refs = Project(refs);
@@ -106,6 +125,90 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Gets the badges for the references pointing at this commit, in badge order.
     /// </summary>
     public IReadOnlyList<RefBadgeItem> Refs { get; }
+
+    /// <summary>
+    /// Gets the commands the row's context menu runs, or <see langword="null"/> when the row was
+    /// built without them.
+    /// </summary>
+    public HistoryRowCommands? Commands { get; }
+
+    /// <summary>
+    /// Gets the branch the row's menu acts on: the local branch pointing here if there is one, the
+    /// remote branch otherwise, empty when no branch points at this commit.
+    /// </summary>
+    /// <remarks>
+    /// A row can carry several branches. The menu names one, which is the case that actually
+    /// happens; the branches page is where every branch is reachable by name.
+    /// </remarks>
+    public string BranchName
+    {
+        get
+        {
+            foreach (RefBadgeItem badge in Refs)
+            {
+                if (badge.Kind == GitRefKind.LocalBranch)
+                {
+                    return badge.Name;
+                }
+            }
+
+            foreach (RefBadgeItem badge in Refs)
+            {
+                if (badge.Kind == GitRefKind.RemoteBranch)
+                {
+                    return badge.Name;
+                }
+            }
+
+            return string.Empty;
+        }
+    }
+
+    /// <summary>Gets a value indicating whether a branch points at this commit.</summary>
+    public bool HasBranch => BranchName.Length > 0;
+
+    /// <summary>Gets a value indicating whether the branch the menu acts on lives on a remote.</summary>
+    public bool IsBranchRemote
+    {
+        get
+        {
+            foreach (RefBadgeItem badge in Refs)
+            {
+                if (badge.Kind == GitRefKind.LocalBranch)
+                {
+                    return false;
+                }
+            }
+
+            return BranchName.Length > 0;
+        }
+    }
+
+    /// <summary>Gets the header of the menu item that checks this row's branch out.</summary>
+    public string CheckoutHeader => $"Check out \"{BranchName}\"";
+
+    /// <summary>Gets the header of the menu item that deletes this row's branch.</summary>
+    public string DeleteBranchHeader => $"Delete \"{BranchName}\"…";
+
+    /// <summary>
+    /// Gets a value indicating whether the row's branch can be checked out — it must not already be
+    /// the one HEAD is on.
+    /// </summary>
+    public bool CanCheckoutBranch
+    {
+        get
+        {
+            foreach (RefBadgeItem badge in Refs)
+            {
+                if (badge.Kind == GitRefKind.LocalBranch && badge.IsCurrent)
+                {
+                    return false;
+                }
+            }
+
+            return HasBranch;
+        }
+    }
 
     /// <summary>
     /// Gets a value indicating whether there is anything to show in the badge strip.

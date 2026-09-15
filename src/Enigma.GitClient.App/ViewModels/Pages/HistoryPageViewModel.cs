@@ -42,6 +42,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
+    private readonly IBranchOperations _branchOperations;
 
     private DiffTarget? _diffTarget;
     private readonly IInfoBarService _infoBar;
@@ -68,6 +69,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IWorkingTreeProbe workingTree,
         IDiffService diffs,
         ISystemInterop interop,
+        IBranchOperations branchOperations,
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
@@ -77,6 +79,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(workingTree);
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
+        ArgumentNullException.ThrowIfNull(branchOperations);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
@@ -86,6 +89,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _diffs = diffs;
 
         Diff = diff;
+        _branchOperations = branchOperations;
+
+        RowCommands = new HistoryRowCommands(
+            new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, row => row?.Commit is not null),
+            new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutBranchAsync, row => row?.CanCheckoutBranch == true),
+            new AsyncRelayCommand<CommitRowViewModel>(OnDeleteBranchAsync, row => row?.HasBranch == true));
+
         Files = new ChangedFilesPanelViewModel(interop);
 
         // The viewer follows the panel rather than the panel driving it: the panel's job ends at
@@ -201,6 +211,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the diff viewer showing the file selected in <see cref="Files"/>.
     /// </summary>
     public DiffViewerViewModel Diff { get; }
+
+    /// <summary>
+    /// Gets the commands every row's context menu runs.
+    /// </summary>
+    public HistoryRowCommands RowCommands { get; }
 
     /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
     public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
@@ -470,7 +485,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 layout.Rows[index],
                 decorations.GetRefs(commit.Sha),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
-                now));
+                now,
+                RowCommands));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
@@ -607,6 +623,47 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         await Diff.ShowAsync(repository, _diffTarget, file);
+    }
+
+    // ---------------------------------------------------------------- the row's own menu
+
+    private async Task OnCreateBranchHereAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is null)
+        {
+            return;
+        }
+
+        if (await _branchOperations.CreateAsync(row.Sha, row.ShortSha).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnCheckoutBranchAsync(CommitRowViewModel? row)
+    {
+        if (row is null || !row.HasBranch)
+        {
+            return;
+        }
+
+        if (await _branchOperations.CheckoutAsync(row.BranchName, row.IsBranchRemote).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnDeleteBranchAsync(CommitRowViewModel? row)
+    {
+        if (row is null || !row.HasBranch)
+        {
+            return;
+        }
+
+        if (await _branchOperations.DeleteAsync(row.BranchName, row.IsBranchRemote).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
     }
 
     private void NotifySelectedCommitDetails()
