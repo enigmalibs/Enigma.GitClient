@@ -70,7 +70,7 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 
 ## PHASE02 — Git process runner & repository discovery
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 
