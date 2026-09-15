@@ -150,7 +150,7 @@ public sealed class CommitLogParserTests
     [Fact]
     public void Parse_KeepsASubjectContainingSeparatorNeighbourCharacters()
     {
-        const string subject = "Fix: handle ,  and  in the parser";
+        const string subject = "Fix: handle \u001E, \u0001 and \u0002 in the parser";
 
         GitCommit commit = Assert.Single(CommitLogParser.Parse(
             Record("3030303030303030303030303030303030303030", string.Empty, subject: subject)));
