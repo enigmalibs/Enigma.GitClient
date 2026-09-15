@@ -185,8 +185,8 @@
     <Grid>
 
       <controls:EmptyState IconKind="FileText"
-                           Title="No files"
-                           Message="Select a commit to see the files it changed."
+                           Title="{Binding EmptyTitle}"
+                           Message="{Binding EmptyMessage}"
                            IsVisible="{Binding IsEmpty}" />
 
       <ListBox ItemsSource="{Binding Nodes}"

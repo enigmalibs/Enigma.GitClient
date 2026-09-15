@@ -68,14 +68,14 @@
       <Grid ColumnDefinitions="400,Auto,*" IsVisible="{Binding !IsClean}">
 
         <!-- The two halves of the change, and the commit box under them. -->
-        <Grid Grid.Column="0" RowDefinitions="*,Auto,*,Auto">
+        <Grid Grid.Column="0" RowDefinitions="*,Auto,*,Auto,Auto">
 
           <DockPanel Grid.Row="0">
             <Border DockPanel.Dock="Top"
                     BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="10,6">
-              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
                 <TextBlock Grid.Column="0"
                            Text="Not staged"
                            VerticalAlignment="Center"
@@ -90,6 +90,13 @@
                   <ei:Icon Kind="TrashSimple" Size="14" />
                 </Button>
                 <Button Grid.Column="2"
+                        Classes="toolbar"
+                        Command="{Binding StashAllCommand}"
+                        ToolTip.Tip="Put everything aside on the stash"
+                        AutomationProperties.Name="Stash all changes">
+                  <ei:Icon Kind="Archive" Size="14" />
+                </Button>
+                <Button Grid.Column="3"
                         Classes="toolbar"
                         Command="{Binding StageAllCommand}"
                         ToolTip.Tip="Stage everything"
@@ -138,8 +145,78 @@
             <panels:ChangedFilesPanelView DataContext="{Binding Staged}" />
           </DockPanel>
 
+          <!-- The stash: collapsed until there is something in it. -->
+          <Expander Grid.Row="3"
+                    IsVisible="{Binding HasStashes}"
+                    Header="{Binding StashSummary}"
+                    HorizontalAlignment="Stretch"
+                    MaxHeight="220"
+                    AutomationProperties.Name="Stashes">
+            <ListBox ItemsSource="{Binding Stashes}"
+                     SelectedItem="{Binding SelectedStash, Mode=TwoWay}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="Stash entries">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:StashRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Height="34">
+
+                    <Grid.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="Apply, keeping the stash"
+                                  Command="{Binding ApplyCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="Restore and remove"
+                                  Command="{Binding PopCommand}"
+                                  CommandParameter="{Binding}" />
+                        <Separator />
+                        <MenuItem Header="Drop…"
+                                  Command="{Binding DropCommand}"
+                                  CommandParameter="{Binding}" />
+                      </ContextMenu>
+                    </Grid.ContextMenu>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Message}"
+                                 FontSize="12"
+                                 TextTrimming="CharacterEllipsis"
+                                 Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Branch}"
+                                   IsVisible="{Binding HasBranch}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                        <TextBlock Text="{Binding When}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                      </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                      <Button Classes="toolbar rowaction"
+                              Command="{Binding PopCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Restore and remove"
+                              AutomationProperties.Name="Restore and remove this stash">
+                        <ei:Icon Kind="ArrowCounterClockwise" Size="13" />
+                      </Button>
+                      <Button Classes="toolbar rowaction"
+                              Command="{Binding DropCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Drop"
+                              AutomationProperties.Name="Drop this stash">
+                        <ei:Icon Kind="Trash" Size="13" />
+                      </Button>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Expander>
+
           <!-- The commit box. Ctrl+Enter commits, which is what every other client does. -->
-          <Border Grid.Row="3"
+          <Border Grid.Row="4"
                   BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                   BorderThickness="0,1,0,0"
                   Background="{DynamicResource EnigmaSurfaceBrush}"
@@ -203,6 +280,9 @@
                       Width="4"
                       ResizeDirection="Columns"
                       Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+        <!-- The stash sits beside the change rather than inside it: it is work that is not here
+             any more, and mixing it into the staged and unstaged lists would say otherwise. -->
 
         <panels:DiffViewerView Grid.Column="2" DataContext="{Binding Diff}" />
       </Grid>

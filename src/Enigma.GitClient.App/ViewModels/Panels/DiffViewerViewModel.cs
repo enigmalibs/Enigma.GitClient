@@ -433,6 +433,26 @@ public sealed class DiffViewerViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Shows a patch that was read somewhere else.
+    /// </summary>
+    /// <param name="patch">The patch to render.</param>
+    /// <remarks>
+    /// A stash's contents come from <c>git stash show</c> rather than from a comparison, so there is
+    /// no target to re-read and the context and whitespace options have nothing to act on. What is
+    /// shown is what was handed over.
+    /// </remarks>
+    public void ShowPatch(FilePatch patch)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+
+        _repository = null;
+        _target = null;
+        _file = null;
+
+        Apply(patch, patch.Hunks.Count > 0 ? string.Empty : "This change touches no lines of text.");
+    }
+
+    /// <summary>
     /// Clears the viewer.
     /// </summary>
     public void Clear()
