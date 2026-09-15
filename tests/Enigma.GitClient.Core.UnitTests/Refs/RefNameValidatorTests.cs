@@ -82,7 +82,7 @@ public sealed class RefNameValidatorTests
     public void Validate_RejectsDelete()
     {
         // DEL is a control character to git too, even though it sits above the C0 range.
-        Assert.False(RefNameValidator.ValidateBranch("badname").IsValid);
+        Assert.False(RefNameValidator.ValidateBranch("bad\u007fname").IsValid);
     }
 
     [Fact]
