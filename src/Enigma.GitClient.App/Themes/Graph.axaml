@@ -1,0 +1,83 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The commit graph's lane palette, and the colours the ref badges use.
+
+    Ten lanes, chosen so that any two adjacent hues stay distinguishable, including for the most
+    common form of colour blindness: the sequence alternates between warm and cool and never places
+    red next to green. Colours are theme-scoped and the brushes are not, exactly as
+    Enigma.Avalonia.Desktop does it — one brush instance per key whose Color follows the active
+    variant, so a theme switch recolours the graph with no reload.
+  -->
+
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="GraphLane0Color">#4E9BF5</Color>
+      <Color x:Key="GraphLane1Color">#57C77E</Color>
+      <Color x:Key="GraphLane2Color">#E8A33D</Color>
+      <Color x:Key="GraphLane3Color">#C77DE0</Color>
+      <Color x:Key="GraphLane4Color">#F2725B</Color>
+      <Color x:Key="GraphLane5Color">#45C2C2</Color>
+      <Color x:Key="GraphLane6Color">#E0C24A</Color>
+      <Color x:Key="GraphLane7Color">#8A9BF5</Color>
+      <Color x:Key="GraphLane8Color">#EF87B5</Color>
+      <Color x:Key="GraphLane9Color">#9AA7B4</Color>
+
+      <Color x:Key="GraphNodeOutlineColor">#1E1F22</Color>
+      <Color x:Key="GraphHeadRingColor">#F2F4F8</Color>
+
+      <Color x:Key="RefBadgeHeadColor">#3574F0</Color>
+      <Color x:Key="RefBadgeLocalColor">#2B3A55</Color>
+      <Color x:Key="RefBadgeRemoteColor">#3A2F52</Color>
+      <Color x:Key="RefBadgeTagColor">#4A3A1E</Color>
+      <Color x:Key="RefBadgeStashColor">#33373D</Color>
+      <Color x:Key="RefBadgeForegroundColor">#E6E8EC</Color>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="GraphLane0Color">#1F6FE0</Color>
+      <Color x:Key="GraphLane1Color">#2E9E56</Color>
+      <Color x:Key="GraphLane2Color">#B8791A</Color>
+      <Color x:Key="GraphLane3Color">#8E46AC</Color>
+      <Color x:Key="GraphLane4Color">#D14328</Color>
+      <Color x:Key="GraphLane5Color">#12878A</Color>
+      <Color x:Key="GraphLane6Color">#9A8210</Color>
+      <Color x:Key="GraphLane7Color">#4A5ECC</Color>
+      <Color x:Key="GraphLane8Color">#C8437F</Color>
+      <Color x:Key="GraphLane9Color">#54636F</Color>
+
+      <Color x:Key="GraphNodeOutlineColor">#FFFFFF</Color>
+      <Color x:Key="GraphHeadRingColor">#1A1D21</Color>
+
+      <Color x:Key="RefBadgeHeadColor">#3574F0</Color>
+      <Color x:Key="RefBadgeLocalColor">#DCE6FA</Color>
+      <Color x:Key="RefBadgeRemoteColor">#EADCF7</Color>
+      <Color x:Key="RefBadgeTagColor">#F7EBD2</Color>
+      <Color x:Key="RefBadgeStashColor">#E4E7EB</Color>
+      <Color x:Key="RefBadgeForegroundColor">#1A1D21</Color>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <SolidColorBrush x:Key="GraphLane0Brush" Color="{DynamicResource GraphLane0Color}" />
+  <SolidColorBrush x:Key="GraphLane1Brush" Color="{DynamicResource GraphLane1Color}" />
+  <SolidColorBrush x:Key="GraphLane2Brush" Color="{DynamicResource GraphLane2Color}" />
+  <SolidColorBrush x:Key="GraphLane3Brush" Color="{DynamicResource GraphLane3Color}" />
+  <SolidColorBrush x:Key="GraphLane4Brush" Color="{DynamicResource GraphLane4Color}" />
+  <SolidColorBrush x:Key="GraphLane5Brush" Color="{DynamicResource GraphLane5Color}" />
+  <SolidColorBrush x:Key="GraphLane6Brush" Color="{DynamicResource GraphLane6Color}" />
+  <SolidColorBrush x:Key="GraphLane7Brush" Color="{DynamicResource GraphLane7Color}" />
+  <SolidColorBrush x:Key="GraphLane8Brush" Color="{DynamicResource GraphLane8Color}" />
+  <SolidColorBrush x:Key="GraphLane9Brush" Color="{DynamicResource GraphLane9Color}" />
+
+  <SolidColorBrush x:Key="GraphNodeOutlineBrush" Color="{DynamicResource GraphNodeOutlineColor}" />
+  <SolidColorBrush x:Key="GraphHeadRingBrush" Color="{DynamicResource GraphHeadRingColor}" />
+
+  <SolidColorBrush x:Key="RefBadgeHeadBrush" Color="{DynamicResource RefBadgeHeadColor}" />
+  <SolidColorBrush x:Key="RefBadgeLocalBrush" Color="{DynamicResource RefBadgeLocalColor}" />
+  <SolidColorBrush x:Key="RefBadgeRemoteBrush" Color="{DynamicResource RefBadgeRemoteColor}" />
+  <SolidColorBrush x:Key="RefBadgeTagBrush" Color="{DynamicResource RefBadgeTagColor}" />
+  <SolidColorBrush x:Key="RefBadgeStashBrush" Color="{DynamicResource RefBadgeStashColor}" />
+  <SolidColorBrush x:Key="RefBadgeForegroundBrush" Color="{DynamicResource RefBadgeForegroundColor}" />
+
+</ResourceDictionary>

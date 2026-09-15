@@ -19,6 +19,7 @@
              and not a StyleInclude. Our own themes are merged after it, so an override of an
              Enigma* key would win. -->
         <ResourceInclude Source="avares://Enigma.Avalonia.Desktop/Themes/Fluent.axaml" />
+        <ResourceInclude Source="avares://Enigma.GitClient.App/Themes/Graph.axaml" />
         <ResourceInclude Source="avares://Enigma.GitClient.App/Themes/Controls.axaml" />
       </ResourceDictionary.MergedDictionaries>
 
