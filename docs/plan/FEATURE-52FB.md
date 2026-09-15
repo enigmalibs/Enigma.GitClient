@@ -1,6 +1,6 @@
 # FEATURE-52FB — App shell & repository opening
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-52fb-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -63,7 +63,7 @@ and cloning a repository, with a recent-repositories list.
 
 ## PHASE02 — Open, init & clone repositories
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 

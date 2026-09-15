@@ -1,8 +1,10 @@
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views;
+using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,10 +46,13 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddGitClientApp()
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
+            services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
+            services.AddSingleton<IShellNavigation, ShellNavigation>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
 
+            services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();
             services.AddTransient<ChangesPageView>();
             services.AddTransient<BranchesPageView>();
@@ -55,12 +60,18 @@ public static class ServiceCollectionExtensions
             services.AddTransient<IntegrationsPageView>();
             services.AddTransient<SettingsPageView>();
 
+            services.AddSingleton<RepositoriesPageViewModel>();
             services.AddSingleton<HistoryPageViewModel>();
             services.AddSingleton<ChangesPageViewModel>();
             services.AddSingleton<BranchesPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<IntegrationsPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
+
+            // Dialog views are transient: each showing gets a fresh control bound to a fresh
+            // ViewModel, so a cancelled dialog never leaves its half-typed state behind.
+            services.AddTransient<CloneRepositoryDialogView>();
+            services.AddTransient<InitRepositoryDialogView>();
 
             return services;
         }

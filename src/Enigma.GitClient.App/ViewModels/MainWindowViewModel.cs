@@ -5,12 +5,9 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
-using Enigma.Avalonia.Desktop.Controls.Navigation;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Diagnostics;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Refs;
@@ -34,28 +31,25 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
-    /// <param name="services">The container navigation pages are resolved from.</param>
-    /// <param name="navigation">The navigation service driving the rail.</param>
+    /// <param name="shell">Owns the navigation rail and the pages on it.</param>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="gitEnvironment">Probes the host's git installation at startup.</param>
     /// <param name="dialogService">Shows the blocking dialog when git is unusable.</param>
-    /// <param name="logger">Receives navigation failures.</param>
+    /// <param name="logger">Receives startup failures.</param>
     public MainWindowViewModel(
-        IServiceProvider services,
-        INavigationService navigation,
+        IShellNavigation shell,
         IRepositoryContext repositoryContext,
         IGitEnvironment gitEnvironment,
         IContentDialogService dialogService,
         ILogger<MainWindowViewModel> logger)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(navigation);
+        ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
         ArgumentNullException.ThrowIfNull(gitEnvironment);
         ArgumentNullException.ThrowIfNull(dialogService);
         ArgumentNullException.ThrowIfNull(logger);
 
-        Navigation = navigation;
+        Shell = shell;
         RepositoryContext = repositoryContext;
         _gitEnvironment = gitEnvironment;
         _dialogService = dialogService;
@@ -64,19 +58,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         ToggleThemeCommand = new RelayCommand(OnToggleTheme);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
 
-        Navigation.PageFactory = new ContainerPageFactory(services).Create;
-        Navigation.NavigationFailed += OnNavigationFailed;
-
-        BuildRail();
-
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
-        Navigation.SelectedItem = Navigation.Items[0];
     }
+
+    /// <summary>
+    /// Gets the shell navigation the rail and the content area bind to.
+    /// </summary>
+    public IShellNavigation Shell { get; }
 
     /// <summary>
     /// Gets the navigation service the rail and the content area bind to.
     /// </summary>
-    public INavigationService Navigation { get; }
+    public INavigationService Navigation => Shell.Service;
 
     /// <summary>
     /// Gets the repository the application is looking at.
@@ -157,6 +150,10 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         _initialised = true;
 
+        // Selecting the first page builds it, which is why it happens here rather than while the
+        // container is still wiring itself up.
+        Shell.Start();
+
         GitAvailability availability = await _gitEnvironment.GetAvailabilityAsync().ConfigureAwait(true);
 
         if (availability.IsUsable)
@@ -182,26 +179,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         }).ConfigureAwait(true);
     }
 
-    private void BuildRail()
-    {
-        Navigation.Items.Add(Item("History", PhosphorIcon.GitCommit, typeof(HistoryPageView), typeof(HistoryPageViewModel)));
-        Navigation.Items.Add(Item("Changes", PhosphorIcon.FileText, typeof(ChangesPageView), typeof(ChangesPageViewModel)));
-        Navigation.Items.Add(Item("Branches", PhosphorIcon.GitBranch, typeof(BranchesPageView), typeof(BranchesPageViewModel)));
-        Navigation.Items.Add(Item("Remotes", PhosphorIcon.CloudArrowUp, typeof(RemotesPageView), typeof(RemotesPageViewModel)));
-
-        Navigation.FooterItems.Add(Item("Integrations", PhosphorIcon.GlobeSimple, typeof(IntegrationsPageView), typeof(IntegrationsPageViewModel)));
-        Navigation.FooterItems.Add(Item("Settings", PhosphorIcon.Gear, typeof(SettingsPageView), typeof(SettingsPageViewModel)));
-    }
-
-    private static NavigationItem Item(string header, PhosphorIcon icon, Type pageType, Type viewModelType)
-        => new()
-        {
-            Header = header,
-            IconData = PhosphorIconSet.Instance.GetGlyph(icon, PhosphorWeight.Regular).ToGeometry(),
-            PageType = pageType,
-            PageViewModelType = viewModelType,
-        };
-
     private void OnRepositoryContextPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         switch (e.PropertyName)
@@ -223,9 +200,6 @@ public sealed class MainWindowViewModel : ViewModelBase
                 break;
         }
     }
-
-    private void OnNavigationFailed(object? sender, NavigationFailedEventArgs e)
-        => _logger.LogError(e.Exception, "Navigation failed during {Phase}", e.Phase);
 
     private static void OnToggleTheme()
     {

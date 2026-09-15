@@ -66,6 +66,34 @@ public sealed class HeadlessAvaloniaFixture : IDisposable
     }
 
     /// <summary>
+    /// Runs asynchronous work on the Avalonia UI thread, pumping the dispatcher until it finishes.
+    /// </summary>
+    /// <param name="work">The work to run.</param>
+    /// <remarks>
+    /// Blocking the UI thread on application code is a deadlock: the application awaits with
+    /// <c>ConfigureAwait(true)</c>, so its continuations need the very thread a <c>GetResult()</c>
+    /// would be holding. Pumping instead of blocking is what lets a test drive a real asynchronous
+    /// ViewModel.
+    /// </remarks>
+    public void RunAsync(Func<Task> work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+
+        Run(() =>
+        {
+            Task task = work();
+
+            while (!task.IsCompleted)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Thread.Sleep(1);
+            }
+
+            task.GetAwaiter().GetResult();
+        });
+    }
+
+    /// <summary>
     /// Runs a function on the Avalonia UI thread and returns its result.
     /// </summary>
     /// <typeparam name="TResult">The result type.</typeparam>

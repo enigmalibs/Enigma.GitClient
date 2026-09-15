@@ -1,0 +1,120 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:services="using:Enigma.GitClient.App.Services"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.RepositoriesPageView"
+             x:DataType="vm:RepositoriesPageViewModel">
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="Folders" Size="18" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="Repositories"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button Command="{Binding OpenCommand}" AutomationProperties.Name="Open a repository">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ei:Icon Kind="FolderOpen" Size="15" VerticalAlignment="Center" />
+              <TextBlock Text="Open" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding CloneCommand}" AutomationProperties.Name="Clone a repository">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ei:Icon Kind="CloudArrowDown" Size="15" VerticalAlignment="Center" />
+              <TextBlock Text="Clone" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding CreateCommand}"
+                  Classes="accent"
+                  AutomationProperties.Name="Create a repository">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ei:Icon Kind="Plus" Size="15" VerticalAlignment="Center" />
+              <TextBlock Text="Create" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <controls:EmptyState IconKind="Folders"
+                         Title="No repositories yet"
+                         Message="Open a repository you already have, clone one from GitHub, GitLab or Azure DevOps, or create a new one."
+                         IsVisible="{Binding !HasRecent}" />
+
+    <ScrollViewer IsVisible="{Binding HasRecent}" Padding="16">
+      <ItemsControl ItemsSource="{Binding Recent}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="services:RecentRepository">
+            <Border Background="{DynamicResource EnigmaSurfaceBrush}"
+                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="14,10"
+                    Margin="0,0,0,8">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <ei:Icon Grid.Column="0"
+                         Kind="Folder"
+                         Size="20"
+                         Margin="0,0,12,0"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Name}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                    <Border Classes="pill"
+                            Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+                            IsVisible="{Binding !Exists}">
+                      <TextBlock Text="missing" FontSize="11"
+                                 Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock Text="{Binding Path}"
+                             FontSize="12"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                  <Button Classes="toolbar"
+                          Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).TogglePinCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Pin to the top"
+                          AutomationProperties.Name="Pin to the top">
+                    <ei:Icon Kind="PushPin" Size="15" />
+                  </Button>
+                  <Button Classes="toolbar"
+                          Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).ForgetRecentCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Forget this repository (it is not deleted)"
+                          AutomationProperties.Name="Forget this repository">
+                    <ei:Icon Kind="X" Size="15" />
+                  </Button>
+                  <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenRecentCommand}"
+                          CommandParameter="{Binding}"
+                          Content="Open"
+                          AutomationProperties.Name="Open this repository" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

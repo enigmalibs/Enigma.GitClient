@@ -44,4 +44,42 @@
     </Setter>
   </ControlTheme>
 
+  <ControlTheme x:Key="{x:Type controls:ProgressOverlayCard}" TargetType="controls:ProgressOverlayCard">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Width" Value="420" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource EnigmaSurfaceHighBrush}"
+                BorderBrush="{DynamicResource EnigmaBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="20">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{TemplateBinding Title}"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <ProgressBar Minimum="0"
+                         Maximum="100"
+                         Value="{TemplateBinding Progress}"
+                         IsIndeterminate="{TemplateBinding IsIndeterminate}"
+                         Height="6" />
+            <TextBlock Text="{TemplateBinding Message}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       MaxLines="2"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <Button Content="Cancel"
+                    HorizontalAlignment="Right"
+                    Command="{TemplateBinding CancelCommand}"
+                    IsVisible="{TemplateBinding IsCancelVisible}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
 </ResourceDictionary>

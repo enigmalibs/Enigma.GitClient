@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.Navigation;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels;
@@ -104,8 +105,12 @@ public sealed class MainWindowShellTests
             using ServiceProvider provider = BuildProvider();
             MainWindowViewModel viewModel = provider.GetRequiredService<MainWindowViewModel>();
 
+            // Guards the cycle that would otherwise build the rail twice: a page ViewModel depends
+            // on IShellNavigation, so navigating from that service's constructor resolves it again.
+            Assert.Equal(5, viewModel.Navigation.Items.Count);
+
             Assert.Equal(
-                ["History", "Changes", "Branches", "Remotes"],
+                ["Repositories", "History", "Changes", "Branches", "Remotes"],
                 viewModel.Navigation.Items.Select(item => item.Header));
 
             Assert.Equal(
@@ -124,14 +129,36 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
-    public void Shell_SelectsTheHistoryPageOnStartup()
+    public void Shell_StartsOnTheRepositoriesPage()
     {
         _fixture.Run(() =>
         {
             using ServiceProvider provider = BuildProvider();
-            MainWindowViewModel viewModel = provider.GetRequiredService<MainWindowViewModel>();
 
-            Assert.Equal("History", viewModel.Navigation.SelectedItem?.Header);
+            IShellNavigation shell = provider.GetRequiredService<IShellNavigation>();
+            shell.Start();
+
+            Assert.Equal(ShellPage.Repositories, shell.Current);
+            Assert.Equal("Repositories", shell.Service.SelectedItem?.Header);
+        });
+    }
+
+    [Fact]
+    public void Shell_NavigatesBetweenPages()
+    {
+        _fixture.Run(() =>
+        {
+            using ServiceProvider provider = BuildProvider();
+            IShellNavigation shell = provider.GetRequiredService<IShellNavigation>();
+
+            shell.GoTo(ShellPage.History);
+
+            Assert.Equal(ShellPage.History, shell.Current);
+            Assert.Equal("History", shell.Service.SelectedItem?.Header);
+
+            shell.GoTo(ShellPage.Settings);
+
+            Assert.Equal("Settings", shell.Service.SelectedItem?.Header);
         });
     }
 
