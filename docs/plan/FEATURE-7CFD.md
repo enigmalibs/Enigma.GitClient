@@ -105,7 +105,7 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 
 ## PHASE03 — Commit log reading & model
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 

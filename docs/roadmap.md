@@ -8,7 +8,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-7CFD | Solution foundation & git engine   | IN PROGRESS | docs/plan/FEATURE-7CFD.md |
 | - PHASE01    | Solution scaffolding & config      | DONE        | (in FEATURE-7CFD.md)      |
 | - PHASE02    | Git process runner & discovery     | DONE        | (in FEATURE-7CFD.md)      |
-| - PHASE03    | Commit log reading & model         | TODO        | (in FEATURE-7CFD.md)      |
+| - PHASE03    | Commit log reading & model         | DONE        | (in FEATURE-7CFD.md)      |
 | - PHASE04    | Refs, branches, tags & HEAD state  | TODO        | (in FEATURE-7CFD.md)      |
 | FEATURE-6DB0 | Core graph, diff & tree algorithms | TODO        | docs/plan/FEATURE-6DB0.md |
 | - PHASE01    | Commit graph lane layout           | TODO        | (in FEATURE-6DB0.md)      |
