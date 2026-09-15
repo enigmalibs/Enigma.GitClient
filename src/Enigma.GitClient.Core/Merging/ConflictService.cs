@@ -130,6 +130,85 @@ public interface IConflictService
         RepositoryHandle repository,
         string path,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Builds a conflicted file's regions, ready to resolve.
+    /// </summary>
+    /// <param name="repository">The repository to read.</param>
+    /// <param name="path">The file's path.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>
+    /// The document, or <see langword="null"/> when the file cannot be merged line by line — a
+    /// binary file, or one side that does not exist.
+    /// </returns>
+    Task<ConflictDocument?> GetDocumentAsync(
+        RepositoryHandle repository,
+        string path,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes the resolved file and stages it.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="path">The file's path.</param>
+    /// <param name="text">Exactly what the file should contain.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the file is resolved and staged.</returns>
+    Task ResolveAsync(
+        RepositoryHandle repository,
+        string path,
+        string text,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Takes one side of a conflict whole, for the files that cannot be merged line by line.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="path">The file's path.</param>
+    /// <param name="side">Which side to keep.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the file is resolved and staged.</returns>
+    Task ResolveWithAsync(
+        RepositoryHandle repository,
+        string path,
+        ConflictSide side,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stages a file the user has resolved by hand.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="path">The file's path.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the file is staged.</returns>
+    Task MarkResolvedAsync(
+        RepositoryHandle repository,
+        string path,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Takes the same side of every conflict left in the repository.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="side">Which side to keep.</param>
+    /// <param name="cancellationToken">Cancels the writes.</param>
+    /// <returns>The paths that were resolved, in the order they were listed.</returns>
+    Task<IReadOnlyList<string>> ResolveAllWithAsync(
+        RepositoryHandle repository,
+        ConflictSide side,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Which whole version of a conflicted file to keep.
+/// </summary>
+public enum ConflictSide
+{
+    /// <summary>Ours: the version the branch being merged into had.</summary>
+    Ours,
+
+    /// <summary>Theirs: the version being merged in.</summary>
+    Theirs,
 }
 
 /// <summary>
@@ -238,6 +317,209 @@ public sealed class ConflictService : IConflictService
             Decode(ourBytes, binary),
             Decode(theirBytes, binary),
             binary);
+    }
+
+    /// <inheritdoc />
+    public async Task<ConflictDocument?> GetDocumentAsync(
+        RepositoryHandle repository,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        ConflictSides sides = await GetSidesAsync(repository, path, cancellationToken).ConfigureAwait(false);
+
+        if (sides.IsBinary || sides.Ours is null || sides.Theirs is null)
+        {
+            // Nothing to merge line by line: a binary file, or a side that no longer exists. Those
+            // are whole-file choices, which the caller makes with ResolveWithAsync.
+            return null;
+        }
+
+        string? merged = await RunMergeFileAsync(repository, sides, cancellationToken).ConfigureAwait(false);
+
+        // git's own merge is used wherever it can be, so the regions match what it would have
+        // written; the direct merge is the fallback for when it cannot.
+        return merged is not null
+            ? ConflictDocumentBuilder.Parse(merged, ConflictDocument.DetectLineEnding(sides.Ours))
+            : ConflictDocumentBuilder.Merge(sides.Base, sides.Ours, sides.Theirs);
+    }
+
+    /// <inheritdoc />
+    public async Task ResolveAsync(
+        RepositoryHandle repository,
+        string path,
+        string text,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(text);
+
+        string full = System.IO.Path.Combine(
+            repository.WorkTreePath,
+            path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+
+        string? directory = System.IO.Path.GetDirectoryName(full);
+
+        if (directory is { Length: > 0 })
+        {
+            System.IO.Directory.CreateDirectory(directory);
+        }
+
+        // Written exactly as given, with no byte-order mark and no line-ending translation: the
+        // text came from a preview, and a preview that is not what gets written is not a preview.
+        await System.IO.File
+            .WriteAllTextAsync(full, text, new UTF8Encoding(false), cancellationToken)
+            .ConfigureAwait(false);
+
+        await StageAsync(repository, path, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task ResolveWithAsync(
+        RepositoryHandle repository,
+        string path,
+        ConflictSide side,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        GitCommand command = _commandFactory.Create(
+            repository.WorkTreePath,
+            ["checkout", side == ConflictSide.Ours ? "--ours" : "--theirs", "--", path]);
+
+        GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!result.IsSuccess)
+        {
+            // A side that does not exist cannot be checked out; keeping "their deletion" means
+            // removing the file, which is the honest reading of the choice.
+            await RunAsync(repository, ["rm", "--quiet", "--force", "--", path], cancellationToken)
+                .ConfigureAwait(false);
+
+            return;
+        }
+
+        await StageAsync(repository, path, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task MarkResolvedAsync(
+        RepositoryHandle repository,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        return StageAsync(repository, path, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> ResolveAllWithAsync(
+        RepositoryHandle repository,
+        ConflictSide side,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        IReadOnlyList<ConflictFile> files = await GetConflictsAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
+
+        List<string> resolved = [];
+
+        foreach (ConflictFile file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // One side taken whole is the same thing as choosing that side for every region, and it
+            // is the only form that also works for the binary and whole-file conflicts in the list.
+            await ResolveWithAsync(repository, file.Path, side, cancellationToken).ConfigureAwait(false);
+
+            resolved.Add(file.Path);
+        }
+
+        return resolved;
+    }
+
+    /// <summary>
+    /// Runs git's own three-way merge over the stages, through temporary files.
+    /// </summary>
+    /// <returns>The merged text, or <see langword="null"/> when git could not produce one.</returns>
+    private async Task<string?> RunMergeFileAsync(
+        RepositoryHandle repository,
+        ConflictSides sides,
+        CancellationToken cancellationToken)
+    {
+        string root = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            $"enigma-merge-{Guid.NewGuid():N}");
+
+        System.IO.Directory.CreateDirectory(root);
+
+        try
+        {
+            UTF8Encoding encoding = new(false);
+
+            string ours = System.IO.Path.Combine(root, "ours");
+            string baseFile = System.IO.Path.Combine(root, "base");
+            string theirs = System.IO.Path.Combine(root, "theirs");
+
+            await System.IO.File.WriteAllTextAsync(ours, sides.Ours, encoding, cancellationToken).ConfigureAwait(false);
+            await System.IO.File.WriteAllTextAsync(baseFile, sides.Base ?? string.Empty, encoding, cancellationToken).ConfigureAwait(false);
+            await System.IO.File.WriteAllTextAsync(theirs, sides.Theirs, encoding, cancellationToken).ConfigureAwait(false);
+
+            GitCommand command = _commandFactory.Create(
+                repository.WorkTreePath,
+                ["merge-file", "--diff3", "-p", ours, baseFile, theirs]);
+
+            // A conflicting merge exits with the number of conflicts, which is an answer rather
+            // than a failure; only a negative status means git could not do it at all.
+            GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken)
+                .ConfigureAwait(false);
+
+            return result.ExitCode >= 0 && result.StandardOutput.Length > 0 ? result.StandardOutput : null;
+        }
+        finally
+        {
+            TryDeleteDirectory(root);
+        }
+    }
+
+    private Task StageAsync(RepositoryHandle repository, string path, CancellationToken cancellationToken)
+        => RunAsync(repository, ["add", "--", path], cancellationToken);
+
+    private async Task RunAsync(
+        RepositoryHandle repository,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments);
+
+        await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (System.IO.Directory.Exists(path))
+            {
+                System.IO.Directory.Delete(path, recursive: true);
+            }
+        }
+        catch (System.IO.IOException)
+        {
+            // A temporary directory that outlives the process is not worth failing a merge over.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Same.
+        }
     }
 
     /// <summary>
