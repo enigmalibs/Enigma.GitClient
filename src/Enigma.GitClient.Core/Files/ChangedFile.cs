@@ -60,6 +60,37 @@ public sealed record ChangedFile
     public bool IsSubmodule { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether git has never been told about the file.
+    /// </summary>
+    public bool IsUntracked { get; init; }
+
+    /// <summary>
+    /// Gets how the index differs from HEAD, or <see langword="null"/> when it does not.
+    /// </summary>
+    /// <remarks>
+    /// A status entry has two independent halves: what is staged, and what is not. A file edited,
+    /// staged and edited again differs from HEAD <em>and</em> from the index, and a client that
+    /// keeps only one of the two eventually commits something the user did not look at.
+    /// </remarks>
+    public FileChangeKind? IndexStatus { get; init; }
+
+    /// <summary>
+    /// Gets how the work tree differs from the index, or <see langword="null"/> when it does not.
+    /// </summary>
+    public FileChangeKind? WorkTreeStatus { get; init; }
+
+    /// <summary>
+    /// Gets the two-letter conflict state git reported for an unmerged path — <c>UU</c>, <c>AA</c>,
+    /// <c>DU</c> and the rest — empty when the file is not conflicted.
+    /// </summary>
+    public string ConflictState { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the submodule's own state, when the entry is one.
+    /// </summary>
+    public Status.SubmoduleState Submodule { get; init; }
+
+    /// <summary>
     /// Gets the file's name — the last segment of <see cref="Path"/>.
     /// </summary>
     public string Name
