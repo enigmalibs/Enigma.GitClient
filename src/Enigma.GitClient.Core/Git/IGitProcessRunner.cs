@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,24 @@ public interface IGitProcessRunner
     /// <param name="cancellationToken">Cancels the run and kills the child process tree.</param>
     /// <returns>The invocation's raw result.</returns>
     Task<GitRawResult> RunRawAsync(GitCommand command, bool throwOnError = true, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs a command, reporting each chunk git writes to standard error as it arrives.
+    /// </summary>
+    /// <param name="command">The invocation to run.</param>
+    /// <param name="standardErrorChunks">
+    /// Receives each chunk as git writes it. git rewrites a progress line in place with a carriage
+    /// return, so chunks are split on <c>\r</c> as well as <c>\n</c> — otherwise a clone reports
+    /// nothing until it has finished.
+    /// </param>
+    /// <param name="throwOnError">Whether a non-zero exit code throws.</param>
+    /// <param name="cancellationToken">Cancels the run and kills the child process tree.</param>
+    /// <returns>The invocation's result, with standard error also accumulated in full.</returns>
+    Task<GitResult> RunStreamingAsync(
+        GitCommand command,
+        IProgress<string>? standardErrorChunks,
+        bool throwOnError = true,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Runs a command and splits its standard output into records.

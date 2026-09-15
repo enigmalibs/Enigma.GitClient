@@ -87,6 +87,102 @@ public sealed class GitProcessRunner : IGitProcessRunner
     }
 
     /// <inheritdoc />
+    public async Task<GitResult> RunStreamingAsync(
+        GitCommand command,
+        IProgress<string>? standardErrorChunks,
+        bool throwOnError = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        long startedAt = Stopwatch.GetTimestamp();
+        using Process process = StartProcess(command);
+
+        try
+        {
+            Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            Task<string> errorTask = ReadChunksAsync(process.StandardError, standardErrorChunks, cancellationToken);
+
+            await WriteStandardInputAsync(process, command, cancellationToken).ConfigureAwait(false);
+
+            string standardOutput = await outputTask.ConfigureAwait(false);
+            string standardError = await errorTask.ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+            TimeSpan duration = Stopwatch.GetElapsedTime(startedAt);
+            LogCompletion(command, process.ExitCode, duration);
+
+            GitResult result = new(process.ExitCode, standardOutput, standardError, duration);
+
+            if (throwOnError && !result.IsSuccess)
+            {
+                throw new GitCommandException(command, process.ExitCode, standardError, standardOutput);
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            KillQuietly(process);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Reads a stream chunk by chunk, reporting each one and accumulating the whole.
+    /// </summary>
+    /// <remarks>
+    /// Chunks end at a newline <em>or</em> a carriage return: git overwrites its progress line in
+    /// place with <c>\r</c>, so a reader that waits for <c>\n</c> sees a clone's progress only once
+    /// the clone is over.
+    /// </remarks>
+    private static async Task<string> ReadChunksAsync(
+        StreamReader reader,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        StringBuilder all = new();
+        StringBuilder current = new();
+        char[] buffer = new char[1024];
+
+        while (true)
+        {
+            int read = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+
+            if (read == 0)
+            {
+                break;
+            }
+
+            for (int index = 0; index < read; index++)
+            {
+                char character = buffer[index];
+                all.Append(character);
+
+                if (character is '\r' or '\n')
+                {
+                    if (current.Length > 0)
+                    {
+                        progress?.Report(current.ToString());
+                        current.Clear();
+                    }
+
+                    continue;
+                }
+
+                current.Append(character);
+            }
+        }
+
+        if (current.Length > 0)
+        {
+            progress?.Report(current.ToString());
+        }
+
+        return all.ToString();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> RunLinesAsync(
         GitCommand command,
         char separator = '\n',
