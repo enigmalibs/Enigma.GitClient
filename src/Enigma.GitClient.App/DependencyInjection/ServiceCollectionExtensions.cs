@@ -52,6 +52,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IShellNavigation, ShellNavigation>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
+            services.AddSingleton<ITagOperations, TagOperations>();
+            services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
@@ -79,6 +81,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<CreateBranchDialogView>();
             services.AddTransient<RenameBranchDialogView>();
             services.AddTransient<SetUpstreamDialogView>();
+            services.AddTransient<CreateTagDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.

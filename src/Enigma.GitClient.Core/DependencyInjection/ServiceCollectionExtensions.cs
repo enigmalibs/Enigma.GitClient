@@ -1,4 +1,5 @@
 using Enigma.GitClient.Core.Branches;
+using Enigma.GitClient.Core.Checkout;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
@@ -6,6 +7,7 @@ using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Status;
+using Enigma.GitClient.Core.Tags;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Enigma.GitClient.Core.DependencyInjection;
@@ -40,6 +42,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IWorkingTreeProbe, WorkingTreeProbe>();
             services.AddSingleton<IDiffService, DiffService>();
             services.AddSingleton<IBranchService, BranchService>();
+            services.AddSingleton<ITagService, TagService>();
+            services.AddSingleton<ICheckoutService, CheckoutService>();
 
             return services;
         }

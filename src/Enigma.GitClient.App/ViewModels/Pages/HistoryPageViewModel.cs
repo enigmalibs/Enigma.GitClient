@@ -43,6 +43,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
     private readonly IBranchOperations _branchOperations;
+    private readonly ITagOperations _tagOperations;
+    private readonly ICheckoutOperations _checkoutOperations;
 
     private DiffTarget? _diffTarget;
     private readonly IInfoBarService _infoBar;
@@ -70,6 +72,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IDiffService diffs,
         ISystemInterop interop,
         IBranchOperations branchOperations,
+        ITagOperations tagOperations,
+        ICheckoutOperations checkoutOperations,
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
@@ -80,6 +84,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(branchOperations);
+        ArgumentNullException.ThrowIfNull(tagOperations);
+        ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
@@ -90,11 +96,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         Diff = diff;
         _branchOperations = branchOperations;
+        _tagOperations = tagOperations;
+        _checkoutOperations = checkoutOperations;
 
         RowCommands = new HistoryRowCommands(
-            new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, row => row?.Commit is not null),
+            new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutBranchAsync, row => row?.CanCheckoutBranch == true),
-            new AsyncRelayCommand<CommitRowViewModel>(OnDeleteBranchAsync, row => row?.HasBranch == true));
+            new AsyncRelayCommand<CommitRowViewModel>(OnDeleteBranchAsync, row => row?.HasBranch == true),
+            new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
+            new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
+            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, HasCommit));
 
         Files = new ChangedFilesPanelViewModel(interop);
 
@@ -664,6 +675,61 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             await ReloadAsync().ConfigureAwait(true);
         }
+    }
+
+    private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
+
+    private async Task OnCheckoutCommitAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is null)
+        {
+            return;
+        }
+
+        if (await _checkoutOperations.CheckoutAsync(row.Sha, row.ShortSha, detach: true).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnCreateTagHereAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is null)
+        {
+            return;
+        }
+
+        if (await _tagOperations.CreateAsync(row.Sha, row.ShortSha).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// What a double-click on a row does: move onto its branch when it has one, and onto the commit
+    /// itself otherwise. Checking out the commit under the pointer is what the specification asks
+    /// for; going to the branch first is what a reader means by it when there is one.
+    /// </summary>
+    private async Task OnActivateAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is null)
+        {
+            return;
+        }
+
+        if (row.CanCheckoutBranch)
+        {
+            await OnCheckoutBranchAsync(row).ConfigureAwait(true);
+            return;
+        }
+
+        if (row.HasBranch)
+        {
+            // Already on it; there is nothing to do and nothing to say.
+            return;
+        }
+
+        await OnCheckoutCommitAsync(row).ConfigureAwait(true);
     }
 
     private void NotifySelectedCommitDetails()

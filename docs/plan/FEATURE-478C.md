@@ -1,6 +1,6 @@
 # FEATURE-478C — Branches, tags & checkout
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-478c-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -50,7 +50,7 @@ a commit, a branch, a remote branch or a tag.
 
 ## PHASE02 — Tags & checkout anything
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-478C-PHASE02.md`
 
 **Steps**
 
