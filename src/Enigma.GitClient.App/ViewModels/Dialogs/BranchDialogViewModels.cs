@@ -253,3 +253,131 @@ public sealed class SetUpstreamDialogViewModel : ViewModelBase
     /// </summary>
     public string EmptyMessage => "This repository has no remote branches to track. Fetch a remote first.";
 }
+
+/// <summary>
+/// The fields of the "create a tag" dialog.
+/// </summary>
+/// <remarks>
+/// There is no "annotated" switch on purpose: writing a message is what makes a tag annotated, and
+/// a switch that changes what the message box means is one more thing to explain.
+/// </remarks>
+public sealed class CreateTagDialogViewModel : ViewModelBase
+{
+    private readonly HashSet<string> _existingNames;
+
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="targets">What the tag may point at, most useful first.</param>
+    /// <param name="existingNames">The tag names already taken.</param>
+    public CreateTagDialogViewModel(
+        IReadOnlyList<BranchStartPoint> targets,
+        IReadOnlyCollection<string> existingNames)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(existingNames);
+
+        _existingNames = new HashSet<string>(existingNames, StringComparer.Ordinal);
+
+        Targets = [.. targets];
+        SelectedTarget = Targets.Count > 0 ? Targets[0] : null;
+    }
+
+    /// <summary>Gets what the tag may point at.</summary>
+    public ObservableCollection<BranchStartPoint> Targets { get; }
+
+    /// <summary>
+    /// Gets or sets the tag's name.
+    /// </summary>
+    public string Name
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                RaiseValidation();
+            }
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets what the tag points at.
+    /// </summary>
+    public BranchStartPoint? SelectedTarget
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                RaiseValidation();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the annotation. Leaving it empty creates a lightweight tag.
+    /// </summary>
+    public string Message
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(KindDescription));
+            }
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// Gets the sentence explaining which kind of tag the current input produces.
+    /// </summary>
+    public string KindDescription
+        => Message.Trim().Length == 0
+            ? "With no message this will be a lightweight tag: a name pointing at the commit."
+            : "With a message this will be an annotated tag, recording who tagged it and when.";
+
+    /// <summary>
+    /// Gets the reason the dialog cannot be confirmed, empty when it can.
+    /// </summary>
+    public string ValidationMessage
+    {
+        get
+        {
+            RefNameValidation validation = RefNameValidator.ValidateTag(Name);
+
+            if (!validation.IsValid)
+            {
+                return validation.Message;
+            }
+
+            if (_existingNames.Contains(Name))
+            {
+                return $"A tag called \"{Name}\" already exists.";
+            }
+
+            return SelectedTarget is null ? "Choose what the tag should point at." : string.Empty;
+        }
+    }
+
+    /// <summary>Gets a value indicating whether there is something to show in the validation line.</summary>
+    public bool HasValidationMessage => ValidationMessage.Length > 0;
+
+    /// <summary>Gets a value indicating whether the dialog can be confirmed.</summary>
+    public bool IsValid => ValidationMessage.Length == 0;
+
+    /// <summary>
+    /// Raised whenever the answer to <see cref="IsValid"/> may have changed.
+    /// </summary>
+    public event EventHandler? ValidationChanged;
+
+    private void RaiseValidation()
+    {
+        OnPropertyChanged(nameof(ValidationMessage));
+        OnPropertyChanged(nameof(HasValidationMessage));
+        OnPropertyChanged(nameof(IsValid));
+        ValidationChanged?.Invoke(this, EventArgs.Empty);
+    }
+}

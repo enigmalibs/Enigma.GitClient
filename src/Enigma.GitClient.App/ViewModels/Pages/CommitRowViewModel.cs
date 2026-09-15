@@ -29,10 +29,19 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// <param name="CreateBranchHere">Creates a branch starting at the row's commit.</param>
 /// <param name="CheckoutBranch">Checks out the branch pointing at the row's commit.</param>
 /// <param name="DeleteBranch">Deletes the branch pointing at the row's commit.</param>
+/// <param name="CheckoutCommit">Checks out the row's commit itself, detaching HEAD.</param>
+/// <param name="CreateTagHere">Creates a tag at the row's commit.</param>
+/// <param name="Activate">
+/// What a double-click does: check out the row's branch when it has one, the commit itself
+/// otherwise.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutBranch,
-    AsyncRelayCommand<CommitRowViewModel> DeleteBranch);
+    AsyncRelayCommand<CommitRowViewModel> DeleteBranch,
+    AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
+    AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
+    AsyncRelayCommand<CommitRowViewModel> Activate);
 
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 {
