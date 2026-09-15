@@ -1,6 +1,6 @@
 # FEATURE-7CFD — Solution foundation & git engine
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-7cfd-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -132,7 +132,7 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 
 ## PHASE04 — Refs, branches, tags & HEAD state
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 
