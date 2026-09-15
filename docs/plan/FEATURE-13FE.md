@@ -1,6 +1,6 @@
 # FEATURE-13FE — Working directory & commits
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-13fe-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -21,6 +21,8 @@ used for history.
   a follow-up rather than added now (it needs debouncing and ignore-file awareness to be trustworthy).
 
 ## PHASE01 — Status, staging & commit engine
+
+**Status:** DONE — see `docs/done/FEATURE-13FE-PHASE01.md`
 
 **Steps**
 
@@ -48,6 +50,8 @@ used for history.
 - Committing with nothing staged is refused with a clear message (unless allow-empty).
 
 ## PHASE02 — Changes page & commit UI
+
+**Status:** TODO
 
 **Steps**
 

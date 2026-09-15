@@ -1,11 +1,13 @@
 using Enigma.GitClient.Core.Branches;
 using Enigma.GitClient.Core.Checkout;
+using Enigma.GitClient.Core.Commits;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Core.Tags;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +42,10 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRefReader, RefReader>();
             services.AddSingleton<IRemoteReader, RemoteReader>();
             services.AddSingleton<IWorkingTreeProbe, WorkingTreeProbe>();
+            services.AddSingleton<IStatusService, StatusService>();
+            services.AddSingleton<IGitIgnoreService, GitIgnoreService>();
+            services.AddSingleton<IStagingService, StagingService>();
+            services.AddSingleton<ICommitService, CommitService>();
             services.AddSingleton<IDiffService, DiffService>();
             services.AddSingleton<IBranchService, BranchService>();
             services.AddSingleton<ITagService, TagService>();

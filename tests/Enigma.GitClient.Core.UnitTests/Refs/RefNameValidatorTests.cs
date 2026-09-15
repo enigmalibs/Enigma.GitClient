@@ -72,7 +72,7 @@ public sealed class RefNameValidatorTests
     [Fact]
     public void Validate_RejectsAControlCharacter()
     {
-        RefNameValidation validation = RefNameValidator.ValidateBranch("badname");
+        RefNameValidation validation = RefNameValidator.ValidateBranch("bad\u0001name");
 
         Assert.False(validation.IsValid);
         Assert.Contains("control characters", validation.Message, StringComparison.Ordinal);
