@@ -1,0 +1,266 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:diff="using:Enigma.GitClient.App.Controls.Diff"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Panels"
+             x:Class="Enigma.GitClient.App.Views.Panels.DiffViewerView"
+             x:DataType="vm:DiffViewerViewModel">
+
+  <UserControl.Resources>
+
+    <!-- The unified rendering: both line numbers, one marker, one text column. -->
+    <DataTemplate x:Key="UnifiedRow" x:DataType="vm:DiffRowViewModel">
+      <Panel>
+
+        <Button Classes="band"
+                IsVisible="{Binding IsHunkHeader}"
+                Command="{Binding ExpandContextCommand}"
+                ToolTip.Tip="Show more of the file around this change"
+                AutomationProperties.Name="Show more of the file around this change">
+          <Border Classes="diffband">
+            <TextBlock Text="{Binding HeaderText}" TextTrimming="CharacterEllipsis" />
+          </Border>
+        </Button>
+
+        <Border Classes="diffrow"
+                Classes.added="{Binding Single.IsAdded}"
+                Classes.removed="{Binding Single.IsRemoved}"
+                IsVisible="{Binding IsLine}">
+          <Grid ColumnDefinitions="48,48,18,*">
+
+            <Border Grid.Column="0" Grid.ColumnSpan="2" Classes="diffgutter" />
+            <Border Grid.Column="0" Classes="diffselection" />
+
+            <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Single.OldNumber}" />
+            <TextBlock Grid.Column="1" Classes="diffnumber" Text="{Binding Single.NewNumber}" />
+
+            <TextBlock Grid.Column="2"
+                       Classes="diffmarker"
+                       Classes.added="{Binding Single.IsAdded}"
+                       Classes.removed="{Binding Single.IsRemoved}"
+                       Text="{Binding Single.Marker}" />
+
+            <diff:DiffLineText Grid.Column="3"
+                               Classes.added="{Binding Single.IsAdded}"
+                               Classes.removed="{Binding Single.IsRemoved}"
+                               Text="{Binding Single.Text}"
+                               Segments="{Binding Single.Segments}"
+                               ShowWhitespace="{Binding Options.ShowWhitespace}"
+                               WrapLines="{Binding Options.WrapLines}"
+                               TabWidth="{Binding Options.TabWidth}" />
+          </Grid>
+        </Border>
+      </Panel>
+    </DataTemplate>
+
+    <!-- The side-by-side rendering: the old file on the left, the new one on the right, kept in
+         step by the filler rows the projection inserted. -->
+    <DataTemplate x:Key="SideBySideRow" x:DataType="vm:DiffRowViewModel">
+      <Panel>
+
+        <Button Classes="band"
+                IsVisible="{Binding IsHunkHeader}"
+                Command="{Binding ExpandContextCommand}"
+                ToolTip.Tip="Show more of the file around this change"
+                AutomationProperties.Name="Show more of the file around this change">
+          <Border Classes="diffband">
+            <TextBlock Text="{Binding HeaderText}" TextTrimming="CharacterEllipsis" />
+          </Border>
+        </Button>
+
+        <Grid ColumnDefinitions="*,1,*" IsVisible="{Binding IsLine}">
+
+          <Border Grid.Column="0"
+                  Classes="diffrow"
+                  Classes.removed="{Binding Left.IsRemoved}"
+                  Classes.filler="{Binding Left.IsFiller}">
+            <Grid ColumnDefinitions="48,18,*">
+              <Border Grid.Column="0" Classes="diffgutter" />
+              <Border Grid.Column="0" Classes="diffselection" />
+              <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Left.OldNumber}" />
+              <TextBlock Grid.Column="1"
+                         Classes="diffmarker"
+                         Classes.removed="{Binding Left.IsRemoved}"
+                         Text="{Binding Left.Marker}" />
+              <diff:DiffLineText Grid.Column="2"
+                                 Classes.removed="{Binding Left.IsRemoved}"
+                                 Text="{Binding Left.Text}"
+                                 Segments="{Binding Left.Segments}"
+                                 ShowWhitespace="{Binding Options.ShowWhitespace}"
+                                 WrapLines="{Binding Options.WrapLines}"
+                                 TabWidth="{Binding Options.TabWidth}" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Column="1" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <Border Grid.Column="2"
+                  Classes="diffrow"
+                  Classes.added="{Binding Right.IsAdded}"
+                  Classes.filler="{Binding Right.IsFiller}">
+            <Grid ColumnDefinitions="48,18,*">
+              <Border Grid.Column="0" Classes="diffgutter" />
+              <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Right.NewNumber}" />
+              <TextBlock Grid.Column="1"
+                         Classes="diffmarker"
+                         Classes.added="{Binding Right.IsAdded}"
+                         Text="{Binding Right.Marker}" />
+              <diff:DiffLineText Grid.Column="2"
+                                 Classes.added="{Binding Right.IsAdded}"
+                                 Text="{Binding Right.Text}"
+                                 Segments="{Binding Right.Segments}"
+                                 ShowWhitespace="{Binding Options.ShowWhitespace}"
+                                 WrapLines="{Binding Options.WrapLines}"
+                                 TabWidth="{Binding Options.TabWidth}" />
+            </Grid>
+          </Border>
+        </Grid>
+      </Panel>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="10,6">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Title}"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   FontWeight="SemiBold"
+                   TextTrimming="CharacterEllipsis"
+                   MaxWidth="320"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+        <TextBlock Grid.Column="1"
+                   Text="{Binding Subtitle}"
+                   IsVisible="{Binding HasSubtitle}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   TextTrimming="CharacterEllipsis"
+                   MaxWidth="200"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+        <TextBlock Grid.Column="2"
+                   Text="{Binding Summary}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2">
+
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsUnified, Mode=OneWay}"
+                        Command="{Binding ShowUnifiedCommand}"
+                        ToolTip.Tip="Unified"
+                        AutomationProperties.Name="Unified">
+            <ei:Icon Kind="Rows" Size="14" />
+          </ToggleButton>
+
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsSideBySide, Mode=OneWay}"
+                        Command="{Binding ShowSideBySideCommand}"
+                        ToolTip.Tip="Side by side"
+                        AutomationProperties.Name="Side by side">
+            <ei:Icon Kind="Columns" Size="14" />
+          </ToggleButton>
+
+          <Border Width="1"
+                  Margin="4,2"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding Render.ShowWhitespace, Mode=TwoWay}"
+                        ToolTip.Tip="Show spaces and tabs"
+                        AutomationProperties.Name="Show spaces and tabs">
+            <ei:Icon Kind="DotsSixVertical" Size="14" />
+          </ToggleButton>
+
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding Render.WrapLines, Mode=TwoWay}"
+                        ToolTip.Tip="Wrap long lines"
+                        AutomationProperties.Name="Wrap long lines">
+            <ei:Icon Kind="TextAlignLeft" Size="14" />
+          </ToggleButton>
+
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IgnoreAllWhitespace, Mode=TwoWay}"
+                        ToolTip.Tip="Ignore whitespace changes"
+                        AutomationProperties.Name="Ignore whitespace changes">
+            <ei:Icon Kind="Eraser" Size="14" />
+          </ToggleButton>
+
+          <Border Width="1"
+                  Margin="4,2"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <Button Classes="toolbar"
+                  Command="{Binding ExpandContextCommand}"
+                  ToolTip.Tip="Show more surrounding lines"
+                  AutomationProperties.Name="Show more surrounding lines">
+            <ei:Icon Kind="ArrowsOutLineVertical" Size="14" />
+          </Button>
+
+          <Button Classes="toolbar"
+                  Command="{Binding CopyPatchCommand}"
+                  ToolTip.Tip="Copy the whole patch"
+                  AutomationProperties.Name="Copy the whole patch">
+            <ei:Icon Kind="Copy" Size="14" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom"
+            IsVisible="{Binding IsTruncated}"
+            Background="{DynamicResource DiffHunkBandBrush}"
+            Padding="10,6">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBlock Grid.Column="0"
+                   Text="This file is very large, so only the first part of its diff was read."
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   FontSize="11"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+        <Button Grid.Column="1"
+                Content="Show anyway"
+                Command="{Binding ShowAnywayCommand}" />
+      </Grid>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="GitDiff"
+                           Title="Diff"
+                           Message="{Binding Message}"
+                           IsVisible="{Binding HasMessage}" />
+
+      <ListBox Classes="diff"
+               ItemsSource="{Binding UnifiedRows}"
+               ItemTemplate="{StaticResource UnifiedRow}"
+               SelectionMode="Multiple"
+               SelectedItems="{Binding Selection}"
+               IsVisible="{Binding IsUnified}"
+               Background="Transparent"
+               BorderThickness="0"
+               AutomationProperties.Name="Unified diff" />
+
+      <ListBox Classes="diff"
+               ItemsSource="{Binding SideBySideRows}"
+               ItemTemplate="{StaticResource SideBySideRow}"
+               SelectionMode="Multiple"
+               SelectedItems="{Binding Selection}"
+               IsVisible="{Binding IsSideBySide}"
+               Background="Transparent"
+               BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               AutomationProperties.Name="Side-by-side diff" />
+    </Grid>
+  </DockPanel>
+</UserControl>

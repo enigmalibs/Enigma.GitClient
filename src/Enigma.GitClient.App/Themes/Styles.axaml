@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:diff="using:Enigma.GitClient.App.Controls.Diff">
 
   <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
        Enigma* brushes so they follow a theme switch. -->
@@ -108,6 +109,131 @@
 
   <Style Selector="ToggleButton.segment:checked">
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <!--
+    The diff viewer. A row's own tint is quiet; the word-level tint drawn behind the changed
+    stretches is the loud one, so the eye goes to the words that actually differ rather than to the
+    whole line. Both follow the theme, so neither goes unreadable in the light variant.
+  -->
+
+  <Style Selector="Border.diffrow">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.diffrow.added">
+    <Setter Property="Background" Value="{DynamicResource DiffAddedLineBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffrow.removed">
+    <Setter Property="Background" Value="{DynamicResource DiffRemovedLineBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffrow.filler">
+    <Setter Property="Background" Value="{DynamicResource DiffFillerBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffgutter">
+    <Setter Property="Background" Value="{DynamicResource DiffGutterBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.diffnumber">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffGutterForegroundBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Padding" Value="0,0,8,0" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker.added">
+    <Setter Property="Foreground" Value="{DynamicResource DiffAddedMarkerBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker.removed">
+    <Setter Property="Foreground" Value="{DynamicResource DiffRemovedMarkerBrush}" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    <Setter Property="WhitespaceBrush" Value="{DynamicResource DiffWhitespaceBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText.added">
+    <Setter Property="HighlightBrush" Value="{DynamicResource DiffAddedWordBrush}" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText.removed">
+    <Setter Property="HighlightBrush" Value="{DynamicResource DiffRemovedWordBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffband">
+    <Setter Property="Background" Value="{DynamicResource DiffHunkBandBrush}" />
+    <Setter Property="Padding" Value="10,3" />
+  </Style>
+
+  <!-- The band is the affordance for "show me more of this file": it is already where the reader
+       is looking, and a toolbar button for it would be a second place to learn. -->
+  <Style Selector="Button.band">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <Style Selector="Button.band /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Border.diffband TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffHunkForegroundBrush}" />
+  </Style>
+
+  <!-- A diff row is a line of code, not a list entry: no rounded plate and no inset. -->
+  <Style Selector="ListBox.diff ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+
+  <!--
+    A selected line keeps its own colour and gains a bar in the gutter. Painting the selection over
+    the row instead would hide the one thing the row exists to show — whether the line was added or
+    removed — which is exactly backwards for a view whose selection is there to be copied from.
+  -->
+  <Style Selector="ListBox.diff ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.diffselection">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Width" Value="3" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="ListBox.diff ListBoxItem:selected Border.diffselection">
+    <Setter Property="Background" Value="{DynamicResource DiffSelectionBrush}" />
   </Style>
 
 </Styles>

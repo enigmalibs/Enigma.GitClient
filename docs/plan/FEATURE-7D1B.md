@@ -1,6 +1,6 @@
 # FEATURE-7D1B — Commit details & diff viewer
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-7d1b-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -51,7 +51,7 @@ context and intra-line changes clearly distinguished.
 
 ## PHASE02 — Colour-coded diff viewer
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7D1B-PHASE02.md`
 
 **Steps**
 

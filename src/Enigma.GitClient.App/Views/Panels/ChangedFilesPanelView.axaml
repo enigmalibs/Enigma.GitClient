@@ -6,6 +6,19 @@
              x:Class="Enigma.GitClient.App.Views.Panels.ChangedFilesPanelView"
              x:DataType="vm:ChangedFilesPanelViewModel">
 
+  <UserControl.Styles>
+    <!-- The dimmed columns sit on the selection's own colour once a row is picked, where a tertiary
+         grey stops being readable. The selected row is the one being read, so it gets the full
+         foreground. -->
+    <Style Selector="TreeViewItem:selected TextBlock.dim">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected TextBlock.dim">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+
   <UserControl.Resources>
     <!-- One template, used by both shapes: the list and the tree must never disagree about what a
          row looks like or what is selected. -->
@@ -68,6 +81,7 @@
                    Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
         <TextBlock Grid.Column="2"
+                   Classes="dim"
                    Text="{Binding DirectoryLabel}"
                    IsVisible="{Binding HasDirectoryLabel}"
                    VerticalAlignment="Center"
@@ -77,6 +91,7 @@
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
         <TextBlock Grid.Column="3"
+                   Classes="dim"
                    Text="{Binding RenameLabel}"
                    IsVisible="{Binding IsRenamed}"
                    ToolTip.Tip="{Binding RenameSource}"
@@ -87,6 +102,7 @@
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
         <TextBlock Grid.Column="4"
+                   Classes="dim"
                    Text="{Binding LineCounts}"
                    VerticalAlignment="Center"
                    FontSize="11"
@@ -94,6 +110,7 @@
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
         <TextBlock Grid.Column="4"
+                   Classes="dim"
                    Text="{Binding DirectorySummary}"
                    VerticalAlignment="Center"
                    FontSize="11"
@@ -167,7 +184,7 @@
                 IsVisible="{Binding IsTreeMode}"
                 Background="Transparent"
                 BorderThickness="0"
-                Padding="0,2,10,2"
+                Padding="0,2,18,2"
                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                 AutomationProperties.Name="Changed files">
         <TreeView.ItemTemplate>

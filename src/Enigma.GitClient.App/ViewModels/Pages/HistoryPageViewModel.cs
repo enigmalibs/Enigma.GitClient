@@ -42,6 +42,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
+
+    private DiffTarget? _diffTarget;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<HistoryPageViewModel> _logger;
 
@@ -66,6 +68,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IWorkingTreeProbe workingTree,
         IDiffService diffs,
         ISystemInterop interop,
+        DiffViewerViewModel diff,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
@@ -74,6 +77,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(workingTree);
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
+        ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -81,7 +85,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _workingTree = workingTree;
         _diffs = diffs;
 
+        Diff = diff;
         Files = new ChangedFilesPanelViewModel(interop);
+
+        // The viewer follows the panel rather than the panel driving it: the panel's job ends at
+        // "this file is selected", whoever is listening.
+        Files.SelectionChanged += (_, _) => _ = ShowSelectedFileAsync();
         _infoBar = infoBar;
         _logger = logger;
 
@@ -187,6 +196,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the panel listing what the selected commit touched.
     /// </summary>
     public ChangedFilesPanelViewModel Files { get; }
+
+    /// <summary>
+    /// Gets the diff viewer showing the file selected in <see cref="Files"/>.
+    /// </summary>
+    public DiffViewerViewModel Diff { get; }
 
     /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
     public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
@@ -538,13 +552,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         if (row is null || repository is null)
         {
+            _diffTarget = null;
             Files.Clear();
+            Diff.Clear();
             return;
         }
 
         DiffTarget target = row.IsUncommitted
             ? DiffTarget.Uncommitted()
             : DiffTarget.Commit(row.Sha);
+
+        _diffTarget = target;
 
         try
         {
@@ -569,7 +587,26 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             _logger.LogError(exception, "Reading the files of {Commit} failed", row.Sha);
             Files.Clear();
+            Diff.Clear();
         }
+    }
+
+    /// <summary>
+    /// Hands the file the panel has selected to the diff viewer.
+    /// </summary>
+    /// <returns>A task that completes once the viewer has read it.</returns>
+    private async Task ShowSelectedFileAsync()
+    {
+        RepositoryHandle? repository = RepositoryContext.Repository;
+        Core.Files.ChangedFile? file = Files.SelectedFile;
+
+        if (repository is null || _diffTarget is null || file is null)
+        {
+            Diff.Clear();
+            return;
+        }
+
+        await Diff.ShowAsync(repository, _diffTarget, file);
     }
 
     private void NotifySelectedCommitDetails()
