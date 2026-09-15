@@ -127,14 +127,25 @@
               BorderThickness="0,0,0,1"
               Padding="12,8"
               IsVisible="{Binding HasOperationInProgress}">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <ei:Icon Kind="Warning" Size="16" VerticalAlignment="Center"
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ei:Icon Grid.Column="0" Kind="Warning" Size="16" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaWarningBrush}" />
-          <TextBlock Text="{Binding OperationDescription}"
+          <TextBlock Grid.Column="1"
+                     Text="{Binding OperationDescription}"
                      VerticalAlignment="Center"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
-        </StackPanel>
+
+          <!-- The way out of a merge that went wrong, where the merge is announced. -->
+          <Button Grid.Column="2"
+                  Classes="toolbar"
+                  IsVisible="{Binding IsMergeInProgress}"
+                  Command="{Binding AbortMergeCommand}"
+                  ToolTip.Tip="Put the repository back as it was before the merge"
+                  AutomationProperties.Name="Abandon the merge">
+            <TextBlock Text="Abandon the merge" FontSize="12" />
+          </Button>
+        </Grid>
       </Border>
 
       <nav:NavigationView DockPanel.Dock="Left"

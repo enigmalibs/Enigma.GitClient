@@ -1,6 +1,6 @@
 # FEATURE-6DCC — Merge & conflict resolution
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-6dcc-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -21,6 +21,8 @@ written.
   stable marker grammar; binary and add/add conflicts are handled as whole-file choices.
 
 ## PHASE01 — Merge engine & conflict model
+
+**Status:** DONE — see `docs/done/FEATURE-6DCC-PHASE01.md`
 
 **Steps**
 
@@ -49,6 +51,8 @@ written.
   add/add or delete/modify conflict.
 
 ## PHASE02 — Conflict resolution engine
+
+**Status:** TODO
 
 **Steps**
 
@@ -79,6 +83,8 @@ written.
   binary conflicts.
 
 ## PHASE03 — Conflict resolution UI
+
+**Status:** TODO
 
 **Steps**
 

@@ -27,6 +27,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IGitEnvironment _gitEnvironment;
     private readonly IContentDialogService _dialogService;
     private readonly ISyncOperations _sync;
+    private readonly IMergeOperations _merges;
     private readonly ILogger<MainWindowViewModel> _logger;
     private bool _initialised;
 
@@ -45,6 +46,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         IContentDialogService dialogService,
         HistoryPageViewModel history,
         ISyncOperations sync,
+        IMergeOperations merges,
         ILogger<MainWindowViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(shell);
@@ -53,6 +55,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(dialogService);
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(sync);
+        ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(logger);
 
         // The graph's uncommitted row belongs to the working directory page, and the shell is the
@@ -66,12 +69,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         _logger = logger;
 
         _sync = sync;
+        _merges = merges;
 
         ToggleThemeCommand = new RelayCommand(OnToggleTheme);
 
         FetchCommand = new AsyncRelayCommand(RunSyncAsync(_sync.FetchAsync), () => CanSync);
         PullCommand = new AsyncRelayCommand(RunSyncAsync(_sync.PullAsync), () => CanSync);
         PushCommand = new AsyncRelayCommand(RunSyncAsync(() => _sync.PushAsync()), () => CanSync);
+
+        AbortMergeCommand = new AsyncRelayCommand(OnAbortMergeAsync, () => IsMergeInProgress);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
@@ -160,6 +166,15 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     /// <summary>Gets the command that pushes the current branch.</summary>
     public AsyncRelayCommand PushCommand { get; }
+
+    /// <summary>Gets the command that abandons a merge in progress.</summary>
+    public AsyncRelayCommand AbortMergeCommand { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether a merge is waiting to be finished or abandoned.
+    /// </summary>
+    public bool IsMergeInProgress
+        => RepositoryContext.Head?.Operation == Core.Refs.RepositoryOperation.Merge;
 
     /// <summary>
     /// Gets a value indicating whether there is a repository to synchronise at all.
@@ -253,6 +268,8 @@ public sealed class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsHeadDetached));
                 OnPropertyChanged(nameof(HasOperationInProgress));
                 OnPropertyChanged(nameof(OperationDescription));
+                OnPropertyChanged(nameof(IsMergeInProgress));
+                AbortMergeCommand.NotifyCanExecuteChanged();
                 break;
             default:
                 break;
@@ -278,6 +295,20 @@ public sealed class MainWindowViewModel : ViewModelBase
                 NotifyTracking();
             }
         };
+
+    private async Task OnAbortMergeAsync()
+    {
+        IsBusy = true;
+
+        try
+        {
+            await _merges.AbortAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     private void NotifyTracking()
     {

@@ -156,6 +156,10 @@
                           IsVisible="{Binding HasBranch}"
                           Command="{Binding Commands.CheckoutBranch}"
                           CommandParameter="{Binding}" />
+                <MenuItem Header="{Binding MergeHeader}"
+                          IsVisible="{Binding CanMergeBranch}"
+                          Command="{Binding Commands.MergeBranch}"
+                          CommandParameter="{Binding}" />
                 <MenuItem Header="{Binding DeleteBranchHeader}"
                           IsVisible="{Binding HasBranch}"
                           Command="{Binding Commands.DeleteBranch}"

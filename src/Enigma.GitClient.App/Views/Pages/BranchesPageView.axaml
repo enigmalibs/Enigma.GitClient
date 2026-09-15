@@ -45,6 +45,9 @@
               <MenuItem Header="Check out"
                         Command="{Binding CheckoutCommand}"
                         CommandParameter="{Binding}" />
+              <MenuItem Header="Merge into the current branch"
+                        Command="{Binding MergeCommand}"
+                        CommandParameter="{Binding}" />
               <Separator />
               <MenuItem Header="Rename…"
                         Command="{Binding RenameCommand}"
