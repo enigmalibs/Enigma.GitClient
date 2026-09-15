@@ -1,6 +1,6 @@
 # FEATURE-06FE — Remotes & synchronisation
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-06fe-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -56,7 +56,7 @@ and stash, so switching context never costs work.
 
 ## PHASE02 — Stash management
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-06FE-PHASE02.md`
 
 **Steps**
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,10 +18,60 @@ using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Staging;
+using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
+
+/// <summary>
+/// One entry on the stash, as the changes page lists it.
+/// </summary>
+public sealed class StashRowViewModel : ViewModelBase
+{
+    private readonly ChangesPageViewModel _owner;
+
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="owner">The page the row belongs to.</param>
+    /// <param name="entry">The entry it stands for.</param>
+    public StashRowViewModel(ChangesPageViewModel owner, StashEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        _owner = owner;
+        Entry = entry;
+    }
+
+    /// <summary>Gets the entry this row stands for.</summary>
+    public StashEntry Entry { get; }
+
+    /// <summary>Gets what the entry says about itself.</summary>
+    public string Message => Entry.Message;
+
+    /// <summary>Gets the branch the entry was made on.</summary>
+    public string Branch => Entry.Branch;
+
+    /// <summary>Gets a value indicating whether there is a branch to show.</summary>
+    public bool HasBranch => Branch.Length > 0;
+
+    /// <summary>Gets how long ago the entry was made.</summary>
+    public string When => Formatting.RelativeTime.Format(Entry.When);
+
+    /// <summary>Gets the command that applies the entry and keeps it.</summary>
+    public AsyncRelayCommand<StashRowViewModel> ApplyCommand => _owner.ApplyStashCommand;
+
+    /// <summary>Gets the command that applies the entry and removes it.</summary>
+    public AsyncRelayCommand<StashRowViewModel> PopCommand => _owner.PopStashCommand;
+
+    /// <summary>Gets the command that throws the entry away.</summary>
+    public AsyncRelayCommand<StashRowViewModel> DropCommand => _owner.DropStashCommand;
+
+    /// <inheritdoc />
+    public override string ToString() => Entry.ToString();
+}
 
 /// <summary>
 /// ViewModel behind the working directory page: what has changed, what is staged, and the commit
@@ -47,11 +98,13 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     private readonly IStatusService _status;
     private readonly IStagingService _staging;
     private readonly ICommitService _commits;
+    private readonly IStashService _stashes;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<ChangesPageViewModel> _logger;
 
     private WorkingTreeStatus _current = WorkingTreeStatus.Empty;
+    private PatchSet? _stashPatch;
 
     /// <summary>
     /// Initialises a new instance.
@@ -60,6 +113,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     /// <param name="status">Reads what has changed.</param>
     /// <param name="staging">Moves changes into and out of the index.</param>
     /// <param name="commits">Records the commit.</param>
+    /// <param name="stashes">Puts work aside and brings it back.</param>
     /// <param name="interop">Backs the file panels' own row menus.</param>
     /// <param name="diff">Shows the selected file's diff.</param>
     /// <param name="dialogs">Raises the confirmations.</param>
@@ -70,6 +124,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         IStatusService status,
         IStagingService staging,
         ICommitService commits,
+        IStashService stashes,
         ISystemInterop interop,
         DiffViewerViewModel diff,
         IContentDialogService dialogs,
@@ -80,6 +135,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(status);
         ArgumentNullException.ThrowIfNull(staging);
         ArgumentNullException.ThrowIfNull(commits);
+        ArgumentNullException.ThrowIfNull(stashes);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(dialogs);
@@ -89,6 +145,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         _status = status;
         _staging = staging;
         _commits = commits;
+        _stashes = stashes;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _logger = logger;
@@ -114,9 +171,30 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         CommitCommand = new AsyncRelayCommand(OnCommitAsync, CanCommit);
 
-        // The panels are the same control the history uses; what differs is the verbs a row offers.
+        StashAllCommand = new AsyncRelayCommand(OnStashAllAsync, () => HasUnstaged || HasStaged);
+        ApplyStashCommand = new AsyncRelayCommand<StashRowViewModel>(
+            row => RunStashAsync(row, (handle, index, token) => _stashes.ApplyAsync(handle, index, token), "apply"),
+            row => row is not null);
+        PopStashCommand = new AsyncRelayCommand<StashRowViewModel>(
+            row => RunStashAsync(row, (handle, index, token) => _stashes.PopAsync(handle, index, token), "restore"),
+            row => row is not null);
+        DropStashCommand = new AsyncRelayCommand<StashRowViewModel>(OnDropStashAsync, row => row is not null);
+
+        StashFiles = new ChangedFilesPanelViewModel(interop);
+        StashFiles.SelectionChanged += (_, _) => ShowStashFile();
+
+        // The panels are the same control the history uses; what differs is the verbs a row offers
+        // and what an empty one means here.
         Unstaged.Actions = new ChangedFileRowActions("Stage", StageCommand, "Discard…", DiscardCommand);
+        Unstaged.EmptyTitle = "Nothing to stage";
+        Unstaged.EmptyMessage = "Everything you have changed is already staged.";
+
         Staged.Actions = new ChangedFileRowActions("Unstage", UnstageCommand, PrimaryIcon: "Minus");
+        Staged.EmptyTitle = "Nothing staged";
+        Staged.EmptyMessage = "Stage the changes you want in the next commit.";
+
+        StashFiles.EmptyTitle = "Nothing selected";
+        StashFiles.EmptyMessage = "Pick a stash to see what it holds.";
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -130,6 +208,40 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the diff viewer showing whichever file is selected.</summary>
     public DiffViewerViewModel Diff { get; }
+
+    /// <summary>Gets the stash, most recent first.</summary>
+    public ObservableCollection<StashRowViewModel> Stashes { get; } = [];
+
+    /// <summary>Gets the files of the selected stash entry.</summary>
+    public ChangedFilesPanelViewModel StashFiles { get; }
+
+    /// <summary>Gets a value indicating whether anything is stashed.</summary>
+    public bool HasStashes => Stashes.Count > 0;
+
+    /// <summary>Gets how many entries the stash holds, for the section's heading.</summary>
+    public string StashSummary
+        => Stashes.Count == 1
+            ? "1 stash"
+            : $"{Stashes.Count.ToString(CultureInfo.CurrentCulture)} stashes";
+
+    /// <summary>
+    /// Gets or sets the stash entry whose files are shown.
+    /// </summary>
+    public StashRowViewModel? SelectedStash
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(HasSelectedStash));
+                _ = LoadStashFilesAsync();
+            }
+        }
+    }
+
+    /// <summary>Gets a value indicating whether a stash entry is being looked at.</summary>
+    public bool HasSelectedStash => SelectedStash is not null;
 
     /// <summary>
     /// Gets or sets the commit message.
@@ -286,11 +398,68 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     /// <summary>Gets the command that records the commit.</summary>
     public AsyncRelayCommand CommitCommand { get; }
 
+    /// <summary>Gets the command that puts everything aside on the stash.</summary>
+    public AsyncRelayCommand StashAllCommand { get; }
+
+    /// <summary>Gets the command that applies a stash entry and keeps it.</summary>
+    public AsyncRelayCommand<StashRowViewModel> ApplyStashCommand { get; }
+
+    /// <summary>Gets the command that applies a stash entry and removes it.</summary>
+    public AsyncRelayCommand<StashRowViewModel> PopStashCommand { get; }
+
+    /// <summary>Gets the command that throws a stash entry away.</summary>
+    public AsyncRelayCommand<StashRowViewModel> DropStashCommand { get; }
+
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
     {
         await base.OnAppearingAsync(parameter).ConfigureAwait(true);
         await RefreshAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Re-reads the stash.
+    /// </summary>
+    /// <returns>A task that completes once the list is up to date.</returns>
+    public async Task RefreshStashesAsync()
+    {
+        RepositoryHandle? repository = RepositoryContext.Repository;
+
+        IReadOnlyList<StashEntry> entries = [];
+
+        if (repository is not null)
+        {
+            try
+            {
+                entries = await _stashes
+                    .ListAsync(repository, RepositoryContext.RepositoryLifetime)
+                    .ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when the repository changes under the read.
+            }
+            catch (GitCommandException exception)
+            {
+                _logger.LogError(exception, "Reading the stash failed");
+            }
+        }
+
+        // Read first, replace after: clearing before the await lets a second refresh interleave.
+        Stashes.Clear();
+
+        foreach (StashEntry entry in entries)
+        {
+            Stashes.Add(new StashRowViewModel(this, entry));
+        }
+
+        if (SelectedStash is not null && Stashes.Count == 0)
+        {
+            SelectedStash = null;
+        }
+
+        OnPropertyChanged(nameof(HasStashes));
+        OnPropertyChanged(nameof(StashSummary));
     }
 
     /// <summary>
@@ -314,6 +483,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
                 .ConfigureAwait(true);
 
             Apply(status);
+            await RefreshStashesAsync().ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -370,6 +540,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         StageAllCommand.NotifyCanExecuteChanged();
         UnstageAllCommand.NotifyCanExecuteChanged();
         DiscardAllCommand.NotifyCanExecuteChanged();
+        StashAllCommand.NotifyCanExecuteChanged();
         CommitCommand.NotifyCanExecuteChanged();
 
         if (Unstaged.SelectedFile is null && Staged.SelectedFile is null)
@@ -588,6 +759,139 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     // ---------------------------------------------------------------- plumbing
 
+    // ---------------------------------------------------------------- the stash
+
+    private async Task OnStashAllAsync()
+    {
+        await RunAsync(
+            async (handle, token) =>
+            {
+                bool stashed = await _stashes
+                    .PushAsync(handle, null, true, false, null, token)
+                    .ConfigureAwait(true);
+
+                if (!stashed)
+                {
+                    throw new GitOperationRefusedException("There was nothing to put aside.");
+                }
+            },
+            "Could not stash").ConfigureAwait(true);
+    }
+
+    private async Task RunStashAsync(
+        StashRowViewModel? row,
+        Func<RepositoryHandle, int, CancellationToken, Task> operation,
+        string verb)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        int index = row.Entry.Index;
+
+        await RunAsync(
+            (handle, token) => operation(handle, index, token),
+            $"Could not {verb} the stash").ConfigureAwait(true);
+    }
+
+    private async Task OnDropStashAsync(StashRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        // Dropping is the only stash action that loses the work for good.
+        bool confirmed = await ConfirmAsync(
+            "Drop stash",
+            $"Throw away \"{row.Message}\"? The work it holds cannot be recovered.",
+            "Drop").ConfigureAwait(true);
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        int index = row.Entry.Index;
+
+        await RunAsync(
+            (handle, token) => _stashes.DropAsync(handle, index, token),
+            "Could not drop the stash").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Reads the selected entry's files into its own panel.
+    /// </summary>
+    private async Task LoadStashFilesAsync()
+    {
+        RepositoryHandle? repository = RepositoryContext.Repository;
+        StashRowViewModel? row = SelectedStash;
+
+        if (repository is null || row is null)
+        {
+            StashFiles.Clear();
+            return;
+        }
+
+        try
+        {
+            PatchSet patch = await _stashes
+                .ShowAsync(repository, row.Entry.Index, null, RepositoryContext.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+            if (!ReferenceEquals(row, SelectedStash))
+            {
+                return;
+            }
+
+            _stashPatch = patch;
+
+            List<ChangedFile> files = [];
+
+            foreach (FilePatch file in patch.Files)
+            {
+                files.Add(ChangedFile.FromPatch(file));
+            }
+
+            StashFiles.WorkTreePath = repository.WorkTreePath;
+            StashFiles.SetFiles(files);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the repository changes under the read.
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogError(exception, "Reading the stash's contents failed");
+            StashFiles.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Shows the file picked inside a stash entry, which came from the entry rather than from a
+    /// comparison the viewer could re-read.
+    /// </summary>
+    private void ShowStashFile()
+    {
+        if (StashFiles.SelectedFile is not { } file || _stashPatch is null)
+        {
+            return;
+        }
+
+        Unstaged.SelectedNode = null;
+        Staged.SelectedNode = null;
+
+        foreach (FilePatch candidate in _stashPatch.Files)
+        {
+            if (string.Equals(candidate.DisplayPath, file.Path, StringComparison.Ordinal))
+            {
+                Diff.ShowPatch(candidate);
+                return;
+            }
+        }
+    }
+
     /// <summary>
     /// Collects the paths a row stands for: one file, or every file under a directory row.
     /// </summary>
@@ -625,13 +929,13 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         return (newline < 0 ? text : text[..newline]).TrimEnd('\r');
     }
 
-    private async Task<bool> ConfirmAsync(string title, string message)
+    private async Task<bool> ConfirmAsync(string title, string message, string confirmText = "Discard")
     {
         DialogResult result = await _dialogs.ShowAsync(dialog =>
         {
             dialog.Title = title;
             dialog.Content = message;
-            dialog.PrimaryButtonText = "Discard";
+            dialog.PrimaryButtonText = confirmText;
             dialog.CloseButtonText = "Cancel";
 
             // The harmless button is the default, as everywhere something can be lost.

@@ -29,9 +29,9 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-13FE | Working directory & commits        | DONE        | docs/plan/FEATURE-13FE.md |
 | - PHASE01    | Status, staging & commit engine    | DONE        | (in FEATURE-13FE.md)      |
 | - PHASE02    | Changes page & commit UI           | DONE        | (in FEATURE-13FE.md)      |
-| FEATURE-06FE | Remotes & synchronisation          | IN PROGRESS | docs/plan/FEATURE-06FE.md |
+| FEATURE-06FE | Remotes & synchronisation          | DONE        | docs/plan/FEATURE-06FE.md |
 | - PHASE01    | Fetch, pull, push & remotes        | DONE        | (in FEATURE-06FE.md)      |
-| - PHASE02    | Stash management                   | TODO        | (in FEATURE-06FE.md)      |
+| - PHASE02    | Stash management                   | DONE        | (in FEATURE-06FE.md)      |
 | FEATURE-6DCC | Merge & conflict resolution        | TODO        | docs/plan/FEATURE-6DCC.md |
 | - PHASE01    | Merge engine & conflict model      | TODO        | (in FEATURE-6DCC.md)      |
 | - PHASE02    | Conflict resolution engine         | TODO        | (in FEATURE-6DCC.md)      |

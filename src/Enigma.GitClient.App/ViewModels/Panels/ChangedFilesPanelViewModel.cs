@@ -334,6 +334,18 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Gets or sets what the panel says when it has nothing to show. The host sets it, because only
+    /// the host knows what an empty panel means on its page.
+    /// </summary>
+    public string EmptyMessage { get; set => SetProperty(ref field, value); }
+        = "Select a commit to see the files it changed.";
+
+    /// <summary>
+    /// Gets or sets the heading shown above that message.
+    /// </summary>
+    public string EmptyTitle { get; set => SetProperty(ref field, value); } = "No files";
+
+    /// <summary>
     /// Gets or sets the actions the host page offers on every row, or <see langword="null"/> when
     /// the panel is read-only.
     /// </summary>
