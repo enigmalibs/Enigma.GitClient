@@ -7,11 +7,14 @@
     <RootNamespace>Enigma.GitClient.App.UnitTests</RootNamespace>
     <!-- Headless Avalonia render tests need the compiled-binding switch of the app under test. -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- The snapshot tests walk a locked framebuffer to prove the window painted pixels. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Skia" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Enigma.GitClient.App/Enigma.GitClient.App.csproj" />

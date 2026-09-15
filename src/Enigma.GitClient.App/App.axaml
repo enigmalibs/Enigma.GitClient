@@ -1,14 +1,30 @@
+<!--
+  Dark is the starting variant, not "Default". Enigma.Avalonia.Desktop's dictionary defines
+  Dark and Light theme dictionaries only, so on a host whose platform theme cannot be resolved
+  "Default" leaves every Enigma* brush unresolved and the window paints almost nothing.
+  Following the operating system is offered as a setting instead.
+-->
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Enigma.GitClient.App.App">
+             x:Class="Enigma.GitClient.App.App"
+             RequestedThemeVariant="Dark">
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://Enigma.GitClient.App/Themes/Styles.axaml" />
   </Application.Styles>
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
+        <!-- Enigma.Avalonia.Desktop is a ResourceDictionary, so it must be a ResourceInclude here
+             and not a StyleInclude. Our own themes are merged after it, so an override of an
+             Enigma* key would win. -->
         <ResourceInclude Source="avares://Enigma.Avalonia.Desktop/Themes/Fluent.axaml" />
+        <ResourceInclude Source="avares://Enigma.GitClient.App/Themes/Controls.axaml" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!-- One monospace stack for short hashes and file content, listing a face that exists on
+           Linux and one that exists on Windows before falling back to the generic family. -->
+      <FontFamily x:Key="MonospaceFontFamily">Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, Consolas, Menlo, monospace</FontFamily>
     </ResourceDictionary>
   </Application.Resources>
 </Application>
