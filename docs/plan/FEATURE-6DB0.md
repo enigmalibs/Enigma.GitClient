@@ -1,6 +1,6 @@
 # FEATURE-6DB0 — Core graph, diff & tree algorithms
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-6db0-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -94,7 +94,7 @@ path-tree builder that backs the list/tree toggle of the changed-files panel.
 
 ## PHASE03 — File path tree builder
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 
