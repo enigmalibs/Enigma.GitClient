@@ -1,6 +1,6 @@
 # FEATURE-6DB0 — Core graph, diff & tree algorithms
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-6db0-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -20,6 +20,8 @@ path-tree builder that backs the list/tree toggle of the changed-files panel.
 - Performance target: 100 000 commits laid out in well under a second, O(rows × activeLanes).
 
 ## PHASE01 — Commit graph lane layout
+
+**Status:** DONE
 
 **Steps**
 
@@ -57,6 +59,8 @@ path-tree builder that backs the list/tree toggle of the changed-files panel.
 
 ## PHASE02 — Unified diff & word-level diff
 
+**Status:** TODO
+
 **Steps**
 
 1. Model: `FilePatch` (`OldPath`, `NewPath`, `ChangeKind` = `Added`/`Modified`/`Deleted`/`Renamed`/
@@ -89,6 +93,8 @@ path-tree builder that backs the list/tree toggle of the changed-files panel.
 - Truncation kicks in at the limit and reports it.
 
 ## PHASE03 — File path tree builder
+
+**Status:** TODO
 
 **Steps**
 
