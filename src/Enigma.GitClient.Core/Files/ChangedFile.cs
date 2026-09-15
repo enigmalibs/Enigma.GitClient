@@ -50,6 +50,16 @@ public sealed record ChangedFile
     /// <summary>Gets how many lines the change removes.</summary>
     public int RemovedLines { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether the line counts were actually measured.
+    /// </summary>
+    /// <remarks>
+    /// <c>git status</c> reports what changed, not by how much, so an entry that came from there has
+    /// no counts at all. Showing its zeroes as "+0 −0" would claim the change is empty, which is a
+    /// different thing from not having been counted.
+    /// </remarks>
+    public bool HasLineCounts { get; init; }
+
     /// <summary>Gets a value indicating whether git refused to show a textual diff.</summary>
     public bool IsBinary { get; init; }
 

@@ -26,13 +26,22 @@
       <!-- The name sits in the one star column so the Grid can shrink it and the trimming
            actually fires. A horizontal StackPanel would measure every child with infinite width,
            which is what made a deeply indented tree row run past the panel's edge. -->
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Height="22">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6" Height="22">
 
         <!-- The row's own menu. A ContextMenu opens in its own popup tree, so it cannot reach the
              panel through a visual ancestor: the row passes the panel's commands through instead,
              which keeps the binding a plain one against the row itself. -->
         <Grid.ContextMenu>
           <ContextMenu>
+            <MenuItem Header="{Binding Actions.PrimaryLabel}"
+                      IsVisible="{Binding HasActions}"
+                      Command="{Binding Actions.Primary}"
+                      CommandParameter="{Binding}" />
+            <MenuItem Header="{Binding Actions.SecondaryLabel}"
+                      IsVisible="{Binding HasSecondaryAction}"
+                      Command="{Binding Actions.Secondary}"
+                      CommandParameter="{Binding}" />
+            <Separator IsVisible="{Binding HasActions}" />
             <MenuItem Header="Open file"
                       Command="{Binding OpenFileCommand}"
                       CommandParameter="{Binding}" />
@@ -101,7 +110,17 @@
                    TextTrimming="CharacterEllipsis"
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
-        <TextBlock Grid.Column="4"
+        <Button Grid.Column="4"
+                Classes="toolbar rowaction"
+                IsVisible="{Binding HasActions}"
+                Command="{Binding Actions.Primary}"
+                CommandParameter="{Binding}"
+                ToolTip.Tip="{Binding Actions.PrimaryLabel}"
+                AutomationProperties.Name="{Binding Actions.PrimaryLabel}">
+          <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Size="13" />
+        </Button>
+
+        <TextBlock Grid.Column="5"
                    Classes="dim"
                    Text="{Binding LineCounts}"
                    VerticalAlignment="Center"
@@ -109,7 +128,7 @@
                    IsVisible="{Binding !IsDirectory}"
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
-        <TextBlock Grid.Column="4"
+        <TextBlock Grid.Column="5"
                    Classes="dim"
                    Text="{Binding DirectorySummary}"
                    VerticalAlignment="Center"

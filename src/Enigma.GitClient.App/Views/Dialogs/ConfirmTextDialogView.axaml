@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.ConfirmTextDialogView"
+             x:DataType="vm:ConfirmTextDialogViewModel"
+             MinWidth="480">
+  <StackPanel Spacing="12">
+
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <ei:Icon Kind="Warning" Size="16" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding Message}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 MaxWidth="420"
+                 Foreground="{DynamicResource EnigmaForegroundBrush}" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="{Binding Prompt}"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Typed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="{Binding Expected}"
+               AutomationProperties.Name="Type to confirm" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -236,4 +236,39 @@
     <Setter Property="Background" Value="{DynamicResource DiffSelectionBrush}" />
   </Style>
 
+  <!-- The one button on a page that performs the page's whole purpose. Exactly one per page:
+       two accented buttons beside each other is two buttons with no accent. -->
+  <Style Selector="Button.accent">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.accent /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+  </Style>
+
+  <!-- A counter that has passed its guide says so by colour rather than by a second control. -->
+  <Style Selector="TextBlock.overlong">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaWarningBrush}" />
+  </Style>
+
+  <!-- A row's action stays out of the way until the row is hovered or the action is focused. -->
+  <Style Selector="Button.rowaction">
+    <Setter Property="Padding" Value="4,1" />
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+
+  <Style Selector="Button.rowaction:pointerover">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
 </Styles>

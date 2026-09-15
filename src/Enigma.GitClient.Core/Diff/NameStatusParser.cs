@@ -167,6 +167,7 @@ public static class NameStatusParser
             {
                 AddedLines = count.Added ?? 0,
                 RemovedLines = count.Removed ?? 0,
+                HasLineCounts = true,
 
                 // git writes "-" for both counts exactly when it treats the file as binary.
                 IsBinary = count.Added is null && count.Removed is null,

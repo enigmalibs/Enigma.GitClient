@@ -105,7 +105,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnDeleteBranchAsync, row => row?.HasBranch == true),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
-            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, HasCommit));
+            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null));
 
         Files = new ChangedFilesPanelViewModel(interop);
 
@@ -227,6 +227,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the commands every row's context menu runs.
     /// </summary>
     public HistoryRowCommands RowCommands { get; }
+
+    /// <summary>
+    /// Raised when the uncommitted-changes row is activated, so the shell can move to the page that
+    /// actually does something with it.
+    /// </summary>
+    /// <remarks>
+    /// An event rather than a navigation service: the shell's navigation builds the page ViewModels,
+    /// so a page that asked it for a reference would be asking to be constructed by something it is
+    /// constructing.
+    /// </remarks>
+    public event EventHandler? WorkingDirectoryRequested;
 
     /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
     public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
@@ -409,7 +420,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             if (includeUncommittedRow && await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true))
             {
-                Rows.Add(CommitRowViewModel.Uncommitted(0, 0));
+                Rows.Add(CommitRowViewModel.Uncommitted(0, 0, RowCommands));
             }
 
             CommitLogPage page = await _reader.GetPageAsync(repository, _query, cancellation.Token)
@@ -712,7 +723,20 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// </summary>
     private async Task OnActivateAsync(CommitRowViewModel? row)
     {
-        if (row?.Commit is null)
+        if (row is null)
+        {
+            return;
+        }
+
+        if (row.IsUncommitted)
+        {
+            // There is nothing to check out here — the row stands for work that is not committed
+            // yet, and the page that handles it is the working directory.
+            WorkingDirectoryRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (row.Commit is null)
         {
             return;
         }

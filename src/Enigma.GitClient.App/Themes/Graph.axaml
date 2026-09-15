@@ -59,6 +59,11 @@
       <Color x:Key="DiffWhitespaceColor">#4A4F57</Color>
       <Color x:Key="DiffFillerColor">#17181B</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+
+      <!-- The one colour a page's primary action is painted in. Defined here rather than taken from
+           the theme package so it cannot quietly change out from under the button. -->
+      <Color x:Key="ActionAccentColor">#3574F0</Color>
+      <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
     </ResourceDictionary>
 
     <ResourceDictionary x:Key="Light">
@@ -103,6 +108,8 @@
       <Color x:Key="DiffWhitespaceColor">#B4BAC2</Color>
       <Color x:Key="DiffFillerColor">#F7F8FA</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+      <Color x:Key="ActionAccentColor">#2E63D6</Color>
+      <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
@@ -147,5 +154,7 @@
   <SolidColorBrush x:Key="DiffWhitespaceBrush" Color="{DynamicResource DiffWhitespaceColor}" />
   <SolidColorBrush x:Key="DiffFillerBrush" Color="{DynamicResource DiffFillerColor}" />
   <SolidColorBrush x:Key="DiffSelectionBrush" Color="{DynamicResource DiffSelectionColor}" />
+  <SolidColorBrush x:Key="ActionAccentBrush" Color="{DynamicResource ActionAccentColor}" />
+  <SolidColorBrush x:Key="ActionAccentForegroundBrush" Color="{DynamicResource ActionAccentForegroundColor}" />
 
 </ResourceDictionary>
