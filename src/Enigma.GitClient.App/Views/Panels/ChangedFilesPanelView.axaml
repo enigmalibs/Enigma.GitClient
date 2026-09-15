@@ -1,0 +1,188 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Panels"
+             x:Class="Enigma.GitClient.App.Views.Panels.ChangedFilesPanelView"
+             x:DataType="vm:ChangedFilesPanelViewModel">
+
+  <UserControl.Resources>
+    <!-- One template, used by both shapes: the list and the tree must never disagree about what a
+         row looks like or what is selected. -->
+    <DataTemplate x:Key="ChangedFileRow" x:DataType="vm:ChangedFileNodeViewModel">
+      <!-- The name sits in the one star column so the Grid can shrink it and the trimming
+           actually fires. A horizontal StackPanel would measure every child with infinite width,
+           which is what made a deeply indented tree row run past the panel's edge. -->
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Height="22">
+
+        <!-- The row's own menu. A ContextMenu opens in its own popup tree, so it cannot reach the
+             panel through a visual ancestor: the row passes the panel's commands through instead,
+             which keeps the binding a plain one against the row itself. -->
+        <Grid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Open file"
+                      Command="{Binding OpenFileCommand}"
+                      CommandParameter="{Binding}" />
+            <MenuItem Header="Show in file manager"
+                      Command="{Binding RevealFileCommand}"
+                      CommandParameter="{Binding}" />
+            <Separator />
+            <MenuItem Header="Copy path"
+                      Command="{Binding CopyPathCommand}"
+                      CommandParameter="{Binding}" />
+            <MenuItem Header="Copy file name"
+                      Command="{Binding CopyNameCommand}"
+                      CommandParameter="{Binding}" />
+          </ContextMenu>
+        </Grid.ContextMenu>
+
+        <!-- Avalonia can bind a style class straight to a boolean, which is far clearer than a
+             converter that compares strings. -->
+        <Border Grid.Column="0"
+                Classes="status"
+                Classes.added="{Binding IsAdded}"
+                Classes.deleted="{Binding IsDeleted}"
+                Classes.renamed="{Binding IsMoved}"
+                Classes.conflicted="{Binding IsConflicted}"
+                IsVisible="{Binding !IsDirectory}">
+          <TextBlock Text="{Binding StatusGlyph}"
+                     FontSize="10"
+                     FontWeight="SemiBold"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
+        </Border>
+
+        <ei:Icon Grid.Column="0"
+                 Kind="Folder"
+                 Size="14"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding IsDirectory}"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+        <TextBlock Grid.Column="1"
+                   Text="{Binding Label}"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Left"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding Path}"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+        <TextBlock Grid.Column="2"
+                   Text="{Binding DirectoryLabel}"
+                   IsVisible="{Binding HasDirectoryLabel}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   MaxWidth="140"
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+        <TextBlock Grid.Column="3"
+                   Text="{Binding RenameLabel}"
+                   IsVisible="{Binding IsRenamed}"
+                   ToolTip.Tip="{Binding RenameSource}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   MaxWidth="150"
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+        <TextBlock Grid.Column="4"
+                   Text="{Binding LineCounts}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   IsVisible="{Binding !IsDirectory}"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+        <TextBlock Grid.Column="4"
+                   Text="{Binding DirectorySummary}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   IsVisible="{Binding IsDirectory}"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="10,6">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Summary}"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsListMode, Mode=OneWay}"
+                        Command="{Binding ShowAsListCommand}"
+                        ToolTip.Tip="Show the files as a flat list"
+                        AutomationProperties.Name="Show the files as a flat list">
+            <ei:Icon Kind="ListBullets" Size="14" />
+          </ToggleButton>
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsTreeMode, Mode=OneWay}"
+                        Command="{Binding ShowAsTreeCommand}"
+                        ToolTip.Tip="Show the files as a tree"
+                        AutomationProperties.Name="Show the files as a tree">
+            <ei:Icon Kind="TreeStructure" Size="14" />
+          </ToggleButton>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Padding="10,6,10,4">
+      <TextBox Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="Filter files"
+               FontSize="12"
+               AutomationProperties.Name="Filter the changed files" />
+    </Border>
+
+    <!-- The three share one cell rather than docking beside one another: a docked child claims a
+         slice of the panel's width, which left the empty state squeezed against the edge instead
+         of centred over the space the list would have used. -->
+    <Grid>
+
+      <controls:EmptyState IconKind="FileText"
+                           Title="No files"
+                           Message="Select a commit to see the files it changed."
+                           IsVisible="{Binding IsEmpty}" />
+
+      <ListBox ItemsSource="{Binding Nodes}"
+               SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+               ItemTemplate="{StaticResource ChangedFileRow}"
+               IsVisible="{Binding IsListMode}"
+               Background="Transparent"
+               BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               AutomationProperties.Name="Changed files" />
+
+      <TreeView ItemsSource="{Binding Nodes}"
+                SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+                IsVisible="{Binding IsTreeMode}"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0,2,10,2"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                AutomationProperties.Name="Changed files">
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate x:DataType="vm:ChangedFileNodeViewModel" ItemsSource="{Binding Children}">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ChangedFileRow}" />
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+        <TreeView.Styles>
+          <!-- The item's own DataContext is the node, so the selector's x:DataType has to say so:
+               without it the compiled binding resolves against the panel's ViewModel instead. -->
+          <Style Selector="TreeViewItem" x:DataType="vm:ChangedFileNodeViewModel">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+          </Style>
+        </TreeView.Styles>
+      </TreeView>
+    </Grid>
+  </DockPanel>
+</UserControl>

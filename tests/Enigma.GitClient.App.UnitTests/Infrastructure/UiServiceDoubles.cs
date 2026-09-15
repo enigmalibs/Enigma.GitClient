@@ -6,6 +6,7 @@ using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Services;
 
 namespace Enigma.GitClient.App.UnitTests.Infrastructure;
 
@@ -141,4 +142,44 @@ public sealed class ScriptedContentDialogService : IContentDialogService
 
     /// <inheritdoc />
     public Task HideAsync() => Task.CompletedTask;
+}
+
+/// <summary>
+/// An <see cref="ISystemInterop"/> that records what was asked of the desktop instead of doing it.
+/// </summary>
+/// <remarks>
+/// The real one puts things on the developer's clipboard and opens their file manager, which is not
+/// something a test run may do.
+/// </remarks>
+public sealed class RecordingSystemInterop : ISystemInterop
+{
+    /// <summary>Gets the texts copied to the clipboard, oldest first.</summary>
+    public List<string> Copied { get; } = [];
+
+    /// <summary>Gets the paths handed to the desktop's default handler.</summary>
+    public List<string> Opened { get; } = [];
+
+    /// <summary>Gets the paths the file manager was asked to show.</summary>
+    public List<string> Revealed { get; } = [];
+
+    /// <inheritdoc />
+    public Task CopyTextAsync(string text)
+    {
+        Copied.Add(text);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<bool> OpenPathAsync(string path)
+    {
+        Opened.Add(path);
+        return Task.FromResult(true);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> RevealPathAsync(string path)
+    {
+        Revealed.Add(path);
+        return Task.FromResult(true);
+    }
 }

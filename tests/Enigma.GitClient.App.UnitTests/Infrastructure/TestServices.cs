@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Refs;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,6 +82,10 @@ public sealed class TestServices : IDisposable
         services.RemoveAll<IContentDialogService>();
         services.AddSingleton<IContentDialogService, ScriptedContentDialogService>();
 
+        // The clipboard and the file manager belong to whoever is running the tests.
+        services.RemoveAll<ISystemInterop>();
+        services.AddSingleton<ISystemInterop, RecordingSystemInterop>();
+
         return new TestServices(services.BuildServiceProvider(), root);
     }
 
@@ -93,6 +98,11 @@ public sealed class TestServices : IDisposable
     /// Gets the recording overlay service, for asserting an operation showed and hid its progress.
     /// </summary>
     public RecordingOverlayService Overlay => (RecordingOverlayService)Get<IOverlayService>();
+
+    /// <summary>
+    /// Gets the recording desktop interop, for asserting what a row menu asked for.
+    /// </summary>
+    public RecordingSystemInterop Interop => (RecordingSystemInterop)Get<ISystemInterop>();
 
     /// <summary>
     /// Gets the scripted dialog service, for choosing what a dialog answers.

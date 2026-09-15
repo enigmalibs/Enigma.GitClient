@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ei="https://github.com/josueclement/Enigma.Icons"
              xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:panels="using:Enigma.GitClient.App.Views.Panels"
              xmlns:graph="using:Enigma.GitClient.App.Controls.Graph"
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
              x:Class="Enigma.GitClient.App.Views.Pages.HistoryPageView"
@@ -83,12 +84,19 @@
               AutomationProperties.Name="Load more commits" />
     </Border>
 
-    <controls:EmptyState IconKind="GitCommit"
-                         Title="Commit history"
-                         Message="{Binding EmptyMessage}"
-                         IsVisible="{Binding IsEmpty}" />
+    <!--
+      The workspace: the graph on top, the details of whatever is selected underneath, with a
+      splitter between them so a reader can give either one the room it needs.
+    -->
+    <Grid RowDefinitions="*,Auto,Auto">
 
-    <ListBox ItemsSource="{Binding Rows}"
+      <Panel Grid.Row="0">
+        <controls:EmptyState IconKind="GitCommit"
+                             Title="Commit history"
+                             Message="{Binding EmptyMessage}"
+                             IsVisible="{Binding IsEmpty}" />
+
+        <ListBox ItemsSource="{Binding Rows}"
              SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
              IsVisible="{Binding !IsEmpty}"
              Background="Transparent"
@@ -193,6 +201,76 @@
           </Grid>
         </DataTemplate>
       </ListBox.ItemTemplate>
-    </ListBox>
+        </ListBox>
+      </Panel>
+
+      <GridSplitter Grid.Row="1"
+                    Height="4"
+                    ResizeDirection="Rows"
+                    Background="{DynamicResource EnigmaBorderSubtleBrush}"
+                    IsVisible="{Binding HasSelection}" />
+
+      <Border Grid.Row="2"
+              Height="300"
+              Background="{DynamicResource EnigmaSurfaceBrush}"
+              IsVisible="{Binding HasSelection}">
+        <DockPanel>
+
+          <!-- What was selected: the subject, who made it and when, and its full hash. -->
+          <Border DockPanel.Dock="Top"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="0,0,0,1"
+                  Padding="12,8">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding SelectedSubject}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap"
+                         MaxLines="2"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+              <StackPanel Orientation="Horizontal"
+                          Spacing="12"
+                          IsVisible="{Binding HasSelectedCommit}">
+                <TextBlock Text="{Binding SelectedAuthor}"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBlock Text="{Binding SelectedDate}"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                <TextBlock Classes="monospace"
+                           Text="{Binding SelectedSha}"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+
+              <TextBlock Text="{Binding SelectedBody}"
+                         IsVisible="{Binding HasSelectedBody}"
+                         FontSize="12"
+                         TextWrapping="Wrap"
+                         MaxLines="3"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnDefinitions="320,Auto,*">
+            <panels:ChangedFilesPanelView Grid.Column="0" DataContext="{Binding Files}" />
+
+            <GridSplitter Grid.Column="1"
+                          Width="4"
+                          ResizeDirection="Columns"
+                          Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+            <controls:EmptyState Grid.Column="2"
+                                 IconKind="GitDiff"
+                                 Title="Diff"
+                                 Message="Select a file to see what changed in it." />
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
   </DockPanel>
 </UserControl>

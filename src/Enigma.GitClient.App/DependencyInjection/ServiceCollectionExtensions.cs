@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
             services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
+            services.AddSingleton<ISystemInterop, SystemInterop>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
