@@ -1,6 +1,6 @@
 # FEATURE-478C — Branches, tags & checkout
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-478c-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -19,6 +19,8 @@ a commit, a branch, a remote branch or a tag.
 - All writes take the repository write lock from `IRepositoryContext`.
 
 ## PHASE01 — Branch management
+
+**Status:** DONE — see `docs/done/FEATURE-478C-PHASE01.md`
 
 **Steps**
 
@@ -47,6 +49,8 @@ a commit, a branch, a remote branch or a tag.
   service returning both answers).
 
 ## PHASE02 — Tags & checkout anything
+
+**Status:** TODO
 
 **Steps**
 

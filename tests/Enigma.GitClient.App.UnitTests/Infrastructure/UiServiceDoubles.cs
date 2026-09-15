@@ -109,8 +109,10 @@ public sealed class ScriptedContentDialogService : IContentDialogService
 {
     private readonly List<ContentDialog> _shown = [];
 
+    private readonly Queue<DialogResult> _script = new();
+
     /// <summary>
-    /// Gets or sets the result every dialog returns.
+    /// Gets or sets the result every dialog returns once <see cref="Script"/> has run out.
     /// </summary>
     public DialogResult Result { get; set; } = DialogResult.None;
 
@@ -119,6 +121,31 @@ public sealed class ScriptedContentDialogService : IContentDialogService
     /// </summary>
     public IReadOnlyList<ContentDialog> Shown => _shown;
 
+    /// <summary>
+    /// Gets the last dialog raised, or <see langword="null"/> when none was.
+    /// </summary>
+    public ContentDialog? Last => _shown.Count == 0 ? null : _shown[^1];
+
+    /// <summary>
+    /// Gets or sets a hook run on each dialog once it is configured, for a test that has to fill a
+    /// form in before answering it.
+    /// </summary>
+    public Action<ContentDialog>? OnShown { get; set; }
+
+    /// <summary>
+    /// Queues the answers a sequence of dialogs receives, in order.
+    /// </summary>
+    /// <param name="results">The answers.</param>
+    public void Script(params DialogResult[] results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+
+        foreach (DialogResult result in results)
+        {
+            _script.Enqueue(result);
+        }
+    }
+
     /// <inheritdoc />
     public void RegisterHost(ContentDialog dialog)
     {
@@ -126,7 +153,7 @@ public sealed class ScriptedContentDialogService : IContentDialogService
 
     /// <inheritdoc />
     public Task<DialogResult> ShowMessageAsync(string title, string message, string closeButtonText = "OK")
-        => Task.FromResult(Result);
+        => Task.FromResult(_script.Count > 0 ? _script.Dequeue() : Result);
 
     /// <inheritdoc />
     public Task<DialogResult> ShowAsync(Action<ContentDialog> configure)
@@ -136,8 +163,9 @@ public sealed class ScriptedContentDialogService : IContentDialogService
         ContentDialog dialog = new();
         configure(dialog);
         _shown.Add(dialog);
+        OnShown?.Invoke(dialog);
 
-        return Task.FromResult(Result);
+        return Task.FromResult(_script.Count > 0 ? _script.Dequeue() : Result);
     }
 
     /// <inheritdoc />

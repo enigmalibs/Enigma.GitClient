@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.SetUpstreamDialogView"
+             x:DataType="vm:SetUpstreamDialogViewModel"
+             MinWidth="460">
+  <StackPanel Spacing="12">
+
+    <TextBlock Text="{Binding BranchName, StringFormat='Upstream for {0}'}"
+               FontSize="12"
+               TextTrimming="CharacterEllipsis"
+               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+    <ComboBox ItemsSource="{Binding Candidates}"
+              SelectedItem="{Binding Selected, Mode=TwoWay}"
+              IsVisible="{Binding HasCandidates}"
+              HorizontalAlignment="Stretch"
+              AutomationProperties.Name="Upstream branch" />
+
+    <TextBlock Text="{Binding EmptyMessage}"
+               IsVisible="{Binding !HasCandidates}"
+               FontSize="12"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </StackPanel>
+</UserControl>

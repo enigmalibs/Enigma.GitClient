@@ -1,3 +1,4 @@
+using Enigma.GitClient.Core.Branches;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
@@ -38,6 +39,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRemoteReader, RemoteReader>();
             services.AddSingleton<IWorkingTreeProbe, WorkingTreeProbe>();
             services.AddSingleton<IDiffService, DiffService>();
+            services.AddSingleton<IBranchService, BranchService>();
 
             return services;
         }
