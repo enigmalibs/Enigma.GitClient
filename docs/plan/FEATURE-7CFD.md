@@ -1,6 +1,6 @@
 # FEATURE-7CFD — Solution foundation & git engine
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-7cfd-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -37,6 +37,8 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 
 ## PHASE01 — Solution scaffolding & config
 
+**Status:** DONE
+
 **Steps**
 
 1. `git-repo-hygiene`: copy `.gitignore` and `.gitattributes` from the bundled templates.
@@ -67,6 +69,8 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 - `.slnx` (not `.sln`); `src/`, `tests/`, `docs/` all present.
 
 ## PHASE02 — Git process runner & repository discovery
+
+**Status:** TODO
 
 **Steps**
 
@@ -101,6 +105,8 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 
 ## PHASE03 — Commit log reading & model
 
+**Status:** TODO
+
 **Steps**
 
 1. `GitCommit` record: `Sha`, `ShortSha` (7), `ParentShas`, `Author`/`Committer` (`GitSignature`:
@@ -125,6 +131,8 @@ tests/Enigma.GitClient.Core.IntegrationTests/  (real temp repositories driven by
 - An empty repository returns an empty page.
 
 ## PHASE04 — Refs, branches, tags & HEAD state
+
+**Status:** TODO
 
 **Steps**
 

@@ -1,0 +1,40 @@
+<Project>
+
+  <!-- Central Package Management: every PackageReference version in the solution is pinned
+       here so shared dependencies (e.g. Avalonia) cannot drift between projects. Projects
+       reference packages WITHOUT a Version attribute (<PackageReference Include="Foo" />);
+       the version comes from the matching <PackageVersion> below. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Core: hosting, DI, logging and options for the engine library and the desktop app. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+  </ItemGroup>
+
+  <!-- Desktop (Avalonia) — a version-coupled ecosystem: Avalonia, its Desktop/Fluent/Inter
+       companions and the Enigma control and icon libraries are bumped TOGETHER, never one
+       package at a time. 12.1.1 is the exact set Enigma.Avalonia.Desktop 1.0.0 was built
+       against (its nuspec pins Avalonia 12.1.1 and CommunityToolkit.Mvvm 8.4.2). -->
+  <ItemGroup>
+    <PackageVersion Include="Avalonia" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+    <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Enigma.Avalonia.Desktop" Version="1.0.0" />
+    <PackageVersion Include="Enigma.Icons.Avalonia" Version="1.0.0" />
+  </ItemGroup>
+
+  <!-- Tests (MTP-native: xunit.v3 only; Microsoft.Testing.Extensions.CodeCoverage for coverage).
+       No Microsoft.NET.Test.Sdk, no coverlet.collector. -->
+  <ItemGroup>
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
+  </ItemGroup>
+
+</Project>
