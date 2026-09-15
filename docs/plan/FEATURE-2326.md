@@ -1,6 +1,6 @@
 # FEATURE-2326 — Commit graph UI
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-2326-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -22,6 +22,8 @@ smooth on a repository with a hundred thousand commits.
   the look can be tuned without touching the drawing code.
 
 ## PHASE01 — Graph row rendering control
+
+**Status:** DONE
 
 **Steps**
 
@@ -52,6 +54,8 @@ smooth on a repository with a hundred thousand commits.
 - A 100-row graph renders in a headless layout pass in < 100 ms.
 
 ## PHASE02 — History page & virtualisation
+
+**Status:** TODO
 
 **Steps**
 

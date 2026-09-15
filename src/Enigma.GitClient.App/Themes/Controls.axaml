@@ -82,4 +82,52 @@
     </Setter>
   </ControlTheme>
 
+  <ControlTheme x:Key="{x:Type controls:RefBadge}" TargetType="controls:RefBadge">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <!-- A pill hugs its content. Without this it stretches to fill whatever it is placed in, which
+         is how a long branch name ends up as a badge the width of the window. -->
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Background" Value="{DynamicResource RefBadgeLocalBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource RefBadgeForegroundBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="3"
+                Padding="5,1"
+                ToolTip.Tip="{TemplateBinding Text}">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <ei:Icon Kind="{TemplateBinding IconKind}"
+                     Size="11"
+                     VerticalAlignment="Center"
+                     Foreground="{TemplateBinding Foreground}" />
+            <TextBlock Text="{TemplateBinding Text}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       MaxWidth="{TemplateBinding MaximumTextWidth}"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{TemplateBinding Foreground}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- The checked-out branch is the one piece of the row a reader looks for first. -->
+    <Style Selector="^.head">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeHeadBrush}" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="^.remote">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeRemoteBrush}" />
+    </Style>
+
+    <Style Selector="^.tag">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeTagBrush}" />
+    </Style>
+
+    <Style Selector="^.stash">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeStashBrush}" />
+    </Style>
+  </ControlTheme>
+
 </ResourceDictionary>
