@@ -20,9 +20,9 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-2326 | Commit graph UI                    | DONE        | docs/plan/FEATURE-2326.md |
 | - PHASE01    | Graph row rendering control        | DONE        | (in FEATURE-2326.md)      |
 | - PHASE02    | History page & virtualisation      | DONE        | (in FEATURE-2326.md)      |
-| FEATURE-7D1B | Commit details & diff viewer       | IN PROGRESS | docs/plan/FEATURE-7D1B.md |
+| FEATURE-7D1B | Commit details & diff viewer       | DONE        | docs/plan/FEATURE-7D1B.md |
 | - PHASE01    | Changed files list/tree panel      | DONE        | (in FEATURE-7D1B.md)      |
-| - PHASE02    | Colour-coded diff viewer           | TODO        | (in FEATURE-7D1B.md)      |
+| - PHASE02    | Colour-coded diff viewer           | DONE        | (in FEATURE-7D1B.md)      |
 | FEATURE-478C | Branches, tags & checkout          | TODO        | docs/plan/FEATURE-478C.md |
 | - PHASE01    | Branch management                  | TODO        | (in FEATURE-478C.md)      |
 | - PHASE02    | Tags & checkout anything           | TODO        | (in FEATURE-478C.md)      |

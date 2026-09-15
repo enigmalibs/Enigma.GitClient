@@ -40,6 +40,25 @@
       <Color x:Key="DiffStatusRenamedColor">#6B4A9E</Color>
       <Color x:Key="DiffStatusConflictedColor">#9E6B1E</Color>
       <Color x:Key="DiffStatusForegroundColor">#F2F4F8</Color>
+
+      <!--
+        The diff viewer's tints. A line's own tint stays quiet enough to read code through; the
+        word-level tint sitting on top of it is what the eye lands on, so the two differ by enough
+        to be told apart at a glance without either fighting the text.
+      -->
+      <Color x:Key="DiffAddedLineColor">#0C1F13</Color>
+      <Color x:Key="DiffRemovedLineColor">#2C1514</Color>
+      <Color x:Key="DiffAddedWordColor">#205230</Color>
+      <Color x:Key="DiffRemovedWordColor">#83352B</Color>
+      <Color x:Key="DiffAddedMarkerColor">#57C77E</Color>
+      <Color x:Key="DiffRemovedMarkerColor">#F2725B</Color>
+      <Color x:Key="DiffGutterColor">#1A1B1E</Color>
+      <Color x:Key="DiffGutterForegroundColor">#6B7078</Color>
+      <Color x:Key="DiffHunkBandColor">#232A38</Color>
+      <Color x:Key="DiffHunkForegroundColor">#8FA3C4</Color>
+      <Color x:Key="DiffWhitespaceColor">#4A4F57</Color>
+      <Color x:Key="DiffFillerColor">#17181B</Color>
+      <Color x:Key="DiffSelectionColor">#3574F0</Color>
     </ResourceDictionary>
 
     <ResourceDictionary x:Key="Light">
@@ -70,6 +89,20 @@
       <Color x:Key="DiffStatusRenamedColor">#8E46AC</Color>
       <Color x:Key="DiffStatusConflictedColor">#C2801B</Color>
       <Color x:Key="DiffStatusForegroundColor">#FFFFFF</Color>
+
+      <Color x:Key="DiffAddedLineColor">#E6F8EA</Color>
+      <Color x:Key="DiffRemovedLineColor">#FDEBE8</Color>
+      <Color x:Key="DiffAddedWordColor">#86D29D</Color>
+      <Color x:Key="DiffRemovedWordColor">#F59D8E</Color>
+      <Color x:Key="DiffAddedMarkerColor">#1E7A3C</Color>
+      <Color x:Key="DiffRemovedMarkerColor">#C03A22</Color>
+      <Color x:Key="DiffGutterColor">#F2F4F7</Color>
+      <Color x:Key="DiffGutterForegroundColor">#8A9099</Color>
+      <Color x:Key="DiffHunkBandColor">#E6EDF8</Color>
+      <Color x:Key="DiffHunkForegroundColor">#3F5B84</Color>
+      <Color x:Key="DiffWhitespaceColor">#B4BAC2</Color>
+      <Color x:Key="DiffFillerColor">#F7F8FA</Color>
+      <Color x:Key="DiffSelectionColor">#3574F0</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
@@ -100,5 +133,19 @@
   <SolidColorBrush x:Key="DiffStatusRenamedBrush" Color="{DynamicResource DiffStatusRenamedColor}" />
   <SolidColorBrush x:Key="DiffStatusConflictedBrush" Color="{DynamicResource DiffStatusConflictedColor}" />
   <SolidColorBrush x:Key="DiffStatusForegroundBrush" Color="{DynamicResource DiffStatusForegroundColor}" />
+
+  <SolidColorBrush x:Key="DiffAddedLineBrush" Color="{DynamicResource DiffAddedLineColor}" />
+  <SolidColorBrush x:Key="DiffRemovedLineBrush" Color="{DynamicResource DiffRemovedLineColor}" />
+  <SolidColorBrush x:Key="DiffAddedWordBrush" Color="{DynamicResource DiffAddedWordColor}" />
+  <SolidColorBrush x:Key="DiffRemovedWordBrush" Color="{DynamicResource DiffRemovedWordColor}" />
+  <SolidColorBrush x:Key="DiffAddedMarkerBrush" Color="{DynamicResource DiffAddedMarkerColor}" />
+  <SolidColorBrush x:Key="DiffRemovedMarkerBrush" Color="{DynamicResource DiffRemovedMarkerColor}" />
+  <SolidColorBrush x:Key="DiffGutterBrush" Color="{DynamicResource DiffGutterColor}" />
+  <SolidColorBrush x:Key="DiffGutterForegroundBrush" Color="{DynamicResource DiffGutterForegroundColor}" />
+  <SolidColorBrush x:Key="DiffHunkBandBrush" Color="{DynamicResource DiffHunkBandColor}" />
+  <SolidColorBrush x:Key="DiffHunkForegroundBrush" Color="{DynamicResource DiffHunkForegroundColor}" />
+  <SolidColorBrush x:Key="DiffWhitespaceBrush" Color="{DynamicResource DiffWhitespaceColor}" />
+  <SolidColorBrush x:Key="DiffFillerBrush" Color="{DynamicResource DiffFillerColor}" />
+  <SolidColorBrush x:Key="DiffSelectionBrush" Color="{DynamicResource DiffSelectionColor}" />
 
 </ResourceDictionary>

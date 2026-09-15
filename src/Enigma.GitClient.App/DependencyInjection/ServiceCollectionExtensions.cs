@@ -3,9 +3,11 @@ using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.App.Views.Panels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Enigma.GitClient.App.DependencyInjection;
@@ -73,6 +75,11 @@ public static class ServiceCollectionExtensions
             // ViewModel, so a cancelled dialog never leaves its half-typed state behind.
             services.AddTransient<CloneRepositoryDialogView>();
             services.AddTransient<InitRepositoryDialogView>();
+
+            // The diff viewer is per-consumer: two places showing a diff must not share a scroll
+            // position, a view mode or a selection.
+            services.AddTransient<DiffViewerViewModel>();
+            services.AddTransient<DiffViewerView>();
 
             return services;
         }

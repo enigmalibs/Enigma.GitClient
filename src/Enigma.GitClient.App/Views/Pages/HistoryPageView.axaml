@@ -264,10 +264,7 @@
                           ResizeDirection="Columns"
                           Background="{DynamicResource EnigmaBorderSubtleBrush}" />
 
-            <controls:EmptyState Grid.Column="2"
-                                 IconKind="GitDiff"
-                                 Title="Diff"
-                                 Message="Select a file to see what changed in it." />
+            <panels:DiffViewerView Grid.Column="2" DataContext="{Binding Diff}" />
           </Grid>
         </DockPanel>
       </Border>

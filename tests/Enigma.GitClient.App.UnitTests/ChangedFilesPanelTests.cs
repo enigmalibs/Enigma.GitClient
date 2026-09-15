@@ -627,6 +627,49 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
+    public void Panel_DrawsASelectedRowWithoutLosingItsCounts()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = ThemeVariant.Dark;
+
+            try
+            {
+                ChangedFilesPanelViewModel panel = Loaded();
+                panel.SelectPath("src/app/Program.cs");
+
+                ChangedFilesPanelView view = new() { DataContext = panel };
+
+                IReadOnlyList<string> texts = RenderAndReadText(view, "changed-files-selected.png", 320, 320);
+
+                // The selected row is the one the diff viewer follows, so it is the row most often
+                // read: its counts must survive the selection highlight and the tree's indent.
+                Assert.Contains("+40 −0", texts);
+
+                TextBlock counts = view.GetVisualDescendants()
+                    .OfType<TextBlock>()
+                    .Single(block => block.Text == "+40 −0");
+
+                Point corner = counts.TranslatePoint(new Point(counts.Bounds.Width, 0), view)
+                    ?? throw new InvalidOperationException("The counts are not in the panel's tree.");
+
+                // Drawn is not the same as visible: a row wider than the panel puts its counts past
+                // the edge, where they are silently clipped.
+                Assert.True(
+                    corner.X <= view.Bounds.Width,
+                    $"the counts end at {corner.X.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} "
+                    + $"in a panel {view.Bounds.Width.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} wide");
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
     public void Panel_DrawsItsEmptyStateWhenThereIsNothingToShow()
     {
         _fixture.Run(() =>
@@ -672,7 +715,7 @@ public sealed class ChangedFilesPanelTests
                 ?? throw new InvalidOperationException("The changed-files panel produced no rendered frame.");
 
             frame.Save(path, PngBitmapEncoderOptions.Default);
-            colours = CountColours(path);
+            colours = SnapshotColours.Count(path);
 
             if (colours >= 8)
             {
@@ -697,32 +740,6 @@ public sealed class ChangedFilesPanelTests
         window.Close();
 
         return texts;
-    }
-
-    private static int CountColours(string path)
-    {
-        using FileStream stream = File.OpenRead(path);
-        using WriteableBitmap writeable = WriteableBitmap.Decode(stream);
-        using ILockedFramebuffer buffer = writeable.Lock();
-
-        HashSet<int> colours = [];
-
-        unsafe
-        {
-            byte* pixels = (byte*)buffer.Address;
-
-            for (int y = 0; y < buffer.Size.Height; y++)
-            {
-                byte* row = pixels + (y * buffer.RowBytes);
-
-                for (int x = 0; x < buffer.Size.Width; x++)
-                {
-                    colours.Add(((row[(x * 4) + 2] >> 4) << 8) | ((row[(x * 4) + 1] >> 4) << 4) | (row[x * 4] >> 4));
-                }
-            }
-        }
-
-        return colours.Count;
     }
 
     // ---------------------------------------------------------------- fixture
