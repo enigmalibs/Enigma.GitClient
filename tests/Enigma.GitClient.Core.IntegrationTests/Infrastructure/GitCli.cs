@@ -17,7 +17,8 @@ internal static class GitCli
     public static async Task<string> RunAsync(
         string workingDirectory,
         IReadOnlyDictionary<string, string> environment,
-        IReadOnlyList<string> arguments)
+        IReadOnlyList<string> arguments,
+        IReadOnlyDictionary<string, string>? extraEnvironment = null)
     {
         System.Threading.CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
@@ -41,6 +42,14 @@ internal static class GitCli
         foreach (KeyValuePair<string, string> entry in environment)
         {
             startInfo.Environment[entry.Key] = entry.Value;
+        }
+
+        if (extraEnvironment is not null)
+        {
+            foreach (KeyValuePair<string, string> entry in extraEnvironment)
+            {
+                startInfo.Environment[entry.Key] = entry.Value;
+            }
         }
 
         using Process process = Process.Start(startInfo)

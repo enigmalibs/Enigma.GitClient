@@ -135,6 +135,53 @@ public sealed class TemporaryRepository
     }
 
     /// <summary>
+    /// Stages everything and commits it with explicit author and committer dates, so a test can
+    /// assert on ordering without depending on how fast the machine runs.
+    /// </summary>
+    /// <param name="message">The commit message.</param>
+    /// <param name="when">The author and committer timestamp.</param>
+    /// <returns>The new commit's full SHA.</returns>
+    public async Task<string> CommitAllAtAsync(string message, DateTimeOffset when)
+    {
+        await GitAsync("add", "--all");
+
+        string stamp = when.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+        Dictionary<string, string> dates = new(StringComparer.Ordinal)
+        {
+            ["GIT_AUTHOR_DATE"] = stamp,
+            ["GIT_COMMITTER_DATE"] = stamp,
+        };
+
+        await GitCli.RunAsync(Path, Workspace.Environment, ["commit", "-m", message], dates);
+        return await GitLineAsync("rev-parse", "HEAD");
+    }
+
+    /// <summary>
+    /// Writes a file and commits it with explicit dates.
+    /// </summary>
+    /// <param name="relativePath">The path relative to the work tree.</param>
+    /// <param name="content">The file's content.</param>
+    /// <param name="message">The commit message.</param>
+    /// <param name="when">The author and committer timestamp.</param>
+    /// <returns>The new commit's full SHA.</returns>
+    public Task<string> CommitFileAtAsync(string relativePath, string content, string message, DateTimeOffset when)
+    {
+        WriteFile(relativePath, content);
+        return CommitAllAtAsync(message, when);
+    }
+
+    /// <summary>
+    /// Runs a git command with extra environment variables set for that invocation only.
+    /// </summary>
+    /// <param name="extraEnvironment">The extra environment variables.</param>
+    /// <param name="arguments">The git arguments.</param>
+    /// <returns>Standard output.</returns>
+    public Task<string> GitWithEnvironmentAsync(
+        IReadOnlyDictionary<string, string> extraEnvironment,
+        params string[] arguments)
+        => GitCli.RunAsync(Path, Workspace.Environment, arguments, extraEnvironment);
+
+    /// <summary>
     /// Runs a git command and returns its output split into lines.
     /// </summary>
     /// <param name="arguments">The git arguments.</param>

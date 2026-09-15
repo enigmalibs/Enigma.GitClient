@@ -1,4 +1,5 @@
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,7 +14,7 @@ public static class ServiceCollectionExtensions
     {
         /// <summary>
         /// Registers the git engine: executable resolution, the command factory, the process
-        /// runner, the environment probe and repository discovery.
+        /// runner, the environment probe, repository discovery and the commit-log reader.
         /// </summary>
         /// <returns>The same collection, so calls can be chained.</returns>
         public IServiceCollection AddGitClientCore()
@@ -25,6 +26,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
             services.AddSingleton<IGitEnvironment, GitEnvironment>();
             services.AddSingleton<IRepositoryLocator, RepositoryLocator>();
+            services.AddSingleton<ICommitLogReader, CommitLogReader>();
 
             return services;
         }
