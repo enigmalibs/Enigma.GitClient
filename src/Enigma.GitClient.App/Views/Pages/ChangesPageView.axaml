@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.ChangesPageView"
+             x:DataType="vm:ChangesPageViewModel">
+  <DockPanel>
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <ei:Icon Kind="FileText" Size="18" VerticalAlignment="Center"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+        <TextBlock Text="{Binding Title}"
+                   VerticalAlignment="Center"
+                   FontSize="15"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+      </StackPanel>
+    </Border>
+
+    <controls:EmptyState IconKind="FileText"
+                         Title="Working directory"
+                         Message="{Binding EmptyMessage}" />
+  </DockPanel>
+</UserControl>

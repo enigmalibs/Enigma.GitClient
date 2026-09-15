@@ -1,0 +1,47 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+                    xmlns:controls="using:Enigma.GitClient.App.Controls">
+
+  <!-- Themes for the application's own controls. Merged after Enigma.Avalonia.Desktop's
+       dictionary so an override of an Enigma* key here would win; none is overridden today. -->
+
+  <ControlTheme x:Key="{x:Type controls:EmptyState}" TargetType="controls:EmptyState">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent" Padding="32">
+          <StackPanel HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      MaxWidth="420"
+                      Spacing="12">
+            <ei:Icon Kind="{TemplateBinding IconKind}"
+                     Size="44"
+                     HorizontalAlignment="Center"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBlock Text="{TemplateBinding Title}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <TextBlock Text="{TemplateBinding Message}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       FontSize="13"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="Center"
+                              Margin="0,8,0,0" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

@@ -1,0 +1,54 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
+       Enigma* brushes so they follow a theme switch. -->
+
+  <!--
+    Toolbar buttons: icon-only actions that sit on a surface strip. FluentTheme's default button
+    paints a filled plate in every state, which reads as a box floating on the strip; a toolbar
+    button should be invisible until it is hovered.
+  -->
+  <Style Selector="Button.toolbar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaPressedBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled">
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+
+  <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
+  <Style Selector="Border.pill">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Short hashes and file content read as code, so they get the monospace stack. -->
+  <Style Selector="TextBlock.monospace">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+  </Style>
+
+</Styles>
