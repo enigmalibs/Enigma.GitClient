@@ -12,7 +12,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE04    | Refs, branches, tags & HEAD state  | DONE        | (in FEATURE-7CFD.md)      |
 | FEATURE-6DB0 | Core graph, diff & tree algorithms | IN PROGRESS | docs/plan/FEATURE-6DB0.md |
 | - PHASE01    | Commit graph lane layout           | DONE        | (in FEATURE-6DB0.md)      |
-| - PHASE02    | Unified diff & word-level diff     | TODO        | (in FEATURE-6DB0.md)      |
+| - PHASE02    | Unified diff & word-level diff     | DONE        | (in FEATURE-6DB0.md)      |
 | - PHASE03    | File path tree builder             | TODO        | (in FEATURE-6DB0.md)      |
 | FEATURE-52FB | App shell & repository opening     | TODO        | docs/plan/FEATURE-52FB.md |
 | - PHASE01    | Avalonia shell, theme & DI         | TODO        | (in FEATURE-52FB.md)      |

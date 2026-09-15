@@ -59,7 +59,7 @@ path-tree builder that backs the list/tree toggle of the changed-files panel.
 
 ## PHASE02 — Unified diff & word-level diff
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 
