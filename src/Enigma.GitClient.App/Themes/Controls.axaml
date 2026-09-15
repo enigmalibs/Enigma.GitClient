@@ -130,4 +130,25 @@
     </Style>
   </ControlTheme>
 
+  <ControlTheme x:Key="{x:Type controls:AuthorAvatar}" TargetType="controls:AuthorAvatar">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Tint}"
+                CornerRadius="9"
+                Width="18"
+                Height="18">
+          <TextBlock Text="{TemplateBinding Initials}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     FontSize="9"
+                     FontWeight="SemiBold"
+                     Foreground="#12151A" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
 </ResourceDictionary>

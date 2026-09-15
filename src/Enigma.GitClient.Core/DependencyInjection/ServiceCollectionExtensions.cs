@@ -3,6 +3,7 @@ using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Status;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Enigma.GitClient.Core.DependencyInjection;
@@ -34,6 +35,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ICommitLogReader, CommitLogReader>();
             services.AddSingleton<IRefReader, RefReader>();
             services.AddSingleton<IRemoteReader, RemoteReader>();
+            services.AddSingleton<IWorkingTreeProbe, WorkingTreeProbe>();
 
             return services;
         }

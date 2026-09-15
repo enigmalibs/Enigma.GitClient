@@ -1,0 +1,186 @@
+using System;
+using System.Collections.Generic;
+using Enigma.GitClient.App.Formatting;
+using Enigma.GitClient.Core.Graph;
+using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Refs;
+
+namespace Enigma.GitClient.App.ViewModels.Pages;
+
+/// <summary>
+/// One badge on a history row.
+/// </summary>
+/// <param name="Kind">What the reference is, which decides the badge's colour and icon.</param>
+/// <param name="Name">The reference's short name.</param>
+/// <param name="IsCurrent">Whether this is the branch HEAD points at.</param>
+/// <remarks>
+/// Flattened out of <see cref="GitRef"/> on purpose: only <see cref="GitBranch"/> knows whether it
+/// is checked out, and a template bound to the base type cannot see that — which is exactly how the
+/// checked-out branch ends up drawn like any other.
+/// </remarks>
+public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
+{
+    /// <summary>
+    /// Projects a reference onto a badge.
+    /// </summary>
+    /// <param name="reference">The reference.</param>
+    /// <returns>The badge.</returns>
+    public static RefBadgeItem From(GitRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+
+        return new RefBadgeItem(reference.Kind, reference.ShortName, reference is GitBranch { IsCurrent: true });
+    }
+}
+
+/// <summary>
+/// One row of the history view: the graph segment to draw, the commit it belongs to, the refs
+/// pointing at it, and everything already formatted for display.
+/// </summary>
+/// <remarks>
+/// Formatting happens once, when the row is created, rather than in a converter on every redraw: a
+/// virtualised list re-renders its rows constantly, and a relative timestamp computed per frame is
+/// pure waste.
+/// </remarks>
+public sealed class CommitRowViewModel : ViewModelBase
+{
+    private static readonly IReadOnlyList<RefBadgeItem> NoRefs = [];
+
+    /// <summary>
+    /// Initialises a row for a commit.
+    /// </summary>
+    /// <param name="commit">The commit.</param>
+    /// <param name="row">Its graph row.</param>
+    /// <param name="refs">The references pointing at it.</param>
+    /// <param name="isHead">Whether HEAD resolves to it.</param>
+    /// <param name="now">The moment relative timestamps are measured from.</param>
+    public CommitRowViewModel(
+        GitCommit commit,
+        GraphRow row,
+        IReadOnlyList<GitRef>? refs,
+        bool isHead,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(commit);
+        ArgumentNullException.ThrowIfNull(row);
+
+        Commit = commit;
+        Row = row;
+        Refs = Project(refs);
+        IsHead = isHead;
+
+        Subject = commit.Subject;
+        AuthorName = commit.Author.Name;
+        AuthorInitials = commit.Author.Initials;
+        AuthorTooltip = commit.Author.ToString();
+        ShortSha = commit.ShortSha;
+        RelativeDate = RelativeTime.Format(commit.Author.When, now);
+        AbsoluteDate = RelativeTime.FormatAbsolute(commit.Author.When);
+    }
+
+    private CommitRowViewModel(GraphRow row)
+    {
+        Row = row;
+        Refs = NoRefs;
+        IsUncommitted = true;
+        Subject = "Uncommitted changes";
+        AuthorName = string.Empty;
+        AuthorInitials = string.Empty;
+        AuthorTooltip = string.Empty;
+        ShortSha = string.Empty;
+        RelativeDate = string.Empty;
+        AbsoluteDate = string.Empty;
+    }
+
+    /// <summary>
+    /// Gets the commit, or <see langword="null"/> for the uncommitted-changes row.
+    /// </summary>
+    public GitCommit? Commit { get; }
+
+    /// <summary>
+    /// Gets the graph segment this row draws.
+    /// </summary>
+    public GraphRow Row { get; }
+
+    /// <summary>
+    /// Gets the badges for the references pointing at this commit, in badge order.
+    /// </summary>
+    public IReadOnlyList<RefBadgeItem> Refs { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether there is anything to show in the badge strip.
+    /// </summary>
+    public bool HasRefs => Refs.Count > 0;
+
+    /// <summary>
+    /// Gets a value indicating whether HEAD resolves to this commit.
+    /// </summary>
+    public bool IsHead { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether this is the pseudo-row standing for the working directory.
+    /// </summary>
+    public bool IsUncommitted { get; }
+
+    /// <summary>Gets the commit's subject, or the pseudo-row's label.</summary>
+    public string Subject { get; }
+
+    /// <summary>Gets the author's name.</summary>
+    public string AuthorName { get; }
+
+    /// <summary>Gets the author's initials, for the monogram avatar.</summary>
+    public string AuthorInitials { get; }
+
+    /// <summary>Gets the author's name and email, for the avatar's tooltip.</summary>
+    public string AuthorTooltip { get; }
+
+    /// <summary>Gets the abbreviated SHA.</summary>
+    public string ShortSha { get; }
+
+    /// <summary>Gets the age of the commit, as a short phrase.</summary>
+    public string RelativeDate { get; }
+
+    /// <summary>Gets the exact timestamp, for the tooltip behind the relative one.</summary>
+    public string AbsoluteDate { get; }
+
+    /// <summary>
+    /// Gets the commit's full SHA, empty for the uncommitted-changes row.
+    /// </summary>
+    public string Sha => Commit?.Sha ?? string.Empty;
+
+    /// <summary>
+    /// Creates the pseudo-row shown above the history when the working directory is dirty.
+    /// </summary>
+    /// <param name="lane">The lane it is drawn in, normally the one HEAD occupies.</param>
+    /// <param name="colour">The palette index it is drawn in.</param>
+    /// <returns>The row.</returns>
+    public static CommitRowViewModel Uncommitted(int lane, int colour)
+        => new(new GraphRow(
+            string.Empty,
+            lane,
+            colour,
+            isMerge: false,
+            isRoot: false,
+            [new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour)],
+            lane));
+
+    private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs)
+    {
+        if (refs is null || refs.Count == 0)
+        {
+            return NoRefs;
+        }
+
+        List<RefBadgeItem> items = new(refs.Count);
+
+        foreach (GitRef reference in refs)
+        {
+            items.Add(RefBadgeItem.From(reference));
+        }
+
+        return items;
+    }
+
+    /// <inheritdoc />
+    public override string ToString() => IsUncommitted ? "(uncommitted)" : $"{ShortSha} {Subject}";
+}

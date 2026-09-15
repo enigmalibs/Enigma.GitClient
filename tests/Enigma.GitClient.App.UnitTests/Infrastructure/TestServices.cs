@@ -45,8 +45,13 @@ public sealed class TestServices : IDisposable
     /// <summary>
     /// Builds a container for a test.
     /// </summary>
+    /// <param name="useRealRefReader">
+    /// Whether to keep the real <see cref="IRefReader"/>. Pass <see langword="true"/> for a test
+    /// that works against a repository it actually created — a page showing branch badges or a HEAD
+    /// marker is showing what the reader found, so faking the reader would test nothing.
+    /// </param>
     /// <returns>The container, which must be disposed.</returns>
-    public static TestServices Build()
+    public static TestServices Build(bool useRealRefReader = false)
     {
         string root = Path.Combine(Path.GetTempPath(), "enigma-app-tests-" + Guid.NewGuid().ToString("N"));
 
@@ -54,8 +59,11 @@ public sealed class TestServices : IDisposable
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
         App.ConfigureServices(services);
 
-        services.RemoveAll<IRefReader>();
-        services.AddSingleton<IRefReader, FakeRefReader>();
+        if (!useRealRefReader)
+        {
+            services.RemoveAll<IRefReader>();
+            services.AddSingleton<IRefReader, FakeRefReader>();
+        }
 
         // Never the developer's own ~/.config: a test that writes there is a test that changes the
         // machine it runs on.
