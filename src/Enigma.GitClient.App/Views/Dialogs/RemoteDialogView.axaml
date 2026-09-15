@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.RemoteDialogView"
+             x:DataType="vm:RemoteDialogViewModel"
+             MinWidth="560">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="origin"
+               AutomationProperties.Name="Remote name" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Fetch from"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding FetchUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="https://example.com/team/project.git"
+               AutomationProperties.Name="Fetch URL" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Push to (optional)"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding PushUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="Leave empty to push where you fetch from"
+               AutomationProperties.Name="Push URL" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 MaxWidth="480"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

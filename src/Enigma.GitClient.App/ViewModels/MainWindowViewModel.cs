@@ -26,6 +26,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly IGitEnvironment _gitEnvironment;
     private readonly IContentDialogService _dialogService;
+    private readonly ISyncOperations _sync;
     private readonly ILogger<MainWindowViewModel> _logger;
     private bool _initialised;
 
@@ -43,6 +44,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         IGitEnvironment gitEnvironment,
         IContentDialogService dialogService,
         HistoryPageViewModel history,
+        ISyncOperations sync,
         ILogger<MainWindowViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(shell);
@@ -50,6 +52,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(gitEnvironment);
         ArgumentNullException.ThrowIfNull(dialogService);
         ArgumentNullException.ThrowIfNull(history);
+        ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(logger);
 
         // The graph's uncommitted row belongs to the working directory page, and the shell is the
@@ -62,7 +65,13 @@ public sealed class MainWindowViewModel : ViewModelBase
         _dialogService = dialogService;
         _logger = logger;
 
+        _sync = sync;
+
         ToggleThemeCommand = new RelayCommand(OnToggleTheme);
+
+        FetchCommand = new AsyncRelayCommand(RunSyncAsync(_sync.FetchAsync), () => CanSync);
+        PullCommand = new AsyncRelayCommand(RunSyncAsync(_sync.PullAsync), () => CanSync);
+        PushCommand = new AsyncRelayCommand(RunSyncAsync(() => _sync.PushAsync()), () => CanSync);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
@@ -143,6 +152,41 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// </summary>
     public AsyncRelayCommand RefreshCommand { get; }
 
+    /// <summary>Gets the command that fetches from every remote.</summary>
+    public AsyncRelayCommand FetchCommand { get; }
+
+    /// <summary>Gets the command that pulls into the current branch.</summary>
+    public AsyncRelayCommand PullCommand { get; }
+
+    /// <summary>Gets the command that pushes the current branch.</summary>
+    public AsyncRelayCommand PushCommand { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether there is a repository to synchronise at all.
+    /// </summary>
+    public bool CanSync => RepositoryContext.IsRepositoryOpen;
+
+    /// <summary>Gets how many commits the branch has that its upstream does not.</summary>
+    public string Ahead
+        => (RepositoryContext.Refs.CurrentBranch?.Tracking.Ahead ?? 0)
+            .ToString(System.Globalization.CultureInfo.CurrentCulture);
+
+    /// <summary>Gets how many commits the upstream has that the branch does not.</summary>
+    public string Behind
+        => (RepositoryContext.Refs.CurrentBranch?.Tracking.Behind ?? 0)
+            .ToString(System.Globalization.CultureInfo.CurrentCulture);
+
+    /// <summary>Gets a value indicating whether there is anything to push.</summary>
+    public bool IsAhead => RepositoryContext.Refs.CurrentBranch?.Tracking.Ahead > 0;
+
+    /// <summary>Gets a value indicating whether there is anything to pull.</summary>
+    public bool IsBehind => RepositoryContext.Refs.CurrentBranch?.Tracking.Behind > 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the current branch has an upstream to compare against.
+    /// </summary>
+    public bool HasUpstream => RepositoryContext.Refs.CurrentBranch?.UpstreamShortName is { Length: > 0 };
+
     /// <summary>
     /// Runs the one-time startup checks. Called once the window is on screen, because the git
     /// warning is shown through the content dialog host the window owns.
@@ -195,7 +239,14 @@ public sealed class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(RepositoryName));
                 OnPropertyChanged(nameof(RepositoryPath));
+                OnPropertyChanged(nameof(CanSync));
                 RefreshCommand.NotifyCanExecuteChanged();
+                FetchCommand.NotifyCanExecuteChanged();
+                PullCommand.NotifyCanExecuteChanged();
+                PushCommand.NotifyCanExecuteChanged();
+                break;
+            case nameof(IRepositoryContext.Refs):
+                NotifyTracking();
                 break;
             case nameof(IRepositoryContext.Head):
                 OnPropertyChanged(nameof(HeadDisplayName));
@@ -206,6 +257,35 @@ public sealed class MainWindowViewModel : ViewModelBase
             default:
                 break;
         }
+    }
+
+    /// <summary>
+    /// Wraps a synchronise operation so the toolbar shows the result of it without each command
+    /// repeating the same four lines.
+    /// </summary>
+    private Func<Task> RunSyncAsync(Func<Task<bool>> operation)
+        => async () =>
+        {
+            IsBusy = true;
+
+            try
+            {
+                await operation().ConfigureAwait(true);
+            }
+            finally
+            {
+                IsBusy = false;
+                NotifyTracking();
+            }
+        };
+
+    private void NotifyTracking()
+    {
+        OnPropertyChanged(nameof(Ahead));
+        OnPropertyChanged(nameof(Behind));
+        OnPropertyChanged(nameof(IsAhead));
+        OnPropertyChanged(nameof(IsBehind));
+        OnPropertyChanged(nameof(HasUpstream));
     }
 
     private static void OnToggleTheme()

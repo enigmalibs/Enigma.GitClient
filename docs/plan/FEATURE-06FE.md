@@ -1,6 +1,6 @@
 # FEATURE-06FE — Remotes & synchronisation
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-06fe-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -20,6 +20,8 @@ and stash, so switching context never costs work.
 - Network operations are cancellable, and cancellation kills the child process tree.
 
 ## PHASE01 — Fetch, pull, push & remotes
+
+**Status:** DONE — see `docs/done/FEATURE-06FE-PHASE01.md`
 
 **Steps**
 
@@ -53,6 +55,8 @@ and stash, so switching context never costs work.
   command factory's surface).
 
 ## PHASE02 — Stash management
+
+**Status:** TODO
 
 **Steps**
 
