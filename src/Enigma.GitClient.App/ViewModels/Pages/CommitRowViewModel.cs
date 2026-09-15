@@ -106,8 +106,9 @@ public sealed class CommitRowViewModel : ViewModelBase
         AbsoluteDate = RelativeTime.FormatAbsolute(commit.Author.When);
     }
 
-    private CommitRowViewModel(GraphRow row)
+    private CommitRowViewModel(GraphRow row, HistoryRowCommands? commands)
     {
+        Commands = commands;
         Row = row;
         Refs = NoRefs;
         IsUncommitted = true;
@@ -265,16 +266,22 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// </summary>
     /// <param name="lane">The lane it is drawn in, normally the one HEAD occupies.</param>
     /// <param name="colour">The palette index it is drawn in.</param>
+    /// <param name="commands">
+    /// The commands the row's own menu runs. The pseudo-row has no commit, so most of them refuse —
+    /// but activating it is what takes the reader to the page that can act on the work.
+    /// </param>
     /// <returns>The row.</returns>
-    public static CommitRowViewModel Uncommitted(int lane, int colour)
-        => new(new GraphRow(
-            string.Empty,
-            lane,
-            colour,
-            isMerge: false,
-            isRoot: false,
-            [new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour)],
-            lane));
+    public static CommitRowViewModel Uncommitted(int lane, int colour, HistoryRowCommands? commands = null)
+        => new(
+            new GraphRow(
+                string.Empty,
+                lane,
+                colour,
+                isMerge: false,
+                isRoot: false,
+                [new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour)],
+                lane),
+            commands);
 
     private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs)
     {

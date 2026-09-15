@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Diagnostics;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Refs;
@@ -41,13 +42,19 @@ public sealed class MainWindowViewModel : ViewModelBase
         IRepositoryContext repositoryContext,
         IGitEnvironment gitEnvironment,
         IContentDialogService dialogService,
+        HistoryPageViewModel history,
         ILogger<MainWindowViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
         ArgumentNullException.ThrowIfNull(gitEnvironment);
         ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(logger);
+
+        // The graph's uncommitted row belongs to the working directory page, and the shell is the
+        // only thing that knows how to get there.
+        history.WorkingDirectoryRequested += (_, _) => shell.GoTo(ShellPage.Changes);
 
         Shell = shell;
         RepositoryContext = repositoryContext;

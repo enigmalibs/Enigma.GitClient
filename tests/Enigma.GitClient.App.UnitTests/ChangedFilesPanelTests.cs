@@ -45,15 +45,25 @@ public sealed class ChangedFilesPanelTests
         [
             new ChangedFile
             {
-                Path = "README.md", ChangeKind = FileChangeKind.Modified, AddedLines = 4, RemovedLines = 1,
+                Path = "README.md",
+                ChangeKind = FileChangeKind.Modified,
+                AddedLines = 4,
+                RemovedLines = 1,
+                HasLineCounts = true,
             },
             new ChangedFile
             {
-                Path = "src/app/Program.cs", ChangeKind = FileChangeKind.Added, AddedLines = 40,
+                Path = "src/app/Program.cs",
+                ChangeKind = FileChangeKind.Added,
+                AddedLines = 40,
+                HasLineCounts = true,
             },
             new ChangedFile
             {
-                Path = "src/app/Legacy.cs", ChangeKind = FileChangeKind.Deleted, RemovedLines = 12,
+                Path = "src/app/Legacy.cs",
+                ChangeKind = FileChangeKind.Deleted,
+                RemovedLines = 12,
+                HasLineCounts = true,
             },
             new ChangedFile
             {
@@ -62,6 +72,7 @@ public sealed class ChangedFilesPanelTests
                 ChangeKind = FileChangeKind.Renamed,
                 AddedLines = 2,
                 RemovedLines = 2,
+                HasLineCounts = true,
             },
             new ChangedFile { Path = "assets/logo.png", ChangeKind = FileChangeKind.Modified, IsBinary = true },
         ];
@@ -260,6 +271,24 @@ public sealed class ChangedFilesPanelTests
 
         Assert.Equal("binary", panel.Nodes.Single(node => node.Path == "assets/logo.png").LineCounts);
         Assert.Equal("+4 −1", panel.Nodes.Single(node => node.Path == "README.md").LineCounts);
+    }
+
+    [Fact]
+    public void Panel_SaysNothingAboutTheSizeOfAChangeNobodyMeasured()
+    {
+        RecordingSystemInterop interop = new();
+        ChangedFilesPanelViewModel panel = new(interop);
+
+        // git status reports what changed, not by how much. "+0 −0" would claim the change is
+        // empty, which is a different thing from not having been counted.
+        panel.SetFiles([new ChangedFile { Path = "src/app.txt", ChangeKind = FileChangeKind.Modified }]);
+        panel.ViewMode = ChangedFilesViewMode.List;
+
+        Assert.Equal(string.Empty, Assert.Single(panel.Nodes).LineCounts);
+
+        // The header stops at the file count for the same reason.
+        Assert.False(panel.HasLineCounts);
+        Assert.Equal("1 file", panel.Summary);
     }
 
     [Fact]

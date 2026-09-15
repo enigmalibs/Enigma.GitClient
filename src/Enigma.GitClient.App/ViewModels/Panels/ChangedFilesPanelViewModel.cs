@@ -22,6 +22,26 @@ public enum ChangedFilesViewMode
 }
 
 /// <summary>
+/// The two actions a host page puts on every row of a changed-files panel.
+/// </summary>
+/// <remarks>
+/// The panel itself has no opinion about what should happen to a file — in the history it is
+/// something to read, on the changes page it is something to stage or throw away. The host supplies
+/// the verbs; the panel only draws them.
+/// </remarks>
+/// <param name="PrimaryLabel">What the first action is called.</param>
+/// <param name="Primary">The first action.</param>
+/// <param name="SecondaryLabel">What the second action is called, or <see langword="null"/>.</param>
+/// <param name="Secondary">The second action, or <see langword="null"/>.</param>
+/// <param name="PrimaryIcon">The Phosphor icon name shown on the first action's button.</param>
+public sealed record ChangedFileRowActions(
+    string PrimaryLabel,
+    AsyncRelayCommand<ChangedFileNodeViewModel> Primary,
+    string? SecondaryLabel = null,
+    AsyncRelayCommand<ChangedFileNodeViewModel>? Secondary = null,
+    string PrimaryIcon = "Plus");
+
+/// <summary>
 /// One row of the changed-files panel, in either shape.
 /// </summary>
 /// <remarks>
@@ -96,6 +116,15 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
 
     /// <summary>Gets the command that shows the row's file in the file manager.</summary>
     public AsyncRelayCommand<ChangedFileNodeViewModel> RevealFileCommand => _owner.RevealFileCommand;
+
+    /// <summary>Gets the actions the host page put on the row, if any.</summary>
+    public ChangedFileRowActions? Actions => _owner.Actions;
+
+    /// <summary>Gets a value indicating whether the row has a host action to offer.</summary>
+    public bool HasActions => Actions is not null;
+
+    /// <summary>Gets a value indicating whether the row has a second host action.</summary>
+    public bool HasSecondaryAction => Actions?.Secondary is not null;
 
     /// <summary>
     /// Gets the file this row stands for, or <see langword="null"/> for a directory.
@@ -230,6 +259,12 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
                 return File?.IsBinary == true ? "binary" : string.Empty;
             }
 
+            // Nothing measured the change, so there is nothing honest to say about its size.
+            if (!File.HasLineCounts)
+            {
+                return string.Empty;
+            }
+
             return $"+{File.AddedLines.ToString(System.Globalization.CultureInfo.CurrentCulture)} "
                 + $"−{File.RemovedLines.ToString(System.Globalization.CultureInfo.CurrentCulture)}";
         }
@@ -296,6 +331,23 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         RevealFileCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
             async node => await OpenAsync(node, reveal: true),
             CanReachOnDisk);
+    }
+
+    /// <summary>
+    /// Gets or sets the actions the host page offers on every row, or <see langword="null"/> when
+    /// the panel is read-only.
+    /// </summary>
+    public ChangedFileRowActions? Actions
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                // The rows hand the actions through, so they have to be rebuilt to pick them up.
+                Rebuild();
+            }
+        }
     }
 
     /// <summary>
@@ -435,10 +487,26 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// Gets the one-line summary shown in the panel's header.
     /// </summary>
     public string Summary
-        => _files.Count == 0
-            ? "No files"
-            : $"{FileLabel(_files.Count)}, +{AddedLines.ToString(System.Globalization.CultureInfo.CurrentCulture)} "
-              + $"−{RemovedLines.ToString(System.Globalization.CultureInfo.CurrentCulture)}";
+    {
+        get
+        {
+            if (_files.Count == 0)
+            {
+                return "No files";
+            }
+
+            // Nothing measured these changes, so the header says how many files and stops there.
+            return HasLineCounts
+                ? $"{FileLabel(_files.Count)}, +{AddedLines.ToString(System.Globalization.CultureInfo.CurrentCulture)} "
+                  + $"−{RemovedLines.ToString(System.Globalization.CultureInfo.CurrentCulture)}"
+                : FileLabel(_files.Count);
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether any of the shown files came with measured line counts.
+    /// </summary>
+    public bool HasLineCounts { get; private set => SetProperty(ref field, value); }
 
     /// <summary>
     /// Gets a value indicating whether the panel has nothing to show.
@@ -466,6 +534,19 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
 
         AddedLines = added;
         RemovedLines = removed;
+
+        bool counted = false;
+
+        foreach (ChangedFile file in files)
+        {
+            if (file.HasLineCounts)
+            {
+                counted = true;
+                break;
+            }
+        }
+
+        HasLineCounts = counted;
 
         OnPropertyChanged(nameof(FileCount));
         OnPropertyChanged(nameof(Summary));

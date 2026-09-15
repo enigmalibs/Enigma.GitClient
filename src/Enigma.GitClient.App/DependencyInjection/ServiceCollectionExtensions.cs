@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<RenameBranchDialogView>();
             services.AddTransient<SetUpstreamDialogView>();
             services.AddTransient<CreateTagDialogView>();
+            services.AddTransient<ConfirmTextDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.
