@@ -1,6 +1,6 @@
 # FEATURE-2326 — Commit graph UI
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-2326-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -55,7 +55,7 @@ smooth on a repository with a hundred thousand commits.
 
 ## PHASE02 — History page & virtualisation
 
-**Status:** TODO
+**Status:** DONE
 
 **Steps**
 
