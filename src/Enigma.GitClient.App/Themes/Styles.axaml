@@ -51,4 +51,63 @@
     <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
   </Style>
 
+  <!--
+    The status chip beside a changed file. The letter is git's own (A, M, D, R, C, T, U) and the
+    colour repeats the meaning, so the column is readable at a glance and still readable without
+    colour.
+  -->
+  <Style Selector="Border.status">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource DiffStatusModifiedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.added">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusAddedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.deleted">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusDeletedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.renamed">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusRenamedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.conflicted">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusConflictedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource DiffStatusForegroundBrush}" />
+  </Style>
+
+  <!-- A pair of toggles acting as one segmented control, for the list/tree switch. -->
+  <Style Selector="ToggleButton.segment">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:checked">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
 </Styles>

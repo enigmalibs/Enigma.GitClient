@@ -1,6 +1,6 @@
 # FEATURE-7D1B — Commit details & diff viewer
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-7d1b-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -22,6 +22,8 @@ context and intra-line changes clearly distinguished.
   second parent", and the combined diff, and says which is shown.
 
 ## PHASE01 — Changed files list/tree panel
+
+**Status:** DONE — see `docs/done/FEATURE-7D1B-PHASE01.md`
 
 **Steps**
 
@@ -48,6 +50,8 @@ context and intra-line changes clearly distinguished.
 - The panel handles a commit touching 10 000 files without stalling (virtualised).
 
 ## PHASE02 — Colour-coded diff viewer
+
+**Status:** TODO
 
 **Steps**
 

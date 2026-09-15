@@ -33,6 +33,13 @@
       <Color x:Key="RefBadgeTagColor">#4A3A1E</Color>
       <Color x:Key="RefBadgeStashColor">#33373D</Color>
       <Color x:Key="RefBadgeForegroundColor">#E6E8EC</Color>
+
+      <Color x:Key="DiffStatusAddedColor">#2E7D46</Color>
+      <Color x:Key="DiffStatusModifiedColor">#2A5A9E</Color>
+      <Color x:Key="DiffStatusDeletedColor">#9E3B32</Color>
+      <Color x:Key="DiffStatusRenamedColor">#6B4A9E</Color>
+      <Color x:Key="DiffStatusConflictedColor">#9E6B1E</Color>
+      <Color x:Key="DiffStatusForegroundColor">#F2F4F8</Color>
     </ResourceDictionary>
 
     <ResourceDictionary x:Key="Light">
@@ -56,6 +63,13 @@
       <Color x:Key="RefBadgeTagColor">#F7EBD2</Color>
       <Color x:Key="RefBadgeStashColor">#E4E7EB</Color>
       <Color x:Key="RefBadgeForegroundColor">#1A1D21</Color>
+
+      <Color x:Key="DiffStatusAddedColor">#2E9E56</Color>
+      <Color x:Key="DiffStatusModifiedColor">#3574F0</Color>
+      <Color x:Key="DiffStatusDeletedColor">#D14328</Color>
+      <Color x:Key="DiffStatusRenamedColor">#8E46AC</Color>
+      <Color x:Key="DiffStatusConflictedColor">#C2801B</Color>
+      <Color x:Key="DiffStatusForegroundColor">#FFFFFF</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
@@ -79,5 +93,12 @@
   <SolidColorBrush x:Key="RefBadgeTagBrush" Color="{DynamicResource RefBadgeTagColor}" />
   <SolidColorBrush x:Key="RefBadgeStashBrush" Color="{DynamicResource RefBadgeStashColor}" />
   <SolidColorBrush x:Key="RefBadgeForegroundBrush" Color="{DynamicResource RefBadgeForegroundColor}" />
+
+  <SolidColorBrush x:Key="DiffStatusAddedBrush" Color="{DynamicResource DiffStatusAddedColor}" />
+  <SolidColorBrush x:Key="DiffStatusModifiedBrush" Color="{DynamicResource DiffStatusModifiedColor}" />
+  <SolidColorBrush x:Key="DiffStatusDeletedBrush" Color="{DynamicResource DiffStatusDeletedColor}" />
+  <SolidColorBrush x:Key="DiffStatusRenamedBrush" Color="{DynamicResource DiffStatusRenamedColor}" />
+  <SolidColorBrush x:Key="DiffStatusConflictedBrush" Color="{DynamicResource DiffStatusConflictedColor}" />
+  <SolidColorBrush x:Key="DiffStatusForegroundBrush" Color="{DynamicResource DiffStatusForegroundColor}" />
 
 </ResourceDictionary>

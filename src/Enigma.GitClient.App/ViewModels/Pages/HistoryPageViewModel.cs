@@ -8,6 +8,8 @@ using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Controls.Graph;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.App.ViewModels.Panels;
+using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
@@ -39,6 +41,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
+    private readonly IDiffService _diffs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<HistoryPageViewModel> _logger;
 
@@ -54,23 +57,31 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="reader">Reads the commits.</param>
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
+    /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
         ICommitLogReader reader,
         IWorkingTreeProbe workingTree,
+        IDiffService diffs,
+        ISystemInterop interop,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(workingTree);
+        ArgumentNullException.ThrowIfNull(diffs);
+        ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
         _workingTree = workingTree;
+        _diffs = diffs;
+
+        Files = new ChangedFilesPanelViewModel(interop);
         _infoBar = infoBar;
         _logger = logger;
 
@@ -161,6 +172,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             {
                 RepositoryContext.SelectedCommit = value?.Commit;
                 OnPropertyChanged(nameof(HasSelection));
+                NotifySelectedCommitDetails();
+                _ = LoadChangedFilesAsync();
             }
         }
     }
@@ -169,6 +182,35 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets a value indicating whether a row is selected.
     /// </summary>
     public bool HasSelection => SelectedRow is not null;
+
+    /// <summary>
+    /// Gets the panel listing what the selected commit touched.
+    /// </summary>
+    public ChangedFilesPanelViewModel Files { get; }
+
+    /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
+    public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
+
+    /// <summary>Gets the selected commit's full SHA.</summary>
+    public string SelectedSha => SelectedRow?.Sha ?? string.Empty;
+
+    /// <summary>Gets the selected commit's author.</summary>
+    public string SelectedAuthor => SelectedRow?.Commit?.Author.ToString() ?? string.Empty;
+
+    /// <summary>Gets when the selected commit was authored, in full.</summary>
+    public string SelectedDate => SelectedRow?.AbsoluteDate ?? string.Empty;
+
+    /// <summary>Gets the selected commit's message body, empty when it has none.</summary>
+    public string SelectedBody => SelectedRow?.Commit?.Body ?? string.Empty;
+
+    /// <summary>Gets a value indicating whether there is a body to show.</summary>
+    public bool HasSelectedBody => SelectedBody.Length > 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the details pane has a commit to describe, as opposed to the
+    /// uncommitted-changes row or nothing at all.
+    /// </summary>
+    public bool HasSelectedCommit => SelectedRow?.Commit is not null;
 
     /// <summary>
     /// Gets or sets how many commits a page holds.
@@ -483,6 +525,62 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             // Already finished and disposed itself.
         }
+    }
+
+    /// <summary>
+    /// Reads what the selected row changed into the files panel.
+    /// </summary>
+    /// <returns>A task that completes once the panel has been filled.</returns>
+    private async Task LoadChangedFilesAsync()
+    {
+        CommitRowViewModel? row = SelectedRow;
+        RepositoryHandle? repository = RepositoryContext.Repository;
+
+        if (row is null || repository is null)
+        {
+            Files.Clear();
+            return;
+        }
+
+        DiffTarget target = row.IsUncommitted
+            ? DiffTarget.Uncommitted()
+            : DiffTarget.Commit(row.Sha);
+
+        try
+        {
+            IReadOnlyList<Core.Files.ChangedFile> files = await _diffs
+                .GetChangedFilesAsync(repository, target, RepositoryContext.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+            // The selection may have moved on while git was running.
+            if (!ReferenceEquals(row, SelectedRow))
+            {
+                return;
+            }
+
+            Files.WorkTreePath = repository.WorkTreePath;
+            Files.SetFiles(files);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the repository changes.
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogError(exception, "Reading the files of {Commit} failed", row.Sha);
+            Files.Clear();
+        }
+    }
+
+    private void NotifySelectedCommitDetails()
+    {
+        OnPropertyChanged(nameof(SelectedSubject));
+        OnPropertyChanged(nameof(SelectedSha));
+        OnPropertyChanged(nameof(SelectedAuthor));
+        OnPropertyChanged(nameof(SelectedDate));
+        OnPropertyChanged(nameof(SelectedBody));
+        OnPropertyChanged(nameof(HasSelectedBody));
+        OnPropertyChanged(nameof(HasSelectedCommit));
     }
 
     private void NotifyEmptyState()

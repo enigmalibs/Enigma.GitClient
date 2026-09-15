@@ -1,4 +1,5 @@
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
@@ -36,6 +37,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRefReader, RefReader>();
             services.AddSingleton<IRemoteReader, RemoteReader>();
             services.AddSingleton<IWorkingTreeProbe, WorkingTreeProbe>();
+            services.AddSingleton<IDiffService, DiffService>();
 
             return services;
         }
