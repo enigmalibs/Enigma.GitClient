@@ -25,7 +25,22 @@ public static class SnapshotColours
     public static int Count(string path)
     {
         using FileStream stream = File.OpenRead(path);
-        using WriteableBitmap writeable = WriteableBitmap.Decode(stream);
+
+        return Count(stream);
+    }
+
+    /// <summary>
+    /// Counts the distinct quantised colours in an encoded image.
+    /// </summary>
+    /// <param name="source">The stream to read, positioned at the start of the image.</param>
+    /// <returns>How many distinct colours it holds.</returns>
+    /// <remarks>
+    /// The same question as <see cref="Count(string)"/> for a frame that was never written to disk —
+    /// one control rendered on its own, rather than a whole window snapshotted for review.
+    /// </remarks>
+    public static int Count(Stream source)
+    {
+        using WriteableBitmap writeable = WriteableBitmap.Decode(source);
         using ILockedFramebuffer buffer = writeable.Lock();
 
         HashSet<int> colours = [];

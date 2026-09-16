@@ -58,6 +58,10 @@ public sealed class DiffLineText : Control
     public static readonly StyledProperty<int> TabWidthProperty =
         AvaloniaProperty.Register<DiffLineText, int>(nameof(TabWidth), 4);
 
+    /// <summary>Defines the <see cref="HorizontalOffset"/> property.</summary>
+    public static readonly StyledProperty<double> HorizontalOffsetProperty =
+        AvaloniaProperty.Register<DiffLineText, double>(nameof(HorizontalOffset));
+
     /// <summary>Defines the <see cref="Foreground"/> property.</summary>
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
         TextElement.ForegroundProperty.AddOwner<DiffLineText>();
@@ -88,7 +92,8 @@ public sealed class DiffLineText : Control
         AffectsRender<DiffLineText>(
             ForegroundProperty,
             HighlightBrushProperty,
-            WhitespaceBrushProperty);
+            WhitespaceBrushProperty,
+            HorizontalOffsetProperty);
     }
 
     /// <summary>Gets or sets the line's text, without its diff marker.</summary>
@@ -138,6 +143,27 @@ public sealed class DiffLineText : Control
     {
         get => GetValue(TabWidthProperty);
         set => SetValue(TabWidthProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets how far the text is scrolled, in characters.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Render-only, and deliberately so: the pane it sits in scrolls, the row does not re-measure,
+    /// and the line numbers and the marker beside it stay exactly where they are — which is what
+    /// makes a scrolled diff still readable. Its unit is the character rather than the pixel
+    /// because the whole control already reasons in columns.
+    /// </para>
+    /// <para>
+    /// A wrapped line has no overflow to scroll to, so the offset is ignored while
+    /// <see cref="WrapLines"/> is on rather than left to shift text out of view.
+    /// </para>
+    /// </remarks>
+    public double HorizontalOffset
+    {
+        get => GetValue(HorizontalOffsetProperty);
+        set => SetValue(HorizontalOffsetProperty, value);
     }
 
     /// <summary>Gets or sets the brush the text is drawn in.</summary>
@@ -209,6 +235,32 @@ public sealed class DiffLineText : Control
         return (builder.ToString(), map.ToArray());
     }
 
+    /// <summary>
+    /// Counts the columns a line occupies once its tabs are expanded.
+    /// </summary>
+    /// <param name="text">The raw line.</param>
+    /// <param name="tabWidth">How many columns a tab advances to.</param>
+    /// <returns>The column count.</returns>
+    /// <remarks>
+    /// The same arithmetic as <see cref="Expand"/> without the string: the widest line of a patch is
+    /// asked for every pane of every file, over thousands of lines, and building each expansion to
+    /// measure its length would allocate the whole patch again to learn one number.
+    /// </remarks>
+    public static int ExpandedLength(string text, int tabWidth)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        int width = tabWidth < 1 ? 1 : tabWidth;
+        int length = 0;
+
+        foreach (char character in text)
+        {
+            length += character == '\t' ? width - (length % width) : 1;
+        }
+
+        return length;
+    }
+
     /// <inheritdoc />
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -229,6 +281,7 @@ public sealed class DiffLineText : Control
             return;
         }
 
+        Point origin = new(-ScrolledPixels(), 0);
         IBrush? highlight = HighlightBrush;
         IReadOnlyList<DiffSegment>? segments = Segments;
 
@@ -249,8 +302,9 @@ public sealed class DiffLineText : Control
                 }
 
                 // The text engine knows where the glyphs for a range actually landed, wrapping and
-                // shaping included; asking it beats measuring substrings ourselves.
-                Geometry? area = formatted.BuildHighlightGeometry(new Point(0, 0), start, end - start);
+                // shaping included; asking it beats measuring substrings ourselves. Built at the
+                // scrolled origin so the tint travels with the words it is behind.
+                Geometry? area = formatted.BuildHighlightGeometry(origin, start, end - start);
 
                 if (area is not null)
                 {
@@ -259,8 +313,25 @@ public sealed class DiffLineText : Control
             }
         }
 
-        context.DrawText(formatted, new Point(0, 0));
+        context.DrawText(formatted, origin);
     }
+
+    /// <summary>
+    /// Turns the offset, which is counted in characters, into the pixels the text moves by.
+    /// </summary>
+    private double ScrolledPixels()
+    {
+        double offset = HorizontalOffset;
+
+        if (WrapLines || offset <= 0)
+        {
+            return 0;
+        }
+
+        return offset * DiffTypography.MeasureCharacterWidth(FontFamily, EffectiveFontSize);
+    }
+
+    private double EffectiveFontSize => FontSize > 0 ? FontSize : 12;
 
     private (int Start, int End) MapRange(DiffSegment segment)
     {
@@ -297,7 +368,7 @@ public sealed class DiffLineText : Control
             return null;
         }
 
-        double size = FontSize > 0 ? FontSize : 12;
+        double size = EffectiveFontSize;
 
         FormattedText formatted = new(
             _expanded,
