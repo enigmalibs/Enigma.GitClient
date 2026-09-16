@@ -343,10 +343,20 @@ public sealed class SettingsService : ISettingsService, IDisposable
     /// <returns>The migrated settings.</returns>
     /// <remarks>
     /// <para>
-    /// Version 2 raised the default row height from 26 to 36. A file that still says 26 was written
-    /// by a build whose default that was, and 26 is therefore a value nobody chose — it is raised.
-    /// Any other number was typed on the settings page and is kept: a client that overwrites what
-    /// someone chose is worse than one that never changes anything.
+    /// Every case here reads the same way: the value an older build shipped as <em>its</em> default
+    /// is a value nobody chose, so it moves to the new one. Anything else was picked on the settings
+    /// page and is kept — a client that overwrites what someone chose is worse than one that never
+    /// changes anything.
+    /// </para>
+    /// <para>
+    /// Version 2 raised the default row height from 26 to 36. Version 3 moved the diff to the
+    /// side-by-side rendering, so a file written before it that still says <c>Unified</c> is moved
+    /// across; one that says <c>SideBySide</c> is already where version 3 would put it, and a
+    /// version 3 file is left alone entirely, because from version 3 on <c>Unified</c> is a
+    /// preference like any other.
+    /// </para>
+    /// <para>
+    /// The cases compose: a version 1 file goes through both of them in one read.
     /// </para>
     /// </remarks>
     private static AppSettings Migrate(AppSettings stored)
@@ -356,6 +366,11 @@ public sealed class SettingsService : ISettingsService, IDisposable
         if (stored.Version < 2 && stored.GraphRowHeight == AppSettings.LegacyGraphRowHeight)
         {
             migrated = migrated with { GraphRowHeight = AppSettings.Defaults.GraphRowHeight };
+        }
+
+        if (stored.Version < 3 && stored.DiffView == AppSettings.LegacyDiffView)
+        {
+            migrated = migrated with { DiffView = AppSettings.Defaults.DiffView };
         }
 
         return migrated with { Version = AppSettings.CurrentVersion };

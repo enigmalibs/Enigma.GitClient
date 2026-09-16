@@ -252,17 +252,17 @@ public sealed class SettingsPageTests
 
             DiffViewerViewModel viewer = services.Get<DiffViewerViewModel>();
 
-            Assert.Equal(DiffViewMode.Unified, viewer.ViewMode);
+            Assert.Equal(DiffViewMode.SideBySide, viewer.ViewMode);
             Assert.Equal(4, viewer.Render.TabWidth);
 
             SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
 
-            page.DiffView = DiffView.SideBySide;
+            page.DiffView = DiffView.Unified;
             page.TabWidth = 2;
             page.ShowWhitespace = true;
             page.WrapLines = true;
 
-            Assert.Equal(DiffViewMode.SideBySide, viewer.ViewMode);
+            Assert.Equal(DiffViewMode.Unified, viewer.ViewMode);
             Assert.Equal(2, viewer.Render.TabWidth);
             Assert.True(viewer.Render.ShowWhitespace);
             Assert.True(viewer.Render.WrapLines);
@@ -276,12 +276,14 @@ public sealed class SettingsPageTests
         {
             using TestServices services = TestServices.Build();
 
-            services.Get<SettingsPageViewModel>().DiffView = DiffView.SideBySide;
+            // The stored shape, not the default one: a viewer opened after the preference moved
+            // must open on what was stored.
+            services.Get<SettingsPageViewModel>().DiffView = DiffView.Unified;
 
             // Transient: the next diff pane the application opens is a new instance.
             DiffViewerViewModel viewer = services.Get<DiffViewerViewModel>();
 
-            Assert.Equal(DiffViewMode.SideBySide, viewer.ViewMode);
+            Assert.Equal(DiffViewMode.Unified, viewer.ViewMode);
         });
     }
 

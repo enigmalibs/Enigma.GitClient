@@ -113,6 +113,14 @@ public sealed class DiffViewerTests
     }
 
     [Fact]
+    public void Viewer_OpensSideBySide()
+    {
+        // The shape a fresh install gets, straight from the preferences: two columns is what a
+        // reader comparing two revisions is looking for, and the unified shape is one click away.
+        Assert.True(Build().Viewer.IsSideBySide);
+    }
+
+    [Fact]
     public void Viewer_BuildsBothRenderingsOfTheSamePatch()
     {
         _fixture.RunAsync(async () =>
@@ -172,13 +180,18 @@ public sealed class DiffViewerTests
         {
             Harness harness = await ShownAsync();
 
-            Assert.True(harness.Viewer.IsUnified);
+            // Side by side is what a fresh store opens on.
+            Assert.True(harness.Viewer.IsSideBySide);
             Assert.Single(harness.Diffs.PatchRequests);
+
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
+
+            Assert.True(harness.Viewer.IsUnified);
+            Assert.False(harness.Viewer.IsSideBySide);
 
             harness.Viewer.ShowSideBySideCommand.Execute(null);
 
             Assert.True(harness.Viewer.IsSideBySide);
-            Assert.False(harness.Viewer.IsUnified);
 
             // The shape is a rendering choice; git has nothing to say about it.
             Assert.Single(harness.Diffs.PatchRequests);
@@ -495,6 +508,7 @@ public sealed class DiffViewerTests
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync();
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
 
             Assert.False(harness.Viewer.CopySelectionCommand.CanExecute(null));
 
@@ -517,6 +531,7 @@ public sealed class DiffViewerTests
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync();
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
 
             List<DiffRowViewModel> added =
                 [.. harness.Viewer.UnifiedRows.Where(row => row.Single?.IsAdded == true)];
@@ -555,6 +570,7 @@ public sealed class DiffViewerTests
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync();
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
 
             harness.Viewer.Selection.Add(harness.Viewer.UnifiedRows[1]);
             harness.Viewer.ShowSideBySideCommand.Execute(null);
@@ -617,6 +633,7 @@ public sealed class DiffViewerTests
             try
             {
                 Harness harness = await ShownAsync();
+                harness.Viewer.ShowUnifiedCommand.Execute(null);
 
                 DiffViewerView view = new() { DataContext = harness.Viewer };
 
@@ -682,6 +699,10 @@ public sealed class DiffViewerTests
                 if (sideBySide)
                 {
                     harness.Viewer.ShowSideBySideCommand.Execute(null);
+                }
+                else
+                {
+                    harness.Viewer.ShowUnifiedCommand.Execute(null);
                 }
 
                 DiffViewerView view = new() { DataContext = harness.Viewer };

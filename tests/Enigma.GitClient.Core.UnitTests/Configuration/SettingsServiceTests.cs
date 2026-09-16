@@ -46,7 +46,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(ThemePreference.System, defaults.Theme);
         Assert.Equal(DateDisplay.Relative, defaults.DateDisplay);
         Assert.Equal(FilesView.Tree, defaults.FilesView);
-        Assert.Equal(DiffView.Unified, defaults.DiffView);
+        Assert.Equal(DiffView.SideBySide, defaults.DiffView);
         Assert.Equal(PullStrategy.Merge, defaults.Pull);
         Assert.Equal(3, defaults.DiffContextLines);
         Assert.Equal(4, defaults.TabWidth);
@@ -87,7 +87,7 @@ public sealed class SettingsServiceTests : IDisposable
             settings.Update(current => current with
             {
                 Theme = ThemePreference.Light,
-                DiffView = DiffView.SideBySide,
+                DiffView = DiffView.Unified,
                 DiffContextLines = 8,
                 TabWidth = 2,
                 FilesView = FilesView.List,
@@ -107,7 +107,7 @@ public sealed class SettingsServiceTests : IDisposable
         AppSettings stored = await reopened.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(ThemePreference.Light, stored.Theme);
-        Assert.Equal(DiffView.SideBySide, stored.DiffView);
+        Assert.Equal(DiffView.Unified, stored.DiffView);
         Assert.Equal(8, stored.DiffContextLines);
         Assert.Equal(2, stored.TabWidth);
         Assert.Equal(FilesView.List, stored.FilesView);
@@ -245,6 +245,48 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(AppSettings.Defaults.GraphRowHeight, stored.GraphRowHeight);
         Assert.Equal(AppSettings.CurrentVersion, stored.Version);
         Assert.Equal(8, stored.TabWidth);
+    }
+
+    [Fact]
+    public async Task AVersionTwoDiffViewNobodyChangedTakesTheNewDefault()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 2, "diffView": "Unified", "tabWidth": 8 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        // Unified was version 2's own default, so it is a shape nobody chose.
+        Assert.Equal(DiffView.SideBySide, stored.DiffView);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+        Assert.Equal(8, stored.TabWidth);
+    }
+
+    [Fact]
+    public async Task AVersionThreeUnifiedDiffViewIsKept()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 3, "diffView": "Unified" }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        // From version 3 on, Unified is a preference like any other.
+        Assert.Equal(DiffView.Unified, stored.DiffView);
+    }
+
+    [Fact]
+    public async Task AVersionOneFileGoesThroughEveryMigrationAtOnce()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified" }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(AppSettings.Defaults.GraphRowHeight, stored.GraphRowHeight);
+        Assert.Equal(AppSettings.Defaults.DiffView, stored.DiffView);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
     }
 
     [Fact]
