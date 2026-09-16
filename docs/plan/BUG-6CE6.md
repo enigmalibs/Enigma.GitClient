@@ -1,6 +1,6 @@
 # BUG-6CE6 — Details panel ignores the splitter
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-6CE6.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-6ce6-details-panel-resize`
 **Run:** bugfix/2026-09-16-history-panel-and-graph
