@@ -526,4 +526,161 @@ public sealed class HistoryPageTests
             }
         });
     }
+
+    // ---------------------------------------------------------------- the detail panel
+
+    /// <summary>
+    /// Builds the page against a real repository, shows it, and hands the test the pieces of the
+    /// workspace the splitter governs.
+    /// </summary>
+    private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Grid Workspace, Border Details)>
+        ShowHistoryPageAsync(TestServices services)
+    {
+        RepositoryHandle repository = await BuildHistoryAsync(services);
+        await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+        HistoryPageViewModel model = services.Get<HistoryPageViewModel>();
+        await model.ReloadAsync();
+
+        HistoryPageView view = services.Get<HistoryPageView>();
+        view.DataContext = model;
+
+        Window window = new() { Content = view, Width = 1200, Height = 900 };
+        window.Show();
+        window.UpdateLayout();
+
+        Grid workspace = view.FindControl<Grid>("Workspace")
+            ?? throw new InvalidOperationException("The history page has no workspace grid.");
+        Border details = view.FindControl<Border>("CommitDetails")
+            ?? throw new InvalidOperationException("The history page has no detail panel.");
+
+        return (window, model, view, workspace, details);
+    }
+
+    [Fact]
+    public void DetailPanel_TakesNoRoomUntilACommitIsSelected()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Grid workspace, Border details) =
+                await ShowHistoryPageAsync(services);
+
+            Assert.Null(model.SelectedRow);
+            Assert.Equal(0, workspace.RowDefinitions[2].Height.Value);
+            Assert.Equal(0, details.Bounds.Height);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(HistoryPageView.DefaultDetailsHeight, details.Bounds.Height);
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// The regression: a splitter drag ends up as a length on the detail row, so the panel is only
+    /// resizable if the row is what decides its height.
+    /// </summary>
+    [Fact]
+    public void DetailPanel_IsSizedByItsRowRatherThanByAFixedHeight()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Grid workspace, Border details) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // Absolute, not Auto: an Auto row measures to its content whatever length a splitter
+            // hands it, which is precisely why this panel used to stay at one height.
+            Assert.True(workspace.RowDefinitions[2].Height.IsAbsolute);
+            Assert.False(double.IsFinite(details.Height));
+
+            workspace.RowDefinitions[2].Height = new GridLength(420, GridUnitType.Pixel);
+            window.UpdateLayout();
+
+            Assert.Equal(420, details.Bounds.Height);
+
+            workspace.RowDefinitions[2].Height = new GridLength(180, GridUnitType.Pixel);
+            window.UpdateLayout();
+
+            Assert.Equal(180, details.Bounds.Height);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DetailPanel_KeepsTheHeightTheSplitterLeftItAt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Grid workspace, Border details) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            workspace.RowDefinitions[2].Height = new GridLength(420, GridUnitType.Pixel);
+            window.UpdateLayout();
+
+            model.SelectedRow = null;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Null(model.SelectedRow);
+            Assert.False(model.HasSelection);
+            Assert.Equal(420, view.DetailsHeight);
+            Assert.Equal(0, workspace.RowDefinitions[2].MinHeight);
+            Assert.Equal(0, workspace.RowDefinitions[2].Height.Value);
+
+            // The panel's own Bounds are not the evidence here: a hidden control is not arranged,
+            // so it keeps whatever rectangle it was last given. The row is what has to be zero.
+            Assert.False(details.IsVisible);
+
+            model.SelectedRow = model.Rows[1];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(420, details.Bounds.Height);
+            Assert.Equal(HistoryPageView.MinimumDetailsHeight, workspace.RowDefinitions[2].MinHeight);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DetailPanel_LeavesTheGraphAHeightOfItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Grid workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+
+            // Whatever the splitter is dragged to, the graph keeps a floor: a list dragged to
+            // nothing cannot be dragged back.
+            workspace.RowDefinitions[2].Height = new GridLength(5000, GridUnitType.Pixel);
+            window.UpdateLayout();
+
+            ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
+
+            Assert.True(
+                list.Bounds.Height >= workspace.RowDefinitions[0].MinHeight,
+                $"the graph was squeezed to {list.Bounds.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+
+            window.Close();
+        });
+    }
 }
