@@ -30,6 +30,9 @@ public enum ShellPage
     /// <summary>Remotes, synchronisation and stashes.</summary>
     Remotes,
 
+    /// <summary>The conflicts of a merge in progress, which is the only time it exists.</summary>
+    Conflicts,
+
     /// <summary>Hosting integrations.</summary>
     Integrations,
 
@@ -72,6 +75,17 @@ public interface IShellNavigation
     /// Gets the page currently selected in the rail.
     /// </summary>
     ShellPage Current { get; }
+
+    /// <summary>
+    /// Shows or hides the conflicts page.
+    /// </summary>
+    /// <param name="visible">Whether a merge is waiting to be resolved.</param>
+    /// <remarks>
+    /// The rail has no room for a page that is only meaningful during a merge, and a permanently
+    /// greyed entry teaches nothing. The item appears when a merge stops on conflicts and goes away
+    /// when the merge does, which is also how the user learns the page exists.
+    /// </remarks>
+    void SetConflictsVisible(bool visible);
 }
 
 /// <summary>
@@ -81,6 +95,7 @@ public interface IShellNavigation
 public sealed class ShellNavigation : IShellNavigation
 {
     private readonly Dictionary<ShellPage, NavigationItem> _items = [];
+    private readonly NavigationItem _conflicts;
 
     /// <summary>
     /// Initialises a new instance, building the rail.
@@ -108,6 +123,9 @@ public sealed class ShellNavigation : IShellNavigation
         Add(navigation.Items, ShellPage.Branches, "Branches", PhosphorIcon.GitBranch, typeof(BranchesPageView), typeof(BranchesPageViewModel));
         Add(navigation.Items, ShellPage.Remotes, "Remotes", PhosphorIcon.CloudArrowUp, typeof(RemotesPageView), typeof(RemotesPageViewModel));
 
+        // Built like the others, but held back until a merge conflicts.
+        _conflicts = Build(ShellPage.Conflicts, "Conflicts", PhosphorIcon.GitMerge, typeof(ConflictResolutionPageView), typeof(ConflictResolutionPageViewModel));
+
         Add(navigation.FooterItems, ShellPage.Integrations, "Integrations", PhosphorIcon.GlobeSimple, typeof(IntegrationsPageView), typeof(IntegrationsPageViewModel));
         Add(navigation.FooterItems, ShellPage.Settings, "Settings", PhosphorIcon.Gear, typeof(SettingsPageView), typeof(SettingsPageViewModel));
     }
@@ -120,6 +138,32 @@ public sealed class ShellNavigation : IShellNavigation
 
     /// <inheritdoc />
     public void Start() => GoTo(ShellPage.Repositories);
+
+    /// <inheritdoc />
+    public void SetConflictsVisible(bool visible)
+    {
+        bool present = Service.Items.Contains(_conflicts);
+
+        if (visible == present)
+        {
+            return;
+        }
+
+        if (visible)
+        {
+            Service.Items.Add(_conflicts);
+            return;
+        }
+
+        // Leaving first: removing the selected item would leave the rail with a selection that is
+        // no longer in it, and the page it built still on screen.
+        if (Current == ShellPage.Conflicts)
+        {
+            GoTo(ShellPage.History);
+        }
+
+        Service.Items.Remove(_conflicts);
+    }
 
     /// <inheritdoc />
     public void GoTo(ShellPage page)
@@ -138,6 +182,14 @@ public sealed class ShellNavigation : IShellNavigation
         PhosphorIcon icon,
         Type pageType,
         Type viewModelType)
+        => target.Add(Build(page, header, icon, pageType, viewModelType));
+
+    private NavigationItem Build(
+        ShellPage page,
+        string header,
+        PhosphorIcon icon,
+        Type pageType,
+        Type viewModelType)
     {
         NavigationItem item = new()
         {
@@ -148,6 +200,7 @@ public sealed class ShellNavigation : IShellNavigation
         };
 
         _items[page] = item;
-        target.Add(item);
+
+        return item;
     }
 }

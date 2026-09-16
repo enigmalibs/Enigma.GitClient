@@ -60,6 +60,25 @@
       <Color x:Key="DiffFillerColor">#17181B</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
 
+      <!--
+        The conflict panes. Ours is the blue of the graph's first lane and theirs the violet of its
+        fourth: two hues that are already established in this app as "different thing", that are
+        told apart under the common forms of colour blindness, and that are neither of them the
+        red/green a diff has already spent. The original sits between them in plain grey, because
+        it is context rather than a side.
+      -->
+      <Color x:Key="ConflictOursLineColor">#0E1B2E</Color>
+      <Color x:Key="ConflictTheirsLineColor">#1E1430</Color>
+      <Color x:Key="ConflictBaseLineColor">#1A1B1E</Color>
+      <Color x:Key="ConflictOursAccentColor">#4E9BF5</Color>
+      <Color x:Key="ConflictTheirsAccentColor">#C77DE0</Color>
+      <Color x:Key="ConflictBaseAccentColor">#9AA7B4</Color>
+      <Color x:Key="ConflictCardColor">#232427</Color>
+      <Color x:Key="ConflictResolvedColor">#1E4630</Color>
+      <Color x:Key="ConflictResolvedForegroundColor">#8BE0A8</Color>
+      <Color x:Key="ConflictPendingColor">#3A2E12</Color>
+      <Color x:Key="ConflictPendingForegroundColor">#E8C271</Color>
+
       <!-- The one colour a page's primary action is painted in. Defined here rather than taken from
            the theme package so it cannot quietly change out from under the button. -->
       <Color x:Key="ActionAccentColor">#3574F0</Color>
@@ -108,6 +127,19 @@
       <Color x:Key="DiffWhitespaceColor">#B4BAC2</Color>
       <Color x:Key="DiffFillerColor">#F7F8FA</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+
+      <Color x:Key="ConflictOursLineColor">#E8F0FE</Color>
+      <Color x:Key="ConflictTheirsLineColor">#F6EAFB</Color>
+      <Color x:Key="ConflictBaseLineColor">#F2F4F7</Color>
+      <Color x:Key="ConflictOursAccentColor">#1F6FE0</Color>
+      <Color x:Key="ConflictTheirsAccentColor">#8E46AC</Color>
+      <Color x:Key="ConflictBaseAccentColor">#54636F</Color>
+      <Color x:Key="ConflictCardColor">#FFFFFF</Color>
+      <Color x:Key="ConflictResolvedColor">#CDEEDA</Color>
+      <Color x:Key="ConflictResolvedForegroundColor">#1B6E36</Color>
+      <Color x:Key="ConflictPendingColor">#F9E7C4</Color>
+      <Color x:Key="ConflictPendingForegroundColor">#8A5E0C</Color>
+
       <Color x:Key="ActionAccentColor">#2E63D6</Color>
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
     </ResourceDictionary>
@@ -154,6 +186,18 @@
   <SolidColorBrush x:Key="DiffWhitespaceBrush" Color="{DynamicResource DiffWhitespaceColor}" />
   <SolidColorBrush x:Key="DiffFillerBrush" Color="{DynamicResource DiffFillerColor}" />
   <SolidColorBrush x:Key="DiffSelectionBrush" Color="{DynamicResource DiffSelectionColor}" />
+  <SolidColorBrush x:Key="ConflictOursLineBrush" Color="{DynamicResource ConflictOursLineColor}" />
+  <SolidColorBrush x:Key="ConflictTheirsLineBrush" Color="{DynamicResource ConflictTheirsLineColor}" />
+  <SolidColorBrush x:Key="ConflictBaseLineBrush" Color="{DynamicResource ConflictBaseLineColor}" />
+  <SolidColorBrush x:Key="ConflictOursAccentBrush" Color="{DynamicResource ConflictOursAccentColor}" />
+  <SolidColorBrush x:Key="ConflictTheirsAccentBrush" Color="{DynamicResource ConflictTheirsAccentColor}" />
+  <SolidColorBrush x:Key="ConflictBaseAccentBrush" Color="{DynamicResource ConflictBaseAccentColor}" />
+  <SolidColorBrush x:Key="ConflictCardBrush" Color="{DynamicResource ConflictCardColor}" />
+  <SolidColorBrush x:Key="ConflictResolvedBrush" Color="{DynamicResource ConflictResolvedColor}" />
+  <SolidColorBrush x:Key="ConflictResolvedForegroundBrush" Color="{DynamicResource ConflictResolvedForegroundColor}" />
+  <SolidColorBrush x:Key="ConflictPendingBrush" Color="{DynamicResource ConflictPendingColor}" />
+  <SolidColorBrush x:Key="ConflictPendingForegroundBrush" Color="{DynamicResource ConflictPendingForegroundColor}" />
+
   <SolidColorBrush x:Key="ActionAccentBrush" Color="{DynamicResource ActionAccentColor}" />
   <SolidColorBrush x:Key="ActionAccentForegroundBrush" Color="{DynamicResource ActionAccentForegroundColor}" />
 
