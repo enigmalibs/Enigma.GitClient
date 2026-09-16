@@ -32,10 +32,10 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-06FE | Remotes & synchronisation          | DONE        | docs/plan/FEATURE-06FE.md |
 | - PHASE01    | Fetch, pull, push & remotes        | DONE        | (in FEATURE-06FE.md)      |
 | - PHASE02    | Stash management                   | DONE        | (in FEATURE-06FE.md)      |
-| FEATURE-6DCC | Merge & conflict resolution        | IN PROGRESS | docs/plan/FEATURE-6DCC.md |
+| FEATURE-6DCC | Merge & conflict resolution        | DONE        | docs/plan/FEATURE-6DCC.md |
 | - PHASE01    | Merge engine & conflict model      | DONE        | (in FEATURE-6DCC.md)      |
 | - PHASE02    | Conflict resolution engine         | DONE        | (in FEATURE-6DCC.md)      |
-| - PHASE03    | Conflict resolution UI             | TODO        | (in FEATURE-6DCC.md)      |
+| - PHASE03    | Conflict resolution UI             | DONE        | (in FEATURE-6DCC.md)      |
 | FEATURE-22C0 | Repository hosting integrations    | TODO        | docs/plan/FEATURE-22C0.md |
 | - PHASE01    | Provider abstraction & tokens      | TODO        | (in FEATURE-22C0.md)      |
 | - PHASE02    | GitHub provider                    | TODO        | (in FEATURE-22C0.md)      |

@@ -1,0 +1,462 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:diff="using:Enigma.GitClient.App.Controls.Diff"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.ConflictResolutionPageView"
+             x:DataType="vm:ConflictResolutionPageViewModel">
+
+  <UserControl.KeyBindings>
+    <!-- Left is ours and right is theirs, in the order the panes are drawn. Down goes to the next
+         thing still to decide, which is the only movement this page needs. -->
+    <KeyBinding Gesture="Alt+Left" Command="{Binding TakeOursForSelectedCommand}" />
+    <KeyBinding Gesture="Alt+Right" Command="{Binding TakeTheirsForSelectedCommand}" />
+    <KeyBinding Gesture="Alt+Down" Command="{Binding NextUnresolvedCommand}" />
+  </UserControl.KeyBindings>
+
+  <UserControl.Resources>
+
+    <!-- One line, used by all three panes: the panes differ by the tint behind them, never by how a
+         line of the file is drawn. -->
+    <DataTemplate x:Key="ConflictLine" x:DataType="vm:ConflictLineViewModel">
+      <Grid ColumnDefinitions="32,*">
+        <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Number}" />
+        <diff:DiffLineText Grid.Column="1" Text="{Binding Text}" />
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ConflictRegion" x:DataType="vm:ConflictRegionViewModel">
+      <Panel>
+
+        <!-- Text both sides agree on: context, drawn the way the diff viewer draws context. -->
+        <ItemsControl ItemsSource="{Binding StableLines}"
+                      ItemTemplate="{StaticResource ConflictLine}"
+                      Margin="8,0"
+                      IsVisible="{Binding IsStable}" />
+
+        <Border Classes="conflictcard" IsVisible="{Binding IsConflicted}">
+          <DockPanel>
+
+            <Border DockPanel.Dock="Top" Classes="conflictheader">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Title}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+                <Border Grid.Column="1"
+                        Classes="conflictstate"
+                        Classes.resolved="{Binding IsResolved}">
+                  <TextBlock Text="{Binding ChoiceLabel}" />
+                </Border>
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
+
+                  <Button Classes="choice"
+                          Classes.chosen="{Binding IsOurs}"
+                          Command="{Binding TakeOursCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Keep our version of this region (Alt+Left)"
+                          AutomationProperties.Name="Take ours">
+                    <TextBlock Text="Ours" />
+                  </Button>
+
+                  <Button Classes="choice"
+                          Classes.chosen="{Binding IsTheirs}"
+                          Command="{Binding TakeTheirsCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Keep their version of this region (Alt+Right)"
+                          AutomationProperties.Name="Take theirs">
+                    <TextBlock Text="Theirs" />
+                  </Button>
+
+                  <Button Classes="choice"
+                          Classes.chosen="{Binding IsOursThenTheirs}"
+                          Command="{Binding TakeBothOursFirstCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Keep both, ours first"
+                          AutomationProperties.Name="Take both, ours first">
+                    <TextBlock Text="Both" />
+                  </Button>
+
+                  <Button Classes="choice"
+                          Classes.chosen="{Binding IsTheirsThenOurs}"
+                          Command="{Binding TakeBothTheirsFirstCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Keep both, theirs first"
+                          AutomationProperties.Name="Take both, theirs first">
+                    <TextBlock Text="Both, theirs first" />
+                  </Button>
+
+                  <Button Classes="choice"
+                          Classes.chosen="{Binding IsBase}"
+                          IsVisible="{Binding HasBase}"
+                          Command="{Binding TakeBaseCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Keep what both sides started from"
+                          AutomationProperties.Name="Take the original">
+                    <TextBlock Text="Original" />
+                  </Button>
+
+                  <Button Classes="choice"
+                          Classes.chosen="{Binding IsCustom}"
+                          Command="{Binding EditCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Write this region yourself"
+                          AutomationProperties.Name="Edit this region">
+                    <TextBlock Text="Edit" />
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <!-- The two states of a region share one cell of the card: a DockPanel would dock the
+                 hidden one to the left and leave the editor a column rather than the card's width. -->
+            <Panel>
+
+            <!-- Writing the region by hand replaces the three panes rather than sitting beside
+                 them: what is being edited is the one thing that matters while it is open. -->
+            <Grid RowDefinitions="Auto,Auto"
+                  Margin="8"
+                  VerticalAlignment="Top"
+                  IsVisible="{Binding IsEditing}">
+
+              <TextBox Grid.Row="0"
+                       Classes="preview"
+                       Text="{Binding EditText, Mode=TwoWay}"
+                       AcceptsReturn="True"
+                       MinHeight="120"
+                       MaxHeight="360"
+                       BorderThickness="1"
+                       BorderBrush="{DynamicResource EnigmaBorderBrush}"
+                       AutomationProperties.Name="The text to keep for this region" />
+
+              <StackPanel Grid.Row="1"
+                          Orientation="Horizontal"
+                          Spacing="6"
+                          Margin="0,6,0,0"
+                          HorizontalAlignment="Right">
+                <Button Classes="choice"
+                        Command="{Binding CancelEditCommand}"
+                        CommandParameter="{Binding}"
+                        AutomationProperties.Name="Cancel the edit">
+                  <TextBlock Text="Cancel" />
+                </Button>
+                <Button Classes="choice chosen"
+                        Command="{Binding ApplyEditCommand}"
+                        CommandParameter="{Binding}"
+                        AutomationProperties.Name="Keep what I wrote">
+                  <TextBlock Text="Keep what I wrote" />
+                </Button>
+              </StackPanel>
+            </Grid>
+
+            <!-- Ours, the original and theirs, aligned by being three columns of one grid rather
+                 than three panes kept in step by a scroll handler. -->
+            <Grid ColumnDefinitions="*,Auto,*" IsVisible="{Binding !IsEditing}">
+
+              <Border Grid.Column="0" Classes="conflictside ours">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Classes="conflictlabel ours" Text="Ours" />
+                  <ItemsControl ItemsSource="{Binding OurLines}"
+                                ItemTemplate="{StaticResource ConflictLine}" />
+                </DockPanel>
+              </Border>
+
+              <!-- Sized rather than left to its content: an Auto column would be a different width
+                   in every card, and three panes that do not line up between regions are three
+                   panes the eye has to re-find each time. -->
+              <Border Grid.Column="1"
+                      Classes="conflictside base"
+                      MinWidth="200"
+                      MaxWidth="360"
+                      IsVisible="{Binding IsBaseVisible}">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Classes="conflictlabel base" Text="Original" />
+                  <ItemsControl ItemsSource="{Binding BaseLines}"
+                                ItemTemplate="{StaticResource ConflictLine}" />
+                </DockPanel>
+              </Border>
+
+              <Border Grid.Column="2" Classes="conflictside theirs">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Classes="conflictlabel theirs" Text="Theirs" />
+                  <ItemsControl ItemsSource="{Binding TheirLines}"
+                                ItemTemplate="{StaticResource ConflictLine}" />
+                </DockPanel>
+              </Border>
+            </Grid>
+            </Panel>
+          </DockPanel>
+        </Border>
+      </Panel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ConflictFileRow" x:DataType="vm:ConflictFileRowViewModel">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Height="34">
+
+        <ei:Icon Grid.Column="0"
+                 Kind="{Binding Icon}"
+                 Size="15"
+                 VerticalAlignment="Center"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Name}"
+                     TextTrimming="CharacterEllipsis"
+                     ToolTip.Tip="{Binding Description}"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+          <TextBlock Classes="dim"
+                     Text="{Binding Directory}"
+                     IsVisible="{Binding HasDirectory}"
+                     FontSize="11"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+        </StackPanel>
+
+        <Border Grid.Column="2" Classes="conflictstate" Classes.resolved="{Binding IsResolved}">
+          <TextBlock Text="{Binding StateLabel}" />
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="ListBoxItem:selected TextBlock.dim">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <!-- The page's own header: where the merge stands, and the two ways it can end. -->
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="12,8">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Title}"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+        <TextBlock Grid.Column="1"
+                   Text="{Binding Progress}"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding ShowBase, Mode=TwoWay}"
+                        ToolTip.Tip="Show what both sides started from"
+                        AutomationProperties.Name="Show the original">
+            <ei:Icon Kind="Columns" Size="14" />
+          </ToggleButton>
+
+          <Button Classes="toolbar"
+                  Command="{Binding TakeEveryFileOursCommand}"
+                  ToolTip.Tip="Resolve every file by keeping our version whole"
+                  AutomationProperties.Name="Keep ours everywhere">
+            <TextBlock Text="Keep ours everywhere" FontSize="12" />
+          </Button>
+
+          <Button Classes="toolbar"
+                  Command="{Binding TakeEveryFileTheirsCommand}"
+                  ToolTip.Tip="Resolve every file by keeping their version whole"
+                  AutomationProperties.Name="Keep theirs everywhere">
+            <TextBlock Text="Keep theirs everywhere" FontSize="12" />
+          </Button>
+
+          <Border Width="1" Margin="4,2" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <Button Classes="toolbar"
+                  Command="{Binding AbortMergeCommand}"
+                  ToolTip.Tip="Put the repository back as it was before the merge"
+                  AutomationProperties.Name="Abandon the merge">
+            <TextBlock Text="Abandon the merge" FontSize="12" />
+          </Button>
+
+          <Button Classes="accent"
+                  Command="{Binding CommitMergeCommand}"
+                  ToolTip.Tip="Record the merge commit"
+                  AutomationProperties.Name="Commit the merge">
+            <TextBlock Text="Commit the merge" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="GitMerge"
+                           Title="Nothing to resolve"
+                           Message="When a merge stops on conflicts, the files it stopped on are listed here."
+                           IsVisible="{Binding !HasConflicts}" />
+
+      <Grid ColumnDefinitions="300,1,*" IsVisible="{Binding HasConflicts}">
+
+        <ListBox Grid.Column="0"
+                 ItemsSource="{Binding Files}"
+                 ItemTemplate="{StaticResource ConflictFileRow}"
+                 SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 AutomationProperties.Name="Conflicted files" />
+
+        <Border Grid.Column="1" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+
+          <!-- Which file, how far through it, and what to do with it once every region is decided. -->
+          <Border Grid.Row="0"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="0,0,0,1"
+                  Padding="10,6"
+                  IsVisible="{Binding HasSelection}">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+
+              <TextBlock Grid.Column="0"
+                         Text="{Binding SelectedPath}"
+                         VerticalAlignment="Center"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis"
+                         MaxWidth="420"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+              <TextBlock Grid.Column="1"
+                         Text="{Binding RegionProgress}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+              <StackPanel Grid.Column="3"
+                          Orientation="Horizontal"
+                          Spacing="6"
+                          IsVisible="{Binding HasDocument}">
+
+                <Button Classes="choice"
+                        Command="{Binding TakeAllOursCommand}"
+                        ToolTip.Tip="Keep our version of every region in this file"
+                        AutomationProperties.Name="Take ours for the whole file">
+                  <TextBlock Text="All ours" />
+                </Button>
+
+                <Button Classes="choice"
+                        Command="{Binding TakeAllTheirsCommand}"
+                        ToolTip.Tip="Keep their version of every region in this file"
+                        AutomationProperties.Name="Take theirs for the whole file">
+                  <TextBlock Text="All theirs" />
+                </Button>
+
+                <Button Classes="choice"
+                        Command="{Binding ClearChoicesCommand}"
+                        ToolTip.Tip="Undo every choice made in this file"
+                        AutomationProperties.Name="Start this file again">
+                  <TextBlock Text="Start again" />
+                </Button>
+
+                <Button Classes="accent"
+                        Command="{Binding SaveCommand}"
+                        ToolTip.Tip="Write the file and stage it for the merge commit"
+                        AutomationProperties.Name="Save the resolution">
+                  <TextBlock Text="Save and mark resolved" />
+                </Button>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Grid Grid.Row="1">
+
+            <!-- A file that cannot be merged line by line: the two versions are a choice, not a
+                 text to edit, so it is offered as one. -->
+            <Border Padding="24" IsVisible="{Binding IsWholeFileChoice}" VerticalAlignment="Top">
+              <StackPanel Spacing="12" MaxWidth="520" HorizontalAlignment="Left">
+
+                <TextBlock Text="{Binding SelectedPath}"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+                <TextBlock Text="{Binding WholeFileMessage}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="choice"
+                          Command="{Binding KeepOursCommand}"
+                          Content="{Binding KeepOursDescription}"
+                          AutomationProperties.Name="Keep our version" />
+                  <Button Classes="choice"
+                          Command="{Binding KeepTheirsCommand}"
+                          Content="{Binding KeepTheirsDescription}"
+                          AutomationProperties.Name="Keep their version" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- Already settled: kept in the list so the count means something, and said plainly. -->
+            <Border Padding="24" IsVisible="{Binding IsSelectionResolved}" VerticalAlignment="Top">
+              <StackPanel Spacing="12" MaxWidth="520" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding SelectedPath}"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="This file is resolved and staged. It will be part of the merge commit."
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              </StackPanel>
+            </Border>
+
+            <Grid RowDefinitions="*,Auto,180" IsVisible="{Binding HasDocument}">
+
+              <ListBox Grid.Row="0"
+                       Classes="diff"
+                       ItemsSource="{Binding Regions}"
+                       ItemTemplate="{StaticResource ConflictRegion}"
+                       SelectedItem="{Binding SelectedRegion, Mode=TwoWay}"
+                       AutoScrollToSelectedItem="True"
+                       Background="Transparent"
+                       BorderThickness="0"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       AutomationProperties.Name="Conflicted regions" />
+
+              <GridSplitter Grid.Row="1"
+                            Height="4"
+                            ResizeDirection="Rows"
+                            Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+              <!-- The preview: the exact file, rendered by the same method that writes it. -->
+              <DockPanel Grid.Row="2">
+                <Border DockPanel.Dock="Top"
+                        Background="{DynamicResource EnigmaSurfaceBrush}"
+                        Padding="10,4">
+                  <TextBlock Text="Preview of the file that will be written"
+                             FontSize="11"
+                             Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                </Border>
+
+                <TextBox Classes="preview"
+                         Text="{Binding Preview, Mode=OneWay}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         AutomationProperties.Name="Preview of the resolved file" />
+              </DockPanel>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</UserControl>

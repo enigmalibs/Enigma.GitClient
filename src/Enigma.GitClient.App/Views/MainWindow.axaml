@@ -136,15 +136,42 @@
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
-          <!-- The way out of a merge that went wrong, where the merge is announced. -->
-          <Button Grid.Column="2"
-                  Classes="toolbar"
-                  IsVisible="{Binding IsMergeInProgress}"
-                  Command="{Binding AbortMergeCommand}"
-                  ToolTip.Tip="Put the repository back as it was before the merge"
-                  AutomationProperties.Name="Abandon the merge">
-            <TextBlock Text="Abandon the merge" FontSize="12" />
-          </Button>
+          <!-- Everything a merge in progress can lead to, where the merge is announced: how far it
+               has got, the page that gets it further, and its two endings. -->
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding IsMergeInProgress}">
+
+            <TextBlock Text="{Binding Conflicts.Progress}"
+                       VerticalAlignment="Center"
+                       FontSize="12"
+                       Margin="0,0,4,0"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+            <Button Classes="toolbar"
+                    Command="{Binding ResolveConflictsCommand}"
+                    ToolTip.Tip="Open the page that resolves the conflicts"
+                    AutomationProperties.Name="Resolve the conflicts">
+              <TextBlock Text="Resolve conflicts" FontSize="12" />
+            </Button>
+
+            <Button Classes="toolbar"
+                    Command="{Binding AbortMergeCommand}"
+                    ToolTip.Tip="Put the repository back as it was before the merge"
+                    AutomationProperties.Name="Abandon the merge">
+              <TextBlock Text="Abandon the merge" FontSize="12" />
+            </Button>
+
+            <!-- Enabled only once every conflict is resolved, which is what makes the count above
+                 it worth reading. -->
+            <Button Classes="accent"
+                    Command="{Binding Conflicts.CommitMergeCommand}"
+                    ToolTip.Tip="Record the merge commit"
+                    AutomationProperties.Name="Commit the merge">
+              <TextBlock Text="Commit the merge" FontSize="12" />
+            </Button>
+          </StackPanel>
         </Grid>
       </Border>
 

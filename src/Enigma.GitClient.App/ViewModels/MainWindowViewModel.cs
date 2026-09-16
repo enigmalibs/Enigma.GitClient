@@ -38,6 +38,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="gitEnvironment">Probes the host's git installation at startup.</param>
     /// <param name="dialogService">Shows the blocking dialog when git is unusable.</param>
+    /// <param name="history">The graph page, whose uncommitted row navigates to the changes page.</param>
+    /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
+    /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
+    /// <param name="merges">Backs the banner's way out of a merge.</param>
     /// <param name="logger">Receives startup failures.</param>
     public MainWindowViewModel(
         IShellNavigation shell,
@@ -45,6 +49,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         IGitEnvironment gitEnvironment,
         IContentDialogService dialogService,
         HistoryPageViewModel history,
+        ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
         IMergeOperations merges,
         ILogger<MainWindowViewModel> logger)
@@ -54,6 +59,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(gitEnvironment);
         ArgumentNullException.ThrowIfNull(dialogService);
         ArgumentNullException.ThrowIfNull(history);
+        ArgumentNullException.ThrowIfNull(conflicts);
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(logger);
@@ -63,6 +69,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         history.WorkingDirectoryRequested += (_, _) => shell.GoTo(ShellPage.Changes);
 
         Shell = shell;
+        Conflicts = conflicts;
         RepositoryContext = repositoryContext;
         _gitEnvironment = gitEnvironment;
         _dialogService = dialogService;
@@ -78,6 +85,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         PushCommand = new AsyncRelayCommand(RunSyncAsync(() => _sync.PushAsync()), () => CanSync);
 
         AbortMergeCommand = new AsyncRelayCommand(OnAbortMergeAsync, () => IsMergeInProgress);
+        ResolveConflictsCommand = new RelayCommand(() => Shell.GoTo(ShellPage.Conflicts), () => IsMergeInProgress);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
@@ -87,6 +95,15 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Gets the shell navigation the rail and the content area bind to.
     /// </summary>
     public IShellNavigation Shell { get; }
+
+    /// <summary>
+    /// Gets the conflicts page, which the banner reads its progress and its commit button from.
+    /// </summary>
+    /// <remarks>
+    /// The banner has to say how far a merge has got before the page has ever been opened, so it
+    /// binds straight through to the page rather than keeping a second copy of the same counters.
+    /// </remarks>
+    public ConflictResolutionPageViewModel Conflicts { get; }
 
     /// <summary>
     /// Gets the navigation service the rail and the content area bind to.
@@ -169,6 +186,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     /// <summary>Gets the command that abandons a merge in progress.</summary>
     public AsyncRelayCommand AbortMergeCommand { get; }
+
+    /// <summary>Gets the command that opens the conflicts page.</summary>
+    public RelayCommand ResolveConflictsCommand { get; }
 
     /// <summary>
     /// Gets a value indicating whether a merge is waiting to be finished or abandoned.
@@ -270,6 +290,10 @@ public sealed class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(OperationDescription));
                 OnPropertyChanged(nameof(IsMergeInProgress));
                 AbortMergeCommand.NotifyCanExecuteChanged();
+                ResolveConflictsCommand.NotifyCanExecuteChanged();
+
+                // The rail carries the conflicts page only while there is a merge to resolve.
+                Shell.SetConflictsVisible(IsMergeInProgress);
                 break;
             default:
                 break;

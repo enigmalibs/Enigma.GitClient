@@ -1,6 +1,6 @@
 # FEATURE-6DCC — Merge & conflict resolution
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-6dcc-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -84,7 +84,7 @@ written.
 
 ## PHASE03 — Conflict resolution UI
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6DCC-PHASE03.md`
 
 **Steps**
 
