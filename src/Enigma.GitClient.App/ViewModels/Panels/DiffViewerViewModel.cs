@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Git;
@@ -241,6 +242,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
     public const int ExpansionFactor = 4;
 
     private readonly IDiffService _diffs;
+    private readonly ISettingsService _settings;
     private readonly ISystemInterop _interop;
     private readonly ILogger<DiffViewerViewModel> _logger;
 
@@ -257,18 +259,27 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// <param name="diffs">Reads the patches.</param>
     /// <param name="interop">Puts a copied patch on the clipboard.</param>
     /// <param name="logger">Records a failed read.</param>
-    public DiffViewerViewModel(IDiffService diffs, ISystemInterop interop, ILogger<DiffViewerViewModel> logger)
+    public DiffViewerViewModel(
+        IDiffService diffs,
+        ISystemInterop interop,
+        ISettingsService settings,
+        ILogger<DiffViewerViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(logger);
 
         _diffs = diffs;
         _interop = interop;
+        _settings = settings;
         _logger = logger;
 
         ShowUnifiedCommand = new RelayCommand(() => ViewMode = DiffViewMode.Unified);
         ShowSideBySideCommand = new RelayCommand(() => ViewMode = DiffViewMode.SideBySide);
+
+        Apply(_settings.Current);
+        _settings.Changed += (_, e) => Apply(e.Settings);
 
         ExpandContextCommand = new AsyncRelayCommand(
             () => SetContextAsync(Math.Min(ContextLines * ExpansionFactor, WholeFileContext)),
@@ -651,5 +662,37 @@ public sealed class DiffViewerViewModel : ViewModelBase
         builder.Append(CultureInfo.CurrentCulture, $" −{patch.RemovedLines.ToString(CultureInfo.CurrentCulture)}");
 
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// Takes the stored diff preferences on, at startup and whenever they change.
+    /// </summary>
+    /// <param name="settings">The preferences.</param>
+    /// <remarks>
+    /// One way only: this viewer's own toolbar changes this viewer for as long as it is open, and
+    /// does not rewrite the preference behind every other viewer in the window.
+    /// </remarks>
+    private void Apply(AppSettings settings)
+    {
+        ViewMode = settings.DiffView == DiffView.SideBySide ? DiffViewMode.SideBySide : DiffViewMode.Unified;
+
+        Render.ShowWhitespace = settings.ShowWhitespace;
+        Render.WrapLines = settings.WrapLines;
+        Render.TabWidth = settings.TabWidth;
+
+        bool reload = ContextLines != settings.DiffContextLines;
+
+        ContextLines = settings.DiffContextLines;
+
+        if (IgnoreAllWhitespace != settings.IgnoreWhitespace)
+        {
+            // Its own setter re-reads the patch, so this branch must not do it twice.
+            IgnoreAllWhitespace = settings.IgnoreWhitespace;
+        }
+        else if (reload && HasPatch)
+        {
+            // The context is a question for git rather than for the renderer.
+            _ = ReloadAsync();
+        }
     }
 }

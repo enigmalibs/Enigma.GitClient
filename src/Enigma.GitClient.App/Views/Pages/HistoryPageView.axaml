@@ -117,13 +117,16 @@
       <ListBox.Styles>
         <Style Selector="ListBoxItem">
           <Setter Property="Padding" Value="0" />
-          <Setter Property="MinHeight" Value="26" />
+          <!-- The row's own Grid carries the height, which is a preference; a MinHeight here would
+               quietly win whenever that preference is smaller. -->
+          <Setter Property="MinHeight" Value="0" />
         </Style>
       </ListBox.Styles>
 
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="vm:CommitRowViewModel">
-          <Grid Height="26" ColumnSpacing="10">
+          <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                ColumnSpacing="10">
             <Grid.ColumnDefinitions>
               <!-- Auto, with the cell itself given one explicit width for every row: that is what
                    keeps the columns beside the graph on the same horizontal position on every line.
@@ -177,7 +180,7 @@
                                    Row="{Binding Row}"
                                    IsHead="{Binding IsHead}"
                                    IsUncommitted="{Binding IsUncommitted}"
-                                   LaneWidth="16"
+                                   LaneWidth="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).LaneWidth}"
                                    LanePadding="8"
                                    VerticalAlignment="Stretch" />
 
@@ -222,11 +225,11 @@
             </StackPanel>
 
             <TextBlock Grid.Column="4"
-                       Text="{Binding RelativeDate}"
+                       Text="{Binding DateText}"
                        VerticalAlignment="Center"
                        FontSize="12"
                        TextTrimming="CharacterEllipsis"
-                       ToolTip.Tip="{Binding AbsoluteDate}"
+                       ToolTip.Tip="{Binding DateTooltip}"
                        Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
             <TextBlock Grid.Column="5"

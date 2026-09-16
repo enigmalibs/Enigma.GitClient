@@ -89,13 +89,18 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// <param name="isHead">Whether HEAD resolves to it.</param>
     /// <param name="now">The moment relative timestamps are measured from.</param>
     /// <param name="commands">The commands the row's own context menu runs.</param>
+    /// <param name="absoluteDates">
+    /// Whether the row shows the date itself rather than how long ago it was. Both are always
+    /// built: the one that is not shown is the tooltip.
+    /// </param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
         IReadOnlyList<GitRef>? refs,
         bool isHead,
         DateTimeOffset now,
-        HistoryRowCommands? commands = null)
+        HistoryRowCommands? commands = null,
+        bool absoluteDates = false)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
@@ -113,6 +118,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         ShortSha = commit.ShortSha;
         RelativeDate = RelativeTime.Format(commit.Author.When, now);
         AbsoluteDate = RelativeTime.FormatAbsolute(commit.Author.When);
+        ShowsAbsoluteDate = absoluteDates;
     }
 
     private CommitRowViewModel(GraphRow row, HistoryRowCommands? commands)
@@ -285,6 +291,18 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     /// <summary>Gets the exact timestamp, for the tooltip behind the relative one.</summary>
     public string AbsoluteDate { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the row shows the date itself rather than how long ago it
+    /// was.
+    /// </summary>
+    public bool ShowsAbsoluteDate { get; }
+
+    /// <summary>Gets the date the row shows.</summary>
+    public string DateText => ShowsAbsoluteDate ? AbsoluteDate : RelativeDate;
+
+    /// <summary>Gets the date the row shows in its tooltip, which is the other one.</summary>
+    public string DateTooltip => ShowsAbsoluteDate ? RelativeDate : AbsoluteDate;
 
     /// <summary>
     /// Gets the commit's full SHA, empty for the uncommitted-changes row.

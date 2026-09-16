@@ -469,7 +469,7 @@ public sealed class ChangedFilesPanelTests
     {
         ChangedFilesPanelViewModel panel = Loaded();
 
-        Assert.True(ChangedFilesPanelViewModel.AutoExpandLimit > 5);
+        Assert.True(ChangedFilesPanelViewModel.DefaultAutoExpandLimit > 5);
         Assert.All(panel.Nodes.Where(node => node.IsDirectory), node => Assert.True(node.IsExpanded));
     }
 
