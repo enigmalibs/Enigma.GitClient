@@ -72,16 +72,23 @@ public sealed record AppSettings
 {
     /// <summary>The schema version this build writes.</summary>
     /// <remarks>
-    /// Version 2 raised the default row height from 26 to 36; see <c>SettingsService.Migrate</c>
-    /// for what that does to a file written by version 1.
+    /// Version 2 raised the default row height from 26 to 36, and version 3 moved the diff to the
+    /// side-by-side rendering; see <c>SettingsService.Migrate</c> for what each does to a file
+    /// written by an earlier one.
     /// </remarks>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>
     /// The row height version 1 shipped as its default, which the version 2 migration replaces
     /// wherever it was never changed.
     /// </summary>
     public const double LegacyGraphRowHeight = 26;
+
+    /// <summary>
+    /// The diff rendering versions 1 and 2 shipped as their default, which the version 3 migration
+    /// replaces wherever it was never changed.
+    /// </summary>
+    public const DiffView LegacyDiffView = DiffView.Unified;
 
     /// <summary>The settings a fresh install runs on.</summary>
     public static readonly AppSettings Defaults = new();
@@ -124,8 +131,11 @@ public sealed record AppSettings
 
     // ---------------------------------------------------------------- diff
 
-    /// <summary>Gets how a diff is drawn.</summary>
-    public DiffView DiffView { get; init; } = DiffView.Unified;
+    /// <summary>
+    /// Gets how a diff is drawn. Side by side, which is what a reader comparing two revisions
+    /// actually wants to see; the unified rendering is one toolbar click away.
+    /// </summary>
+    public DiffView DiffView { get; init; } = DiffView.SideBySide;
 
     /// <summary>Gets how many unchanged lines are shown around a change.</summary>
     public int DiffContextLines { get; init; } = 3;
@@ -180,7 +190,7 @@ public sealed record AppSettings
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,
             FilesView = Enum.IsDefined(FilesView) ? FilesView : FilesView.List,
-            DiffView = Enum.IsDefined(DiffView) ? DiffView : DiffView.Unified,
+            DiffView = Enum.IsDefined(DiffView) ? DiffView : Defaults.DiffView,
             Pull = Enum.IsDefined(Pull) ? Pull : PullStrategy.Merge,
         };
 }
