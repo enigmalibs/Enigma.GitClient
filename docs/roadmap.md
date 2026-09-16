@@ -41,3 +41,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | GitHub provider                    | DONE        | (in FEATURE-22C0.md)      |
 | - PHASE03    | GitLab & Azure DevOps providers    | DONE        | (in FEATURE-22C0.md)      |
 | FEATURE-5D77 | Settings, preferences & docs       | DONE        | docs/plan/FEATURE-5D77.md |
+| BUG-6CE6     | Details panel ignores the splitter | DONE        | docs/plan/BUG-6CE6.md     |
+| FEATURE-0183 | Bigger graph nodes, taller rows    | DONE        | docs/plan/FEATURE-0183.md |
+| - PHASE01    | Double the graph node size         | DONE        | (in FEATURE-0183.md)      |
+| - PHASE02    | Default row height of 36           | DONE        | (in FEATURE-0183.md)      |

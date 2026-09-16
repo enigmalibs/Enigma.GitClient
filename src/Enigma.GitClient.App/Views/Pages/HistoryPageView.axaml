@@ -88,7 +88,22 @@
       The workspace: the graph on top, the details of whatever is selected underneath, with a
       splitter between them so a reader can give either one the room it needs.
     -->
-    <Grid RowDefinitions="*,Auto,Auto">
+    <Grid Name="Workspace">
+      <Grid.RowDefinitions>
+        <!--
+          The graph keeps a floor of its own, so the splitter can shrink it but never erase it.
+        -->
+        <RowDefinition Height="*" MinHeight="120" />
+        <RowDefinition Height="Auto" />
+        <!--
+          Pixel, not Auto: a splitter writes the dragged size back into the row definition keeping
+          that definition's unit type, and an Auto row measures to its content whatever value it is
+          handed — which is how this panel used to stay at one height forever. It starts collapsed
+          and the code-behind opens it to the remembered height when a commit is selected, because a
+          pixel row would otherwise reserve its space with nothing to show in it.
+        -->
+        <RowDefinition Height="0" />
+      </Grid.RowDefinitions>
 
       <Panel Grid.Row="0">
         <controls:EmptyState IconKind="GitCommit"
@@ -251,7 +266,7 @@
                     IsVisible="{Binding HasSelection}" />
 
       <Border Grid.Row="2"
-              Height="300"
+              Name="CommitDetails"
               Background="{DynamicResource EnigmaSurfaceBrush}"
               IsVisible="{Binding HasSelection}">
         <DockPanel>
