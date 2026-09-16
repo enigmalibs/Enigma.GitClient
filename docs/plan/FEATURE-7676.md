@@ -1,6 +1,6 @@
 # FEATURE-7676 — Diff panel defaults and typography
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-7676-phase01-side-by-side`, `feature/feature-7676-phase02-diff-font`
 **Run:** feature/2026-09-16-diff-panel-layout
@@ -58,7 +58,7 @@ Open the diff panel side by side, and make the face and the size the diff is dra
 
 ## PHASE02 — Configurable diff font
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7676-PHASE02.md`
 
 ### Steps
 

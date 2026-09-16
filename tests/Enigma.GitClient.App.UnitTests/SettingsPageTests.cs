@@ -270,6 +270,85 @@ public sealed class SettingsPageTests
     }
 
     [Fact]
+    public void TheFontListLeadsWithTheApplicationsOwnStack()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+
+            Assert.Equal(SettingsPageViewModel.DefaultFontLabel, page.DiffFonts[0]);
+            Assert.Equal(SettingsPageViewModel.DefaultFontLabel, page.DiffFont);
+
+            // "Default" is a label, not a family: what gets stored is the empty preference.
+            Assert.Equal(string.Empty, services.Get<ISettingsService>().Current.DiffFontFamily);
+        });
+    }
+
+    [Fact]
+    public void ChoosingAFontStoresItAndClearingItGoesBack()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+            ISettingsService settings = services.Get<ISettingsService>();
+
+            page.DiffFont = "Fira Code";
+
+            Assert.Equal("Fira Code", settings.Current.DiffFontFamily);
+            Assert.Equal("Fira Code", page.DiffFont);
+
+            page.DiffFont = SettingsPageViewModel.DefaultFontLabel;
+
+            Assert.Equal(string.Empty, settings.Current.DiffFontFamily);
+            Assert.Equal(SettingsPageViewModel.DefaultFontLabel, page.DiffFont);
+        });
+    }
+
+    [Fact]
+    public void AStoredFontThisMachineLacksIsStillOffered()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            services.Get<ISettingsService>().Update(current => current with { DiffFontFamily = "No Such Face 91827" });
+
+            // Read after the preference moved, so the list is built around it: a dropdown that
+            // cannot show what is in force shows nothing at all.
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+
+            Assert.Contains("No Such Face 91827", page.DiffFonts);
+            Assert.Equal("No Such Face 91827", page.DiffFont);
+        });
+    }
+
+    [Fact]
+    public void TheDiffFontSizeIsAPreferenceLikeAnyOther()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+
+            Assert.Equal(14, page.DiffFontSize);
+
+            page.DiffFontSize = 20;
+
+            Assert.Equal(20, services.Get<ISettingsService>().Current.DiffFontSize);
+
+            // And it is clamped on the way in, like every other number here.
+            page.DiffFontSize = 400;
+
+            Assert.Equal(32, page.DiffFontSize);
+        });
+    }
+
+    [Fact]
     public void ANewViewerOpensOnTheStoredPreferences()
     {
         _fixture.Run(() =>
