@@ -5,9 +5,11 @@ using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Security;
 using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
@@ -58,6 +60,34 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IBranchService, BranchService>();
             services.AddSingleton<ITagService, TagService>();
             services.AddSingleton<ICheckoutService, CheckoutService>();
+
+            services.AddRepositoryHosting();
+
+            return services;
+        }
+
+        /// <summary>
+        /// Registers the repository hosting integrations: the token store, the connected accounts,
+        /// the provider registry, and the HTTP client every provider shares.
+        /// </summary>
+        /// <remarks>
+        /// The providers themselves are registered by whoever supplies them, so a build with no
+        /// provider still has a working registry that simply recognises nothing.
+        /// </remarks>
+        /// <returns>The same collection, so calls can be chained.</returns>
+        public IServiceCollection AddRepositoryHosting()
+        {
+            services.AddSingleton<ITokenStore, FileTokenStore>();
+            services.AddSingleton<IHostAccountService, HostAccountService>();
+            services.AddSingleton<IHostProviderRegistry, HostProviderRegistry>();
+
+            services
+                .AddHttpClient(HostHttp.ClientName, client =>
+                {
+                    client.Timeout = HostHttp.Timeout;
+                    client.DefaultRequestHeaders.UserAgent.Add(HostHttp.UserAgent());
+                })
+                .AddHttpMessageHandler(() => new HostRetryHandler());
 
             return services;
         }
