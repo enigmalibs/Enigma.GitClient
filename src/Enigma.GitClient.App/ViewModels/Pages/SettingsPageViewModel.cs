@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diagnostics;
@@ -24,6 +26,12 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// </remarks>
 public sealed class SettingsPageViewModel : PageViewModelBase
 {
+    /// <summary>
+    /// What the font list calls "no preference": the application's own monospace stack, whatever
+    /// this build ships it as.
+    /// </summary>
+    public const string DefaultFontLabel = "Default";
+
     private readonly ISettingsService _settings;
     private readonly IGitEnvironment _git;
     private readonly IContentDialogService _dialogs;
@@ -191,6 +199,43 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         set => Change(current => current with { WrapLines = value });
     }
 
+    /// <summary>
+    /// Gets the faces a diff can be drawn in: this machine's monospace families, behind the
+    /// application's own stack.
+    /// </summary>
+    /// <remarks>
+    /// Built on first read rather than in the constructor, because enumerating the installed fonts
+    /// needs a font manager and the container is resolved in places that have no Avalonia platform
+    /// behind them. Only monospace faces are offered: the diff expands tabs to a column grid and
+    /// scrolls in character columns, neither of which means anything in a proportional face. A
+    /// family stored in the settings file but missing from this machine is listed anyway, so the
+    /// dropdown shows what is actually in force rather than nothing at all.
+    /// </remarks>
+    public IReadOnlyList<string> DiffFonts
+        => field ??= BuildFontList(_settings.Current.DiffFontFamily);
+
+    /// <summary>
+    /// Gets or sets the face a diff is drawn in, as the list writes it — <see cref="DefaultFontLabel"/>
+    /// standing for the empty preference.
+    /// </summary>
+    public string DiffFont
+    {
+        get => _settings.Current.DiffFontFamily is { Length: > 0 } family ? family : DefaultFontLabel;
+        set => Change(current => current with
+        {
+            DiffFontFamily = string.Equals(value, DefaultFontLabel, StringComparison.Ordinal)
+                ? string.Empty
+                : value ?? string.Empty,
+        });
+    }
+
+    /// <summary>Gets or sets how large a diff's text is drawn.</summary>
+    public double DiffFontSize
+    {
+        get => _settings.Current.DiffFontSize;
+        set => Change(current => current with { DiffFontSize = value });
+    }
+
     // ---------------------------------------------------------------- git
 
     /// <summary>Gets or sets an explicit path to the git executable.</summary>
@@ -318,6 +363,8 @@ public sealed class SettingsPageViewModel : PageViewModelBase
             OnPropertyChanged(nameof(IgnoreWhitespace));
             OnPropertyChanged(nameof(TabWidth));
             OnPropertyChanged(nameof(WrapLines));
+            OnPropertyChanged(nameof(DiffFont));
+            OnPropertyChanged(nameof(DiffFontSize));
             OnPropertyChanged(nameof(GitExecutablePath));
             OnPropertyChanged(nameof(Pull));
         }
@@ -357,4 +404,23 @@ public sealed class SettingsPageViewModel : PageViewModelBase
     /// <returns>The text.</returns>
     public static string Describe(double value)
         => value.ToString("0", CultureInfo.CurrentCulture);
+
+    /// <summary>
+    /// Builds the font dropdown's entries.
+    /// </summary>
+    /// <param name="stored">The family the settings file names, empty for the default.</param>
+    /// <returns>The entries, the default first.</returns>
+    private static IReadOnlyList<string> BuildFontList(string stored)
+    {
+        List<string> fonts = [DefaultFontLabel];
+
+        fonts.AddRange(DiffTypography.MonospaceFamilies().Select(family => family.Name));
+
+        if (stored.Length > 0 && !fonts.Contains(stored, StringComparer.Ordinal))
+        {
+            fonts.Add(stored);
+        }
+
+        return fonts;
+    }
 }

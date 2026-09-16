@@ -152,6 +152,20 @@ public sealed record AppSettings
     /// <summary>Gets a value indicating whether long lines wrap.</summary>
     public bool WrapLines { get; init; }
 
+    /// <summary>
+    /// Gets the face a diff is drawn in, empty for the application's own monospace stack.
+    /// </summary>
+    /// <remarks>
+    /// A family name rather than a stack: what is stored is what someone picked from the list of
+    /// faces their machine has. Storing the fallback stack itself would freeze today's list into
+    /// everyone's settings file, and an empty value already says "whatever this build ships with"
+    /// far more durably.
+    /// </remarks>
+    public string DiffFontFamily { get; init; } = string.Empty;
+
+    /// <summary>Gets how large a diff's text is drawn, in device-independent pixels.</summary>
+    public double DiffFontSize { get; init; } = 14;
+
     // ---------------------------------------------------------------- git
 
     /// <summary>
@@ -186,6 +200,8 @@ public sealed record AppSettings
             FilesAutoExpandLimit = Math.Clamp(FilesAutoExpandLimit, 0, 100_000),
             DiffContextLines = Math.Clamp(DiffContextLines, 0, 100_000),
             TabWidth = Math.Clamp(TabWidth, 1, 16),
+            DiffFontSize = Math.Clamp(DiffFontSize, 8, 32),
+            DiffFontFamily = DiffFontFamily?.Trim() ?? string.Empty,
             GitExecutablePath = GitExecutablePath?.Trim() ?? string.Empty,
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,

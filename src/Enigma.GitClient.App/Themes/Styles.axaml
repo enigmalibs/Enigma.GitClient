@@ -137,22 +137,33 @@
     <Setter Property="Background" Value="{DynamicResource DiffGutterBrush}" />
   </Style>
 
+  <!--
+    The gutter, the marker and the text itself all take their face, their size and their width from
+    the DiffTypography resources, so the diff font preference reaches every diff the application
+    draws — both of the viewer's renderings and the conflict page's three panes — without a binding
+    per row. The widths are derived from the measured character width: a column fixed at 48 px
+    clips a six-digit line number the moment the face grows.
+  -->
   <Style Selector="TextBlock.diffnumber">
-    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffLineNumberFontSize}" />
+    <Setter Property="Width" Value="{DynamicResource DiffGutterWidth}" />
     <Setter Property="Foreground" Value="{DynamicResource DiffGutterForegroundBrush}" />
     <Setter Property="HorizontalAlignment" Value="Right" />
     <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Right" />
     <Setter Property="Padding" Value="0,0,8,0" />
   </Style>
 
   <Style Selector="TextBlock.diffmarker">
-    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffFontSize}" />
+    <Setter Property="Width" Value="{DynamicResource DiffMarkerWidth}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Center" />
   </Style>
 
   <Style Selector="TextBlock.diffmarker.added">
@@ -164,8 +175,8 @@
   </Style>
 
   <Style Selector="diff|DiffLineText">
-    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffFontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
     <Setter Property="WhitespaceBrush" Value="{DynamicResource DiffWhitespaceBrush}" />
     <Setter Property="VerticalAlignment" Value="Center" />

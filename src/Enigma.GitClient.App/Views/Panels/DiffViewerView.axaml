@@ -27,7 +27,7 @@
                 Classes.added="{Binding Single.IsAdded}"
                 Classes.removed="{Binding Single.IsRemoved}"
                 IsVisible="{Binding IsLine}">
-          <Grid ColumnDefinitions="48,48,18,*">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*">
 
             <Border Grid.Column="0" Grid.ColumnSpan="2" Classes="diffgutter" />
             <Border Grid.Column="0" Classes="diffselection" />
@@ -75,7 +75,7 @@
                   Classes="diffrow"
                   Classes.removed="{Binding Left.IsRemoved}"
                   Classes.filler="{Binding Left.IsFiller}">
-            <Grid ColumnDefinitions="48,18,*">
+            <Grid ColumnDefinitions="Auto,Auto,*">
               <Border Grid.Column="0" Classes="diffgutter" />
               <Border Grid.Column="0" Classes="diffselection" />
               <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Left.OldNumber}" />
@@ -99,7 +99,7 @@
                   Classes="diffrow"
                   Classes.added="{Binding Right.IsAdded}"
                   Classes.filler="{Binding Right.IsFiller}">
-            <Grid ColumnDefinitions="48,18,*">
+            <Grid ColumnDefinitions="Auto,Auto,*">
               <Border Grid.Column="0" Classes="diffgutter" />
               <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Right.NewNumber}" />
               <TextBlock Grid.Column="1"

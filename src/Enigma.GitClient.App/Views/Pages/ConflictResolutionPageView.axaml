@@ -20,7 +20,7 @@
     <!-- One line, used by all three panes: the panes differ by the tint behind them, never by how a
          line of the file is drawn. -->
     <DataTemplate x:Key="ConflictLine" x:DataType="vm:ConflictLineViewModel">
-      <Grid ColumnDefinitions="32,*">
+      <Grid ColumnDefinitions="Auto,*">
         <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Number}" />
         <diff:DiffLineText Grid.Column="1" Text="{Binding Text}" />
       </Grid>

@@ -50,6 +50,8 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(PullStrategy.Merge, defaults.Pull);
         Assert.Equal(3, defaults.DiffContextLines);
         Assert.Equal(4, defaults.TabWidth);
+        Assert.Equal(string.Empty, defaults.DiffFontFamily);
+        Assert.Equal(14, defaults.DiffFontSize);
         Assert.Equal(36, defaults.GraphRowHeight);
         Assert.Equal(16, defaults.GraphLaneWidth);
         Assert.Equal(string.Empty, defaults.GitExecutablePath);
@@ -90,6 +92,8 @@ public sealed class SettingsServiceTests : IDisposable
                 DiffView = DiffView.Unified,
                 DiffContextLines = 8,
                 TabWidth = 2,
+                DiffFontFamily = "Fira Code",
+                DiffFontSize = 18,
                 FilesView = FilesView.List,
                 HistoryPageSize = 750,
                 FirstParentOnly = true,
@@ -110,6 +114,8 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(DiffView.Unified, stored.DiffView);
         Assert.Equal(8, stored.DiffContextLines);
         Assert.Equal(2, stored.TabWidth);
+        Assert.Equal("Fira Code", stored.DiffFontFamily);
+        Assert.Equal(18, stored.DiffFontSize);
         Assert.Equal(FilesView.List, stored.FilesView);
         Assert.Equal(750, stored.HistoryPageSize);
         Assert.True(stored.FirstParentOnly);
@@ -328,6 +334,8 @@ public sealed class SettingsServiceTests : IDisposable
               "tabWidth": 900,
               "graphRowHeight": 4,
               "diffContextLines": -3,
+              "diffFontSize": 400,
+              "diffFontFamily": "  Fira Code  ",
               "gitExecutablePath": "  /usr/bin/git  "
             }
             """);
@@ -339,6 +347,8 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(16, stored.TabWidth);
         Assert.Equal(18, stored.GraphRowHeight);
         Assert.Equal(0, stored.DiffContextLines);
+        Assert.Equal(32, stored.DiffFontSize);
+        Assert.Equal("Fira Code", stored.DiffFontFamily);
         Assert.Equal("/usr/bin/git", stored.GitExecutablePath);
     }
 
