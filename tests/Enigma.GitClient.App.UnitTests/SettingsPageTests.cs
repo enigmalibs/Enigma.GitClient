@@ -295,7 +295,7 @@ public sealed class SettingsPageTests
             HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
 
             Assert.Equal(16, history.LaneWidth);
-            Assert.Equal(26, history.RowHeight);
+            Assert.Equal(36, history.RowHeight);
 
             SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
 

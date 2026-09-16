@@ -1,6 +1,6 @@
 # FEATURE-0183 — Bigger graph nodes, taller rows
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-0183-phase01-node-size`, `feature/feature-0183-phase02-row-height`
 **Run:** bugfix/2026-09-16-history-panel-and-graph
@@ -47,6 +47,8 @@ default row height of 36 for the history and the graph.
 - `dotnet build` clean with zero warnings; the whole suite green.
 
 ## PHASE02 — Default row height of 36
+
+**Status:** DONE — see `docs/done/FEATURE-0183-PHASE02.md`
 
 ### Steps
 
