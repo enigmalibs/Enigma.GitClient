@@ -80,6 +80,8 @@ public static class ServiceCollectionExtensions
         {
             services.AddSingleton<ITokenStore, FileTokenStore>();
             services.AddSingleton<IRepositoryHostProvider, GitHubProvider>();
+            services.AddSingleton<IRepositoryHostProvider, GitLabProvider>();
+            services.AddSingleton<IRepositoryHostProvider, AzureDevOpsProvider>();
             services.AddSingleton<IHostAccountService, HostAccountService>();
             services.AddSingleton<IHostProviderRegistry, HostProviderRegistry>();
 

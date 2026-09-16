@@ -25,7 +25,9 @@ Two things matter more than everything else in this app:
 - Merge conflict resolution with a three-way view, per-hunk selection and a live preview of the
   file that will be written
 - Integrations with **GitHub**, **GitLab** and **Azure DevOps**: sign in with a personal access
-  token, browse and clone your repositories, and open a commit, branch or file on the host
+  token, browse and clone your repositories, and open a commit, branch or file on the host — on the
+  public instances and on self-hosted ones (GitHub Enterprise Server, self-hosted GitLab, Azure
+  DevOps Server)
 
 ## Non-goals
 
@@ -35,6 +37,21 @@ These are deliberate, permanent exclusions — not gaps waiting to be filled:
   `git pull` is always invoked with `--no-rebase`, even in a repository configured otherwise.
 - **No issues and no pull requests.** The hosting integrations cover repositories, cloning and deep
   links only; no issue or pull-request scope is ever requested from a host.
+
+## Connecting a host
+
+Each integration signs in with a personal access token you create on the host itself, and asks for
+the smallest scope that can list and clone repositories:
+
+| Host | Scope to grant | Where to put the instance URL |
+|------|----------------|-------------------------------|
+| GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `https://github.com`, or your Enterprise Server's own address |
+| GitLab | `read_api` and `read_repository` | `https://gitlab.com`, or your instance's own address |
+| Azure DevOps | **Code: Read** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+
+No issue, work-item, merge-request or pull-request scope is ever requested, and the client never
+calls those APIs. Tokens are encrypted at rest — AES-GCM with a key protected by DPAPI on Windows
+and by file permissions (`0600`) on Linux — and are redacted from every log line and error message.
 
 ## Requirements
 
