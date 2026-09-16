@@ -1,6 +1,6 @@
 # FEATURE-22C0 — Repository hosting integrations
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-22c0-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -21,6 +21,8 @@ its page on the host — **without** touching issues or pull requests, which are
   simply has no integration.
 
 ## PHASE01 — Provider abstraction & tokens
+
+**Status:** DONE — see `docs/done/FEATURE-22C0-PHASE01.md`
 
 **Steps**
 
@@ -54,6 +56,8 @@ its page on the host — **without** touching issues or pull requests, which are
 
 ## PHASE02 — GitHub provider
 
+**Status:** TODO
+
 **Steps**
 
 1. `GitHubProvider` on REST v3 (`/user`, `/user/repos?affiliation=…&per_page=100`, link-header
@@ -79,6 +83,8 @@ its page on the host — **without** touching issues or pull requests, which are
 - No test contacts the network.
 
 ## PHASE03 — GitLab & Azure DevOps providers
+
+**Status:** TODO
 
 **Steps**
 

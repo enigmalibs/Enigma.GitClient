@@ -12,6 +12,10 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <!-- Windows DPAPI for the token store's data key. The package is referenced on every platform
+         and used only under an OperatingSystem.IsWindows() guard; on Linux the key file is
+         protected by its 0600 mode instead. -->
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
   </ItemGroup>
 
   <!-- Desktop (Avalonia) — a version-coupled ecosystem: Avalonia, its Desktop/Fluent/Inter
