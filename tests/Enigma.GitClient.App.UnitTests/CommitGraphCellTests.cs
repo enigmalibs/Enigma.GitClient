@@ -90,6 +90,40 @@ public sealed class CommitGraphCellTests
         });
     }
 
+    // ---------------------------------------------------------------- the node
+
+    [Fact]
+    public void Node_IsDrawnTwiceTheSizeItUsedToBe()
+    {
+        _fixture.Run(() =>
+        {
+            CommitGraphCell cell = new();
+
+            Assert.Equal(9, cell.NodeRadius);
+        });
+    }
+
+    [Theory]
+    // The defaults: nothing is in the way, so the node is drawn at the size it asks for.
+    [InlineData(36, 16, false, 9)]
+    [InlineData(36, 16, true, 9)]
+    // The smallest row height a preference allows: the node shrinks rather than being sliced off by
+    // the rows above and below, and a HEAD node leaves room for its ring as well.
+    [InlineData(18, 16, false, 7)]
+    [InlineData(18, 16, true, 4.5)]
+    // The smallest lane width: the node stops short of the next lane's line.
+    [InlineData(36, 8, false, 6)]
+    public void Node_IsFittedToItsRowAndItsLane(double rowHeight, double laneWidth, bool isHead, double expected)
+        => Assert.Equal(expected, CommitGraphCell.CalculateNodeRadius(9, rowHeight, laneWidth, 2, isHead));
+
+    [Fact]
+    public void Node_NeverDisappearsHoweverSmallTheRowIs()
+        => Assert.Equal(1, CommitGraphCell.CalculateNodeRadius(9, 1, 1, 2, isHead: true));
+
+    [Fact]
+    public void Node_IsNeverGrownToFillTheRoomItIsGiven()
+        => Assert.Equal(4.5, CommitGraphCell.CalculateNodeRadius(4.5, 96, 40, 2, isHead: false));
+
     // ---------------------------------------------------------------- palette
 
     [Fact]
