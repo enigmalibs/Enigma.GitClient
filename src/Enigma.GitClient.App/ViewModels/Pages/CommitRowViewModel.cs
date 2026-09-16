@@ -36,6 +36,11 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// What a double-click does: check out the row's branch when it has one, the commit itself
 /// otherwise.
 /// </param>
+/// <param name="OpenOnHost">Opens the row's commit on the host its remote points at.</param>
+/// <param name="HostLabel">
+/// What that menu item is called. A function rather than a string, because which host a repository
+/// is on is read after the rows are built, and the menu asks for the label when it opens.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutBranch,
@@ -43,7 +48,9 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
     AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
     AsyncRelayCommand<CommitRowViewModel> MergeBranch,
-    AsyncRelayCommand<CommitRowViewModel> Activate);
+    AsyncRelayCommand<CommitRowViewModel> Activate,
+    AsyncRelayCommand<CommitRowViewModel>? OpenOnHost = null,
+    Func<string?>? HostLabel = null);
 
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 {
@@ -143,6 +150,18 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// built without them.
     /// </summary>
     public HistoryRowCommands? Commands { get; }
+
+    /// <summary>
+    /// Gets what the "open on the host" menu item is called, naming the host when one is known.
+    /// </summary>
+    public string HostLabel => Commands?.HostLabel?.Invoke() is { Length: > 0 } host
+        ? $"Open this commit on {host}"
+        : "Open this commit on the host";
+
+    /// <summary>
+    /// Gets a value indicating whether this row can be opened on a host at all.
+    /// </summary>
+    public bool CanOpenOnHost => Commit is not null && Commands?.HostLabel?.Invoke() is { Length: > 0 };
 
     /// <summary>
     /// Gets the branch the row's menu acts on: the local branch pointing here if there is one, the

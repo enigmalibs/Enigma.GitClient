@@ -164,6 +164,11 @@
                           IsVisible="{Binding HasBranch}"
                           Command="{Binding Commands.DeleteBranch}"
                           CommandParameter="{Binding}" />
+                <Separator IsVisible="{Binding CanOpenOnHost}" />
+                <MenuItem Header="{Binding HostLabel}"
+                          IsVisible="{Binding CanOpenOnHost}"
+                          Command="{Binding Commands.OpenOnHost}"
+                          CommandParameter="{Binding}" />
               </ContextMenu>
             </Grid.ContextMenu>
 

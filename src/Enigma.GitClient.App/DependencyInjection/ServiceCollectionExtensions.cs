@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
             services.AddSingleton<ISyncOperations, SyncOperations>();
             services.AddSingleton<IMergeOperations, MergeOperations>();
+            services.AddSingleton<IHostLinkService, HostLinkService>();
 
             services.AddSingleton<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
@@ -88,6 +89,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<CreateTagDialogView>();
             services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
+            services.AddTransient<AddHostAccountDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.

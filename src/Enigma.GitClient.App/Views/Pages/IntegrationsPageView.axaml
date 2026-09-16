@@ -5,25 +5,234 @@
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
              x:Class="Enigma.GitClient.App.Views.Pages.IntegrationsPageView"
              x:DataType="vm:IntegrationsPageViewModel">
+
+  <UserControl.Resources>
+
+    <DataTemplate x:Key="AccountRow" x:DataType="vm:HostAccountRowViewModel">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Height="40">
+
+        <ei:Icon Grid.Column="0"
+                 Kind="{Binding Icon}"
+                 Size="18"
+                 VerticalAlignment="Center"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding DisplayName}"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+          <TextBlock Classes="dim"
+                     Text="{Binding Host}"
+                     FontSize="11"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+        </StackPanel>
+
+        <Button Grid.Column="2"
+                Classes="toolbar rowaction"
+                Command="{Binding RemoveCommand}"
+                CommandParameter="{Binding}"
+                ToolTip.Tip="Disconnect this account and delete its token"
+                AutomationProperties.Name="Disconnect this account">
+          <ei:Icon Kind="Trash" Size="14" />
+        </Button>
+      </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="RepositoryRow" x:DataType="vm:HostRepositoryRowViewModel">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10" Margin="0,4">
+
+        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="dim"
+                       Text="{Binding Owner}"
+                       IsVisible="{Binding HasOwner}"
+                       VerticalAlignment="Center"
+                       FontSize="12"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBlock Text="{Binding Name}"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <Border Classes="pill"
+                    Background="{DynamicResource EnigmaSelectionBrush}"
+                    IsVisible="{Binding IsPrivate}">
+              <TextBlock Text="private"
+                         FontSize="11"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            </Border>
+          </StackPanel>
+
+          <TextBlock Classes="dim"
+                     Text="{Binding Description}"
+                     IsVisible="{Binding HasDescription}"
+                     FontSize="11"
+                     MaxWidth="560"
+                     HorizontalAlignment="Left"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="1"
+                   Classes="dim"
+                   Text="{Binding LastPushed}"
+                   IsVisible="{Binding HasLastPushed}"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+        <Button Grid.Column="2"
+                Classes="toolbar rowaction"
+                Command="{Binding OpenCommand}"
+                CommandParameter="{Binding}"
+                ToolTip.Tip="Open this repository on its host"
+                AutomationProperties.Name="Open on the host">
+          <ei:Icon Kind="ArrowSquareOut" Size="14" />
+        </Button>
+
+        <Button Grid.Column="3"
+                Classes="choice"
+                Command="{Binding CloneCommand}"
+                CommandParameter="{Binding}"
+                ToolTip.Tip="Clone this repository"
+                AutomationProperties.Name="Clone this repository">
+          <TextBlock Text="Clone" />
+        </Button>
+      </Grid>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <Style Selector="ListBoxItem:selected TextBlock.dim">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+
   <DockPanel>
+
     <Border DockPanel.Dock="Top"
             Background="{DynamicResource EnigmaSurfaceBrush}"
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <ei:Icon Kind="GlobeSimple" Size="18" VerticalAlignment="Center"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-        <TextBlock Text="{Binding Title}"
-                   VerticalAlignment="Center"
-                   FontSize="15"
-                   FontWeight="SemiBold"
-                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
-      </StackPanel>
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="GlobeSimple" Size="18" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="{Binding Title}"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+
+        <Button Grid.Column="2"
+                Classes="accent"
+                Command="{Binding AddAccountCommand}"
+                ToolTip.Tip="Connect an account with a personal access token"
+                AutomationProperties.Name="Connect an account">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <TextBlock Text="Connect an account" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
     </Border>
 
-    <controls:EmptyState IconKind="GlobeSimple"
-                         Title="Integrations"
-                         Message="{Binding EmptyMessage}" />
+    <Grid>
+
+      <controls:EmptyState IconKind="GlobeSimple"
+                           Title="No accounts connected"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding !HasAccounts}" />
+
+      <Grid ColumnDefinitions="280,1,*" IsVisible="{Binding HasAccounts}">
+
+        <ListBox Grid.Column="0"
+                 ItemsSource="{Binding Accounts}"
+                 ItemTemplate="{StaticResource AccountRow}"
+                 SelectedItem="{Binding SelectedAccount, Mode=TwoWay}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 AutomationProperties.Name="Connected accounts" />
+
+        <Border Grid.Column="1" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+        <DockPanel Grid.Column="2">
+
+          <Border DockPanel.Dock="Top"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="0,0,0,1"
+                  Padding="12,8">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+
+              <TextBox Grid.Column="0"
+                       Text="{Binding Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Filter these repositories"
+                       AutomationProperties.Name="Filter repositories" />
+
+              <!-- Which repositories the host is asked for, rather than a filter over what was
+                   already fetched: a private-only list is a different request. -->
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                <ToggleButton Classes="segment"
+                              IsChecked="{Binding IsAllVisible, Mode=OneWay}"
+                              Command="{Binding ShowAllCommand}"
+                              ToolTip.Tip="Everything this account can see"
+                              AutomationProperties.Name="All repositories">
+                  <TextBlock Text="All" FontSize="12" />
+                </ToggleButton>
+                <ToggleButton Classes="segment"
+                              IsChecked="{Binding IsPublicOnly, Mode=OneWay}"
+                              Command="{Binding ShowPublicCommand}"
+                              ToolTip.Tip="Only public repositories"
+                              AutomationProperties.Name="Public repositories">
+                  <TextBlock Text="Public" FontSize="12" />
+                </ToggleButton>
+                <ToggleButton Classes="segment"
+                              IsChecked="{Binding IsPrivateOnly, Mode=OneWay}"
+                              Command="{Binding ShowPrivateCommand}"
+                              ToolTip.Tip="Only private repositories"
+                              AutomationProperties.Name="Private repositories">
+                  <TextBlock Text="Private" FontSize="12" />
+                </ToggleButton>
+              </StackPanel>
+
+              <TextBlock Grid.Column="2"
+                         Text="{Binding Summary}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         MaxWidth="320"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+              <Button Grid.Column="3"
+                      Classes="toolbar"
+                      Command="{Binding RefreshCommand}"
+                      ToolTip.Tip="Re-read this account's repositories"
+                      AutomationProperties.Name="Refresh">
+                <ei:Icon Kind="ArrowsClockwise" Size="14" />
+              </Button>
+            </Grid>
+          </Border>
+
+          <Grid>
+            <controls:EmptyState IconKind="Folders"
+                                 Title="No repositories"
+                                 Message="This account has nothing to show, or the filter matched nothing."
+                                 IsVisible="{Binding !HasRepositories}" />
+
+            <ListBox ItemsSource="{Binding Repositories}"
+                     ItemTemplate="{StaticResource RepositoryRow}"
+                     IsVisible="{Binding HasRepositories}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     AutomationProperties.Name="Repositories on the host" />
+          </Grid>
+        </DockPanel>
+      </Grid>
+    </Grid>
   </DockPanel>
 </UserControl>

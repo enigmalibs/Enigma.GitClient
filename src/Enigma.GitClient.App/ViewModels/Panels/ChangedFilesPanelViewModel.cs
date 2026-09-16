@@ -117,6 +117,15 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     /// <summary>Gets the command that shows the row's file in the file manager.</summary>
     public AsyncRelayCommand<ChangedFileNodeViewModel> RevealFileCommand => _owner.RevealFileCommand;
 
+    /// <summary>Gets the command that opens the row's file on the repository's host.</summary>
+    public AsyncRelayCommand<ChangedFileNodeViewModel> OpenOnHostCommand => _owner.OpenOnHostCommand;
+
+    /// <summary>Gets what that menu item is called, which names the host.</summary>
+    public string HostLinkLabel => _owner.HostLinkLabel;
+
+    /// <summary>Gets a value indicating whether the row has a host to be opened on.</summary>
+    public bool HasHostLink => _owner.HasHostLink && !IsDirectory;
+
     /// <summary>Gets the actions the host page put on the row, if any.</summary>
     public ChangedFileRowActions? Actions => _owner.Actions;
 
@@ -331,7 +340,44 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         RevealFileCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
             async node => await OpenAsync(node, reveal: true),
             CanReachOnDisk);
+
+        OpenOnHostCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
+            node => node?.File is { } file && OpenOnHost is { } open ? open(file) : Task.CompletedTask,
+            node => node?.File is not null && OpenOnHost is not null);
     }
+
+    /// <summary>
+    /// Gets or sets what "open this file on the host" does, or <see langword="null"/> when the page
+    /// has no host to open it on.
+    /// </summary>
+    /// <remarks>
+    /// A delegate rather than a command, because only the host page knows which commit the file
+    /// should be shown at — the panel only knows which file the row is.
+    /// </remarks>
+    public Func<ChangedFile, Task>? OpenOnHost
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(HasHostLink));
+                OpenOnHostCommand.NotifyCanExecuteChanged();
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets what that menu item is called, which names the host.
+    /// </summary>
+    public string HostLinkLabel { get; set => SetProperty(ref field, value); } = "Open on the host";
+
+    /// <summary>Gets a value indicating whether there is a host to open a file on.</summary>
+    public bool HasHostLink => OpenOnHost is not null;
+
+    /// <summary>Gets the command behind that menu item.</summary>
+    public AsyncRelayCommand<ChangedFileNodeViewModel> OpenOnHostCommand { get; }
 
     /// <summary>
     /// Gets or sets what the panel says when it has nothing to show. The host sets it, because only

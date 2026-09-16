@@ -56,7 +56,7 @@ its page on the host — **without** touching issues or pull requests, which are
 
 ## PHASE02 — GitHub provider
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-22C0-PHASE02.md`
 
 **Steps**
 

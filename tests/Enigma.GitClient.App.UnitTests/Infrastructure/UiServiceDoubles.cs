@@ -190,6 +190,12 @@ public sealed class RecordingSystemInterop : ISystemInterop
     /// <summary>Gets the paths the file manager was asked to show.</summary>
     public List<string> Revealed { get; } = [];
 
+    /// <summary>
+    /// Gets or sets a value indicating whether a browser is pretended to exist, so a test can drive
+    /// the "nothing opened it" path too.
+    /// </summary>
+    public bool OpensUrls { get; set; } = true;
+
     /// <inheritdoc />
     public Task CopyTextAsync(string text)
     {
@@ -209,5 +215,12 @@ public sealed class RecordingSystemInterop : ISystemInterop
     {
         Revealed.Add(path);
         return Task.FromResult(true);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> OpenUrlAsync(string url)
+    {
+        Opened.Add(url);
+        return Task.FromResult(OpensUrls);
     }
 }

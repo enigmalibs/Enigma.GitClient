@@ -40,6 +40,18 @@ public interface ISystemInterop
     /// <param name="path">The absolute path to reveal.</param>
     /// <returns><see langword="true"/> when something was launched.</returns>
     Task<bool> RevealPathAsync(string path);
+
+    /// <summary>
+    /// Opens a web address in the user's browser.
+    /// </summary>
+    /// <param name="url">The address, which must be http or https.</param>
+    /// <returns><see langword="true"/> when a browser was launched.</returns>
+    /// <remarks>
+    /// Separate from <see cref="OpenPathAsync"/> because the two check different things: a path has
+    /// to exist on disk, and an address has to be one it is safe to hand to a shell — anything but
+    /// http and https is refused rather than launched.
+    /// </remarks>
+    Task<bool> OpenUrlAsync(string url);
 }
 
 /// <summary>
@@ -107,6 +119,22 @@ public sealed class SystemInterop : ISystemInterop
         return string.IsNullOrEmpty(directory)
             ? Task.FromResult(false)
             : Task.FromResult(Launch(new ProcessStartInfo(directory) { UseShellExecute = true }));
+    }
+
+    /// <inheritdoc />
+    public Task<bool> OpenUrlAsync(string url)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? address)
+            || (address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps))
+        {
+            // Everything else — file:, ssh:, and whatever a malformed remote parses as — is refused
+            // rather than handed to the shell.
+            return Task.FromResult(false);
+        }
+
+        return Task.FromResult(Launch(new ProcessStartInfo(address.AbsoluteUri) { UseShellExecute = true }));
     }
 
     private static IClipboard? Clipboard

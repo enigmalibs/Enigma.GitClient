@@ -48,6 +48,10 @@
             <MenuItem Header="Show in file manager"
                       Command="{Binding RevealFileCommand}"
                       CommandParameter="{Binding}" />
+            <MenuItem Header="{Binding HostLinkLabel}"
+                      IsVisible="{Binding HasHostLink}"
+                      Command="{Binding OpenOnHostCommand}"
+                      CommandParameter="{Binding}" />
             <Separator />
             <MenuItem Header="Copy path"
                       Command="{Binding CopyPathCommand}"
