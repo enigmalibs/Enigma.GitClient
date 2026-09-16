@@ -1,6 +1,6 @@
 # FEATURE-0183 — Bigger graph nodes, taller rows
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-0183-phase01-node-size`, `feature/feature-0183-phase02-row-height`
 **Run:** bugfix/2026-09-16-history-panel-and-graph
@@ -23,6 +23,8 @@ default row height of 36 for the history and the graph.
   run the client — their file already says 26.
 
 ## PHASE01 — Double the graph node size
+
+**Status:** DONE — see `docs/done/FEATURE-0183-PHASE01.md`
 
 ### Steps
 

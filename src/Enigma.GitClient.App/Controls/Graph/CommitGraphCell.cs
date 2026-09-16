@@ -59,7 +59,7 @@ public sealed class CommitGraphCell : Control
     /// Defines the <see cref="NodeRadius"/> property.
     /// </summary>
     public static readonly StyledProperty<double> NodeRadiusProperty =
-        AvaloniaProperty.Register<CommitGraphCell, double>(nameof(NodeRadius), 4.5);
+        AvaloniaProperty.Register<CommitGraphCell, double>(nameof(NodeRadius), 9);
 
     /// <summary>
     /// Defines the <see cref="StrokeThickness"/> property.
@@ -78,6 +78,14 @@ public sealed class CommitGraphCell : Control
     /// </summary>
     public static readonly StyledProperty<int> MaximumLanesProperty =
         AvaloniaProperty.Register<CommitGraphCell, int>(nameof(MaximumLanes), 14);
+
+    /// <summary>
+    /// How far outside the node the HEAD ring is drawn, and how thick it is. The ring is what makes
+    /// the node's real extent larger than its radius, so it is what the fitting rule has to allow
+    /// for.
+    /// </summary>
+    private const double HeadRingGap = 3;
+    private const double HeadRingThickness = 1.5;
 
     private readonly GraphPalette _palette = new();
 
@@ -153,7 +161,8 @@ public sealed class CommitGraphCell : Control
     }
 
     /// <summary>
-    /// Gets or sets the radius of a commit's node.
+    /// Gets or sets the radius a commit's node is drawn at, before it is fitted to the row and the
+    /// lane by <see cref="CalculateNodeRadius"/>.
     /// </summary>
     public double NodeRadius
     {
@@ -208,6 +217,38 @@ public sealed class CommitGraphCell : Control
     {
         int lanes = Math.Clamp(maxLane + 1, 1, Math.Max(1, maximumLanes));
         return (lanes * laneWidth) + (lanePadding * 2);
+    }
+
+    /// <summary>
+    /// Calculates the radius a node is actually drawn at: the wanted radius, reduced to whatever
+    /// the row and the lane can hold.
+    /// </summary>
+    /// <param name="nodeRadius">The radius asked for.</param>
+    /// <param name="rowHeight">The height of the row being drawn.</param>
+    /// <param name="laneWidth">The distance between two lanes.</param>
+    /// <param name="strokeThickness">How thick the lane lines are.</param>
+    /// <param name="isHead">Whether the row carries the HEAD ring, which is drawn outside the node.</param>
+    /// <returns>The radius to draw.</returns>
+    /// <remarks>
+    /// Both limits are reachable from the preferences: the row height goes down to 18 and the lane
+    /// width to 8, and at those values a node drawn at its full radius is sliced off by the rows
+    /// above and below and sits on the neighbouring lane's line. Shrinking is the graceful answer —
+    /// the graph stays readable at every size the settings page offers.
+    /// </remarks>
+    public static double CalculateNodeRadius(
+        double nodeRadius,
+        double rowHeight,
+        double laneWidth,
+        double strokeThickness,
+        bool isHead)
+    {
+        double outside = isHead ? HeadRingGap + HeadRingThickness : strokeThickness;
+        double rowLimit = (rowHeight / 2) - outside;
+
+        // The node must stop short of where the next lane's line is drawn, not merely of its centre.
+        double laneLimit = laneWidth - (strokeThickness / 2) - 1;
+
+        return Math.Clamp(nodeRadius, 1, Math.Max(1, Math.Min(rowLimit, laneLimit)));
     }
 
     /// <inheritdoc />
@@ -319,29 +360,31 @@ public sealed class CommitGraphCell : Control
         Point centre = Snap(new Point(GetLaneCentre(row.Lane), middle));
         IBrush lane = _palette.Get(this, row.Colour);
         IBrush outline = GraphPalette.Find(this, "GraphNodeOutlineBrush") ?? Brushes.Black;
+        double radius = CalculateNodeRadius(NodeRadius, middle * 2, LaneWidth, StrokeThickness, IsHead);
 
         if (IsUncommitted)
         {
             // The working directory is not a commit, so it is drawn as an outline rather than a
             // filled node — the difference has to be visible at a glance.
-            context.DrawEllipse(outline, new Pen(lane, StrokeThickness, DashStyle.Dash), centre, NodeRadius, NodeRadius);
+            context.DrawEllipse(outline, new Pen(lane, StrokeThickness, DashStyle.Dash), centre, radius, radius);
             return;
         }
 
         if (IsHead)
         {
             IBrush ring = GraphPalette.Find(this, "GraphHeadRingBrush") ?? Brushes.White;
-            context.DrawEllipse(null, new Pen(ring, 1.5), centre, NodeRadius + 3, NodeRadius + 3);
+            double ringRadius = radius + HeadRingGap;
+            context.DrawEllipse(null, new Pen(ring, HeadRingThickness), centre, ringRadius, ringRadius);
         }
 
         if (row.IsMerge)
         {
             // A merge reads as a ring: it is a join, not a point where work happened.
-            context.DrawEllipse(outline, new Pen(lane, StrokeThickness + 0.5), centre, NodeRadius, NodeRadius);
+            context.DrawEllipse(outline, new Pen(lane, StrokeThickness + 0.5), centre, radius, radius);
             return;
         }
 
-        context.DrawEllipse(lane, null, centre, NodeRadius, NodeRadius);
+        context.DrawEllipse(lane, null, centre, radius, radius);
     }
 
     private void DrawVertical(DrawingContext context, IPen pen, double x, double top, double bottom)
