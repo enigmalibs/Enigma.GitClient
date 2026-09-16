@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -49,7 +50,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(PullStrategy.Merge, defaults.Pull);
         Assert.Equal(3, defaults.DiffContextLines);
         Assert.Equal(4, defaults.TabWidth);
-        Assert.Equal(26, defaults.GraphRowHeight);
+        Assert.Equal(36, defaults.GraphRowHeight);
         Assert.Equal(16, defaults.GraphLaneWidth);
         Assert.Equal(string.Empty, defaults.GitExecutablePath);
         Assert.False(defaults.ShowWhitespace);
@@ -130,7 +131,10 @@ public sealed class SettingsServiceTests : IDisposable
         string json = System.IO.File.ReadAllText(File_);
 
         Assert.Contains("\"theme\": \"Dark\"", json, StringComparison.Ordinal);
-        Assert.Contains("\"version\": 1", json, StringComparison.Ordinal);
+        Assert.Contains(
+            $"\"version\": {AppSettings.CurrentVersion.ToString(CultureInfo.InvariantCulture)}",
+            json,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -226,6 +230,48 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(AppSettings.CurrentVersion, stored.Version);
         Assert.Equal(ThemePreference.Light, stored.Theme);
+    }
+
+    [Fact]
+    public async Task AVersionOneRowHeightNobodyChangedTakesTheNewDefault()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 1, "graphRowHeight": 26, "tabWidth": 8 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        // 26 was version 1's own default, so it is a number nobody chose.
+        Assert.Equal(AppSettings.Defaults.GraphRowHeight, stored.GraphRowHeight);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+        Assert.Equal(8, stored.TabWidth);
+    }
+
+    [Fact]
+    public async Task AVersionOneRowHeightSomebodyChoseIsKept()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 1, "graphRowHeight": 30 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(30, stored.GraphRowHeight);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+    }
+
+    [Fact]
+    public async Task ACurrentVersionRowHeightIsNeverMigrated()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 2, "graphRowHeight": 26 }""");
+
+        using SettingsService settings = Build();
+
+        // At version 2, 26 is a preference like any other.
+        Assert.Equal(
+            AppSettings.LegacyGraphRowHeight,
+            (await settings.LoadAsync(TestContext.Current.CancellationToken)).GraphRowHeight);
     }
 
     [Fact]

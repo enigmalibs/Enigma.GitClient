@@ -342,11 +342,24 @@ public sealed class SettingsService : ISettingsService, IDisposable
     /// <param name="stored">What was read.</param>
     /// <returns>The migrated settings.</returns>
     /// <remarks>
-    /// Version 1 is the first, so there is nothing to migrate yet. The hook exists so the next
-    /// change is a case in this method rather than a decision about what to do with old files.
+    /// <para>
+    /// Version 2 raised the default row height from 26 to 36. A file that still says 26 was written
+    /// by a build whose default that was, and 26 is therefore a value nobody chose — it is raised.
+    /// Any other number was typed on the settings page and is kept: a client that overwrites what
+    /// someone chose is worse than one that never changes anything.
+    /// </para>
     /// </remarks>
     private static AppSettings Migrate(AppSettings stored)
-        => stored with { Version = AppSettings.CurrentVersion };
+    {
+        AppSettings migrated = stored;
+
+        if (stored.Version < 2 && stored.GraphRowHeight == AppSettings.LegacyGraphRowHeight)
+        {
+            migrated = migrated with { GraphRowHeight = AppSettings.Defaults.GraphRowHeight };
+        }
+
+        return migrated with { Version = AppSettings.CurrentVersion };
+    }
 
     /// <summary>
     /// Moves an unreadable settings file aside rather than overwriting it.

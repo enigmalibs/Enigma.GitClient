@@ -71,7 +71,17 @@ public enum DiffView
 public sealed record AppSettings
 {
     /// <summary>The schema version this build writes.</summary>
-    public const int CurrentVersion = 1;
+    /// <remarks>
+    /// Version 2 raised the default row height from 26 to 36; see <c>SettingsService.Migrate</c>
+    /// for what that does to a file written by version 1.
+    /// </remarks>
+    public const int CurrentVersion = 2;
+
+    /// <summary>
+    /// The row height version 1 shipped as its default, which the version 2 migration replaces
+    /// wherever it was never changed.
+    /// </summary>
+    public const double LegacyGraphRowHeight = 26;
 
     /// <summary>The settings a fresh install runs on.</summary>
     public static readonly AppSettings Defaults = new();
@@ -96,7 +106,7 @@ public sealed record AppSettings
     public DateDisplay DateDisplay { get; init; } = DateDisplay.Relative;
 
     /// <summary>Gets how tall a history row is, in device-independent pixels.</summary>
-    public double GraphRowHeight { get; init; } = 26;
+    public double GraphRowHeight { get; init; } = 36;
 
     /// <summary>Gets the distance between two graph lanes.</summary>
     public double GraphLaneWidth { get; init; } = 16;
