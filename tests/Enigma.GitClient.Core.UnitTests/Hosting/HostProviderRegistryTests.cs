@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Hosting;
+using Enigma.GitClient.Core.Hosting.Providers;
 using Enigma.GitClient.Core.Security;
 using Xunit;
 
@@ -192,6 +193,78 @@ public sealed class HostProviderRegistryTests
         IReadOnlyList<IRepositoryHostProvider> providers = All().Providers;
 
         Assert.Equal(3, providers.Count);
+    }
+
+    // ---------------------------------------------------------------- the real providers
+
+    /// <summary>
+    /// The registry as the application actually builds it, with all three providers.
+    /// </summary>
+    private static HostProviderRegistry Real()
+    {
+        StubClientFactory clients = new(new ScriptedHandler());
+
+        return Build(
+            new GitHubProvider(clients),
+            new GitLabProvider(clients),
+            new AzureDevOpsProvider(clients));
+    }
+
+    [Theory]
+    [InlineData("https://github.com/owner/repo.git", HostKind.GitHub)]
+    [InlineData("git@github.com:owner/repo.git", HostKind.GitHub)]
+    [InlineData("ssh://git@ssh.github.com:443/owner/repo.git", HostKind.GitHub)]
+    [InlineData("https://gitlab.com/group/subgroup/repo.git", HostKind.GitLab)]
+    [InlineData("git@gitlab.com:group/repo.git", HostKind.GitLab)]
+    [InlineData("https://dev.azure.com/contoso/project/_git/repo", HostKind.AzureDevOps)]
+    [InlineData("git@ssh.dev.azure.com:v3/contoso/project/repo", HostKind.AzureDevOps)]
+    [InlineData("https://contoso.visualstudio.com/project/_git/repo", HostKind.AzureDevOps)]
+    [InlineData("git@vs-ssh.visualstudio.com:v3/contoso/project/repo", HostKind.AzureDevOps)]
+    public void EveryProviderClaimsExactlyItsOwnHosts(string remote, HostKind expected)
+    {
+        HostProviderRegistry registry = Real();
+        RemoteUrl parsed = RemoteUrl.Parse(remote);
+
+        HostMatch match = Assert.IsType<HostMatch>(registry.Match(remote));
+
+        Assert.Equal(expected, match.Provider.Kind);
+
+        // And nobody else claims it: two providers answering for one host is a bug that only shows
+        // up as "the wrong logo" until the day it is the wrong API.
+        foreach (IRepositoryHostProvider provider in registry.Providers)
+        {
+            Assert.Equal(provider.Kind == expected, provider.MatchesRemote(parsed));
+        }
+    }
+
+    [Theory]
+    [InlineData("https://bitbucket.org/owner/repo.git")]
+    [InlineData("https://git.example.com/group/repo.git")]
+    [InlineData("https://github.contoso.com/team/repo.git")]
+    public void NoProviderClaimsAHostItCannotKnow(string remote)
+    {
+        HostProviderRegistry registry = Real();
+
+        Assert.Null(registry.Match(remote));
+    }
+
+    [Theory]
+    [InlineData(HostKind.GitHub, "https://github.contoso.com")]
+    [InlineData(HostKind.GitLab, "https://git.example.com")]
+    [InlineData(HostKind.AzureDevOps, "https://tfs.example.com/tfs/DefaultCollection")]
+    public void ASelfHostedInstanceOfEachIsFoundThroughItsAccount(HostKind kind, string instance)
+    {
+        HostAccount account = Account(kind, instance);
+        HostProviderRegistry registry = Real();
+
+        string remote = kind == HostKind.AzureDevOps
+            ? "https://tfs.example.com/tfs/DefaultCollection/Platform/_git/service"
+            : new Uri(instance) + "/team/repo.git";
+
+        HostMatch match = Assert.IsType<HostMatch>(registry.Match(remote, [account]));
+
+        Assert.Equal(kind, match.Provider.Kind);
+        Assert.Same(account, match.Account);
     }
 
     // ---------------------------------------------------------------- accounts

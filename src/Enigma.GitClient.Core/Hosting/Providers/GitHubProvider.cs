@@ -105,12 +105,12 @@ public sealed class GitHubProvider : IRepositoryHostProvider
         using JsonDocument document = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
 
         JsonElement root = document.RootElement;
-        string login = Text(root, "login") ?? account.UserName;
+        string login = JsonHelp.Text(root, "login") ?? account.UserName;
 
         return new HostIdentity(
             login,
-            Text(root, "name") is { Length: > 0 } name ? name : login,
-            Uri.TryCreate(Text(root, "avatar_url"), UriKind.Absolute, out Uri? avatar) ? avatar : null);
+            JsonHelp.Text(root, "name") is { Length: > 0 } name ? name : login,
+            Uri.TryCreate(JsonHelp.Text(root, "avatar_url"), UriKind.Absolute, out Uri? avatar) ? avatar : null);
     }
 
     /// <inheritdoc />
@@ -155,7 +155,7 @@ public sealed class GitHubProvider : IRepositoryHostProvider
     /// <inheritdoc />
     public string? BuildBranchUrl(RemoteUrl remote, string branch)
         => Web(remote) is { } root && !string.IsNullOrWhiteSpace(branch)
-            ? $"{root}/tree/{EscapePath(branch)}"
+            ? $"{root}/tree/{JsonHelp.EscapePath(branch)}"
             : null;
 
     /// <inheritdoc />
@@ -170,7 +170,7 @@ public sealed class GitHubProvider : IRepositoryHostProvider
             ? "#L" + number.ToString(CultureInfo.InvariantCulture)
             : string.Empty;
 
-        return $"{root}/blob/{EscapePath(reference)}/{EscapePath(path)}{anchor}";
+        return $"{root}/blob/{JsonHelp.EscapePath(reference)}/{JsonHelp.EscapePath(path)}{anchor}";
     }
 
     /// <summary>
@@ -206,21 +206,6 @@ public sealed class GitHubProvider : IRepositoryHostProvider
         return $"https://{host}/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}";
     }
 
-    /// <summary>
-    /// Escapes a path for a URL while leaving its slashes as slashes.
-    /// </summary>
-    private static string EscapePath(string path)
-    {
-        string[] segments = path.Split('/');
-
-        for (int index = 0; index < segments.Length; index++)
-        {
-            segments[index] = Uri.EscapeDataString(segments[index]);
-        }
-
-        return string.Join('/', segments);
-    }
-
     private static Uri BuildListingUri(HostAccount account, HostRepositoryQuery query)
     {
         int size = Math.Clamp(query.PageSize, 1, 100);
@@ -245,36 +230,20 @@ public sealed class GitHubProvider : IRepositoryHostProvider
 
     private static HostRepository Map(JsonElement element)
     {
-        string fullName = Text(element, "full_name") ?? string.Empty;
-        string name = Text(element, "name") ?? fullName;
+        string fullName = JsonHelp.Text(element, "full_name") ?? string.Empty;
+        string name = JsonHelp.Text(element, "name") ?? fullName;
 
         return new HostRepository(
             fullName,
             name,
-            Text(element, "description"),
-            Text(element, "default_branch") ?? "main",
-            Text(element, "clone_url") ?? string.Empty,
-            Text(element, "ssh_url"),
-            Text(element, "html_url") ?? string.Empty,
+            JsonHelp.Text(element, "description"),
+            JsonHelp.Text(element, "default_branch") ?? "main",
+            JsonHelp.Text(element, "clone_url") ?? string.Empty,
+            JsonHelp.Text(element, "ssh_url"),
+            JsonHelp.Text(element, "html_url") ?? string.Empty,
             element.TryGetProperty("private", out JsonElement isPrivate) && isPrivate.ValueKind == JsonValueKind.True,
-            Moment(element, "pushed_at"));
+            JsonHelp.Moment(element, "pushed_at"));
     }
-
-    private static string? Text(JsonElement element, string name)
-        => element.ValueKind == JsonValueKind.Object
-            && element.TryGetProperty(name, out JsonElement value)
-            && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
-
-    private static DateTimeOffset? Moment(JsonElement element, string name)
-        => DateTimeOffset.TryParse(
-            Text(element, name),
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AdjustToUniversal,
-            out DateTimeOffset moment)
-            ? moment
-            : null;
 
     /// <summary>
     /// Reads the <c>Link</c> header's <c>rel="next"</c>, which is how GitHub pages.

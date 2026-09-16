@@ -209,6 +209,38 @@ public sealed class IntegrationsPageTests
         });
     }
 
+    [Fact]
+    public void TheDialogOffersEveryHostTheBuildCanTalkTo()
+    {
+        _fixture.Run(() =>
+        {
+            // The real registry this time: what the application ships with, not a double.
+            using TestServices services = TestServices.Build();
+
+            IReadOnlyList<IRepositoryHostProvider> providers = services.Get<IHostProviderRegistry>().Providers;
+
+            Assert.Equal(3, providers.Count);
+            Assert.Contains(providers, provider => provider.Kind == HostKind.GitHub);
+            Assert.Contains(providers, provider => provider.Kind == HostKind.GitLab);
+            Assert.Contains(providers, provider => provider.Kind == HostKind.AzureDevOps);
+
+            AddHostAccountDialogViewModel dialog = new(providers);
+
+            Assert.True(dialog.HasChoice);
+
+            // Choosing a host moves the instance and the scope hint with it: the page knows nothing
+            // about any particular one.
+            foreach (IRepositoryHostProvider provider in providers)
+            {
+                dialog.SelectedProvider = provider;
+
+                Assert.Equal(provider.DefaultBaseUri.ToString().TrimEnd('/'), dialog.InstanceUrl);
+                Assert.Equal(provider.TokenScopeHint, dialog.ScopeHint);
+                Assert.Contains(provider.DisplayName, dialog.TokenLabel, StringComparison.Ordinal);
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- connecting
 
     [Fact]

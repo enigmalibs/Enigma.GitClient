@@ -1,6 +1,6 @@
 # FEATURE-22C0 — Repository hosting integrations
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-22c0-<phase>-<slug>` (one per phase)
 **Run:** feature/2026-09-15-enigma-git-client
@@ -84,7 +84,7 @@ its page on the host — **without** touching issues or pull requests, which are
 
 ## PHASE03 — GitLab & Azure DevOps providers
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-22C0-PHASE03.md`
 
 **Steps**
 
