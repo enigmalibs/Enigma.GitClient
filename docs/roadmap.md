@@ -48,6 +48,6 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-7676 | Diff panel defaults and typography | DONE        | docs/plan/FEATURE-7676.md |
 | - PHASE01    | Side by side by default            | DONE        | (in FEATURE-7676.md)      |
 | - PHASE02    | Configurable diff font             | DONE        | (in FEATURE-7676.md)      |
-| BUG-1D34     | Diff lines overlap the other pane  | TODO        | docs/plan/BUG-1D34.md     |
-| - PHASE01    | An offsettable diff line           | TODO        | (in BUG-1D34.md)          |
+| BUG-1D34     | Diff lines overlap the other pane  | IN PROGRESS | docs/plan/BUG-1D34.md     |
+| - PHASE01    | An offsettable diff line           | DONE        | (in BUG-1D34.md)          |
 | - PHASE02    | Clip the panes and scroll them     | TODO        | (in BUG-1D34.md)          |

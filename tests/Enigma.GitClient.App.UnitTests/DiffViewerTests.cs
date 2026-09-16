@@ -619,6 +619,110 @@ public sealed class DiffViewerTests
     public void DiffLineText_TreatsAnImpossibleTabWidthAsOne()
         => Assert.Equal("a b", DiffLineText.Expand("a\tb", 0, showWhitespace: false).Expanded);
 
+    [Theory]
+    [InlineData("", 4)]
+    [InlineData("plain text", 4)]
+    [InlineData("\tindented", 4)]
+    [InlineData("a\tb\tc", 4)]
+    [InlineData("a\tb\tc", 8)]
+    [InlineData("a\tb\tc", 1)]
+    [InlineData("a\tb", 0)]
+    [InlineData("\t\t\t", 3)]
+    public void DiffLineText_CountsTheColumnsItWouldHaveExpandedTo(string text, int tabWidth)
+    {
+        // The counted length is what a pane's scroll extent is built from, for thousands of lines at
+        // a time; it has to be the expansion's own arithmetic, not an approximation of it.
+        Assert.Equal(
+            DiffLineText.Expand(text, tabWidth, showWhitespace: false).Expanded.Length,
+            DiffLineText.ExpandedLength(text, tabWidth));
+    }
+
+    [Fact]
+    public void DiffLineText_MeasuresTheSameWhateverItIsScrolledTo()
+    {
+        _fixture.Run(() =>
+        {
+            DiffLineText line = new() { Text = "public sealed record Commit(string Hash, string Subject);" };
+
+            line.Measure(Size.Infinity);
+            Size unscrolled = line.DesiredSize;
+
+            line.HorizontalOffset = 20;
+            line.Measure(Size.Infinity);
+
+            // A pane scrolling must not resize its rows: the gutter beside this line, and every
+            // other row of the patch, would move with it.
+            Assert.Equal(unscrolled, line.DesiredSize);
+        });
+    }
+
+    [Fact]
+    public void DiffLineText_DrawsItsTextFurtherLeftWhenScrolled()
+    {
+        _fixture.Run(() =>
+        {
+            DiffLineText line = new()
+            {
+                Text = "0123456789",
+                Foreground = Brushes.White,
+            };
+
+            Assert.True(Rendered(line) > 1, "the unscrolled line drew nothing at all");
+
+            // Far past the end of a ten-character line: every glyph is now left of the origin.
+            line.HorizontalOffset = 60;
+
+            Assert.Equal(1, Rendered(line));
+
+            // And back again, so the offset is a view of the line rather than a change to it.
+            line.HorizontalOffset = 0;
+
+            Assert.True(Rendered(line) > 1);
+        });
+    }
+
+    [Fact]
+    public void DiffLineText_IgnoresAnOffsetWhileItWraps()
+    {
+        _fixture.Run(() =>
+        {
+            DiffLineText line = new()
+            {
+                Text = "0123456789",
+                Foreground = Brushes.White,
+                WrapLines = true,
+                HorizontalOffset = 60,
+            };
+
+            // Wrapped text has no overflow to scroll to, so a leftover offset must not push it out
+            // of view.
+            Assert.True(Rendered(line) > 1);
+        });
+    }
+
+    /// <summary>
+    /// Draws one line on its own and counts the colours that came out: one means nothing was
+    /// painted, which is how "the glyphs moved out of view" is told from "the glyphs are there".
+    /// </summary>
+    private static int Rendered(DiffLineText line)
+    {
+        const int width = 220;
+        const int height = 40;
+
+        line.InvalidateMeasure();
+        line.Measure(new Size(width, height));
+        line.Arrange(new Rect(0, 0, width, height));
+
+        using RenderTargetBitmap target = new(new PixelSize(width, height), new Vector(96, 96));
+        target.Render(line);
+
+        using MemoryStream stream = new();
+        target.Save(stream, PngBitmapEncoderOptions.Default);
+        stream.Position = 0;
+
+        return SnapshotColours.Count(stream);
+    }
+
     // ---------------------------------------------------------------- rendering
 
     [Fact]

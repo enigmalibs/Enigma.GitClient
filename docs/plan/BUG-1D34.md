@@ -1,6 +1,6 @@
 # BUG-1D34 — Long diff lines overlap the other pane
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** `bugfix/bug-1d34-phase01-offsettable-line`, `bugfix/bug-1d34-phase02-clip-and-scroll`
 **Run:** feature/2026-09-16-diff-panel-layout
@@ -32,7 +32,7 @@ give the reader a way to reach the rest of the line: a horizontal scrollbar per 
 
 ## PHASE01 — An offsettable diff line
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-1D34-PHASE01.md`
 
 ### Steps
 
