@@ -17,6 +17,7 @@ using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Core.Sync;
 using Enigma.GitClient.Core.Tags;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Enigma.GitClient.Core.DependencyInjection;
 
@@ -37,11 +38,26 @@ public static class ServiceCollectionExtensions
         {
             services.AddOptions<GitExecutableOptions>();
 
+            // The user's own git path, applied when the options are first resolved. It is read
+            // once, so changing it takes a restart — which the settings page says.
+            services.AddSingleton<IConfigureOptions<GitExecutableOptions>>(provider =>
+                new ConfigureOptions<GitExecutableOptions>(options =>
+                {
+                    string path = provider.GetRequiredService<ISettingsService>().Current.GitExecutablePath;
+
+                    if (path.Length > 0)
+                    {
+                        options.ExecutablePath = path;
+                    }
+                }));
+
             services.AddSingleton<IGitExecutable, GitExecutable>();
             services.AddSingleton<IGitCommandFactory, GitCommandFactory>();
             services.AddSingleton<IGitProcessRunner, GitProcessRunner>();
             services.AddSingleton<IGitEnvironment, GitEnvironment>();
             services.AddSingleton<IAppPaths, AppPaths>();
+            services.AddSingleton<SettingsService>();
+            services.AddSingleton<ISettingsService>(provider => provider.GetRequiredService<SettingsService>());
             services.AddSingleton<IRepositoryLocator, RepositoryLocator>();
             services.AddSingleton<IRepositoryService, RepositoryService>();
             services.AddSingleton<ICommitLogReader, CommitLogReader>();

@@ -2,11 +2,13 @@ using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.DependencyInjection;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels;
 using Enigma.GitClient.App.Views;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -47,6 +49,13 @@ public partial class App : Application
 
             IServiceProvider services = host.Services;
 
+            // Before the window: the theme is a preference, and a window that paints dark and then
+            // flips to light is a worse first impression than one that starts right.
+            ISettingsService settings = services.GetRequiredService<ISettingsService>();
+            settings.LoadAsync().GetAwaiter().GetResult();
+            ApplyTheme(settings.Current.Theme);
+            settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);
+
             MainWindow window = services.GetRequiredService<MainWindow>();
             window.DataContext = services.GetRequiredService<MainWindowViewModel>();
 
@@ -57,6 +66,31 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Puts the chosen theme on the application.
+    /// </summary>
+    /// <param name="preference">What the user chose.</param>
+    /// <remarks>
+    /// <c>ThemeVariant.Default</c> is Avalonia's "follow the operating system", which is what the
+    /// preference calls System.
+    /// </remarks>
+    internal static void ApplyTheme(ThemePreference preference)
+    {
+        if (Current is not { } application)
+        {
+            return;
+        }
+
+        application.RequestedThemeVariant = preference switch
+        {
+            // Written unqualified on purpose: inside a namespace beginning Enigma., an inline
+            // Avalonia.Styling reference binds to Enigma.Avalonia and does not compile.
+            ThemePreference.Dark => ThemeVariant.Dark,
+            ThemePreference.Light => ThemeVariant.Light,
+            _ => ThemeVariant.Default,
+        };
     }
 
     /// <summary>

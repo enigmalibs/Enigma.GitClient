@@ -40,4 +40,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Provider abstraction & tokens      | DONE        | (in FEATURE-22C0.md)      |
 | - PHASE02    | GitHub provider                    | DONE        | (in FEATURE-22C0.md)      |
 | - PHASE03    | GitLab & Azure DevOps providers    | DONE        | (in FEATURE-22C0.md)      |
-| FEATURE-5D77 | Settings, preferences & docs       | TODO        | docs/plan/FEATURE-5D77.md |
+| FEATURE-5D77 | Settings, preferences & docs       | DONE        | docs/plan/FEATURE-5D77.md |

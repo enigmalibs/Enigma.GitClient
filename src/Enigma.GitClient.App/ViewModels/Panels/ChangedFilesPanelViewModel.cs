@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Diff;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Files;
 
 namespace Enigma.GitClient.App.ViewModels.Panels;
@@ -307,9 +308,10 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// for every one of them the moment it is selected, so past this many the tree opens collapsed
     /// and the user expands what they care about.
     /// </remarks>
-    public const int AutoExpandLimit = 500;
+    public const int DefaultAutoExpandLimit = 500;
 
     private readonly ISystemInterop _interop;
+    private readonly ISettingsService? _settings;
 
     private IReadOnlyList<ChangedFile> _files = [];
 
@@ -317,11 +319,12 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// Initialises a new instance.
     /// </summary>
     /// <param name="interop">Runs the row menu's clipboard and open-file actions.</param>
-    public ChangedFilesPanelViewModel(ISystemInterop interop)
+    public ChangedFilesPanelViewModel(ISystemInterop interop, ISettingsService? settings = null)
     {
         ArgumentNullException.ThrowIfNull(interop);
 
         _interop = interop;
+        _settings = settings;
 
         ShowAsListCommand = new RelayCommand(() => ViewMode = ChangedFilesViewMode.List);
         ShowAsTreeCommand = new RelayCommand(() => ViewMode = ChangedFilesViewMode.Tree);
@@ -340,6 +343,12 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         RevealFileCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
             async node => await OpenAsync(node, reveal: true),
             CanReachOnDisk);
+
+        if (_settings is not null)
+        {
+            Apply(_settings.Current);
+            _settings.Changed += (_, e) => Apply(e.Settings);
+        }
 
         OpenOnHostCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
             node => node?.File is { } file && OpenOnHost is { } open ? open(file) : Task.CompletedTask,
@@ -760,4 +769,29 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         => count == 1
             ? "1 file"
             : $"{count.ToString(System.Globalization.CultureInfo.CurrentCulture)} files";
+
+    /// <summary>
+    /// Gets or sets how many files the tree will expand on its own.
+    /// </summary>
+    public int AutoExpandLimit
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                Rebuild();
+            }
+        }
+    } = DefaultAutoExpandLimit;
+
+    /// <summary>
+    /// Takes the stored file-list preferences on, at startup and whenever they change.
+    /// </summary>
+    /// <param name="settings">The preferences.</param>
+    private void Apply(AppSettings settings)
+    {
+        ViewMode = settings.FilesView == FilesView.Tree ? ChangedFilesViewMode.Tree : ChangedFilesViewMode.List;
+        AutoExpandLimit = settings.FilesAutoExpandLimit;
+    }
 }

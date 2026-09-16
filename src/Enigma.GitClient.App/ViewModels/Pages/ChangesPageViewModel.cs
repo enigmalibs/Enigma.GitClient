@@ -13,6 +13,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Commits;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Git;
@@ -126,6 +127,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         ICommitService commits,
         IStashService stashes,
         ISystemInterop interop,
+        ISettingsService settings,
         DiffViewerViewModel diff,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
@@ -137,6 +139,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(commits);
         ArgumentNullException.ThrowIfNull(stashes);
         ArgumentNullException.ThrowIfNull(interop);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
@@ -151,8 +154,8 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         _logger = logger;
 
         Diff = diff;
-        Unstaged = new ChangedFilesPanelViewModel(interop);
-        Staged = new ChangedFilesPanelViewModel(interop);
+        Unstaged = new ChangedFilesPanelViewModel(interop, settings);
+        Staged = new ChangedFilesPanelViewModel(interop, settings);
 
         // Only one side can be selected at a time: the diff shown has to be unambiguous about which
         // half of the change it is.
@@ -180,7 +183,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             row => row is not null);
         DropStashCommand = new AsyncRelayCommand<StashRowViewModel>(OnDropStashAsync, row => row is not null);
 
-        StashFiles = new ChangedFilesPanelViewModel(interop);
+        StashFiles = new ChangedFilesPanelViewModel(interop, settings);
         StashFiles.SelectionChanged += (_, _) => ShowStashFile();
 
         // The panels are the same control the history uses; what differs is the verbs a row offers

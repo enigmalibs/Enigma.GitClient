@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Controls;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Sync;
@@ -45,6 +46,7 @@ public sealed class SyncOperations : ISyncOperations
 {
     private readonly IRepositoryContext _context;
     private readonly ISyncService _sync;
+    private readonly ISettingsService _settings;
     private readonly IOverlayService _overlay;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<SyncOperations> _logger;
@@ -62,18 +64,21 @@ public sealed class SyncOperations : ISyncOperations
     public SyncOperations(
         IRepositoryContext context,
         ISyncService sync,
+        ISettingsService settings,
         IOverlayService overlay,
         IInfoBarService infoBar,
         ILogger<SyncOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(sync);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(overlay);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _sync = sync;
+        _settings = settings;
         _overlay = overlay;
         _infoBar = infoBar;
         _logger = logger;
@@ -98,7 +103,7 @@ public sealed class SyncOperations : ISyncOperations
     public Task<bool> PullAsync()
         => RunAsync(
             "Pulling",
-            (handle, progress, token) => _sync.PullAsync(handle, null, null, PullStrategy.Merge, progress, token),
+            (handle, progress, token) => _sync.PullAsync(handle, null, null, _settings.Current.Pull, progress, token),
             "Pulled",
             "The branch is up to date with its upstream.");
 

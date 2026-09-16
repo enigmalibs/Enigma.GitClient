@@ -19,6 +19,7 @@ using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.App.Views.Panels;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
@@ -72,13 +73,22 @@ public sealed class DiffViewerTests
         RecordingDiffService Diffs,
         RecordingSystemInterop Interop);
 
+    /// <summary>
+    /// A settings store on a throwaway directory: the viewer takes its defaults from one, and no
+    /// test here is about the preferences.
+    /// </summary>
+    private static ISettingsService Settings()
+        => new SettingsService(
+            new AppPaths(Path.Combine(Path.GetTempPath(), "enigma-diff-tests-" + Guid.NewGuid().ToString("N"))),
+            NullLogger<SettingsService>.Instance);
+
     private static Harness Build(FilePatch? patch = null)
     {
         RecordingDiffService diffs = new() { Patch = patch ?? Parse(SamplePatch) };
         RecordingSystemInterop interop = new();
 
         return new Harness(
-            new DiffViewerViewModel(diffs, interop, NullLogger<DiffViewerViewModel>.Instance),
+            new DiffViewerViewModel(diffs, interop, Settings(), NullLogger<DiffViewerViewModel>.Instance),
             diffs,
             interop);
     }

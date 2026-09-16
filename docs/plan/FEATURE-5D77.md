@@ -1,6 +1,6 @@
 # FEATURE-5D77 — Settings, preferences & docs
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5D77.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-5d77-settings-and-docs`
 **Run:** feature/2026-09-15-enigma-git-client

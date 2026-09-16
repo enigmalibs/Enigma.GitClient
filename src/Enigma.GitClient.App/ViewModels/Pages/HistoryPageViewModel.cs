@@ -9,6 +9,7 @@ using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Controls.Graph;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Panels;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Graph;
@@ -47,6 +48,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
     private readonly IHostLinkService _links;
+    private readonly ISettingsService _settings;
+    private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
     private readonly IInfoBarService _infoBar;
@@ -78,6 +81,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
         IHostLinkService links,
+        ISettingsService settings,
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
@@ -92,6 +96,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
@@ -106,6 +111,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
         _links = links;
+        _settings = settings;
+
+        ApplySettings(settings.Current);
+        settings.Changed += (_, e) => ApplySettings(e.Settings);
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -118,7 +127,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName);
 
-        Files = new ChangedFilesPanelViewModel(interop)
+        Files = new ChangedFilesPanelViewModel(interop, settings)
         {
             // The file is opened at the commit that is selected, which is the only reference that
             // makes sense for a file the user is looking at in history.
@@ -342,10 +351,28 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     {
         get;
         private set => SetProperty(ref field, value);
-    } = CommitGraphCell.CalculateWidth(0, LaneWidth, LanePadding, MaximumLanes);
+    }
 
-    /// <summary>Gets the distance between two graph lanes.</summary>
-    public static double LaneWidth => 16;
+    /// <summary>
+    /// Gets the distance between two graph lanes, which is a preference.
+    /// </summary>
+    public double LaneWidth
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                RecalculateGraphWidth();
+            }
+        }
+    } = AppSettings.Defaults.GraphLaneWidth;
+
+    /// <summary>
+    /// Gets how tall a history row is, which is a preference.
+    /// </summary>
+    public double RowHeight { get; private set => SetProperty(ref field, value); }
+        = AppSettings.Defaults.GraphRowHeight;
 
     /// <summary>Gets the padding on each side of the graph column.</summary>
     public static double LanePadding => 8;
@@ -526,18 +553,25 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 decorations.GetRefs(commit.Sha),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
                 now,
-                RowCommands));
+                RowCommands,
+                _absoluteDates));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
         HasMore = page.HasMore;
 
-        GraphColumnWidth = CommitGraphCell.CalculateWidth(
-            Math.Max(layout.MaxLane, LargestLoadedLane()),
+        RecalculateGraphWidth();
+    }
+
+    /// <summary>
+    /// Re-measures the graph column, which changes with the lanes in view and with the lane width.
+    /// </summary>
+    private void RecalculateGraphWidth()
+        => GraphColumnWidth = CommitGraphCell.CalculateWidth(
+            LargestLoadedLane(),
             LaneWidth,
             LanePadding,
             MaximumLanes);
-    }
 
     private int LargestLoadedLane()
     {
@@ -815,5 +849,31 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
+    }
+
+    /// <summary>
+    /// Takes the stored history and graph preferences on, at startup and whenever they change.
+    /// </summary>
+    /// <param name="settings">The preferences.</param>
+    private void ApplySettings(AppSettings settings)
+    {
+        LaneWidth = settings.GraphLaneWidth;
+        RowHeight = settings.GraphRowHeight;
+
+        bool absolute = settings.DateDisplay == DateDisplay.Absolute;
+        bool rebuild = absolute != _absoluteDates || PageSize != settings.HistoryPageSize;
+
+        _absoluteDates = absolute;
+        PageSize = settings.HistoryPageSize;
+
+        if (FirstParentOnly != settings.FirstParentOnly)
+        {
+            // Its own setter re-reads the history, so this branch must not do it twice.
+            FirstParentOnly = settings.FirstParentOnly;
+        }
+        else if (rebuild && Rows.Count > 0)
+        {
+            _ = ReloadAsync();
+        }
     }
 }
