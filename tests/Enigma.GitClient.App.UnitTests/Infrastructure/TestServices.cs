@@ -51,8 +51,12 @@ public sealed class TestServices : IDisposable
     /// that works against a repository it actually created — a page showing branch badges or a HEAD
     /// marker is showing what the reader found, so faking the reader would test nothing.
     /// </param>
+    /// <param name="configure">
+    /// A last chance to replace a registration, for a test that must not let a real service reach
+    /// outside the process — a hosting provider that would call an API, for instance.
+    /// </param>
     /// <returns>The container, which must be disposed.</returns>
-    public static TestServices Build(bool useRealRefReader = false)
+    public static TestServices Build(bool useRealRefReader = false, Action<ServiceCollection>? configure = null)
     {
         string root = Path.Combine(Path.GetTempPath(), "enigma-app-tests-" + Guid.NewGuid().ToString("N"));
 
@@ -85,6 +89,8 @@ public sealed class TestServices : IDisposable
         // The clipboard and the file manager belong to whoever is running the tests.
         services.RemoveAll<ISystemInterop>();
         services.AddSingleton<ISystemInterop, RecordingSystemInterop>();
+
+        configure?.Invoke(services);
 
         return new TestServices(services.BuildServiceProvider(), root);
     }

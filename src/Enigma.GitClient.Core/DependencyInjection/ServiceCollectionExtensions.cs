@@ -6,6 +6,7 @@ using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Hosting;
+using Enigma.GitClient.Core.Hosting.Providers;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -78,6 +79,7 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddRepositoryHosting()
         {
             services.AddSingleton<ITokenStore, FileTokenStore>();
+            services.AddSingleton<IRepositoryHostProvider, GitHubProvider>();
             services.AddSingleton<IHostAccountService, HostAccountService>();
             services.AddSingleton<IHostProviderRegistry, HostProviderRegistry>();
 

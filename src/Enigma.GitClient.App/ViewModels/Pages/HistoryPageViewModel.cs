@@ -46,6 +46,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
+    private readonly IHostLinkService _links;
 
     private DiffTarget? _diffTarget;
     private readonly IInfoBarService _infoBar;
@@ -76,6 +77,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
+        IHostLinkService links,
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
         ILogger<HistoryPageViewModel> logger)
@@ -89,6 +91,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
+        ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
@@ -102,6 +105,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
+        _links = links;
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -110,9 +114,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
-            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null));
+            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null),
+            new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
+            () => _links.HostName);
 
-        Files = new ChangedFilesPanelViewModel(interop);
+        Files = new ChangedFilesPanelViewModel(interop)
+        {
+            // The file is opened at the commit that is selected, which is the only reference that
+            // makes sense for a file the user is looking at in history.
+            OpenOnHost = file => _links.OpenFileAsync(SelectedRow?.Sha ?? string.Empty, file.Path),
+        };
 
         // The viewer follows the panel rather than the panel driving it: the panel's job ends at
         // "this file is selected", whoever is listening.
@@ -389,6 +400,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <inheritdoc />
     protected override void OnRepositoryChanged()
     {
+        _ = _links.RefreshAsync();
+
         base.OnRepositoryChanged();
 
         RefreshCommand.NotifyCanExecuteChanged();
@@ -741,6 +754,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// itself otherwise. Checking out the commit under the pointer is what the specification asks
     /// for; going to the branch first is what a reader means by it when there is one.
     /// </summary>
+    /// <summary>
+    /// Opens a row's commit on whichever host the repository's remote points at.
+    /// </summary>
+    private async Task OnOpenOnHostAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is { } commit)
+        {
+            await _links.OpenCommitAsync(commit.Sha).ConfigureAwait(true);
+        }
+    }
+
     private async Task OnActivateAsync(CommitRowViewModel? row)
     {
         if (row is null)

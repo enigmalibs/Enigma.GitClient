@@ -450,7 +450,15 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(HasRecent));
     }
 
-    private static string DefaultParentDirectory()
+    /// <summary>
+    /// Where a clone is created unless the user says otherwise.
+    /// </summary>
+    /// <returns>The absolute directory path.</returns>
+    /// <remarks>
+    /// Public because the integrations page clones from a repository the user picked on a host,
+    /// with no dialog to choose a directory in.
+    /// </remarks>
+    public static string DefaultParentDirectory()
     {
         string documents = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return documents.Length == 0 ? Environment.CurrentDirectory : documents;

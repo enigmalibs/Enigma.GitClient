@@ -38,6 +38,6 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Conflict resolution UI             | DONE        | (in FEATURE-6DCC.md)      |
 | FEATURE-22C0 | Repository hosting integrations    | IN PROGRESS | docs/plan/FEATURE-22C0.md |
 | - PHASE01    | Provider abstraction & tokens      | DONE        | (in FEATURE-22C0.md)      |
-| - PHASE02    | GitHub provider                    | TODO        | (in FEATURE-22C0.md)      |
+| - PHASE02    | GitHub provider                    | DONE        | (in FEATURE-22C0.md)      |
 | - PHASE03    | GitLab & Azure DevOps providers    | TODO        | (in FEATURE-22C0.md)      |
 | FEATURE-5D77 | Settings, preferences & docs       | TODO        | docs/plan/FEATURE-5D77.md |
