@@ -1,0 +1,154 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+                    xmlns:controls="using:Enigma.GitClient.App.Controls">
+
+  <!-- Themes for the application's own controls. Merged after Enigma.Avalonia.Desktop's
+       dictionary so an override of an Enigma* key here would win; none is overridden today. -->
+
+  <ControlTheme x:Key="{x:Type controls:EmptyState}" TargetType="controls:EmptyState">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent" Padding="32">
+          <StackPanel HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      MaxWidth="420"
+                      Spacing="12">
+            <ei:Icon Kind="{TemplateBinding IconKind}"
+                     Size="44"
+                     HorizontalAlignment="Center"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBlock Text="{TemplateBinding Title}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <TextBlock Text="{TemplateBinding Message}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       FontSize="13"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="Center"
+                              Margin="0,8,0,0" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type controls:ProgressOverlayCard}" TargetType="controls:ProgressOverlayCard">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Width" Value="420" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource EnigmaSurfaceHighBrush}"
+                BorderBrush="{DynamicResource EnigmaBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="20">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{TemplateBinding Title}"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <ProgressBar Minimum="0"
+                         Maximum="100"
+                         Value="{TemplateBinding Progress}"
+                         IsIndeterminate="{TemplateBinding IsIndeterminate}"
+                         Height="6" />
+            <TextBlock Text="{TemplateBinding Message}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       MaxLines="2"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <Button Content="Cancel"
+                    HorizontalAlignment="Right"
+                    Command="{TemplateBinding CancelCommand}"
+                    IsVisible="{TemplateBinding IsCancelVisible}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type controls:RefBadge}" TargetType="controls:RefBadge">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <!-- A pill hugs its content. Without this it stretches to fill whatever it is placed in, which
+         is how a long branch name ends up as a badge the width of the window. -->
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Background" Value="{DynamicResource RefBadgeLocalBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource RefBadgeForegroundBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="3"
+                Padding="5,1"
+                ToolTip.Tip="{TemplateBinding Text}">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <ei:Icon Kind="{TemplateBinding IconKind}"
+                     Size="11"
+                     VerticalAlignment="Center"
+                     Foreground="{TemplateBinding Foreground}" />
+            <TextBlock Text="{TemplateBinding Text}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       MaxWidth="{TemplateBinding MaximumTextWidth}"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{TemplateBinding Foreground}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- The checked-out branch is the one piece of the row a reader looks for first. -->
+    <Style Selector="^.head">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeHeadBrush}" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="^.remote">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeRemoteBrush}" />
+    </Style>
+
+    <Style Selector="^.tag">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeTagBrush}" />
+    </Style>
+
+    <Style Selector="^.stash">
+      <Setter Property="Background" Value="{DynamicResource RefBadgeStashBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type controls:AuthorAvatar}" TargetType="controls:AuthorAvatar">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Tint}"
+                CornerRadius="9"
+                Width="18"
+                Height="18">
+          <TextBlock Text="{TemplateBinding Initials}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     FontSize="9"
+                     FontWeight="SemiBold"
+                     Foreground="#12151A" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

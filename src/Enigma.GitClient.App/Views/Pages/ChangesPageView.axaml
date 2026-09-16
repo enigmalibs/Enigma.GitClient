@@ -1,0 +1,291 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:panels="using:Enigma.GitClient.App.Views.Panels"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.ChangesPageView"
+             x:DataType="vm:ChangesPageViewModel">
+  <DockPanel>
+
+    <!-- Toolbar: where HEAD is, how far it is from its upstream, and a refresh. -->
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="FileText" Size="18" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="{Binding Title}"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+
+        <Border Grid.Column="1"
+                Classes="pill"
+                Background="{DynamicResource EnigmaSelectionBrush}"
+                VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <ei:Icon Kind="GitBranch" Size="13" VerticalAlignment="Center"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <TextBlock Text="{Binding BranchName}"
+                       VerticalAlignment="Center"
+                       FontSize="12"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+          </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Column="2"
+                   Text="{Binding TrackingSummary}"
+                   IsVisible="{Binding HasTrackingSummary}"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+        <Button Grid.Column="4"
+                Classes="toolbar"
+                Command="{Binding RefreshCommand}"
+                ToolTip.Tip="Refresh"
+                AutomationProperties.Name="Refresh">
+          <ei:Icon Kind="ArrowsClockwise" Size="15" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="Check"
+                           Title="Working tree clean"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding IsClean}"
+                           ZIndex="1" />
+
+      <Grid ColumnDefinitions="400,Auto,*" IsVisible="{Binding !IsClean}">
+
+        <!-- The two halves of the change, and the commit box under them. -->
+        <Grid Grid.Column="0" RowDefinitions="*,Auto,*,Auto,Auto">
+
+          <DockPanel Grid.Row="0">
+            <Border DockPanel.Dock="Top"
+                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="10,6">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                <TextBlock Grid.Column="0"
+                           Text="Not staged"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <Button Grid.Column="1"
+                        Classes="toolbar"
+                        Command="{Binding DiscardAllCommand}"
+                        ToolTip.Tip="Discard everything"
+                        AutomationProperties.Name="Discard everything">
+                  <ei:Icon Kind="TrashSimple" Size="14" />
+                </Button>
+                <Button Grid.Column="2"
+                        Classes="toolbar"
+                        Command="{Binding StashAllCommand}"
+                        ToolTip.Tip="Put everything aside on the stash"
+                        AutomationProperties.Name="Stash all changes">
+                  <ei:Icon Kind="Archive" Size="14" />
+                </Button>
+                <Button Grid.Column="3"
+                        Classes="toolbar"
+                        Command="{Binding StageAllCommand}"
+                        ToolTip.Tip="Stage everything"
+                        AutomationProperties.Name="Stage everything">
+                  <StackPanel Orientation="Horizontal" Spacing="5">
+                    <ei:Icon Kind="Plus" Size="13" VerticalAlignment="Center" />
+                    <TextBlock Text="Stage all" FontSize="12" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </Border>
+
+            <panels:ChangedFilesPanelView DataContext="{Binding Unstaged}" />
+          </DockPanel>
+
+          <GridSplitter Grid.Row="1"
+                        Height="4"
+                        ResizeDirection="Rows"
+                        Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <DockPanel Grid.Row="2">
+            <Border DockPanel.Dock="Top"
+                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                    BorderThickness="0,1,0,1"
+                    Padding="10,6">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <TextBlock Grid.Column="0"
+                           Text="Staged"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <Button Grid.Column="1"
+                        Classes="toolbar"
+                        Command="{Binding UnstageAllCommand}"
+                        ToolTip.Tip="Unstage everything"
+                        AutomationProperties.Name="Unstage everything">
+                  <StackPanel Orientation="Horizontal" Spacing="5">
+                    <ei:Icon Kind="Minus" Size="13" VerticalAlignment="Center" />
+                    <TextBlock Text="Unstage all" FontSize="12" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </Grid>
+            </Border>
+
+            <panels:ChangedFilesPanelView DataContext="{Binding Staged}" />
+          </DockPanel>
+
+          <!-- The stash: collapsed until there is something in it. -->
+          <Expander Grid.Row="3"
+                    IsVisible="{Binding HasStashes}"
+                    Header="{Binding StashSummary}"
+                    HorizontalAlignment="Stretch"
+                    MaxHeight="220"
+                    AutomationProperties.Name="Stashes">
+            <ListBox ItemsSource="{Binding Stashes}"
+                     SelectedItem="{Binding SelectedStash, Mode=TwoWay}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="Stash entries">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:StashRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Height="34">
+
+                    <Grid.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="Apply, keeping the stash"
+                                  Command="{Binding ApplyCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="Restore and remove"
+                                  Command="{Binding PopCommand}"
+                                  CommandParameter="{Binding}" />
+                        <Separator />
+                        <MenuItem Header="Drop…"
+                                  Command="{Binding DropCommand}"
+                                  CommandParameter="{Binding}" />
+                      </ContextMenu>
+                    </Grid.ContextMenu>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Message}"
+                                 FontSize="12"
+                                 TextTrimming="CharacterEllipsis"
+                                 Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Branch}"
+                                   IsVisible="{Binding HasBranch}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                        <TextBlock Text="{Binding When}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                      </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                      <Button Classes="toolbar rowaction"
+                              Command="{Binding PopCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Restore and remove"
+                              AutomationProperties.Name="Restore and remove this stash">
+                        <ei:Icon Kind="ArrowCounterClockwise" Size="13" />
+                      </Button>
+                      <Button Classes="toolbar rowaction"
+                              Command="{Binding DropCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Drop"
+                              AutomationProperties.Name="Drop this stash">
+                        <ei:Icon Kind="Trash" Size="13" />
+                      </Button>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Expander>
+
+          <!-- The commit box. Ctrl+Enter commits, which is what every other client does. -->
+          <Border Grid.Row="4"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="0,1,0,0"
+                  Background="{DynamicResource EnigmaSurfaceBrush}"
+                  Padding="10">
+            <StackPanel Spacing="8">
+
+              <TextBox Name="MessageBox"
+                       Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       AcceptsReturn="True"
+                       TextWrapping="Wrap"
+                       Height="92"
+                       KeyDown="OnMessageKeyDown"
+                       PlaceholderText="Summarise the change, then explain why"
+                       AutomationProperties.Name="Commit message" />
+
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                <CheckBox Grid.Column="0"
+                          IsChecked="{Binding Amend, Mode=TwoWay}"
+                          Content="Amend"
+                          FontSize="12"
+                          ToolTip.Tip="Replace the last commit instead of adding one"
+                          AutomationProperties.Name="Amend the last commit" />
+
+                <CheckBox Grid.Column="1"
+                          IsChecked="{Binding SignOff, Mode=TwoWay}"
+                          Content="Sign off"
+                          FontSize="12"
+                          ToolTip.Tip="Append a Signed-off-by trailer"
+                          AutomationProperties.Name="Sign off" />
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                  <TextBlock Text="{Binding SubjectLength}"
+                             Classes.overlong="{Binding IsSubjectTooLong}"
+                             VerticalAlignment="Center"
+                             FontSize="11"
+                             ToolTip.Tip="Characters in the subject line; 50 is the usual guide"
+                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                  <TextBlock Text="long lines"
+                             IsVisible="{Binding HasLongBodyLine}"
+                             VerticalAlignment="Center"
+                             FontSize="11"
+                             ToolTip.Tip="A body line is past 72 characters and will not wrap well"
+                             Foreground="{DynamicResource EnigmaWarningBrush}" />
+                </StackPanel>
+
+                <Button Grid.Column="3"
+                        Classes="accent"
+                        Content="{Binding CommitButtonText}"
+                        Command="{Binding CommitCommand}"
+                        AutomationProperties.Name="Commit" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <GridSplitter Grid.Column="1"
+                      Width="4"
+                      ResizeDirection="Columns"
+                      Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+        <!-- The stash sits beside the change rather than inside it: it is work that is not here
+             any more, and mixing it into the staged and unstaged lists would say otherwise. -->
+
+        <panels:DiffViewerView Grid.Column="2" DataContext="{Binding Diff}" />
+      </Grid>
+    </Grid>
+  </DockPanel>
+</UserControl>

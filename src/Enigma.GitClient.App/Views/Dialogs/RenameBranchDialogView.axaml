@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.RenameBranchDialogView"
+             x:DataType="vm:RenameBranchDialogViewModel"
+             MinWidth="460">
+  <StackPanel Spacing="12">
+
+    <TextBlock Text="{Binding CurrentName, StringFormat='Renaming {0}'}"
+               FontSize="12"
+               TextTrimming="CharacterEllipsis"
+               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="New name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               AutomationProperties.Name="New branch name" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

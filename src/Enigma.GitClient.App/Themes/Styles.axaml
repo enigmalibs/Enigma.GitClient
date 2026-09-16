@@ -1,0 +1,385 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:diff="using:Enigma.GitClient.App.Controls.Diff">
+
+  <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
+       Enigma* brushes so they follow a theme switch. -->
+
+  <!--
+    Toolbar buttons: icon-only actions that sit on a surface strip. FluentTheme's default button
+    paints a filled plate in every state, which reads as a box floating on the strip; a toolbar
+    button should be invisible until it is hovered.
+  -->
+  <Style Selector="Button.toolbar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaPressedBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled">
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+
+  <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
+  <Style Selector="Border.pill">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Short hashes and file content read as code, so they get the monospace stack. -->
+  <Style Selector="TextBlock.monospace">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+  </Style>
+
+  <!--
+    The status chip beside a changed file. The letter is git's own (A, M, D, R, C, T, U) and the
+    colour repeats the meaning, so the column is readable at a glance and still readable without
+    colour.
+  -->
+  <Style Selector="Border.status">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource DiffStatusModifiedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.added">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusAddedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.deleted">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusDeletedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.renamed">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusRenamedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.conflicted">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusConflictedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource DiffStatusForegroundBrush}" />
+  </Style>
+
+  <!-- A pair of toggles acting as one segmented control, for the list/tree switch. -->
+  <Style Selector="ToggleButton.segment">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:checked">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <!--
+    The diff viewer. A row's own tint is quiet; the word-level tint drawn behind the changed
+    stretches is the loud one, so the eye goes to the words that actually differ rather than to the
+    whole line. Both follow the theme, so neither goes unreadable in the light variant.
+  -->
+
+  <Style Selector="Border.diffrow">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.diffrow.added">
+    <Setter Property="Background" Value="{DynamicResource DiffAddedLineBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffrow.removed">
+    <Setter Property="Background" Value="{DynamicResource DiffRemovedLineBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffrow.filler">
+    <Setter Property="Background" Value="{DynamicResource DiffFillerBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffgutter">
+    <Setter Property="Background" Value="{DynamicResource DiffGutterBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.diffnumber">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffGutterForegroundBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Padding" Value="0,0,8,0" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker.added">
+    <Setter Property="Foreground" Value="{DynamicResource DiffAddedMarkerBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker.removed">
+    <Setter Property="Foreground" Value="{DynamicResource DiffRemovedMarkerBrush}" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    <Setter Property="WhitespaceBrush" Value="{DynamicResource DiffWhitespaceBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText.added">
+    <Setter Property="HighlightBrush" Value="{DynamicResource DiffAddedWordBrush}" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText.removed">
+    <Setter Property="HighlightBrush" Value="{DynamicResource DiffRemovedWordBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffband">
+    <Setter Property="Background" Value="{DynamicResource DiffHunkBandBrush}" />
+    <Setter Property="Padding" Value="10,3" />
+  </Style>
+
+  <!-- The band is the affordance for "show me more of this file": it is already where the reader
+       is looking, and a toolbar button for it would be a second place to learn. -->
+  <Style Selector="Button.band">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <Style Selector="Button.band /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Border.diffband TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffHunkForegroundBrush}" />
+  </Style>
+
+  <!-- A diff row is a line of code, not a list entry: no rounded plate and no inset. -->
+  <Style Selector="ListBox.diff ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+
+  <!--
+    A selected line keeps its own colour and gains a bar in the gutter. Painting the selection over
+    the row instead would hide the one thing the row exists to show — whether the line was added or
+    removed — which is exactly backwards for a view whose selection is there to be copied from.
+  -->
+  <Style Selector="ListBox.diff ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.diffselection">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Width" Value="3" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="ListBox.diff ListBoxItem:selected Border.diffselection">
+    <Setter Property="Background" Value="{DynamicResource DiffSelectionBrush}" />
+  </Style>
+
+  <!-- The one button on a page that performs the page's whole purpose. Exactly one per page:
+       two accented buttons beside each other is two buttons with no accent. -->
+  <Style Selector="Button.accent">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.accent /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+  </Style>
+
+  <!-- A counter that has passed its guide says so by colour rather than by a second control. -->
+  <Style Selector="TextBlock.overlong">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaWarningBrush}" />
+  </Style>
+
+  <!--
+    The conflict panes. Each side keeps one quiet tint for its whole column rather than tinting every
+    line, so a region reads as "this block is ours, that block is theirs" at a glance, and the text
+    inside stays as readable as it is in the editor the user came from.
+  -->
+
+  <Style Selector="Border.conflictcard">
+    <Setter Property="Background" Value="{DynamicResource ConflictCardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Margin" Value="8,6" />
+  </Style>
+
+  <Style Selector="Border.conflictheader">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+    <Setter Property="Padding" Value="10,5" />
+  </Style>
+
+  <Style Selector="Border.conflictside">
+    <Setter Property="Padding" Value="0,0,0,4" />
+  </Style>
+
+  <Style Selector="Border.conflictside.ours">
+    <Setter Property="Background" Value="{DynamicResource ConflictOursLineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ConflictOursAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+
+  <Style Selector="Border.conflictside.theirs">
+    <Setter Property="Background" Value="{DynamicResource ConflictTheirsLineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ConflictTheirsAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+
+  <Style Selector="Border.conflictside.base">
+    <Setter Property="Background" Value="{DynamicResource ConflictBaseLineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ConflictBaseAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+
+  <!-- A side's heading is the only place its colour is stated in words, so it carries the hue. -->
+  <Style Selector="TextBlock.conflictlabel">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="8,3" />
+  </Style>
+
+  <Style Selector="TextBlock.conflictlabel.ours">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictOursAccentBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.conflictlabel.theirs">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictTheirsAccentBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.conflictlabel.base">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictBaseAccentBrush}" />
+  </Style>
+
+  <!-- Resolved and still-to-do are the two states a reader scans this page for, so they are the two
+       states that get a colour. -->
+  <Style Selector="Border.conflictstate">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource ConflictPendingBrush}" />
+  </Style>
+
+  <Style Selector="Border.conflictstate TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource ConflictPendingForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Border.conflictstate.resolved">
+    <Setter Property="Background" Value="{DynamicResource ConflictResolvedBrush}" />
+  </Style>
+
+  <Style Selector="Border.conflictstate.resolved TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictResolvedForegroundBrush}" />
+  </Style>
+
+  <!-- The choice a region is set to is shown by the pressed-in look of the button that set it. -->
+  <Style Selector="Button.choice">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="Button.choice.chosen">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+  </Style>
+
+  <Style Selector="Button.choice.chosen /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+  </Style>
+
+  <!-- The preview is read, not edited: it looks like the file it stands for and nothing else. -->
+  <Style Selector="TextBox.preview">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,4" />
+  </Style>
+
+  <!-- A row's action stays out of the way until the row is hovered or the action is focused. -->
+  <Style Selector="Button.rowaction">
+    <Setter Property="Padding" Value="4,1" />
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+
+  <Style Selector="Button.rowaction:pointerover">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+</Styles>

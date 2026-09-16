@@ -1,0 +1,364 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.BranchesPageView"
+             x:DataType="vm:BranchesPageViewModel">
+
+  <UserControl.Styles>
+    <!-- The checked-out branch is the first thing anyone looks for in this list. -->
+    <Style Selector="TextBlock.current">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- A row is a hit target: it needs to react to the pointer, and it needs a line under it or
+         three branches with two-line entries read as one block of text. -->
+    <Style Selector="Border.branchrow:pointerover">
+      <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+    </Style>
+
+    <Style Selector="Border.pill">
+      <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="6,1" />
+    </Style>
+
+    <Style Selector="Border.pill TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+
+    <DataTemplate x:Key="BranchRow" x:DataType="vm:BranchRowViewModel">
+      <Border Classes="branchrow"
+              Background="Transparent"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="14,7">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Check out"
+                        Command="{Binding CheckoutCommand}"
+                        CommandParameter="{Binding}" />
+              <MenuItem Header="Merge into the current branch"
+                        Command="{Binding MergeCommand}"
+                        CommandParameter="{Binding}" />
+              <Separator />
+              <MenuItem Header="Rename…"
+                        Command="{Binding RenameCommand}"
+                        CommandParameter="{Binding}" />
+              <MenuItem Header="Set upstream…"
+                        Command="{Binding SetUpstreamCommand}"
+                        CommandParameter="{Binding}" />
+              <Separator />
+              <MenuItem Header="Delete…"
+                        Command="{Binding DeleteCommand}"
+                        CommandParameter="{Binding}" />
+            </ContextMenu>
+          </Grid.ContextMenu>
+
+          <ei:Icon Grid.Column="0"
+                   Kind="GitBranch"
+                   Size="14"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+          <StackPanel Grid.Column="1" Spacing="2">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Name}"
+                         Classes.current="{Binding IsCurrent}"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+              <Border Classes="pill"
+                      IsVisible="{Binding IsCurrent}"
+                      VerticalAlignment="Center">
+                <TextBlock Text="checked out" FontSize="10" />
+              </Border>
+
+              <TextBlock Text="{Binding Upstream}"
+                         IsVisible="{Binding HasUpstream}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         TextTrimming="CharacterEllipsis"
+                         MaxWidth="200"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding TipSubject}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Border Classes="pill" IsVisible="{Binding IsAhead}">
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="↑" FontSize="10" />
+                <TextBlock Text="{Binding Ahead}" FontSize="10" />
+              </StackPanel>
+            </Border>
+            <Border Classes="pill" IsVisible="{Binding IsBehind}">
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <TextBlock Text="↓" FontSize="10" />
+                <TextBlock Text="{Binding Behind}" FontSize="10" />
+              </StackPanel>
+            </Border>
+            <Border Classes="pill" IsVisible="{Binding IsUpstreamGone}">
+              <TextBlock Text="upstream gone" FontSize="10" />
+            </Border>
+          </StackPanel>
+
+          <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+            <TextBlock Text="{Binding TipAuthor}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="160"
+                       HorizontalAlignment="Right"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBlock Text="{Binding TipDate}"
+                       FontSize="11"
+                       HorizontalAlignment="Right"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <Button Classes="toolbar"
+                    Command="{Binding CheckoutCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Check out"
+                    AutomationProperties.Name="Check out">
+              <ei:Icon Kind="SignIn" Size="14" />
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding DeleteCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Delete"
+                    AutomationProperties.Name="Delete branch">
+              <ei:Icon Kind="Trash" Size="14" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="TagRow" x:DataType="vm:TagRowViewModel">
+      <Border Classes="branchrow"
+              Background="Transparent"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="14,7">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Check out (detaches HEAD)"
+                        Command="{Binding CheckoutCommand}"
+                        CommandParameter="{Binding}" />
+              <Separator />
+              <MenuItem Header="Delete…"
+                        Command="{Binding DeleteCommand}"
+                        CommandParameter="{Binding}" />
+            </ContextMenu>
+          </Grid.ContextMenu>
+
+          <ei:Icon Grid.Column="0"
+                   Kind="Tag"
+                   Size="14"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+          <StackPanel Grid.Column="1" Spacing="2">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Name}"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Border Classes="pill" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Kind}" FontSize="10" />
+              </Border>
+            </StackPanel>
+
+            <TextBlock Text="{Binding Message}"
+                       IsVisible="{Binding HasMessage}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          </StackPanel>
+
+          <TextBlock Grid.Column="2"
+                     Classes="monospace"
+                     Text="{Binding ShortSha}"
+                     VerticalAlignment="Center"
+                     FontSize="11"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+          <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+            <TextBlock Text="{Binding Tagger}"
+                       IsVisible="{Binding HasTagger}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="160"
+                       HorizontalAlignment="Right"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBlock Text="{Binding Date}"
+                       FontSize="11"
+                       HorizontalAlignment="Right"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <Button Classes="toolbar"
+                    Command="{Binding CheckoutCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Check out (detaches HEAD)"
+                    AutomationProperties.Name="Check out this tag">
+              <ei:Icon Kind="SignIn" Size="14" />
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding DeleteCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Delete"
+                    AutomationProperties.Name="Delete tag">
+              <ei:Icon Kind="Trash" Size="14" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="GitBranch" Size="18" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="{Binding Title}"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+
+        <TextBox Grid.Column="1"
+                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="{Binding SearchPlaceholder}"
+                 MaxWidth="320"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Center"
+                 AutomationProperties.Name="Filter branches and tags" />
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding ShowBranches, Mode=OneWay}"
+                        Command="{Binding ShowBranchesCommand}"
+                        ToolTip.Tip="Branches"
+                        AutomationProperties.Name="Branches">
+            <ei:Icon Kind="GitBranch" Size="14" />
+          </ToggleButton>
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding ShowTags, Mode=OneWay}"
+                        Command="{Binding ShowTagsCommand}"
+                        ToolTip.Tip="Tags"
+                        AutomationProperties.Name="Tags">
+            <ei:Icon Kind="Tag" Size="14" />
+          </ToggleButton>
+        </StackPanel>
+
+        <Button Grid.Column="3"
+                Classes="toolbar"
+                IsVisible="{Binding ShowBranches}"
+                Command="{Binding CreateBranchCommand}"
+                ToolTip.Tip="Create a branch"
+                AutomationProperties.Name="Create a branch">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <TextBlock Text="New branch" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <Button Grid.Column="3"
+                Classes="toolbar"
+                IsVisible="{Binding ShowTags}"
+                Command="{Binding CreateTagCommand}"
+                ToolTip.Tip="Create a tag"
+                AutomationProperties.Name="Create a tag">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <TextBlock Text="New tag" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <Button Grid.Column="4"
+                Classes="toolbar"
+                Command="{Binding RefreshCommand}"
+                ToolTip.Tip="Refresh"
+                AutomationProperties.Name="Refresh">
+          <ei:Icon Kind="ArrowsClockwise" Size="15" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="GitBranch"
+                           Title="Branches and tags"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding IsEmpty}"
+                           ZIndex="1" />
+
+      <ScrollViewer IsVisible="{Binding ShowTags}">
+        <ItemsControl ItemsSource="{Binding Tags}"
+                      ItemTemplate="{StaticResource TagRow}"
+                      Margin="0,4" />
+      </ScrollViewer>
+
+      <ScrollViewer IsVisible="{Binding ShowBranches}">
+        <ItemsControl ItemsSource="{Binding Groups}" Margin="0,4">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BranchGroupViewModel">
+              <StackPanel Margin="0,4,0,12">
+
+                <Border Padding="14,6" Background="{DynamicResource EnigmaSurfaceBrush}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ei:Icon Kind="HardDrives"
+                             Size="13"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding IsRemote}"
+                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                    <TextBlock Text="{Binding Title}"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                    <TextBlock Text="{Binding Count}"
+                               VerticalAlignment="Center"
+                               FontSize="11"
+                               Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                  </StackPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding Rows}"
+                              ItemTemplate="{StaticResource BranchRow}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</UserControl>

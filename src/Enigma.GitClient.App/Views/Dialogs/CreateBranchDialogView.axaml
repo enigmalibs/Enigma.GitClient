@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.CreateBranchDialogView"
+             x:DataType="vm:CreateBranchDialogViewModel"
+             MinWidth="520">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Branch name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="feature/what-it-does"
+               AutomationProperties.Name="Branch name" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Start from"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <ComboBox ItemsSource="{Binding StartPoints}"
+                SelectedItem="{Binding SelectedStartPoint, Mode=TwoWay}"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.Name="Start point">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:BranchStartPoint">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Detail}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         MaxWidth="280"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </StackPanel>
+
+    <CheckBox IsChecked="{Binding CheckoutAfterCreate, Mode=TwoWay}"
+              Content="Check the branch out once it is created"
+              AutomationProperties.Name="Check the branch out once it is created" />
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

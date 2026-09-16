@@ -1,0 +1,204 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The commit graph's lane palette, and the colours the ref badges use.
+
+    Ten lanes, chosen so that any two adjacent hues stay distinguishable, including for the most
+    common form of colour blindness: the sequence alternates between warm and cool and never places
+    red next to green. Colours are theme-scoped and the brushes are not, exactly as
+    Enigma.Avalonia.Desktop does it — one brush instance per key whose Color follows the active
+    variant, so a theme switch recolours the graph with no reload.
+  -->
+
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="GraphLane0Color">#4E9BF5</Color>
+      <Color x:Key="GraphLane1Color">#57C77E</Color>
+      <Color x:Key="GraphLane2Color">#E8A33D</Color>
+      <Color x:Key="GraphLane3Color">#C77DE0</Color>
+      <Color x:Key="GraphLane4Color">#F2725B</Color>
+      <Color x:Key="GraphLane5Color">#45C2C2</Color>
+      <Color x:Key="GraphLane6Color">#E0C24A</Color>
+      <Color x:Key="GraphLane7Color">#8A9BF5</Color>
+      <Color x:Key="GraphLane8Color">#EF87B5</Color>
+      <Color x:Key="GraphLane9Color">#9AA7B4</Color>
+
+      <Color x:Key="GraphNodeOutlineColor">#1E1F22</Color>
+      <Color x:Key="GraphHeadRingColor">#F2F4F8</Color>
+
+      <Color x:Key="RefBadgeHeadColor">#3574F0</Color>
+      <Color x:Key="RefBadgeLocalColor">#2B3A55</Color>
+      <Color x:Key="RefBadgeRemoteColor">#3A2F52</Color>
+      <Color x:Key="RefBadgeTagColor">#4A3A1E</Color>
+      <Color x:Key="RefBadgeStashColor">#33373D</Color>
+      <Color x:Key="RefBadgeForegroundColor">#E6E8EC</Color>
+
+      <Color x:Key="DiffStatusAddedColor">#2E7D46</Color>
+      <Color x:Key="DiffStatusModifiedColor">#2A5A9E</Color>
+      <Color x:Key="DiffStatusDeletedColor">#9E3B32</Color>
+      <Color x:Key="DiffStatusRenamedColor">#6B4A9E</Color>
+      <Color x:Key="DiffStatusConflictedColor">#9E6B1E</Color>
+      <Color x:Key="DiffStatusForegroundColor">#F2F4F8</Color>
+
+      <!--
+        The diff viewer's tints. A line's own tint stays quiet enough to read code through; the
+        word-level tint sitting on top of it is what the eye lands on, so the two differ by enough
+        to be told apart at a glance without either fighting the text.
+      -->
+      <Color x:Key="DiffAddedLineColor">#0C1F13</Color>
+      <Color x:Key="DiffRemovedLineColor">#2C1514</Color>
+      <Color x:Key="DiffAddedWordColor">#205230</Color>
+      <Color x:Key="DiffRemovedWordColor">#83352B</Color>
+      <Color x:Key="DiffAddedMarkerColor">#57C77E</Color>
+      <Color x:Key="DiffRemovedMarkerColor">#F2725B</Color>
+      <Color x:Key="DiffGutterColor">#1A1B1E</Color>
+      <Color x:Key="DiffGutterForegroundColor">#6B7078</Color>
+      <Color x:Key="DiffHunkBandColor">#232A38</Color>
+      <Color x:Key="DiffHunkForegroundColor">#8FA3C4</Color>
+      <Color x:Key="DiffWhitespaceColor">#4A4F57</Color>
+      <Color x:Key="DiffFillerColor">#17181B</Color>
+      <Color x:Key="DiffSelectionColor">#3574F0</Color>
+
+      <!--
+        The conflict panes. Ours is the blue of the graph's first lane and theirs the violet of its
+        fourth: two hues that are already established in this app as "different thing", that are
+        told apart under the common forms of colour blindness, and that are neither of them the
+        red/green a diff has already spent. The original sits between them in plain grey, because
+        it is context rather than a side.
+      -->
+      <Color x:Key="ConflictOursLineColor">#0E1B2E</Color>
+      <Color x:Key="ConflictTheirsLineColor">#1E1430</Color>
+      <Color x:Key="ConflictBaseLineColor">#1A1B1E</Color>
+      <Color x:Key="ConflictOursAccentColor">#4E9BF5</Color>
+      <Color x:Key="ConflictTheirsAccentColor">#C77DE0</Color>
+      <Color x:Key="ConflictBaseAccentColor">#9AA7B4</Color>
+      <Color x:Key="ConflictCardColor">#232427</Color>
+      <Color x:Key="ConflictResolvedColor">#1E4630</Color>
+      <Color x:Key="ConflictResolvedForegroundColor">#8BE0A8</Color>
+      <Color x:Key="ConflictPendingColor">#3A2E12</Color>
+      <Color x:Key="ConflictPendingForegroundColor">#E8C271</Color>
+
+      <!-- The one colour a page's primary action is painted in. Defined here rather than taken from
+           the theme package so it cannot quietly change out from under the button. -->
+      <Color x:Key="ActionAccentColor">#3574F0</Color>
+      <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="GraphLane0Color">#1F6FE0</Color>
+      <Color x:Key="GraphLane1Color">#2E9E56</Color>
+      <Color x:Key="GraphLane2Color">#B8791A</Color>
+      <Color x:Key="GraphLane3Color">#8E46AC</Color>
+      <Color x:Key="GraphLane4Color">#D14328</Color>
+      <Color x:Key="GraphLane5Color">#12878A</Color>
+      <Color x:Key="GraphLane6Color">#9A8210</Color>
+      <Color x:Key="GraphLane7Color">#4A5ECC</Color>
+      <Color x:Key="GraphLane8Color">#C8437F</Color>
+      <Color x:Key="GraphLane9Color">#54636F</Color>
+
+      <Color x:Key="GraphNodeOutlineColor">#FFFFFF</Color>
+      <Color x:Key="GraphHeadRingColor">#1A1D21</Color>
+
+      <Color x:Key="RefBadgeHeadColor">#3574F0</Color>
+      <Color x:Key="RefBadgeLocalColor">#DCE6FA</Color>
+      <Color x:Key="RefBadgeRemoteColor">#EADCF7</Color>
+      <Color x:Key="RefBadgeTagColor">#F7EBD2</Color>
+      <Color x:Key="RefBadgeStashColor">#E4E7EB</Color>
+      <Color x:Key="RefBadgeForegroundColor">#1A1D21</Color>
+
+      <Color x:Key="DiffStatusAddedColor">#2E9E56</Color>
+      <Color x:Key="DiffStatusModifiedColor">#3574F0</Color>
+      <Color x:Key="DiffStatusDeletedColor">#D14328</Color>
+      <Color x:Key="DiffStatusRenamedColor">#8E46AC</Color>
+      <Color x:Key="DiffStatusConflictedColor">#C2801B</Color>
+      <Color x:Key="DiffStatusForegroundColor">#FFFFFF</Color>
+
+      <Color x:Key="DiffAddedLineColor">#E6F8EA</Color>
+      <Color x:Key="DiffRemovedLineColor">#FDEBE8</Color>
+      <Color x:Key="DiffAddedWordColor">#86D29D</Color>
+      <Color x:Key="DiffRemovedWordColor">#F59D8E</Color>
+      <Color x:Key="DiffAddedMarkerColor">#1E7A3C</Color>
+      <Color x:Key="DiffRemovedMarkerColor">#C03A22</Color>
+      <Color x:Key="DiffGutterColor">#F2F4F7</Color>
+      <Color x:Key="DiffGutterForegroundColor">#8A9099</Color>
+      <Color x:Key="DiffHunkBandColor">#E6EDF8</Color>
+      <Color x:Key="DiffHunkForegroundColor">#3F5B84</Color>
+      <Color x:Key="DiffWhitespaceColor">#B4BAC2</Color>
+      <Color x:Key="DiffFillerColor">#F7F8FA</Color>
+      <Color x:Key="DiffSelectionColor">#3574F0</Color>
+
+      <Color x:Key="ConflictOursLineColor">#E8F0FE</Color>
+      <Color x:Key="ConflictTheirsLineColor">#F6EAFB</Color>
+      <Color x:Key="ConflictBaseLineColor">#F2F4F7</Color>
+      <Color x:Key="ConflictOursAccentColor">#1F6FE0</Color>
+      <Color x:Key="ConflictTheirsAccentColor">#8E46AC</Color>
+      <Color x:Key="ConflictBaseAccentColor">#54636F</Color>
+      <Color x:Key="ConflictCardColor">#FFFFFF</Color>
+      <Color x:Key="ConflictResolvedColor">#CDEEDA</Color>
+      <Color x:Key="ConflictResolvedForegroundColor">#1B6E36</Color>
+      <Color x:Key="ConflictPendingColor">#F9E7C4</Color>
+      <Color x:Key="ConflictPendingForegroundColor">#8A5E0C</Color>
+
+      <Color x:Key="ActionAccentColor">#2E63D6</Color>
+      <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <SolidColorBrush x:Key="GraphLane0Brush" Color="{DynamicResource GraphLane0Color}" />
+  <SolidColorBrush x:Key="GraphLane1Brush" Color="{DynamicResource GraphLane1Color}" />
+  <SolidColorBrush x:Key="GraphLane2Brush" Color="{DynamicResource GraphLane2Color}" />
+  <SolidColorBrush x:Key="GraphLane3Brush" Color="{DynamicResource GraphLane3Color}" />
+  <SolidColorBrush x:Key="GraphLane4Brush" Color="{DynamicResource GraphLane4Color}" />
+  <SolidColorBrush x:Key="GraphLane5Brush" Color="{DynamicResource GraphLane5Color}" />
+  <SolidColorBrush x:Key="GraphLane6Brush" Color="{DynamicResource GraphLane6Color}" />
+  <SolidColorBrush x:Key="GraphLane7Brush" Color="{DynamicResource GraphLane7Color}" />
+  <SolidColorBrush x:Key="GraphLane8Brush" Color="{DynamicResource GraphLane8Color}" />
+  <SolidColorBrush x:Key="GraphLane9Brush" Color="{DynamicResource GraphLane9Color}" />
+
+  <SolidColorBrush x:Key="GraphNodeOutlineBrush" Color="{DynamicResource GraphNodeOutlineColor}" />
+  <SolidColorBrush x:Key="GraphHeadRingBrush" Color="{DynamicResource GraphHeadRingColor}" />
+
+  <SolidColorBrush x:Key="RefBadgeHeadBrush" Color="{DynamicResource RefBadgeHeadColor}" />
+  <SolidColorBrush x:Key="RefBadgeLocalBrush" Color="{DynamicResource RefBadgeLocalColor}" />
+  <SolidColorBrush x:Key="RefBadgeRemoteBrush" Color="{DynamicResource RefBadgeRemoteColor}" />
+  <SolidColorBrush x:Key="RefBadgeTagBrush" Color="{DynamicResource RefBadgeTagColor}" />
+  <SolidColorBrush x:Key="RefBadgeStashBrush" Color="{DynamicResource RefBadgeStashColor}" />
+  <SolidColorBrush x:Key="RefBadgeForegroundBrush" Color="{DynamicResource RefBadgeForegroundColor}" />
+
+  <SolidColorBrush x:Key="DiffStatusAddedBrush" Color="{DynamicResource DiffStatusAddedColor}" />
+  <SolidColorBrush x:Key="DiffStatusModifiedBrush" Color="{DynamicResource DiffStatusModifiedColor}" />
+  <SolidColorBrush x:Key="DiffStatusDeletedBrush" Color="{DynamicResource DiffStatusDeletedColor}" />
+  <SolidColorBrush x:Key="DiffStatusRenamedBrush" Color="{DynamicResource DiffStatusRenamedColor}" />
+  <SolidColorBrush x:Key="DiffStatusConflictedBrush" Color="{DynamicResource DiffStatusConflictedColor}" />
+  <SolidColorBrush x:Key="DiffStatusForegroundBrush" Color="{DynamicResource DiffStatusForegroundColor}" />
+
+  <SolidColorBrush x:Key="DiffAddedLineBrush" Color="{DynamicResource DiffAddedLineColor}" />
+  <SolidColorBrush x:Key="DiffRemovedLineBrush" Color="{DynamicResource DiffRemovedLineColor}" />
+  <SolidColorBrush x:Key="DiffAddedWordBrush" Color="{DynamicResource DiffAddedWordColor}" />
+  <SolidColorBrush x:Key="DiffRemovedWordBrush" Color="{DynamicResource DiffRemovedWordColor}" />
+  <SolidColorBrush x:Key="DiffAddedMarkerBrush" Color="{DynamicResource DiffAddedMarkerColor}" />
+  <SolidColorBrush x:Key="DiffRemovedMarkerBrush" Color="{DynamicResource DiffRemovedMarkerColor}" />
+  <SolidColorBrush x:Key="DiffGutterBrush" Color="{DynamicResource DiffGutterColor}" />
+  <SolidColorBrush x:Key="DiffGutterForegroundBrush" Color="{DynamicResource DiffGutterForegroundColor}" />
+  <SolidColorBrush x:Key="DiffHunkBandBrush" Color="{DynamicResource DiffHunkBandColor}" />
+  <SolidColorBrush x:Key="DiffHunkForegroundBrush" Color="{DynamicResource DiffHunkForegroundColor}" />
+  <SolidColorBrush x:Key="DiffWhitespaceBrush" Color="{DynamicResource DiffWhitespaceColor}" />
+  <SolidColorBrush x:Key="DiffFillerBrush" Color="{DynamicResource DiffFillerColor}" />
+  <SolidColorBrush x:Key="DiffSelectionBrush" Color="{DynamicResource DiffSelectionColor}" />
+  <SolidColorBrush x:Key="ConflictOursLineBrush" Color="{DynamicResource ConflictOursLineColor}" />
+  <SolidColorBrush x:Key="ConflictTheirsLineBrush" Color="{DynamicResource ConflictTheirsLineColor}" />
+  <SolidColorBrush x:Key="ConflictBaseLineBrush" Color="{DynamicResource ConflictBaseLineColor}" />
+  <SolidColorBrush x:Key="ConflictOursAccentBrush" Color="{DynamicResource ConflictOursAccentColor}" />
+  <SolidColorBrush x:Key="ConflictTheirsAccentBrush" Color="{DynamicResource ConflictTheirsAccentColor}" />
+  <SolidColorBrush x:Key="ConflictBaseAccentBrush" Color="{DynamicResource ConflictBaseAccentColor}" />
+  <SolidColorBrush x:Key="ConflictCardBrush" Color="{DynamicResource ConflictCardColor}" />
+  <SolidColorBrush x:Key="ConflictResolvedBrush" Color="{DynamicResource ConflictResolvedColor}" />
+  <SolidColorBrush x:Key="ConflictResolvedForegroundBrush" Color="{DynamicResource ConflictResolvedForegroundColor}" />
+  <SolidColorBrush x:Key="ConflictPendingBrush" Color="{DynamicResource ConflictPendingColor}" />
+  <SolidColorBrush x:Key="ConflictPendingForegroundBrush" Color="{DynamicResource ConflictPendingForegroundColor}" />
+
+  <SolidColorBrush x:Key="ActionAccentBrush" Color="{DynamicResource ActionAccentColor}" />
+  <SolidColorBrush x:Key="ActionAccentForegroundBrush" Color="{DynamicResource ActionAccentForegroundColor}" />
+
+</ResourceDictionary>

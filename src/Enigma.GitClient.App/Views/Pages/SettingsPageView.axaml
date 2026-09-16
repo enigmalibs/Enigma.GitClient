@@ -1,0 +1,385 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.Avalonia.Desktop.Controls"
+             xmlns:configuration="using:Enigma.GitClient.Core.Configuration"
+             xmlns:sync="using:Enigma.GitClient.Core.Sync"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.SettingsPageView"
+             x:DataType="vm:SettingsPageViewModel">
+
+  <UserControl.Resources>
+
+    <!-- The dropdowns show a sentence rather than an enum name: "Follow the system" is what the
+         setting does, and "System" is what the code calls it. -->
+    <DataTemplate x:Key="ThemeItem" x:DataType="configuration:ThemePreference">
+      <TextBlock Text="{Binding Converter={x:Static vm:SettingsDescriptions.Theme}}" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="PullItem" x:DataType="sync:PullStrategy">
+      <TextBlock Text="{Binding Converter={x:Static vm:SettingsDescriptions.Pull}}" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="DateItem" x:DataType="configuration:DateDisplay">
+      <TextBlock Text="{Binding Converter={x:Static vm:SettingsDescriptions.Date}}" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="FilesItem" x:DataType="configuration:FilesView">
+      <TextBlock Text="{Binding Converter={x:Static vm:SettingsDescriptions.Files}}" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="DiffItem" x:DataType="configuration:DiffView">
+      <TextBlock Text="{Binding Converter={x:Static vm:SettingsDescriptions.Diff}}" />
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="Gear" Size="18" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="{Binding Title}"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+
+        <Button Grid.Column="2"
+                Classes="toolbar"
+                Command="{Binding ResetCommand}"
+                ToolTip.Tip="Put every preference back to its default"
+                AutomationProperties.Name="Reset every preference">
+          <TextBlock Text="Reset to defaults" FontSize="12" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <ScrollViewer>
+      <!-- A centred column with a ceiling on it: settings rows read badly at 1900 pixels wide, and
+           a left-aligned column that sizes to its content leaves every card a different width. -->
+      <StackPanel Margin="24" Spacing="16" MaxWidth="900" HorizontalAlignment="Stretch">
+
+        <!-- Appearance -->
+        <controls:SettingsCard Header="Theme"
+                               Description="Dark, light, or whatever the system is set to"
+                               IconData="{ei:IconGeometry Moon}">
+          <ComboBox ItemsSource="{Binding Themes}"
+                    SelectedItem="{Binding Theme, Mode=TwoWay}"
+                    ItemTemplate="{StaticResource ThemeItem}"
+                    MinWidth="240"
+                    AutomationProperties.Name="Theme" />
+        </controls:SettingsCard>
+
+        <!-- History and graph -->
+        <controls:SettingsCardExpander Header="History and graph"
+                                       Description="How much history is read, and how it is drawn"
+                                       IconData="{ei:IconGeometry GitCommit}"
+                                       IsExpanded="True">
+          <StackPanel Spacing="14">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Commits read at a time"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="A larger page means fewer reads and a longer first paint."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding HistoryPageSize, Mode=TwoWay}"
+                             Minimum="50"
+                             Maximum="20000"
+                             Increment="250"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Commits read at a time" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Follow first parents only"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="Hides the commits that came in through a merge, leaving the branch's own line."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1"
+                            IsChecked="{Binding FirstParentOnly, Mode=TwoWay}"
+                            AutomationProperties.Name="Follow first parents only" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Dates"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding DateDisplays}"
+                        SelectedItem="{Binding DateDisplay, Mode=TwoWay}"
+                        ItemTemplate="{StaticResource DateItem}"
+                        MinWidth="150"
+                        AutomationProperties.Name="Dates" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Row height"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding GraphRowHeight, Mode=TwoWay}"
+                             Minimum="18"
+                             Maximum="48"
+                             Increment="2"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Row height" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Lane width"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding GraphLaneWidth, Mode=TwoWay}"
+                             Minimum="8"
+                             Maximum="40"
+                             Increment="2"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Lane width" />
+            </Grid>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- Changed files -->
+        <controls:SettingsCardExpander Header="Changed files"
+                                       Description="How the files of a commit are arranged"
+                                       IconData="{ei:IconGeometry FileText}">
+          <StackPanel Spacing="14">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Show them as"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding FilesViews}"
+                        SelectedItem="{Binding FilesView, Mode=TwoWay}"
+                        ItemTemplate="{StaticResource FilesItem}"
+                        MinWidth="150"
+                        AutomationProperties.Name="Show the changed files as" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Expand the tree up to"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="Past this many files the tree opens closed, so a huge commit does not arrive as a wall."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding FilesAutoExpandLimit, Mode=TwoWay}"
+                             Minimum="0"
+                             Maximum="100000"
+                             Increment="50"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Expand the tree up to" />
+            </Grid>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- Diff -->
+        <controls:SettingsCardExpander Header="Diff"
+                                       Description="How a change is drawn, and how much of the file comes with it"
+                                       IconData="{ei:IconGeometry GitDiff}">
+          <StackPanel Spacing="14">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Show diffs as"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding DiffViews}"
+                        SelectedItem="{Binding DiffView, Mode=TwoWay}"
+                        ItemTemplate="{StaticResource DiffItem}"
+                        MinWidth="150"
+                        AutomationProperties.Name="Show diffs as" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Context lines"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding DiffContextLines, Mode=TwoWay}"
+                             Minimum="0"
+                             Maximum="100"
+                             Increment="1"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Context lines" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Tab width"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding TabWidth, Mode=TwoWay}"
+                             Minimum="1"
+                             Maximum="16"
+                             Increment="1"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Tab width" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Show spaces and tabs"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <ToggleSwitch Grid.Column="1"
+                            IsChecked="{Binding ShowWhitespace, Mode=TwoWay}"
+                            AutomationProperties.Name="Show spaces and tabs" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Ignore whitespace changes"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="Asked of git rather than hidden afterwards, so a re-indent stops being a diff at all."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1"
+                            IsChecked="{Binding IgnoreWhitespace, Mode=TwoWay}"
+                            AutomationProperties.Name="Ignore whitespace changes" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Wrap long lines"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <ToggleSwitch Grid.Column="1"
+                            IsChecked="{Binding WrapLines, Mode=TwoWay}"
+                            AutomationProperties.Name="Wrap long lines" />
+            </Grid>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- Git -->
+        <controls:SettingsCardExpander Header="Git"
+                                       Description="Which git is used, and what a pull is allowed to do"
+                                       IconData="{ei:IconGeometry Terminal}">
+          <StackPanel Spacing="14">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Pull"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="Rebase is not an option here and never will be: this client does not rebase."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding PullStrategies}"
+                        SelectedItem="{Binding Pull, Mode=TwoWay}"
+                        ItemTemplate="{StaticResource PullItem}"
+                        MinWidth="320"
+                        AutomationProperties.Name="Pull strategy" />
+            </Grid>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Path to git"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <TextBox Text="{Binding GitExecutablePath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                       PlaceholderText="Found on the PATH"
+                       AutomationProperties.Name="Path to git" />
+              <TextBlock Text="{Binding GitExecutableHint}"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            </StackPanel>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- About -->
+        <controls:SettingsCardExpander Header="About"
+                                       Description="{Binding ProductName}"
+                                       IconData="{ei:IconGeometry Info}"
+                                       IsExpanded="True">
+          <StackPanel Spacing="8">
+
+            <Grid ColumnDefinitions="140,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Text="Version"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Grid.Column="1" Text="{Binding ProductVersion}"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="140,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Text="git"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Grid.Column="1" Text="{Binding GitDescription}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="140,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Text="Avalonia"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Grid.Column="1" Text="{Binding AvaloniaVersion}"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="140,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Text="Licence"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Grid.Column="1" Text="{Binding Licence}"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="140,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Text="Preferences"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Grid.Column="1" Text="{Binding SettingsFileHint}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            </Grid>
+
+            <Border Background="{DynamicResource EnigmaSurfaceBrush}"
+                    CornerRadius="4"
+                    Padding="10,8"
+                    Margin="0,6,0,0">
+              <TextBlock Text="{Binding ScopeStatement}"
+                         TextWrapping="Wrap"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            </Border>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>
