@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
@@ -29,12 +30,112 @@ public enum DiffViewMode
 }
 
 /// <summary>
+/// How far one pane of a rendering is scrolled sideways, and how far it can be.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Everything here is counted in characters rather than pixels. The diff is monospace by
+/// construction — it expands tabs to a fixed column grid precisely because a proportional face
+/// would not line up — so a column is the unit the reader is actually moving by, and counting in
+/// them keeps every font measurement in the view where it belongs.
+/// </para>
+/// <para>
+/// <see cref="Columns"/> comes from the patch, <see cref="Viewport"/> from the control that shows
+/// it, and <see cref="Offset"/> from the reader; whichever of them moves, the offset is clamped
+/// back into what is left, so a pane can never end up scrolled past a line that just got shorter.
+/// </para>
+/// </remarks>
+public sealed class DiffScrollState : ViewModelBase
+{
+    /// <summary>Gets or sets how many columns the widest line of this pane occupies.</summary>
+    public double Columns
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                Recalculate();
+            }
+        }
+    }
+
+    /// <summary>Gets or sets how many columns of this pane are on screen.</summary>
+    public double Viewport
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                Recalculate();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this pane can scroll at all. Wrapping turns it off:
+    /// a re-flowed line has no overflow to reach.
+    /// </summary>
+    public bool IsEnabled
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                Recalculate();
+            }
+        }
+    } = true;
+
+    /// <summary>Gets or sets how far this pane is scrolled, in columns.</summary>
+    public double Offset
+    {
+        get;
+        set => SetProperty(ref field, Clamped(value));
+    }
+
+    /// <summary>Gets how many columns are out of view, which is how far the offset can go.</summary>
+    public double Maximum => Math.Max(0, Columns - Viewport);
+
+    /// <summary>Gets a value indicating whether this pane has anything to scroll to.</summary>
+    public bool IsScrollable => IsEnabled && Maximum > 0;
+
+    /// <summary>Gets how far a page of this pane moves — one screen less a column of overlap.</summary>
+    public double PageSize => Math.Max(1, Viewport - 1);
+
+    /// <summary>
+    /// Puts the pane back to the start, which is where every newly loaded file begins.
+    /// </summary>
+    public void Reset() => Offset = 0;
+
+    private double Clamped(double value)
+        => IsEnabled ? Math.Clamp(value, 0, Maximum) : 0;
+
+    private void Recalculate()
+    {
+        OnPropertyChanged(nameof(Maximum));
+        OnPropertyChanged(nameof(IsScrollable));
+        OnPropertyChanged(nameof(PageSize));
+
+        double clamped = Clamped(Offset);
+
+        if (clamped != Offset)
+        {
+            Offset = clamped;
+        }
+    }
+}
+
+/// <summary>
 /// The rendering choices that belong to the reader rather than to git: they change how the same
 /// patch is drawn, so nothing is re-read when one of them moves.
 /// </summary>
 /// <remarks>
 /// Every row holds the same instance, which is what lets a toggle repaint thousands of rows without
-/// rebuilding any of them.
+/// rebuilding any of them — and what lets three of them scroll sideways together, since the scroll
+/// states below are shared by exactly the same route.
 /// </remarks>
 public sealed class DiffRenderOptions : ViewModelBase
 {
@@ -42,10 +143,44 @@ public sealed class DiffRenderOptions : ViewModelBase
     public bool ShowWhitespace { get; set => SetProperty(ref field, value); }
 
     /// <summary>Gets or sets a value indicating whether long lines wrap instead of scrolling.</summary>
-    public bool WrapLines { get; set => SetProperty(ref field, value); }
+    public bool WrapLines
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                // Wrapping and scrolling are the two answers to the same question, so turning one
+                // on puts the other away — bars and offsets both.
+                UnifiedScroll.IsEnabled = !value;
+                LeftScroll.IsEnabled = !value;
+                RightScroll.IsEnabled = !value;
+            }
+        }
+    }
 
     /// <summary>Gets or sets how many columns a tab advances to.</summary>
     public int TabWidth { get; set => SetProperty(ref field, value); } = 4;
+
+    /// <summary>Gets how far the unified rendering is scrolled sideways.</summary>
+    public DiffScrollState UnifiedScroll { get; } = new();
+
+    /// <summary>Gets how far the side-by-side rendering's old file is scrolled sideways.</summary>
+    public DiffScrollState LeftScroll { get; } = new();
+
+    /// <summary>Gets how far the side-by-side rendering's new file is scrolled sideways.</summary>
+    public DiffScrollState RightScroll { get; } = new();
+
+    /// <summary>
+    /// Enumerates the three panes, for the things that apply to all of them.
+    /// </summary>
+    /// <returns>The scroll states.</returns>
+    public IEnumerable<DiffScrollState> Panes()
+    {
+        yield return UnifiedScroll;
+        yield return LeftScroll;
+        yield return RightScroll;
+    }
 }
 
 /// <summary>
@@ -298,6 +433,17 @@ public sealed class DiffViewerViewModel : ViewModelBase
         CopySelectionCommand = new AsyncRelayCommand(CopySelectionAsync, () => Selection.Count > 0);
 
         Selection.CollectionChanged += (_, _) => CopySelectionCommand.NotifyCanExecuteChanged();
+
+        // The tab width changes how wide a line is without changing the patch, and the toolbar's
+        // wrap toggle writes straight to the options rather than through this ViewModel, so the
+        // extents follow the options rather than the other way round.
+        Render.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DiffRenderOptions.TabWidth))
+            {
+                MeasureExtents();
+            }
+        };
     }
 
     /// <summary>Gets the rendering choices shared by every row.</summary>
@@ -631,6 +777,14 @@ public sealed class DiffViewerViewModel : ViewModelBase
             }
         }
 
+        foreach (DiffScrollState pane in Render.Panes())
+        {
+            // Another file starts at its own beginning, whatever the last one was scrolled to.
+            pane.Reset();
+        }
+
+        MeasureExtents();
+
         Title = patch?.DisplayPath ?? _file?.Path ?? string.Empty;
         Subtitle = patch?.OldPath is { Length: > 0 } old && !string.Equals(old, Title, StringComparison.Ordinal)
             ? $"← {old}"
@@ -652,6 +806,39 @@ public sealed class DiffViewerViewModel : ViewModelBase
         ShowAnywayCommand.NotifyCanExecuteChanged();
         CopyPatchCommand.NotifyCanExecuteChanged();
         CopySelectionCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Works out how many columns wide each pane's widest line is.
+    /// </summary>
+    /// <remarks>
+    /// Counted from the rows rather than measured from the glyphs: a patch is thousands of lines,
+    /// and an extent that grew as rows were realised would make the thumb jump under the hand that
+    /// is dragging it. One column of air is added so the last character is not flush against the
+    /// edge of the pane.
+    /// </remarks>
+    private void MeasureExtents()
+    {
+        Render.UnifiedScroll.Columns = LongestLine(UnifiedRows, row => row.Single);
+        Render.LeftScroll.Columns = LongestLine(SideBySideRows, row => row.Left);
+        Render.RightScroll.Columns = LongestLine(SideBySideRows, row => row.Right);
+    }
+
+    private double LongestLine(
+        IEnumerable<DiffRowViewModel> rows,
+        Func<DiffRowViewModel, DiffCellViewModel?> side)
+    {
+        int longest = 0;
+
+        foreach (DiffRowViewModel row in rows)
+        {
+            if (side(row) is { Line: not null } cell)
+            {
+                longest = Math.Max(longest, DiffLineText.ExpandedLength(cell.Text, Render.TabWidth));
+            }
+        }
+
+        return longest == 0 ? 0 : longest + 1;
     }
 
     private static string BuildSummary(FilePatch patch)
