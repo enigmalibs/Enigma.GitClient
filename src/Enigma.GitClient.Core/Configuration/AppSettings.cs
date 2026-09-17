@@ -72,16 +72,23 @@ public sealed record AppSettings
 {
     /// <summary>The schema version this build writes.</summary>
     /// <remarks>
-    /// Version 2 raised the default row height from 26 to 36; see <c>SettingsService.Migrate</c>
-    /// for what that does to a file written by version 1.
+    /// Version 2 raised the default row height from 26 to 36, and version 3 moved the diff to the
+    /// side-by-side rendering; see <c>SettingsService.Migrate</c> for what each does to a file
+    /// written by an earlier one.
     /// </remarks>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>
     /// The row height version 1 shipped as its default, which the version 2 migration replaces
     /// wherever it was never changed.
     /// </summary>
     public const double LegacyGraphRowHeight = 26;
+
+    /// <summary>
+    /// The diff rendering versions 1 and 2 shipped as their default, which the version 3 migration
+    /// replaces wherever it was never changed.
+    /// </summary>
+    public const DiffView LegacyDiffView = DiffView.Unified;
 
     /// <summary>The settings a fresh install runs on.</summary>
     public static readonly AppSettings Defaults = new();
@@ -124,8 +131,11 @@ public sealed record AppSettings
 
     // ---------------------------------------------------------------- diff
 
-    /// <summary>Gets how a diff is drawn.</summary>
-    public DiffView DiffView { get; init; } = DiffView.Unified;
+    /// <summary>
+    /// Gets how a diff is drawn. Side by side, which is what a reader comparing two revisions
+    /// actually wants to see; the unified rendering is one toolbar click away.
+    /// </summary>
+    public DiffView DiffView { get; init; } = DiffView.SideBySide;
 
     /// <summary>Gets how many unchanged lines are shown around a change.</summary>
     public int DiffContextLines { get; init; } = 3;
@@ -141,6 +151,20 @@ public sealed record AppSettings
 
     /// <summary>Gets a value indicating whether long lines wrap.</summary>
     public bool WrapLines { get; init; }
+
+    /// <summary>
+    /// Gets the face a diff is drawn in, empty for the application's own monospace stack.
+    /// </summary>
+    /// <remarks>
+    /// A family name rather than a stack: what is stored is what someone picked from the list of
+    /// faces their machine has. Storing the fallback stack itself would freeze today's list into
+    /// everyone's settings file, and an empty value already says "whatever this build ships with"
+    /// far more durably.
+    /// </remarks>
+    public string DiffFontFamily { get; init; } = string.Empty;
+
+    /// <summary>Gets how large a diff's text is drawn, in device-independent pixels.</summary>
+    public double DiffFontSize { get; init; } = 14;
 
     // ---------------------------------------------------------------- git
 
@@ -176,11 +200,13 @@ public sealed record AppSettings
             FilesAutoExpandLimit = Math.Clamp(FilesAutoExpandLimit, 0, 100_000),
             DiffContextLines = Math.Clamp(DiffContextLines, 0, 100_000),
             TabWidth = Math.Clamp(TabWidth, 1, 16),
+            DiffFontSize = Math.Clamp(DiffFontSize, 8, 32),
+            DiffFontFamily = DiffFontFamily?.Trim() ?? string.Empty,
             GitExecutablePath = GitExecutablePath?.Trim() ?? string.Empty,
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,
             FilesView = Enum.IsDefined(FilesView) ? FilesView : FilesView.List,
-            DiffView = Enum.IsDefined(DiffView) ? DiffView : DiffView.Unified,
+            DiffView = Enum.IsDefined(DiffView) ? DiffView : Defaults.DiffView,
             Pull = Enum.IsDefined(Pull) ? Pull : PullStrategy.Merge,
         };
 }

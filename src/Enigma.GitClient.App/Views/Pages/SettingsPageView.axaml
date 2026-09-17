@@ -224,6 +224,38 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Font"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="The monospace faces this machine has. A diff lines its columns up by character, which only a monospace face can do."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <ComboBox Grid.Column="1"
+                        ItemsSource="{Binding DiffFonts}"
+                        SelectedItem="{Binding DiffFont, Mode=TwoWay}"
+                        MinWidth="150"
+                        MaxDropDownHeight="320"
+                        AutomationProperties.Name="Diff font" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Font size"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <NumericUpDown Grid.Column="1"
+                             Value="{Binding DiffFontSize, Mode=TwoWay}"
+                             Minimum="8"
+                             Maximum="32"
+                             Increment="1"
+                             FormatString="0"
+                             MinWidth="150"
+                             AutomationProperties.Name="Diff font size" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <TextBlock Grid.Column="0"
                          Text="Context lines"
                          VerticalAlignment="Center"

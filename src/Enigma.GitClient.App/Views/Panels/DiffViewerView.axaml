@@ -26,8 +26,9 @@
         <Border Classes="diffrow"
                 Classes.added="{Binding Single.IsAdded}"
                 Classes.removed="{Binding Single.IsRemoved}"
-                IsVisible="{Binding IsLine}">
-          <Grid ColumnDefinitions="48,48,18,*">
+                IsVisible="{Binding IsLine}"
+                ClipToBounds="True">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*">
 
             <Border Grid.Column="0" Grid.ColumnSpan="2" Classes="diffgutter" />
             <Border Grid.Column="0" Classes="diffselection" />
@@ -48,7 +49,8 @@
                                Segments="{Binding Single.Segments}"
                                ShowWhitespace="{Binding Options.ShowWhitespace}"
                                WrapLines="{Binding Options.WrapLines}"
-                               TabWidth="{Binding Options.TabWidth}" />
+                               TabWidth="{Binding Options.TabWidth}"
+                               HorizontalOffset="{Binding Options.UnifiedScroll.Offset}" />
           </Grid>
         </Border>
       </Panel>
@@ -71,11 +73,14 @@
 
         <Grid ColumnDefinitions="*,1,*" IsVisible="{Binding IsLine}">
 
+          <!-- ClipToBounds is the fix for the overlap this item is named after: a line wider than
+               its pane used to be drawn straight across the divider and over the other side. -->
           <Border Grid.Column="0"
                   Classes="diffrow"
                   Classes.removed="{Binding Left.IsRemoved}"
-                  Classes.filler="{Binding Left.IsFiller}">
-            <Grid ColumnDefinitions="48,18,*">
+                  Classes.filler="{Binding Left.IsFiller}"
+                  ClipToBounds="True">
+            <Grid ColumnDefinitions="Auto,Auto,*">
               <Border Grid.Column="0" Classes="diffgutter" />
               <Border Grid.Column="0" Classes="diffselection" />
               <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Left.OldNumber}" />
@@ -89,7 +94,8 @@
                                  Segments="{Binding Left.Segments}"
                                  ShowWhitespace="{Binding Options.ShowWhitespace}"
                                  WrapLines="{Binding Options.WrapLines}"
-                                 TabWidth="{Binding Options.TabWidth}" />
+                                 TabWidth="{Binding Options.TabWidth}"
+                                 HorizontalOffset="{Binding Options.LeftScroll.Offset}" />
             </Grid>
           </Border>
 
@@ -98,8 +104,9 @@
           <Border Grid.Column="2"
                   Classes="diffrow"
                   Classes.added="{Binding Right.IsAdded}"
-                  Classes.filler="{Binding Right.IsFiller}">
-            <Grid ColumnDefinitions="48,18,*">
+                  Classes.filler="{Binding Right.IsFiller}"
+                  ClipToBounds="True">
+            <Grid ColumnDefinitions="Auto,Auto,*">
               <Border Grid.Column="0" Classes="diffgutter" />
               <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Right.NewNumber}" />
               <TextBlock Grid.Column="1"
@@ -112,7 +119,8 @@
                                  Segments="{Binding Right.Segments}"
                                  ShowWhitespace="{Binding Options.ShowWhitespace}"
                                  WrapLines="{Binding Options.WrapLines}"
-                                 TabWidth="{Binding Options.TabWidth}" />
+                                 TabWidth="{Binding Options.TabWidth}"
+                                 HorizontalOffset="{Binding Options.RightScroll.Offset}" />
             </Grid>
           </Border>
         </Grid>
@@ -234,14 +242,16 @@
       </Grid>
     </Border>
 
-    <Grid>
+    <Grid RowDefinitions="*,Auto">
 
-      <controls:EmptyState IconKind="GitDiff"
+      <controls:EmptyState Grid.Row="0"
+                           IconKind="GitDiff"
                            Title="Diff"
                            Message="{Binding Message}"
                            IsVisible="{Binding HasMessage}" />
 
-      <ListBox Classes="diff"
+      <ListBox Grid.Row="0"
+               Classes="diff"
                ItemsSource="{Binding UnifiedRows}"
                ItemTemplate="{StaticResource UnifiedRow}"
                SelectionMode="Multiple"
@@ -249,9 +259,11 @@
                IsVisible="{Binding IsUnified}"
                Background="Transparent"
                BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                AutomationProperties.Name="Unified diff" />
 
-      <ListBox Classes="diff"
+      <ListBox Grid.Row="0"
+               Classes="diff"
                ItemsSource="{Binding SideBySideRows}"
                ItemTemplate="{StaticResource SideBySideRow}"
                SelectionMode="Multiple"
@@ -261,6 +273,61 @@
                BorderThickness="0"
                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                AutomationProperties.Name="Side-by-side diff" />
+
+      <!--
+        The horizontal scrollbars live here rather than inside the lists on purpose. A ListBox that
+        scrolls horizontally takes its line-number gutter with it, and in the side-by-side rendering
+        it would push the right-hand pane off screen — which is the one thing that rendering exists
+        to prevent. These bars move the text of one pane and leave everything else where it is.
+      -->
+      <Panel Grid.Row="1"
+             IsVisible="{Binding IsUnified}"
+             Background="{DynamicResource EnigmaSurfaceBrush}">
+        <Panel IsVisible="{Binding Render.UnifiedScroll.IsScrollable}">
+          <ScrollBar x:Name="UnifiedBar"
+                     Orientation="Horizontal"
+                     Visibility="Visible"
+                     Minimum="0"
+                     Maximum="{Binding Render.UnifiedScroll.Maximum}"
+                     Value="{Binding Render.UnifiedScroll.Offset, Mode=TwoWay}"
+                     ViewportSize="{Binding Render.UnifiedScroll.Viewport}"
+                     LargeChange="{Binding Render.UnifiedScroll.PageSize}"
+                     SmallChange="1"
+                     AutomationProperties.Name="Scroll the diff sideways" />
+        </Panel>
+      </Panel>
+
+      <Grid Grid.Row="1"
+            ColumnDefinitions="*,1,*"
+            IsVisible="{Binding IsSideBySide}"
+            Background="{DynamicResource EnigmaSurfaceBrush}">
+
+        <Panel Grid.Column="0" IsVisible="{Binding Render.LeftScroll.IsScrollable}">
+          <ScrollBar x:Name="LeftBar"
+                     Orientation="Horizontal"
+                     Visibility="Visible"
+                     Minimum="0"
+                     Maximum="{Binding Render.LeftScroll.Maximum}"
+                     Value="{Binding Render.LeftScroll.Offset, Mode=TwoWay}"
+                     ViewportSize="{Binding Render.LeftScroll.Viewport}"
+                     LargeChange="{Binding Render.LeftScroll.PageSize}"
+                     SmallChange="1"
+                     AutomationProperties.Name="Scroll the old file sideways" />
+        </Panel>
+
+        <Panel Grid.Column="2" IsVisible="{Binding Render.RightScroll.IsScrollable}">
+          <ScrollBar x:Name="RightBar"
+                     Orientation="Horizontal"
+                     Visibility="Visible"
+                     Minimum="0"
+                     Maximum="{Binding Render.RightScroll.Maximum}"
+                     Value="{Binding Render.RightScroll.Offset, Mode=TwoWay}"
+                     ViewportSize="{Binding Render.RightScroll.Viewport}"
+                     LargeChange="{Binding Render.RightScroll.PageSize}"
+                     SmallChange="1"
+                     AutomationProperties.Name="Scroll the new file sideways" />
+        </Panel>
+      </Grid>
     </Grid>
   </DockPanel>
 </UserControl>

@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.DependencyInjection;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels;
@@ -36,7 +37,16 @@ public partial class App : Application
     private IHost? _host;
 
     /// <inheritdoc />
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+
+        // The diff's typography is published as resources, and the styles resolve those keys long
+        // before a settings file has been read. Seeding them with the defaults here is what keeps
+        // that one source of truth: no second copy of the numbers in App.axaml to drift from the
+        // ones DiffTypography derives.
+        DiffTypography.Apply(AppSettings.Defaults);
+    }
 
     /// <inheritdoc />
     public override void OnFrameworkInitializationCompleted()
@@ -54,7 +64,9 @@ public partial class App : Application
             ISettingsService settings = services.GetRequiredService<ISettingsService>();
             settings.LoadAsync().GetAwaiter().GetResult();
             ApplyTheme(settings.Current.Theme);
+            DiffTypography.Apply(settings.Current);
             settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);
+            settings.Changed += (_, e) => DiffTypography.Apply(e.Settings);
 
             MainWindow window = services.GetRequiredService<MainWindow>();
             window.DataContext = services.GetRequiredService<MainWindowViewModel>();

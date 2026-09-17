@@ -28,8 +28,9 @@ Two things matter more than everything else in this app:
   token, browse and clone your repositories, and open a commit, branch or file on the host — on the
   public instances and on self-hosted ones (GitHub Enterprise Server, self-hosted GitLab, Azure
   DevOps Server)
-- Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape
-  and context, the pull strategy and the path to git — every one of them applied without a restart
+- Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
+  font and context, the pull strategy and the path to git — every one of them applied without a
+  restart
 
 ## Non-goals
 
