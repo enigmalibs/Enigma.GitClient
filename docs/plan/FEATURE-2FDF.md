@@ -1,6 +1,6 @@
 # FEATURE-2FDF — More room between graph lanes
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2FDF.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-2fdf-lane-spacing`
 **Run:** feature/2026-09-17-graph-space-diff-dialog

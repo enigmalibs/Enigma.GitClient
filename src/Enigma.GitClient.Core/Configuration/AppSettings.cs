@@ -72,11 +72,11 @@ public sealed record AppSettings
 {
     /// <summary>The schema version this build writes.</summary>
     /// <remarks>
-    /// Version 2 raised the default row height from 26 to 36, and version 3 moved the diff to the
-    /// side-by-side rendering; see <c>SettingsService.Migrate</c> for what each does to a file
-    /// written by an earlier one.
+    /// Version 2 raised the default row height from 26 to 36, version 3 moved the diff to the
+    /// side-by-side rendering, and version 4 widened the graph lane from 16 to 20; see
+    /// <c>SettingsService.Migrate</c> for what each does to a file written by an earlier one.
     /// </remarks>
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     /// <summary>
     /// The row height version 1 shipped as its default, which the version 2 migration replaces
@@ -89,6 +89,12 @@ public sealed record AppSettings
     /// replaces wherever it was never changed.
     /// </summary>
     public const DiffView LegacyDiffView = DiffView.Unified;
+
+    /// <summary>
+    /// The lane width versions 1 to 3 shipped as their default, which the version 4 migration
+    /// replaces wherever it was never changed.
+    /// </summary>
+    public const double LegacyGraphLaneWidth = 16;
 
     /// <summary>The settings a fresh install runs on.</summary>
     public static readonly AppSettings Defaults = new();
@@ -115,8 +121,11 @@ public sealed record AppSettings
     /// <summary>Gets how tall a history row is, in device-independent pixels.</summary>
     public double GraphRowHeight { get; init; } = 36;
 
-    /// <summary>Gets the distance between two graph lanes.</summary>
-    public double GraphLaneWidth { get; init; } = 16;
+    /// <summary>
+    /// Gets the distance between two graph lanes. Twenty, which leaves a node room to sit in its
+    /// own lane: at sixteen two parallel lines read as one thick one.
+    /// </summary>
+    public double GraphLaneWidth { get; init; } = 20;
 
     // ---------------------------------------------------------------- changed files
 

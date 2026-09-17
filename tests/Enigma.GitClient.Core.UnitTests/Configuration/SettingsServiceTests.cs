@@ -53,7 +53,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(string.Empty, defaults.DiffFontFamily);
         Assert.Equal(14, defaults.DiffFontSize);
         Assert.Equal(36, defaults.GraphRowHeight);
-        Assert.Equal(16, defaults.GraphLaneWidth);
+        Assert.Equal(20, defaults.GraphLaneWidth);
         Assert.Equal(string.Empty, defaults.GitExecutablePath);
         Assert.False(defaults.ShowWhitespace);
         Assert.False(defaults.WrapLines);
@@ -282,16 +282,61 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AVersionThreeLaneWidthNobodyChangedTakesTheNewDefault()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 3, "graphLaneWidth": 16, "tabWidth": 8 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        // 16 was version 3's own default, so it is a width nobody chose.
+        Assert.Equal(AppSettings.Defaults.GraphLaneWidth, stored.GraphLaneWidth);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+        Assert.Equal(8, stored.TabWidth);
+    }
+
+    [Fact]
+    public async Task AVersionThreeLaneWidthSomebodyChoseIsKept()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 3, "graphLaneWidth": 24 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(24, stored.GraphLaneWidth);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+    }
+
+    [Fact]
+    public async Task ACurrentVersionLaneWidthIsNeverMigrated()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 4, "graphLaneWidth": 16 }""");
+
+        using SettingsService settings = Build();
+
+        // At version 4, 16 is a preference like any other.
+        Assert.Equal(
+            AppSettings.LegacyGraphLaneWidth,
+            (await settings.LoadAsync(TestContext.Current.CancellationToken)).GraphLaneWidth);
+    }
+
+    [Fact]
     public async Task AVersionOneFileGoesThroughEveryMigrationAtOnce()
     {
         Directory.CreateDirectory(_root);
-        System.IO.File.WriteAllText(File_, """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified" }""");
+        System.IO.File.WriteAllText(
+            File_,
+            """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified", "graphLaneWidth": 16 }""");
 
         using SettingsService settings = Build();
         AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(AppSettings.Defaults.GraphRowHeight, stored.GraphRowHeight);
         Assert.Equal(AppSettings.Defaults.DiffView, stored.DiffView);
+        Assert.Equal(AppSettings.Defaults.GraphLaneWidth, stored.GraphLaneWidth);
         Assert.Equal(AppSettings.CurrentVersion, stored.Version);
     }
 
