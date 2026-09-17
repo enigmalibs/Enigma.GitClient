@@ -1,6 +1,6 @@
 # FEATURE-2288 — Diffs in a dialog, not a panel
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** `feature/feature-2288-phase01-diff-dialog`, `feature/feature-2288-phase02-row-menu`
 **Run:** feature/2026-09-17-graph-space-diff-dialog
@@ -51,7 +51,7 @@ right or a Close button at its bottom — instead of the bottom panel the page c
 
 ## PHASE01 — The commit diff dialog
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2288-PHASE01.md`
 
 ### Steps
 
