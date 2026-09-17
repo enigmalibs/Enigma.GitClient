@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -11,6 +12,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
@@ -527,13 +530,13 @@ public sealed class HistoryPageTests
         });
     }
 
-    // ---------------------------------------------------------------- the detail panel
+    // ---------------------------------------------------------------- the diff dialog
 
     /// <summary>
-    /// Builds the page against a real repository, shows it, and hands the test the pieces of the
-    /// workspace the splitter governs.
+    /// Builds the page against a real repository, shows it, and hands the test the pieces the
+    /// dialog's behaviour is read from.
     /// </summary>
-    private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Grid Workspace, Border Details)>
+    private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Panel Workspace, ContentDialog Dialog)>
         ShowHistoryPageAsync(TestServices services)
     {
         RepositoryHandle repository = await BuildHistoryAsync(services);
@@ -549,138 +552,200 @@ public sealed class HistoryPageTests
         window.Show();
         window.UpdateLayout();
 
-        Grid workspace = view.FindControl<Grid>("Workspace")
-            ?? throw new InvalidOperationException("The history page has no workspace grid.");
-        Border details = view.FindControl<Border>("CommitDetails")
-            ?? throw new InvalidOperationException("The history page has no detail panel.");
+        Panel workspace = view.FindControl<Panel>("Workspace")
+            ?? throw new InvalidOperationException("The history page has no workspace.");
+        ContentDialog dialog = view.FindControl<ContentDialog>("DiffDialog")
+            ?? throw new InvalidOperationException("The history page has no diff dialog.");
 
-        return (window, model, view, workspace, details);
+        return (window, model, view, workspace, dialog);
     }
 
     [Fact]
-    public void DetailPanel_TakesNoRoomUntilACommitIsSelected()
+    public void DiffDialog_StaysClosedUntilACommitIsSelected()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, Grid workspace, Border details) =
+            (Window window, HistoryPageViewModel model, _, Panel workspace, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
             Assert.Null(model.SelectedRow);
-            Assert.Equal(0, workspace.RowDefinitions[2].Height.Value);
-            Assert.Equal(0, details.Bounds.Height);
+            Assert.False(model.IsDiffDialogOpen);
+            Assert.False(dialog.IsOpen);
+
+            // Nothing is taken from the graph: the list is the page's body.
+            ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
+            Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
 
             model.SelectedRow = model.Rows[0];
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Equal(HistoryPageView.DefaultDetailsHeight, details.Bounds.Height);
+            Assert.True(model.IsDiffDialogOpen);
+            Assert.True(dialog.IsOpen);
 
-            window.Close();
-        });
-    }
-
-    /// <summary>
-    /// The regression: a splitter drag ends up as a length on the detail row, so the panel is only
-    /// resizable if the row is what decides its height.
-    /// </summary>
-    [Fact]
-    public void DetailPanel_IsSizedByItsRowRatherThanByAFixedHeight()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, Grid workspace, Border details) =
-                await ShowHistoryPageAsync(services);
-
-            model.SelectedRow = model.Rows[0];
-            Dispatcher.UIThread.RunJobs();
-            window.UpdateLayout();
-
-            // Absolute, not Auto: an Auto row measures to its content whatever length a splitter
-            // hands it, which is precisely why this panel used to stay at one height.
-            Assert.True(workspace.RowDefinitions[2].Height.IsAbsolute);
-            Assert.False(double.IsFinite(details.Height));
-
-            workspace.RowDefinitions[2].Height = new GridLength(420, GridUnitType.Pixel);
-            window.UpdateLayout();
-
-            Assert.Equal(420, details.Bounds.Height);
-
-            workspace.RowDefinitions[2].Height = new GridLength(180, GridUnitType.Pixel);
-            window.UpdateLayout();
-
-            Assert.Equal(180, details.Bounds.Height);
+            // And the graph keeps its height whatever is on top of it.
+            Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
 
             window.Close();
         });
     }
 
     [Fact]
-    public void DetailPanel_KeepsTheHeightTheSplitterLeftItAt()
+    public void DiffDialog_ShowsWhatTheSelectedCommitChanged()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, HistoryPageView view, Grid workspace, Border details) =
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.SelectedRow = row;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(row.Subject, dialog.Title);
+
+            // The changed files and the diff moved into the dialog as they were.
+            Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
+            Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.DiffViewerView>());
+
+            // Selecting another row leaves the dialog open and moves it onto that commit.
+            CommitRowViewModel other = model.Rows.Last(candidate => candidate.Commit is not null);
+            model.SelectedRow = other;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.True(dialog.IsOpen);
+            Assert.Equal(other.Subject, dialog.Title);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffDialog_IsAlmostAsLargeAsThePageAndFollowsIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
             model.SelectedRow = model.Rows[0];
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            workspace.RowDefinitions[2].Height = new GridLength(420, GridUnitType.Pixel);
+            Assert.Equal(view.Bounds.Width * DialogSizing.Fraction, dialog.DialogWidth, 3);
+            Assert.Equal(view.Bounds.Height * DialogSizing.Fraction, dialog.DialogHeight, 3);
+
+            // The maxima move with it, or the control's own default would clamp the card.
+            Assert.Equal(dialog.DialogWidth, dialog.DialogMaxWidth, 3);
+            Assert.Equal(dialog.DialogHeight, dialog.DialogMaxHeight, 3);
+
+            double before = dialog.DialogWidth;
+
+            window.Width = 900;
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(
+                dialog.DialogWidth < before,
+                "the dialog kept its width when the window was made narrower");
+            Assert.Equal(view.Bounds.Width * DialogSizing.Fraction, dialog.DialogWidth, 3);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffDialog_ClosesWithoutLosingTheSelection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.SelectedRow = row;
+            Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
+            model.CloseDiffDialogCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(dialog.IsOpen);
+            Assert.False(model.IsDiffDialogOpen);
+
+            // The selection is also the start point "create a branch here" falls back to, and the
+            // highlight that says where the reader is, so closing must not take it away.
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(model.HasSelection);
+            Assert.Equal(row.Sha, services.Get<IRepositoryContext>().SelectedCommit?.Sha);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffDialog_ClosedByTheControlIsClosedForThePageToo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // What Escape, the scrim and the Close button all end in.
+            await dialog.HideAsync();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(model.IsDiffDialogOpen);
+            Assert.NotNull(model.SelectedRow);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffDialog_GoesAwayWithTheSelection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.True(dialog.IsOpen);
+
+            // What a reload does after a checkout: the selection it was showing is gone.
             model.SelectedRow = null;
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Null(model.SelectedRow);
-            Assert.False(model.HasSelection);
-            Assert.Equal(420, view.DetailsHeight);
-            Assert.Equal(0, workspace.RowDefinitions[2].MinHeight);
-            Assert.Equal(0, workspace.RowDefinitions[2].Height.Value);
-
-            // The panel's own Bounds are not the evidence here: a hidden control is not arranged,
-            // so it keeps whatever rectangle it was last given. The row is what has to be zero.
-            Assert.False(details.IsVisible);
-
-            model.SelectedRow = model.Rows[1];
-            Dispatcher.UIThread.RunJobs();
-            window.UpdateLayout();
-
-            Assert.Equal(420, details.Bounds.Height);
-            Assert.Equal(HistoryPageView.MinimumDetailsHeight, workspace.RowDefinitions[2].MinHeight);
+            Assert.False(model.IsDiffDialogOpen);
+            Assert.False(dialog.IsOpen);
 
             window.Close();
         });
     }
 
-    [Fact]
-    public void DetailPanel_LeavesTheGraphAHeightOfItsOwn()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, Grid workspace, _) =
-                await ShowHistoryPageAsync(services);
-
-            model.SelectedRow = model.Rows[0];
-            Dispatcher.UIThread.RunJobs();
-
-            // Whatever the splitter is dragged to, the graph keeps a floor: a list dragged to
-            // nothing cannot be dragged back.
-            workspace.RowDefinitions[2].Height = new GridLength(5000, GridUnitType.Pixel);
-            window.UpdateLayout();
-
-            ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
-
-            Assert.True(
-                list.Bounds.Height >= workspace.RowDefinitions[0].MinHeight,
-                $"the graph was squeezed to {list.Bounds.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
-
-            window.Close();
-        });
-    }
+    [Theory]
+    [InlineData(1000, 940)]
+    [InlineData(0, 0)]
+    [InlineData(double.NaN, 0)]
+    [InlineData(double.PositiveInfinity, 0)]
+    public void DialogSizing_TakesMostOfWhatItIsGiven(double available, double expected)
+        => Assert.Equal(expected, DialogSizing.Fill.Convert(available, typeof(double), null, CultureInfo.InvariantCulture));
 }
