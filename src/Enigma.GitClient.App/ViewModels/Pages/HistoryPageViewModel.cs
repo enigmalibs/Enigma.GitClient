@@ -124,6 +124,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
             new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null),
+            new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName);
 
@@ -766,6 +767,31 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
+
+    /// <summary>
+    /// Shows what a row changed.
+    /// </summary>
+    /// <param name="row">The row.</param>
+    /// <remarks>
+    /// Selecting the row is enough when it is not the selected one — its setter opens the dialog.
+    /// The case this exists for is the other one: the reader closed the dialog and wants the same
+    /// commit back, which no selection change would announce.
+    /// </remarks>
+    private void OnShowChanges(CommitRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(row, SelectedRow))
+        {
+            SelectedRow = row;
+            return;
+        }
+
+        IsDiffDialogOpen = true;
+    }
 
     private async Task OnMergeBranchAsync(CommitRowViewModel? row)
     {

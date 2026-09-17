@@ -149,6 +149,10 @@
                      commands rather than reaching the page through a visual ancestor. -->
                 <Grid.ContextMenu>
                   <ContextMenu>
+                    <MenuItem Header="Show what it changed"
+                              Command="{Binding Commands.ShowChanges}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
                     <MenuItem Header="Create branch here…"
                               Command="{Binding Commands.CreateBranchHere}"
                               CommandParameter="{Binding}" />
