@@ -52,6 +52,6 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | An offsettable diff line           | DONE        | (in BUG-1D34.md)          |
 | - PHASE02    | Clip the panes and scroll them     | DONE        | (in BUG-1D34.md)          |
 | FEATURE-2FDF | More room between graph lanes      | DONE        | docs/plan/FEATURE-2FDF.md |
-| FEATURE-2288 | Diffs in a dialog, not a panel     | IN PROGRESS | docs/plan/FEATURE-2288.md |
+| FEATURE-2288 | Diffs in a dialog, not a panel     | DONE        | docs/plan/FEATURE-2288.md |
 | - PHASE01    | The commit diff dialog             | DONE        | (in FEATURE-2288.md)      |
-| - PHASE02    | Reopen it from the row menu        | TODO        | (in FEATURE-2288.md)      |
+| - PHASE02    | Reopen it from the row menu        | DONE        | (in FEATURE-2288.md)      |

@@ -13,7 +13,8 @@ diff.
 - The uncommitted changes sit at the top of the graph and lead to the working directory.
 - Selecting a line opens what it changed in a dialog over the graph — the changed files and the
   diff, almost as large as the window — which closes from the cross at its top right, the Close
-  button at its bottom, or Escape, leaving the line selected.
+  button at its bottom, or Escape, leaving the line selected. "Show what it changed", at the top of
+  a line's menu, brings it back.
 - Double-click the selected line to check out its branch, or the commit itself.
 
 ### The diff

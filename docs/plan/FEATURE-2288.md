@@ -1,6 +1,6 @@
 # FEATURE-2288 — Diffs in a dialog, not a panel
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-2288-phase01-diff-dialog`, `feature/feature-2288-phase02-row-menu`
 **Run:** feature/2026-09-17-graph-space-diff-dialog
@@ -112,7 +112,7 @@ right or a Close button at its bottom — instead of the bottom panel the page c
 
 ## PHASE02 — Reopen it from the row menu
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2288-PHASE02.md`
 
 ### Steps
 

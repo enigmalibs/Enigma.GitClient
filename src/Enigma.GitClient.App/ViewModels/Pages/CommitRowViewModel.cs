@@ -36,6 +36,11 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// What a double-click does: check out the row's branch when it has one, the commit itself
 /// otherwise.
 /// </param>
+/// <param name="ShowChanges">
+/// Shows what the row changed. Selecting a line already opens that dialog, so this is what brings it
+/// back after it has been closed — a menu entry rather than a second click, which the dialog would
+/// take for a dismissal.
+/// </param>
 /// <param name="OpenOnHost">Opens the row's commit on the host its remote points at.</param>
 /// <param name="HostLabel">
 /// What that menu item is called. A function rather than a string, because which host a repository
@@ -49,6 +54,7 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
     AsyncRelayCommand<CommitRowViewModel> MergeBranch,
     AsyncRelayCommand<CommitRowViewModel> Activate,
+    RelayCommand<CommitRowViewModel> ShowChanges,
     AsyncRelayCommand<CommitRowViewModel>? OpenOnHost = null,
     Func<string?>? HostLabel = null);
 

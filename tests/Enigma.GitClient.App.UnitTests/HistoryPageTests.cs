@@ -741,6 +741,62 @@ public sealed class HistoryPageTests
         });
     }
 
+    [Fact]
+    public void ShowChanges_BringsTheDialogBackForTheSelectedRow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.SelectedRow = row;
+            Dispatcher.UIThread.RunJobs();
+
+            model.CloseDiffDialogCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(dialog.IsOpen);
+
+            // The selection never changed, so nothing but the menu can bring the dialog back.
+            model.RowCommands.ShowChanges.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.True(dialog.IsOpen);
+            Assert.Same(row, model.SelectedRow);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ShowChanges_SelectsAnotherRowAndOpensItThere()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.Last(candidate => candidate.Commit is not null);
+
+            Assert.Null(model.SelectedRow);
+
+            model.RowCommands.ShowChanges.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(dialog.IsOpen);
+            Assert.Equal(row.Subject, dialog.Title);
+
+            window.Close();
+        });
+    }
+
     [Theory]
     [InlineData(1000, 940)]
     [InlineData(0, 0)]
