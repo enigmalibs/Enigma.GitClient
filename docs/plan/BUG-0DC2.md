@@ -1,6 +1,6 @@
 # BUG-0DC2 — Scrolled diff text covers the gutter
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-0DC2.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-0dc2-clip-scrolled-line`
 **Run:** bugfix/2026-09-17-diff-gutter-overlap

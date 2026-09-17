@@ -27,6 +27,14 @@ namespace Enigma.GitClient.App.Controls.Diff;
 /// proportional-metrics run depends on what precedes it, so two lines that differ only after a tab
 /// would not line up. Expanding to a fixed column width is what makes indented code readable.
 /// </para>
+/// <para>
+/// The control clips itself. It is the one control here that draws outside its own bounds by
+/// construction — past its right edge, because it measures to the line's natural width, and past
+/// its left one, because <see cref="HorizontalOffset"/> is applied to the render origin rather than
+/// to the layout. Leaving that ink to an ancestor is what let a scrolled line paint over the line
+/// numbers beside it: the clip on the pane holds the gutter as well as the text, so "inside the
+/// pane" was never "inside the text column".
+/// </para>
 /// </remarks>
 public sealed class DiffLineText : Control
 {
@@ -80,6 +88,11 @@ public sealed class DiffLineText : Control
 
     static DiffLineText()
     {
+        // A default rather than an attribute on each template: the containment belongs to the
+        // control that renders outside its bounds, not to the three rows and the conflict pane that
+        // happen to hold one.
+        ClipToBoundsProperty.OverrideDefaultValue<DiffLineText>(true);
+
         AffectsMeasure<DiffLineText>(
             TextProperty,
             SegmentsProperty,
