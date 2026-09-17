@@ -353,10 +353,11 @@ public sealed class SettingsService : ISettingsService, IDisposable
     /// side-by-side rendering, so a file written before it that still says <c>Unified</c> is moved
     /// across; one that says <c>SideBySide</c> is already where version 3 would put it, and a
     /// version 3 file is left alone entirely, because from version 3 on <c>Unified</c> is a
-    /// preference like any other.
+    /// preference like any other. Version 4 widened the graph lane from 16 to 20, so that two
+    /// parallel lines read as two.
     /// </para>
     /// <para>
-    /// The cases compose: a version 1 file goes through both of them in one read.
+    /// The cases compose: a version 1 file goes through all three of them in one read.
     /// </para>
     /// </remarks>
     private static AppSettings Migrate(AppSettings stored)
@@ -371,6 +372,11 @@ public sealed class SettingsService : ISettingsService, IDisposable
         if (stored.Version < 3 && stored.DiffView == AppSettings.LegacyDiffView)
         {
             migrated = migrated with { DiffView = AppSettings.Defaults.DiffView };
+        }
+
+        if (stored.Version < 4 && stored.GraphLaneWidth == AppSettings.LegacyGraphLaneWidth)
+        {
+            migrated = migrated with { GraphLaneWidth = AppSettings.Defaults.GraphLaneWidth };
         }
 
         return migrated with { Version = AppSettings.CurrentVersion };

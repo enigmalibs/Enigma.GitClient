@@ -124,6 +124,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
             new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null),
+            new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName);
 
@@ -140,6 +141,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _infoBar = infoBar;
         _logger = logger;
 
+        CloseDiffDialogCommand = new RelayCommand(() => IsDiffDialogOpen = false);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         RefreshCommand = new AsyncRelayCommand(ReloadAsync, () => IsRepositoryOpen && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
@@ -228,6 +230,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 RepositoryContext.SelectedCommit = value?.Commit;
                 OnPropertyChanged(nameof(HasSelection));
                 NotifySelectedCommitDetails();
+
+                // Selecting a line is what shows the diffs, and losing the selection — what a
+                // reload after a checkout does — is what puts them away again.
+                IsDiffDialogOpen = value is not null;
+
                 _ = LoadChangedFilesAsync();
             }
         }
@@ -237,6 +244,22 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets a value indicating whether a row is selected.
     /// </summary>
     public bool HasSelection => SelectedRow is not null;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the dialog showing what the selected commit changed
+    /// is on screen.
+    /// </summary>
+    /// <remarks>
+    /// The page's own statement, not the dialog's: the view opens and closes the control from this,
+    /// and writes the reader's own dismissal — the cross, the Close button, Escape, the scrim —
+    /// back into it. Closing deliberately leaves <see cref="SelectedRow"/> alone, because the
+    /// selection is also what "create a branch here" starts from and what the row highlight shows.
+    /// </remarks>
+    public bool IsDiffDialogOpen
+    {
+        get;
+        set => SetProperty(ref field, value);
+    }
 
     /// <summary>
     /// Gets the panel listing what the selected commit touched.
@@ -388,6 +411,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
+
+    /// <summary>Gets the command the dialog's cross runs.</summary>
+    public RelayCommand CloseDiffDialogCommand { get; }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
@@ -741,6 +767,31 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
+
+    /// <summary>
+    /// Shows what a row changed.
+    /// </summary>
+    /// <param name="row">The row.</param>
+    /// <remarks>
+    /// Selecting the row is enough when it is not the selected one — its setter opens the dialog.
+    /// The case this exists for is the other one: the reader closed the dialog and wants the same
+    /// commit back, which no selection change would announce.
+    /// </remarks>
+    private void OnShowChanges(CommitRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(row, SelectedRow))
+        {
+            SelectedRow = row;
+            return;
+        }
+
+        IsDiffDialogOpen = true;
+    }
 
     private async Task OnMergeBranchAsync(CommitRowViewModel? row)
     {

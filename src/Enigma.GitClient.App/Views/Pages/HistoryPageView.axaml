@@ -2,110 +2,100 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ei="https://github.com/josueclement/Enigma.Icons"
              xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
              xmlns:panels="using:Enigma.GitClient.App.Views.Panels"
              xmlns:graph="using:Enigma.GitClient.App.Controls.Graph"
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
              x:Class="Enigma.GitClient.App.Views.Pages.HistoryPageView"
              x:DataType="vm:HistoryPageViewModel">
-  <DockPanel>
 
-    <!-- Toolbar: what the graph shows, and how to find something in it. -->
-    <Border DockPanel.Dock="Top"
-            Background="{DynamicResource EnigmaSurfaceBrush}"
-            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-            BorderThickness="0,0,0,1"
-            Padding="12,8">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+  <!--
+    The page is the graph, and the dialog is drawn over it: a ContentDialog dims and blocks its own
+    bounds, so it has to be the last child of the panel it is meant to cover.
+  -->
+  <Panel Name="PageRoot">
+    <DockPanel>
 
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <ei:Icon Kind="GitCommit" Size="16" VerticalAlignment="Center"
-                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-          <TextBlock Text="History"
+      <!-- Toolbar: what the graph shows, and how to find something in it. -->
+      <Border DockPanel.Dock="Top"
+              Background="{DynamicResource EnigmaSurfaceBrush}"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="12,8">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <ei:Icon Kind="GitCommit" Size="16" VerticalAlignment="Center"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <TextBlock Text="History"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+          </StackPanel>
+
+          <ComboBox Grid.Column="1"
+                    MinWidth="150"
+                    VerticalAlignment="Center"
+                    ItemsSource="{Binding ScopeOptions}"
+                    SelectedItem="{Binding SelectedScope, Mode=TwoWay}"
+                    AutomationProperties.Name="Which branches to show">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:HistoryScopeOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <CheckBox Grid.Column="2"
+                    VerticalAlignment="Center"
+                    IsChecked="{Binding FirstParentOnly, Mode=TwoWay}"
+                    Content="First parent only"
+                    ToolTip.Tip="Follow only the first parent of each merge, hiding the branches it brought in" />
+
+          <Grid Grid.Column="3" ColumnDefinitions="*,Auto" MaxWidth="360" HorizontalAlignment="Right">
+            <TextBox Grid.Column="0"
+                     Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Search commit messages"
                      VerticalAlignment="Center"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
-        </StackPanel>
+                     AutomationProperties.Name="Search commit messages" />
+            <Button Grid.Column="1"
+                    Classes="toolbar"
+                    Command="{Binding ClearSearchCommand}"
+                    ToolTip.Tip="Clear the search"
+                    AutomationProperties.Name="Clear the search">
+              <ei:Icon Kind="X" Size="14" />
+            </Button>
+          </Grid>
 
-        <ComboBox Grid.Column="1"
-                  MinWidth="150"
-                  VerticalAlignment="Center"
-                  ItemsSource="{Binding ScopeOptions}"
-                  SelectedItem="{Binding SelectedScope, Mode=TwoWay}"
-                  AutomationProperties.Name="Which branches to show">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:HistoryScopeOption">
-              <TextBlock Text="{Binding Label}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
-
-        <CheckBox Grid.Column="2"
-                  VerticalAlignment="Center"
-                  IsChecked="{Binding FirstParentOnly, Mode=TwoWay}"
-                  Content="First parent only"
-                  ToolTip.Tip="Follow only the first parent of each merge, hiding the branches it brought in" />
-
-        <Grid Grid.Column="3" ColumnDefinitions="*,Auto" MaxWidth="360" HorizontalAlignment="Right">
-          <TextBox Grid.Column="0"
-                   Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   PlaceholderText="Search commit messages"
-                   VerticalAlignment="Center"
-                   AutomationProperties.Name="Search commit messages" />
-          <Button Grid.Column="1"
+          <Button Grid.Column="4"
                   Classes="toolbar"
-                  Command="{Binding ClearSearchCommand}"
-                  ToolTip.Tip="Clear the search"
-                  AutomationProperties.Name="Clear the search">
-            <ei:Icon Kind="X" Size="14" />
+                  Command="{Binding RefreshCommand}"
+                  ToolTip.Tip="Re-read the history"
+                  AutomationProperties.Name="Re-read the history">
+            <ei:Icon Kind="ArrowsClockwise" Size="16" />
           </Button>
         </Grid>
+      </Border>
 
-        <Button Grid.Column="4"
-                Classes="toolbar"
-                Command="{Binding RefreshCommand}"
-                ToolTip.Tip="Re-read the history"
-                AutomationProperties.Name="Re-read the history">
-          <ei:Icon Kind="ArrowsClockwise" Size="16" />
-        </Button>
-      </Grid>
-    </Border>
+      <!-- Load more, pinned to the bottom so it never scrolls out of reach. -->
+      <Border DockPanel.Dock="Bottom"
+              Background="{DynamicResource EnigmaSurfaceBrush}"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,1,0,0"
+              Padding="12,6"
+              IsVisible="{Binding HasMore}">
+        <Button Command="{Binding LoadMoreCommand}"
+                HorizontalAlignment="Center"
+                Content="Load more commits"
+                AutomationProperties.Name="Load more commits" />
+      </Border>
 
-    <!-- Load more, pinned to the bottom so it never scrolls out of reach. -->
-    <Border DockPanel.Dock="Bottom"
-            Background="{DynamicResource EnigmaSurfaceBrush}"
-            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-            BorderThickness="0,1,0,0"
-            Padding="12,6"
-            IsVisible="{Binding HasMore}">
-      <Button Command="{Binding LoadMoreCommand}"
-              HorizontalAlignment="Center"
-              Content="Load more commits"
-              AutomationProperties.Name="Load more commits" />
-    </Border>
-
-    <!--
-      The workspace: the graph on top, the details of whatever is selected underneath, with a
-      splitter between them so a reader can give either one the room it needs.
-    -->
-    <Grid Name="Workspace">
-      <Grid.RowDefinitions>
-        <!--
-          The graph keeps a floor of its own, so the splitter can shrink it but never erase it.
-        -->
-        <RowDefinition Height="*" MinHeight="120" />
-        <RowDefinition Height="Auto" />
-        <!--
-          Pixel, not Auto: a splitter writes the dragged size back into the row definition keeping
-          that definition's unit type, and an Auto row measures to its content whatever value it is
-          handed — which is how this panel used to stay at one height forever. It starts collapsed
-          and the code-behind opens it to the remembered height when a commit is selected, because a
-          pixel row would otherwise reserve its space with nothing to show in it.
-        -->
-        <RowDefinition Height="0" />
-      </Grid.RowDefinitions>
-
-      <Panel Grid.Row="0">
+      <!--
+        The workspace is the graph and nothing else. What a selected commit changed is shown over it,
+        in the dialog below, rather than in a panel that takes the graph's height away from it.
+      -->
+      <Panel Name="Workspace">
         <controls:EmptyState IconKind="GitCommit"
                              Title="Commit history"
                              Message="{Binding EmptyMessage}"
@@ -114,175 +104,179 @@
         <ListBox Name="CommitList"
                  DoubleTapped="OnCommitDoubleTapped"
                  ItemsSource="{Binding Rows}"
-             SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-             IsVisible="{Binding !IsEmpty}"
-             Background="Transparent"
-             BorderThickness="0"
-             Padding="0"
-             ScrollViewer.HorizontalScrollBarVisibility="Auto"
-             AutomationProperties.Name="Commit history">
+                 SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                 IsVisible="{Binding !IsEmpty}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Padding="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 AutomationProperties.Name="Commit history">
 
-      <ListBox.ItemsPanel>
-        <ItemsPanelTemplate>
-          <!-- Virtualising on purpose: this list is expected to hold a hundred thousand rows. -->
-          <VirtualizingStackPanel Orientation="Vertical" />
-        </ItemsPanelTemplate>
-      </ListBox.ItemsPanel>
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <!-- Virtualising on purpose: this list is expected to hold a hundred thousand rows. -->
+              <VirtualizingStackPanel Orientation="Vertical" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
 
-      <ListBox.Styles>
-        <Style Selector="ListBoxItem">
-          <Setter Property="Padding" Value="0" />
-          <!-- The row's own Grid carries the height, which is a preference; a MinHeight here would
-               quietly win whenever that preference is smaller. -->
-          <Setter Property="MinHeight" Value="0" />
-        </Style>
-      </ListBox.Styles>
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="Padding" Value="0" />
+              <!-- The row's own Grid carries the height, which is a preference; a MinHeight here would
+                   quietly win whenever that preference is smaller. -->
+              <Setter Property="MinHeight" Value="0" />
+            </Style>
+          </ListBox.Styles>
 
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:CommitRowViewModel">
-          <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
-                ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-              <!-- Auto, with the cell itself given one explicit width for every row: that is what
-                   keeps the columns beside the graph on the same horizontal position on every line.
-                   A ColumnDefinition cannot take a plain double, and a failed GridLength binding
-                   silently falls back to star, which is how the graph column ends up enormous. -->
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" MinWidth="120" />
-              <ColumnDefinition Width="190" />
-              <ColumnDefinition Width="110" />
-              <ColumnDefinition Width="70" />
-            </Grid.ColumnDefinitions>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:CommitRowViewModel">
+              <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                    ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                  <!-- Auto, with the cell itself given one explicit width for every row: that is what
+                       keeps the columns beside the graph on the same horizontal position on every line.
+                       A ColumnDefinition cannot take a plain double, and a failed GridLength binding
+                       silently falls back to star, which is how the graph column ends up enormous. -->
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" MinWidth="120" />
+                  <ColumnDefinition Width="190" />
+                  <ColumnDefinition Width="110" />
+                  <ColumnDefinition Width="70" />
+                </Grid.ColumnDefinitions>
 
-            <!-- The row's own menu. It opens in its own popup tree, so the row carries the
-                 commands rather than reaching the page through a visual ancestor. -->
-            <Grid.ContextMenu>
-              <ContextMenu>
-                <MenuItem Header="Create branch here…"
-                          Command="{Binding Commands.CreateBranchHere}"
-                          CommandParameter="{Binding}" />
-                <MenuItem Header="Create tag here…"
-                          Command="{Binding Commands.CreateTagHere}"
-                          CommandParameter="{Binding}" />
-                <Separator />
-                <MenuItem Header="Check out this commit (detaches HEAD)"
-                          Command="{Binding Commands.CheckoutCommit}"
-                          CommandParameter="{Binding}" />
-                <Separator IsVisible="{Binding HasBranch}" />
-                <MenuItem Header="{Binding CheckoutHeader}"
-                          IsVisible="{Binding HasBranch}"
-                          Command="{Binding Commands.CheckoutBranch}"
-                          CommandParameter="{Binding}" />
-                <MenuItem Header="{Binding MergeHeader}"
-                          IsVisible="{Binding CanMergeBranch}"
-                          Command="{Binding Commands.MergeBranch}"
-                          CommandParameter="{Binding}" />
-                <MenuItem Header="{Binding DeleteBranchHeader}"
-                          IsVisible="{Binding HasBranch}"
-                          Command="{Binding Commands.DeleteBranch}"
-                          CommandParameter="{Binding}" />
-                <Separator IsVisible="{Binding CanOpenOnHost}" />
-                <MenuItem Header="{Binding HostLabel}"
-                          IsVisible="{Binding CanOpenOnHost}"
-                          Command="{Binding Commands.OpenOnHost}"
-                          CommandParameter="{Binding}" />
-              </ContextMenu>
-            </Grid.ContextMenu>
+                <!-- The row's own menu. It opens in its own popup tree, so the row carries the
+                     commands rather than reaching the page through a visual ancestor. -->
+                <Grid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Show what it changed"
+                              Command="{Binding Commands.ShowChanges}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="Create branch here…"
+                              Command="{Binding Commands.CreateBranchHere}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="Create tag here…"
+                              Command="{Binding Commands.CreateTagHere}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="Check out this commit (detaches HEAD)"
+                              Command="{Binding Commands.CheckoutCommit}"
+                              CommandParameter="{Binding}" />
+                    <Separator IsVisible="{Binding HasBranch}" />
+                    <MenuItem Header="{Binding CheckoutHeader}"
+                              IsVisible="{Binding HasBranch}"
+                              Command="{Binding Commands.CheckoutBranch}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="{Binding MergeHeader}"
+                              IsVisible="{Binding CanMergeBranch}"
+                              Command="{Binding Commands.MergeBranch}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="{Binding DeleteBranchHeader}"
+                              IsVisible="{Binding HasBranch}"
+                              Command="{Binding Commands.DeleteBranch}"
+                              CommandParameter="{Binding}" />
+                    <Separator IsVisible="{Binding CanOpenOnHost}" />
+                    <MenuItem Header="{Binding HostLabel}"
+                              IsVisible="{Binding CanOpenOnHost}"
+                              Command="{Binding Commands.OpenOnHost}"
+                              CommandParameter="{Binding}" />
+                  </ContextMenu>
+                </Grid.ContextMenu>
 
-            <graph:CommitGraphCell Grid.Column="0"
-                                   Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).GraphColumnWidth}"
-                                   Row="{Binding Row}"
-                                   IsHead="{Binding IsHead}"
-                                   IsUncommitted="{Binding IsUncommitted}"
-                                   LaneWidth="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).LaneWidth}"
-                                   LanePadding="8"
-                                   VerticalAlignment="Stretch" />
+                <graph:CommitGraphCell Grid.Column="0"
+                                       Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).GraphColumnWidth}"
+                                       Row="{Binding Row}"
+                                       IsHead="{Binding IsHead}"
+                                       IsUncommitted="{Binding IsUncommitted}"
+                                       LaneWidth="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).LaneWidth}"
+                                       LanePadding="8"
+                                       VerticalAlignment="Stretch" />
 
-            <ItemsControl Grid.Column="1"
-                          ItemsSource="{Binding Refs}"
-                          IsVisible="{Binding HasRefs}"
-                          VerticalAlignment="Center">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Orientation="Horizontal" Spacing="4" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:RefBadgeItem">
-                  <controls:RefBadge Kind="{Binding Kind}"
-                                     Text="{Binding Name}"
-                                     IsCurrent="{Binding IsCurrent}" />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <ItemsControl Grid.Column="1"
+                              ItemsSource="{Binding Refs}"
+                              IsVisible="{Binding HasRefs}"
+                              VerticalAlignment="Center">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="4" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RefBadgeItem">
+                      <controls:RefBadge Kind="{Binding Kind}"
+                                         Text="{Binding Name}"
+                                         IsCurrent="{Binding IsCurrent}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-            <TextBlock Grid.Column="2"
-                       Text="{Binding Subject}"
-                       VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis"
-                       ToolTip.Tip="{Binding Subject}"
-                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Grid.Column="2"
+                           Text="{Binding Subject}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding Subject}"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
-            <StackPanel Grid.Column="3"
-                        Orientation="Horizontal"
-                        Spacing="7"
-                        VerticalAlignment="Center"
-                        IsVisible="{Binding !IsUncommitted}">
-              <controls:AuthorAvatar Initials="{Binding AuthorInitials}"
-                                     Seed="{Binding AuthorName}"
-                                     ToolTip.Tip="{Binding AuthorTooltip}" />
-              <TextBlock Text="{Binding AuthorName}"
-                         VerticalAlignment="Center"
-                         FontSize="12"
-                         TextTrimming="CharacterEllipsis"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-            </StackPanel>
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            Spacing="7"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding !IsUncommitted}">
+                  <controls:AuthorAvatar Initials="{Binding AuthorInitials}"
+                                         Seed="{Binding AuthorName}"
+                                         ToolTip.Tip="{Binding AuthorTooltip}" />
+                  <TextBlock Text="{Binding AuthorName}"
+                             VerticalAlignment="Center"
+                             FontSize="12"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                </StackPanel>
 
-            <TextBlock Grid.Column="4"
-                       Text="{Binding DateText}"
-                       VerticalAlignment="Center"
-                       FontSize="12"
-                       TextTrimming="CharacterEllipsis"
-                       ToolTip.Tip="{Binding DateTooltip}"
-                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBlock Grid.Column="4"
+                           Text="{Binding DateText}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding DateTooltip}"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
-            <TextBlock Grid.Column="5"
-                       Classes="monospace"
-                       Text="{Binding ShortSha}"
-                       VerticalAlignment="Center"
-                       FontSize="12"
-                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-          </Grid>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
+                <TextBlock Grid.Column="5"
+                           Classes="monospace"
+                           Text="{Binding ShortSha}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
         </ListBox>
       </Panel>
+    </DockPanel>
 
-      <GridSplitter Grid.Row="1"
-                    Height="4"
-                    ResizeDirection="Rows"
-                    Background="{DynamicResource EnigmaBorderSubtleBrush}"
-                    IsVisible="{Binding HasSelection}" />
+    <!--
+      What the selected commit changed. The card is a fraction of the page in both directions rather
+      than a fixed size, so it follows the window; the maxima are bound too, because the control's
+      own default maximum would otherwise clamp it to 600. The bottom Close button is the control's,
+      the cross is the content's — the control's title area draws no glyph of its own.
+    -->
+    <contentDialog:ContentDialog Name="DiffDialog"
+                                 Title="{Binding SelectedSubject}"
+                                 CloseButtonText="Close"
+                                 DialogWidth="{Binding #PageRoot.Bounds.Width, Converter={x:Static controls:DialogSizing.Fill}}"
+                                 DialogMaxWidth="{Binding #PageRoot.Bounds.Width, Converter={x:Static controls:DialogSizing.Fill}}"
+                                 DialogHeight="{Binding #PageRoot.Bounds.Height, Converter={x:Static controls:DialogSizing.Fill}}"
+                                 DialogMaxHeight="{Binding #PageRoot.Bounds.Height, Converter={x:Static controls:DialogSizing.Fill}}">
+      <DockPanel Name="DiffDialogBody">
 
-      <Border Grid.Row="2"
-              Name="CommitDetails"
-              Background="{DynamicResource EnigmaSurfaceBrush}"
-              IsVisible="{Binding HasSelection}">
-        <DockPanel>
-
-          <!-- What was selected: the subject, who made it and when, and its full hash. -->
-          <Border DockPanel.Dock="Top"
-                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                  BorderThickness="0,0,0,1"
-                  Padding="12,8">
-            <StackPanel Spacing="4">
-              <TextBlock Text="{Binding SelectedSubject}"
-                         FontWeight="SemiBold"
-                         TextWrapping="Wrap"
-                         MaxLines="2"
-                         TextTrimming="CharacterEllipsis"
-                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        <!-- Who made what is on screen, and the way out of it. -->
+        <Border DockPanel.Dock="Top"
+                BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="0,0,0,8"
+                Margin="0,0,0,8">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="4">
 
               <StackPanel Orientation="Horizontal"
                           Spacing="12"
@@ -309,20 +303,30 @@
                          TextTrimming="CharacterEllipsis"
                          Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             </StackPanel>
-          </Border>
 
-          <Grid ColumnDefinitions="320,Auto,*">
-            <panels:ChangedFilesPanelView Grid.Column="0" DataContext="{Binding Files}" />
-
-            <GridSplitter Grid.Column="1"
-                          Width="4"
-                          ResizeDirection="Columns"
-                          Background="{DynamicResource EnigmaBorderSubtleBrush}" />
-
-            <panels:DiffViewerView Grid.Column="2" DataContext="{Binding Diff}" />
+            <Button Grid.Column="1"
+                    Name="CloseDiffDialog"
+                    Classes="toolbar"
+                    VerticalAlignment="Top"
+                    Command="{Binding CloseDiffDialogCommand}"
+                    ToolTip.Tip="Close"
+                    AutomationProperties.Name="Close">
+              <ei:Icon Kind="X" Size="14" />
+            </Button>
           </Grid>
-        </DockPanel>
-      </Border>
-    </Grid>
-  </DockPanel>
+        </Border>
+
+        <Grid ColumnDefinitions="320,Auto,*">
+          <panels:ChangedFilesPanelView Grid.Column="0" DataContext="{Binding Files}" />
+
+          <GridSplitter Grid.Column="1"
+                        Width="4"
+                        ResizeDirection="Columns"
+                        Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <panels:DiffViewerView Grid.Column="2" DataContext="{Binding Diff}" />
+        </Grid>
+      </DockPanel>
+    </contentDialog:ContentDialog>
+  </Panel>
 </UserControl>
