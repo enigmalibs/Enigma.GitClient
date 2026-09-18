@@ -123,6 +123,20 @@ public sealed class DiffViewerTests
         return harness;
     }
 
+    /// <summary>
+    /// The same, switched to the unified rendering — which is the one that still asks git for the
+    /// reader's own context, and so the one the context tests are about.
+    /// </summary>
+    private static async Task<Harness> UnifiedAsync(FilePatch? patch = null)
+    {
+        Harness harness = await ShownAsync(patch);
+
+        harness.Viewer.ShowUnifiedCommand.Execute(null);
+        await WaitForRequestsAsync(harness, 2);
+
+        return harness;
+    }
+
     // ---------------------------------------------------------------- loading
 
     [Fact]
@@ -197,27 +211,31 @@ public sealed class DiffViewerTests
     }
 
     [Fact]
-    public void Viewer_SwitchesShapeWithoutRereadingThePatch()
+    public void Viewer_SwitchesShapeAndRereadsForIt()
     {
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync();
 
-            // Side by side is what a fresh store opens on.
+            // Side by side is what a fresh store opens on, and it shows the whole file.
             Assert.True(harness.Viewer.IsSideBySide);
-            Assert.Single(harness.Diffs.PatchRequests);
+            Assert.Equal(DiffViewerViewModel.WholeFileContext, harness.Diffs.PatchRequests[^1].ContextLines);
 
             harness.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 2);
 
             Assert.True(harness.Viewer.IsUnified);
             Assert.False(harness.Viewer.IsSideBySide);
 
+            // The two shapes are two questions for git, not one answer drawn twice: unified is
+            // "what changed", so it goes back to the reader's own context.
+            Assert.Equal(3, harness.Diffs.PatchRequests[^1].ContextLines);
+
             harness.Viewer.ShowSideBySideCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 3);
 
             Assert.True(harness.Viewer.IsSideBySide);
-
-            // The shape is a rendering choice; git has nothing to say about it.
-            Assert.Single(harness.Diffs.PatchRequests);
+            Assert.Equal(DiffViewerViewModel.WholeFileContext, harness.Diffs.PatchRequests[^1].ContextLines);
         });
     }
 
@@ -240,14 +258,54 @@ public sealed class DiffViewerTests
     // ---------------------------------------------------------------- what goes back to git
 
     [Fact]
-    public void Viewer_AsksForTheDefaultContextFirst()
+    public void Viewer_AsksForTheWholeFileSideBySide()
     {
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync();
 
-            Assert.Equal(3, Assert.Single(harness.Diffs.PatchRequests).ContextLines);
+            // Two views of one file read as two views of one file only when both of them are the
+            // file; the changed parts alone are the other question.
+            Assert.True(harness.Viewer.IsSideBySide);
+            Assert.Equal(
+                DiffViewerViewModel.WholeFileContext,
+                Assert.Single(harness.Diffs.PatchRequests).ContextLines);
             Assert.Equal("src/app.txt", Assert.Single(harness.Diffs.PatchPaths));
+
+            // The reader's own preference is untouched underneath; it is what unified goes back to.
+            Assert.Equal(3, harness.Viewer.ContextLines);
+        });
+    }
+
+    [Fact]
+    public void Viewer_AsksForTheDefaultContextUnified()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await UnifiedAsync();
+
+            Assert.Equal(3, harness.Diffs.PatchRequests[^1].ContextLines);
+            Assert.Equal("src/app.txt", harness.Diffs.PatchPaths[^1]);
+        });
+    }
+
+    [Fact]
+    public void Viewer_CannotExpandWhatIsAlreadyTheWholeFile()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync();
+
+            Assert.True(harness.Viewer.IsSideBySide);
+            Assert.False(harness.Viewer.ExpandContextCommand.CanExecute(null));
+            Assert.False(harness.Viewer.ExpandAllContextCommand.CanExecute(null));
+
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 2);
+
+            // Unified shows the changed parts, so there is something left to widen.
+            Assert.True(harness.Viewer.ExpandContextCommand.CanExecute(null));
+            Assert.True(harness.Viewer.ExpandAllContextCommand.CanExecute(null));
         });
     }
 
@@ -256,13 +314,12 @@ public sealed class DiffViewerTests
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
+            Harness harness = await UnifiedAsync();
 
             await harness.Viewer.ExpandContextCommand.ExecuteAsync(null);
 
             // Context is git's to produce, not the renderer's to invent — the only way to show more
             // of the file is to ask for it.
-            Assert.Equal(2, harness.Diffs.PatchRequests.Count);
             Assert.Equal(3 * DiffViewerViewModel.ExpansionFactor, harness.Diffs.PatchRequests[^1].ContextLines);
             Assert.Equal(3 * DiffViewerViewModel.ExpansionFactor, harness.Viewer.ContextLines);
         });
@@ -273,7 +330,7 @@ public sealed class DiffViewerTests
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
+            Harness harness = await UnifiedAsync();
 
             DiffRowViewModel band = harness.Viewer.UnifiedRows[0];
 
@@ -291,7 +348,7 @@ public sealed class DiffViewerTests
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
+            Harness harness = await UnifiedAsync();
 
             await harness.Viewer.ExpandAllContextCommand.ExecuteAsync(null);
 
@@ -305,7 +362,7 @@ public sealed class DiffViewerTests
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
+            Harness harness = await UnifiedAsync();
 
             await harness.Viewer.ExpandAllContextCommand.ExecuteAsync(null);
             await harness.Viewer.ShowAsync(Repository, DiffTarget.Commit("abc123"), File);
@@ -1328,6 +1385,79 @@ public sealed class DiffViewerTests
             {
                 application.RequestedThemeVariant = original;
             }
+        });
+    }
+
+    [Fact]
+    public void Viewer_ShowsTheWholeFileSideBySideAndTheChangeAloneUnified()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "whole"), "main");
+
+            // A long file with one line changed in the middle: three lines of context show a
+            // handful of rows, the whole file shows every one of them.
+            const int lines = 200;
+
+            string before = string.Join('\n', Enumerable.Range(0, lines).Select(line => $"line {line}")) + "\n";
+            string after = string.Join(
+                '\n',
+                Enumerable.Range(0, lines).Select(line => line == 100 ? "line one hundred, edited" : $"line {line}")) + "\n";
+
+            WriteFile(repository, "src/long.txt", before);
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Add the long file");
+
+            WriteFile(repository, "src/long.txt", after);
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Edit one line of it");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            DiffViewerViewModel viewer = services.Get<DiffViewerViewModel>();
+
+            await viewer.ShowAsync(
+                repository,
+                DiffTarget.Commit("HEAD"),
+                new ChangedFile { Path = "src/long.txt", ChangeKind = FileChangeKind.Modified });
+
+            // Side by side: every line of the file, on both sides. Filler rows only appear where
+            // one side has no line, and this change replaces a line rather than adding one.
+            Assert.True(viewer.IsSideBySide);
+
+            int rows = viewer.SideBySideRows.Count(row => row.IsLine);
+
+            Assert.Equal(lines, rows);
+            Assert.Equal(lines, viewer.SideBySideRows.Count(row => row.Left?.Line is not null));
+            Assert.Equal(lines, viewer.SideBySideRows.Count(row => row.Right?.Line is not null));
+
+            // The first and last lines of the file are there, which three lines of context around
+            // line 100 could never have shown.
+            Assert.Contains(viewer.SideBySideRows, row => row.Left?.Text == "line 0");
+            Assert.Contains(viewer.SideBySideRows, row => row.Left?.Text == $"line {lines - 1}");
+
+            // Unified is the other question — what changed — and keeps the reader's context.
+            viewer.ShowUnifiedCommand.Execute(null);
+
+            for (int attempt = 0; attempt < 200 && viewer.UnifiedRows.Count(row => row.IsLine) >= lines; attempt++)
+            {
+                await Task.Delay(5);
+            }
+
+            int unified = viewer.UnifiedRows.Count(row => row.IsLine);
+
+            Assert.True(
+                unified < lines,
+                $"unified showed {unified} of {lines} lines, so it is not showing the change alone");
+
+            Assert.Contains(viewer.UnifiedRows, row => row.Single?.Text == "line one hundred, edited");
+            Assert.DoesNotContain(viewer.UnifiedRows, row => row.Single?.Text == "line 0");
         });
     }
 
