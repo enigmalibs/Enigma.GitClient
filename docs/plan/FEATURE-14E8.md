@@ -1,6 +1,6 @@
 # FEATURE-14E8 — History: diffs, badges and dragging
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-history-and-diffs
@@ -48,7 +48,7 @@ the operations that join them.
 ## PHASE01 — Open the diffs on demand
 
 **Branch:** `feature/feature-14e8-phase01-diffs-on-demand`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-14E8-PHASE01.md`
 
 ### Steps
 

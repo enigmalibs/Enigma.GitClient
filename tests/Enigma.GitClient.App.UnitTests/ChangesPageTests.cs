@@ -688,7 +688,7 @@ public sealed class ChangesPageTests
 
             CommitRowViewModel uncommitted = history.Rows.Single(row => row.IsUncommitted);
 
-            await uncommitted.Commands!.Activate.ExecuteAsync(uncommitted);
+            uncommitted.Commands!.Activate.Execute(uncommitted);
 
             Assert.Equal(ShellPage.Changes, services.Get<IShellNavigation>().Current);
         });

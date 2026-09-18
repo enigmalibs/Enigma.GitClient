@@ -18,7 +18,7 @@ Two things matter more than everything else in this app:
 - Colour-coded file diffs with word-level intra-line highlighting
 - Branch management — create, rename, delete, set upstream, checkout
 - Tag management — create (lightweight or annotated) and delete
-- One-click checkout of anything in the graph, including a detached commit
+- Checkout of anything in the graph from a row's own menu, including a detached commit
 - Create, clone and open repositories, with a recent-repositories list
 - Working directory: status, stage/unstage, discard and commit
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
