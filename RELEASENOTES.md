@@ -36,6 +36,9 @@ diff.
   scroll together, vertically and sideways, so a line on the left is always beside its counterpart.
 - Unified shows the change itself, with the context you chose; expand it around a change, or open
   the whole file.
+- Instead of a vertical scrollbar, a minimap beside the patch: it draws where the additions and the
+  removals are over the whole file, marks the part you are looking at, and scrolls there when you
+  click or drag it.
 - The changed files of a commit as a list or a tree, whichever you prefer.
 
 ### Working with the repository

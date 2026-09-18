@@ -242,93 +242,127 @@
       </Grid>
     </Border>
 
-    <Grid RowDefinitions="*,Auto">
+    <Grid>
 
-      <controls:EmptyState Grid.Row="0"
-                           IconKind="GitDiff"
+      <controls:EmptyState IconKind="GitDiff"
                            Title="Diff"
                            Message="{Binding Message}"
                            IsVisible="{Binding HasMessage}" />
 
-      <ListBox Grid.Row="0"
-               Classes="diff"
-               ItemsSource="{Binding UnifiedRows}"
-               ItemTemplate="{StaticResource UnifiedRow}"
-               SelectionMode="Multiple"
-               SelectedItems="{Binding Selection}"
-               IsVisible="{Binding IsUnified}"
-               Background="Transparent"
-               BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-               AutomationProperties.Name="Unified diff" />
-
-      <ListBox Grid.Row="0"
-               Classes="diff"
-               ItemsSource="{Binding SideBySideRows}"
-               ItemTemplate="{StaticResource SideBySideRow}"
-               SelectionMode="Multiple"
-               SelectedItems="{Binding Selection}"
-               IsVisible="{Binding IsSideBySide}"
-               Background="Transparent"
-               BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-               AutomationProperties.Name="Side-by-side diff" />
-
       <!--
-        The horizontal scrollbars live here rather than inside the lists on purpose. A ListBox that
-        scrolls horizontally takes its line-number gutter with it, and in the side-by-side rendering
-        it would push the right-hand pane off screen — which is the one thing that rendering exists
-        to prevent. These bars move the text of one pane and leave everything else where it is.
+        A rendering is three things in a two-by-two grid: the patch, the map of its changes beside
+        it, and the sideways bar under it. The grid rather than a dock, so the map is exactly as
+        tall as the list and the bar exactly as wide — the bar's width is what tells the view how
+        many characters of a line fit, so a bar running under the map would measure a pane that is
+        not there.
+
+        The vertical scrollbar is Hidden rather than Disabled: the map replaces the bar, not the
+        scrolling, so the wheel, the keyboard and the selection still move the list.
+
+        The horizontal bar is outside the list on purpose. A ListBox that scrolls horizontally takes
+        its line-number gutter with it, and in the side-by-side rendering it would push the
+        right-hand pane off screen — which is the one thing that rendering exists to prevent. These
+        bars move the text of one pane and leave everything else where it is.
       -->
-      <Panel Grid.Row="1"
-             IsVisible="{Binding IsUnified}"
-             Background="{DynamicResource EnigmaSurfaceBrush}">
-        <Panel IsVisible="{Binding Render.UnifiedScroll.IsScrollable}">
-          <ScrollBar x:Name="UnifiedBar"
-                     Orientation="Horizontal"
-                     Visibility="Visible"
-                     Minimum="0"
-                     Maximum="{Binding Render.UnifiedScroll.Maximum}"
-                     Value="{Binding Render.UnifiedScroll.Offset, Mode=TwoWay}"
-                     ViewportSize="{Binding Render.UnifiedScroll.Viewport}"
-                     LargeChange="{Binding Render.UnifiedScroll.PageSize}"
-                     SmallChange="1"
-                     AutomationProperties.Name="Scroll the diff sideways" />
-        </Panel>
-      </Panel>
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" IsVisible="{Binding IsUnified}">
 
-      <Grid Grid.Row="1"
-            ColumnDefinitions="*,1,*"
-            IsVisible="{Binding IsSideBySide}"
-            Background="{DynamicResource EnigmaSurfaceBrush}">
+        <ListBox Grid.Row="0"
+                 Grid.Column="0"
+                 Name="UnifiedList"
+                 Classes="diff"
+                 ItemsSource="{Binding UnifiedRows}"
+                 ItemTemplate="{StaticResource UnifiedRow}"
+                 SelectionMode="Multiple"
+                 SelectedItems="{Binding Selection}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                 AutomationProperties.Name="Unified diff" />
 
-        <!-- Two bars, one state. Each stays under the pane it belongs to, and because they bind
-             the same offset they cannot disagree — dragging either moves both sides. -->
-        <Panel Grid.Column="0" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
-          <ScrollBar x:Name="LeftBar"
-                     Orientation="Horizontal"
-                     Visibility="Visible"
-                     Minimum="0"
-                     Maximum="{Binding Render.SideBySideScroll.Maximum}"
-                     Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
-                     ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
-                     LargeChange="{Binding Render.SideBySideScroll.PageSize}"
-                     SmallChange="1"
-                     AutomationProperties.Name="Scroll both files sideways" />
-        </Panel>
+        <diff:DiffMinimap Grid.Row="0"
+                          Grid.Column="1"
+                          Name="UnifiedMinimap"
+                          IsVisible="{Binding HasPatch}"
+                          Marks="{Binding UnifiedMap}"
+                          RowCount="{Binding UnifiedRows.Count}"
+                          AutomationProperties.Name="Where the changes are in this file" />
 
-        <Panel Grid.Column="2" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
-          <ScrollBar x:Name="RightBar"
-                     Orientation="Horizontal"
-                     Visibility="Visible"
-                     Minimum="0"
-                     Maximum="{Binding Render.SideBySideScroll.Maximum}"
-                     Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
-                     ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
-                     LargeChange="{Binding Render.SideBySideScroll.PageSize}"
-                     SmallChange="1"
-                     AutomationProperties.Name="Scroll both files sideways" />
+        <Panel Grid.Row="1"
+               Grid.Column="0"
+               Background="{DynamicResource EnigmaSurfaceBrush}">
+          <Panel IsVisible="{Binding Render.UnifiedScroll.IsScrollable}">
+            <ScrollBar x:Name="UnifiedBar"
+                       Orientation="Horizontal"
+                       Visibility="Visible"
+                       Minimum="0"
+                       Maximum="{Binding Render.UnifiedScroll.Maximum}"
+                       Value="{Binding Render.UnifiedScroll.Offset, Mode=TwoWay}"
+                       ViewportSize="{Binding Render.UnifiedScroll.Viewport}"
+                       LargeChange="{Binding Render.UnifiedScroll.PageSize}"
+                       SmallChange="1"
+                       AutomationProperties.Name="Scroll the diff sideways" />
+          </Panel>
         </Panel>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" IsVisible="{Binding IsSideBySide}">
+
+        <ListBox Grid.Row="0"
+                 Grid.Column="0"
+                 Name="SideBySideList"
+                 Classes="diff"
+                 ItemsSource="{Binding SideBySideRows}"
+                 ItemTemplate="{StaticResource SideBySideRow}"
+                 SelectionMode="Multiple"
+                 SelectedItems="{Binding Selection}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                 AutomationProperties.Name="Side-by-side diff" />
+
+        <diff:DiffMinimap Grid.Row="0"
+                          Grid.Column="1"
+                          Name="SideBySideMinimap"
+                          IsVisible="{Binding HasPatch}"
+                          Marks="{Binding SideBySideMap}"
+                          RowCount="{Binding SideBySideRows.Count}"
+                          AutomationProperties.Name="Where the changes are in this file" />
+
+        <Grid Grid.Row="1"
+              Grid.Column="0"
+              ColumnDefinitions="*,1,*"
+              Background="{DynamicResource EnigmaSurfaceBrush}">
+
+          <!-- Two bars, one state. Each stays under the pane it belongs to, and because they bind
+               the same offset they cannot disagree — dragging either moves both sides. -->
+          <Panel Grid.Column="0" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
+            <ScrollBar x:Name="LeftBar"
+                       Orientation="Horizontal"
+                       Visibility="Visible"
+                       Minimum="0"
+                       Maximum="{Binding Render.SideBySideScroll.Maximum}"
+                       Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
+                       ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
+                       LargeChange="{Binding Render.SideBySideScroll.PageSize}"
+                       SmallChange="1"
+                       AutomationProperties.Name="Scroll both files sideways" />
+          </Panel>
+
+          <Panel Grid.Column="2" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
+            <ScrollBar x:Name="RightBar"
+                       Orientation="Horizontal"
+                       Visibility="Visible"
+                       Minimum="0"
+                       Maximum="{Binding Render.SideBySideScroll.Maximum}"
+                       Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
+                       ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
+                       LargeChange="{Binding Render.SideBySideScroll.PageSize}"
+                       SmallChange="1"
+                       AutomationProperties.Name="Scroll both files sideways" />
+          </Panel>
+        </Grid>
       </Grid>
     </Grid>
   </DockPanel>
