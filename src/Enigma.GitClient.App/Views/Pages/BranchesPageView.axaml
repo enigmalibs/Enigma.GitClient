@@ -12,10 +12,35 @@
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <!-- A row is a hit target: it needs to react to the pointer, and it needs a line under it or
-         three branches with two-line entries read as one block of text. -->
-    <Style Selector="Border.branchrow:pointerover">
-      <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+    <!--
+      A row fills its container and brings its own separator line; the hover and the selection are
+      the list's, so a selected branch looks selected the way every other list in the application
+      does.
+    -->
+    <Style Selector="ListBox > ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <!--
+      A group heading is in the list so the scroll keeps it with its branches, but it is not a thing
+      to select. Its container is disabled to say so — and restored to full opacity, because it is
+      not disabled in the sense the theme means: there is nothing there to be unavailable.
+    -->
+    <Style Selector="ListBox#BranchList > ListBoxItem" x:DataType="vm:IBranchListItem">
+      <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+    </Style>
+
+    <Style Selector="ListBox#BranchList > ListBoxItem:disabled">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <!-- Where a dragged branch would land. A ring rather than a fill: the row underneath may be the
+         selected one or the hovered one, and a drop mark has to be legible over both. -->
+    <Style Selector="ListBoxItem.droptarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
     </Style>
 
     <Style Selector="Border.pill">
@@ -321,44 +346,59 @@
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
 
-      <ScrollViewer IsVisible="{Binding ShowTags}">
-        <ItemsControl ItemsSource="{Binding Tags}"
-                      ItemTemplate="{StaticResource TagRow}"
-                      Margin="0,4" />
-      </ScrollViewer>
+      <ListBox Name="TagList"
+               IsVisible="{Binding ShowTags}"
+               ItemsSource="{Binding Tags}"
+               ItemTemplate="{StaticResource TagRow}"
+               SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
+               Background="Transparent"
+               BorderThickness="0"
+               Padding="0,4"
+               AutomationProperties.Name="Tags" />
 
-      <ScrollViewer IsVisible="{Binding ShowBranches}">
-        <ItemsControl ItemsSource="{Binding Groups}" Margin="0,4">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:BranchGroupViewModel">
-              <StackPanel Margin="0,4,0,12">
+      <!--
+        One list for every group, not a list per group: the page has one selection, and nested lists
+        would each keep their own — two rows highlighted at once, and no way to say which of them an
+        action is about. The headings are items of the same list, resolved by their own type and
+        made unselectable by the container theme below.
+      -->
+      <ListBox Name="BranchList"
+               DragDrop.AllowDrop="True"
+               IsVisible="{Binding ShowBranches}"
+               ItemsSource="{Binding Items}"
+               SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+               Background="Transparent"
+               BorderThickness="0"
+               Padding="0,4"
+               AutomationProperties.Name="Branches">
 
-                <Border Padding="14,6" Background="{DynamicResource EnigmaSurfaceBrush}">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <ei:Icon Kind="HardDrives"
-                             Size="13"
-                             VerticalAlignment="Center"
-                             IsVisible="{Binding IsRemote}"
-                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-                    <TextBlock Text="{Binding Title}"
-                               VerticalAlignment="Center"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-                    <TextBlock Text="{Binding Count}"
-                               VerticalAlignment="Center"
-                               FontSize="11"
-                               Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-                  </StackPanel>
-                </Border>
-
-                <ItemsControl ItemsSource="{Binding Rows}"
-                              ItemTemplate="{StaticResource BranchRow}" />
+        <ListBox.DataTemplates>
+          <DataTemplate DataType="vm:BranchGroupHeaderViewModel" x:DataType="vm:BranchGroupHeaderViewModel">
+            <Border Padding="14,6" Background="{DynamicResource EnigmaSurfaceBrush}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ei:Icon Kind="HardDrives"
+                         Size="13"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding IsRemote}"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                <TextBlock Text="{Binding Title}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBlock Text="{Binding Count}"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
               </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+            </Border>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:BranchRowViewModel" x:DataType="vm:BranchRowViewModel">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BranchRow}" />
+          </DataTemplate>
+        </ListBox.DataTemplates>
+      </ListBox>
     </Grid>
   </DockPanel>
 </UserControl>

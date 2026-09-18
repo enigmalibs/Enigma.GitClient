@@ -2,9 +2,9 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
-using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
+using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
 
@@ -140,8 +140,6 @@ public sealed class BranchDropTests
             RepositoryHandle repository = await BuildDivergedAsync(services);
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
-            services.Dialogs.Result = DialogResult.Primary;
-
             bool changed = await services.Get<IBranchDropOperations>()
                 .DropAsync(new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: true));
 
@@ -151,10 +149,9 @@ public sealed class BranchDropTests
             // The merge is recorded on main and the feature's file is now there.
             Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/feature.txt")));
 
-            // The question was asked once, and it named both ends.
-            ContentDialog asked = Assert.Single(services.Dialogs.Shown);
-            Assert.Contains("feature", asked.Title, StringComparison.Ordinal);
-            Assert.Contains("main", asked.Title, StringComparison.Ordinal);
+            // Nothing was asked: the menu that opened on the drop is the question, and asking again
+            // here would be asking twice.
+            Assert.Empty(services.Dialogs.Shown);
         });
     }
 
@@ -171,8 +168,6 @@ public sealed class BranchDropTests
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
             Assert.Equal("feature", Head(services));
-
-            services.Dialogs.Result = DialogResult.Primary;
 
             bool changed = await services.Get<IBranchDropOperations>()
                 .DropAsync(new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: false));
@@ -195,10 +190,10 @@ public sealed class BranchDropTests
             RepositoryHandle repository = await BuildAheadAsync(services);
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
-            services.Dialogs.Result = DialogResult.Secondary;
-
             bool changed = await services.Get<IBranchDropOperations>()
-                .DropAsync(new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: true));
+                .DropAsync(
+                    new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: true),
+                    FastForwardMode.Only);
 
             Assert.True(changed);
             Assert.Equal("main", Head(services));
@@ -215,10 +210,10 @@ public sealed class BranchDropTests
             RepositoryHandle repository = await BuildDivergedAsync(services);
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
-            services.Dialogs.Result = DialogResult.Secondary;
-
             bool changed = await services.Get<IBranchDropOperations>()
-                .DropAsync(new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: true));
+                .DropAsync(
+                    new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: true),
+                    FastForwardMode.Only);
 
             Assert.False(changed);
 
@@ -226,29 +221,6 @@ public sealed class BranchDropTests
             Assert.False(File.Exists(Path.Combine(repository.WorkTreePath, "src/feature.txt")));
             Assert.NotNull(services.InfoBar.Last);
             Assert.Contains("feature", services.InfoBar.Last!.Title, StringComparison.Ordinal);
-        });
-    }
-
-    [Fact]
-    public void Drop_CancellingRunsNothingAtAll()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildDivergedAsync(services);
-            await GitAsync(repository, "checkout", "feature");
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            services.Dialogs.Result = DialogResult.Close;
-
-            bool changed = await services.Get<IBranchDropOperations>()
-                .DropAsync(new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: false));
-
-            Assert.False(changed);
-
-            // Not even the checkout the merge would have needed.
-            Assert.Equal("feature", Head(services));
-            Assert.Empty(services.InfoBar.Shown);
         });
     }
 
@@ -265,7 +237,6 @@ public sealed class BranchDropTests
                 .DropAsync(new BranchDropRequest("feature", false, "origin/main", true, TargetIsCurrent: false));
 
             Assert.False(changed);
-            Assert.Empty(services.Dialogs.Shown);
             Assert.Equal("main", Head(services));
 
             Assert.NotNull(services.InfoBar.Last);
@@ -286,7 +257,6 @@ public sealed class BranchDropTests
                 .DropAsync(new BranchDropRequest("main", false, "main", false, TargetIsCurrent: true));
 
             Assert.False(changed);
-            Assert.Empty(services.Dialogs.Shown);
 
             Assert.NotNull(services.InfoBar.Last);
             Assert.Contains("itself", services.InfoBar.Last!.Message, StringComparison.OrdinalIgnoreCase);

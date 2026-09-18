@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -30,24 +31,11 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 public sealed record HistoryScopeOption(string Label, CommitLogScope Scope);
 
 /// <summary>
-/// One branch badge dropped onto another.
-/// </summary>
-/// <param name="Source">The badge that was dragged.</param>
-/// <param name="Target">The badge it was dropped on.</param>
-public sealed record BranchDrop(RefBadgeItem Source, RefBadgeItem Target);
-
-/// <summary>
 /// The commit graph: pages commits in, lays them out, and keeps the selection in step with the rest
 /// of the shell.
 /// </summary>
 public sealed class HistoryPageViewModel : PageViewModelBase
 {
-    /// <summary>
-    /// How long to wait after the last keystroke before searching. Long enough not to run a query
-    /// per character, short enough to feel immediate.
-    /// </summary>
-    public static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(300);
-
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
@@ -55,7 +43,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
-    private readonly IBranchDropOperations _branchDropOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private bool _absoluteDates;
@@ -67,7 +54,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private GraphLayoutState? _layoutCarry;
     private CommitLogQuery _query = new();
     private CancellationTokenSource? _loadCancellation;
-    private CancellationTokenSource? _searchDebounce;
     private bool _hasMore;
 
     /// <summary>
@@ -77,7 +63,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="reader">Reads the commits.</param>
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
-    /// <param name="branchDropOperations">Carries out one branch dropped on another.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
@@ -90,7 +75,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
-        IBranchDropOperations branchDropOperations,
         IHostLinkService links,
         ISettingsService settings,
         DiffViewerViewModel diff,
@@ -106,7 +90,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
-        ArgumentNullException.ThrowIfNull(branchDropOperations);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
@@ -122,7 +105,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
-        _branchDropOperations = branchDropOperations;
         _links = links;
         _settings = settings;
 
@@ -153,8 +135,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         Files.SelectionChanged += (_, _) => _ = ShowSelectedFileAsync();
         _infoBar = infoBar;
         _logger = logger;
-
-        DropBranchCommand = new AsyncRelayCommand<BranchDrop>(OnDropBranchAsync, CanDropBranch);
 
         CloseDiffDialogCommand = new RelayCommand(() => IsDiffDialogOpen = false);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
@@ -211,12 +191,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Gets or sets what to search commit messages for.
+    /// Gets or sets what to look for in the commit messages.
     /// </summary>
     /// <remarks>
-    /// The search re-queries git rather than filtering the rows already loaded: filtering in memory
-    /// would search only the current page and quietly miss everything older, which is worse than not
-    /// searching at all.
+    /// <para>
+    /// The search marks the rows it finds and removes none: the graph is laid out a page at a time,
+    /// so a list filtered down to the matches draws lanes between commits that are not adjacent in
+    /// the history — a picture of a repository that does not exist. Nothing is hidden, so the lanes
+    /// stay the ones git built.
+    /// </para>
+    /// <para>
+    /// The price is that it searches what is loaded rather than the whole history, which is the
+    /// honest reading of "highlight the lines that were found": a line that is not on screen cannot
+    /// be highlighted. What is loaded grows with <c>Load more commits</c>, and the rows it brings in
+    /// are marked as they arrive.
+    /// </para>
     /// </remarks>
     public string SearchText
     {
@@ -226,11 +215,37 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             if (SetProperty(ref field, value))
             {
                 ClearSearchCommand.NotifyCanExecuteChanged();
-                _query = _query with { MessageFilter = value.Trim().Length == 0 ? null : value.Trim(), Skip = 0 };
-                QueueDebouncedReload();
+                MarkMatches();
             }
         }
     } = string.Empty;
+
+    /// <summary>
+    /// Gets how many of the loaded rows match the search.
+    /// </summary>
+    public int MatchCount { get; private set => SetProperty(ref field, value); }
+
+    /// <summary>
+    /// Gets a value indicating whether anything is being searched for.
+    /// </summary>
+    public bool HasSearch => SearchText.Trim().Length > 0;
+
+    /// <summary>
+    /// Gets what the toolbar says beside the search box, empty while nothing is searched for.
+    /// </summary>
+    /// <remarks>
+    /// Without it, a search that found nothing and a search that found everything look the same:
+    /// the list is the whole list either way.
+    /// </remarks>
+    public string MatchSummary
+        => !HasSearch
+            ? string.Empty
+            : MatchCount switch
+            {
+                0 => "no match",
+                1 => "1 match",
+                _ => $"{MatchCount.ToString(CultureInfo.CurrentCulture)} matches",
+            };
 
     /// <summary>
     /// Gets or sets the row the user has selected, which the rest of the shell follows.
@@ -394,8 +409,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public double GraphColumnWidth
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                Columns.GraphWidth = value;
+            }
+        }
     }
+
+    /// <summary>
+    /// Gets the width of every column the list draws, shared by the header and by every row.
+    /// </summary>
+    public HistoryColumnLayout Columns { get; } = new();
 
     /// <summary>
     /// Gets the distance between two graph lanes, which is a preference.
@@ -431,7 +457,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public double RefColumnWidth
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                // Offered, not imposed: once the reader has dragged that column's grip, the width
+                // is theirs and the measurement stops overriding it.
+                Columns.SeedRefsWidth(value);
+            }
+        }
     }
 
     /// <summary>Gets the padding on each side of the graph column.</summary>
@@ -457,76 +491,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command the dialog's cross runs.</summary>
     public RelayCommand CloseDiffDialogCommand { get; }
-
-    /// <summary>
-    /// Gets the command run when one branch badge is dropped on another.
-    /// </summary>
-    public AsyncRelayCommand<BranchDrop> DropBranchCommand { get; }
-
-    /// <summary>
-    /// Answers whether one badge may be dropped on another, which is what the drag asks on every
-    /// pointer move to decide whether it is over something it can land on.
-    /// </summary>
-    /// <param name="source">The badge being dragged.</param>
-    /// <param name="target">The badge under the pointer.</param>
-    /// <returns><see langword="true"/> when the drop would mean something.</returns>
-    /// <remarks>
-    /// Only branches: a tag or the stash names a commit, and merging "into" one of them is not a
-    /// thing git can do. The rest of the policy — no branch onto itself, no remote target — belongs
-    /// to the operation that would carry the drop out, and is asked there rather than restated.
-    /// </remarks>
-    public static bool CanDropBranch(RefBadgeItem? source, RefBadgeItem? target)
-    {
-        if (source is null || target is null)
-        {
-            return false;
-        }
-
-        if (!IsBranch(source.Kind) || !IsBranch(target.Kind))
-        {
-            return false;
-        }
-
-        return BranchDropOperations.CanDrop(Request(source, target));
-    }
-
-    /// <summary>
-    /// Builds the request a pair of badges stands for.
-    /// </summary>
-    /// <param name="source">The badge being dragged.</param>
-    /// <param name="target">The badge it was dropped on.</param>
-    /// <returns>The request.</returns>
-    public static BranchDropRequest Request(RefBadgeItem source, RefBadgeItem target)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(target);
-
-        return new BranchDropRequest(
-            source.Name,
-            source.Kind == GitRefKind.RemoteBranch,
-            target.Name,
-            target.Kind == GitRefKind.RemoteBranch,
-            target.IsCurrent);
-    }
-
-    private static bool IsBranch(GitRefKind kind)
-        => kind is GitRefKind.LocalBranch or GitRefKind.RemoteBranch;
-
-    private static bool CanDropBranch(BranchDrop? drop)
-        => drop is not null && CanDropBranch(drop.Source, drop.Target);
-
-    private async Task OnDropBranchAsync(BranchDrop? drop)
-    {
-        if (drop is null || !CanDropBranch(drop))
-        {
-            return;
-        }
-
-        if (await _branchDropOperations.DropAsync(Request(drop.Source, drop.Target)).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
@@ -702,6 +666,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         RecalculateGraphWidth();
         RecalculateRefColumnWidth();
+
+        // The rows that just arrived have never been looked at by the search.
+        MarkMatches();
     }
 
     /// <summary>
@@ -743,28 +710,33 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     private void QueueReload() => _ = ReloadAsync();
 
-    private void QueueDebouncedReload()
+    /// <summary>
+    /// Marks the loaded rows the search finds, and counts them.
+    /// </summary>
+    /// <remarks>
+    /// Over the subject and the body, case-insensitively — what git's own <c>--grep</c> searched
+    /// when the box filtered the query, so the same words still find the same commits.
+    /// </remarks>
+    private void MarkMatches()
     {
-        _searchDebounce?.Cancel();
-        _searchDebounce?.Dispose();
+        string search = SearchText.Trim();
+        int found = 0;
 
-        CancellationTokenSource debounce = new();
-        _searchDebounce = debounce;
-
-        _ = DebounceAsync(debounce);
-    }
-
-    private async Task DebounceAsync(CancellationTokenSource debounce)
-    {
-        try
+        foreach (CommitRowViewModel row in Rows)
         {
-            await Task.Delay(SearchDebounce, debounce.Token).ConfigureAwait(true);
-            await ReloadAsync().ConfigureAwait(true);
+            bool matches = search.Length > 0 && row.Matches(search);
+            row.IsSearchMatch = matches;
+
+            if (matches)
+            {
+                found++;
+            }
         }
-        catch (OperationCanceledException)
-        {
-            // Superseded by a later keystroke.
-        }
+
+        MatchCount = found;
+
+        OnPropertyChanged(nameof(HasSearch));
+        OnPropertyChanged(nameof(MatchSummary));
     }
 
     private void CancelInFlightLoad()

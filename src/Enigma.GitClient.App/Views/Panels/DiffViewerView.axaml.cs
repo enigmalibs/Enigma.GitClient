@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -24,6 +25,11 @@ public partial class DiffViewerView : UserControl
     private const double WheelColumns = 3;
 
     /// <summary>
+    /// The scroll each map drives, once its list has a template to find one in.
+    /// </summary>
+    private readonly Dictionary<DiffMinimap, ScrollViewer> _scrolls = [];
+
+    /// <summary>
     /// Initialises a new instance.
     /// </summary>
     public DiffViewerView()
@@ -37,6 +43,76 @@ public partial class DiffViewerView : UserControl
         // Tunnelling, because the lists handle the wheel themselves: a sideways wheel has to be
         // claimed on the way down or the vertical scroll swallows it.
         AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
+
+        Maps(UnifiedList, UnifiedMinimap);
+        Maps(SideBySideList, SideBySideMinimap);
+    }
+
+    // ---------------------------------------------------------------- the minimap
+
+    /// <summary>
+    /// Ties a rendering's minimap to the rendering's own scroll, in both directions.
+    /// </summary>
+    /// <param name="list">The list showing the patch.</param>
+    /// <param name="map">The map beside it.</param>
+    /// <remarks>
+    /// Here rather than in the control, and here rather than in the ViewModel: what part of a patch
+    /// is on screen is a fact about a realised list, which is a thing only the view has. The map is
+    /// told it in fractions and knows nothing about where they came from.
+    /// </remarks>
+    private void Maps(ListBox list, DiffMinimap map)
+    {
+        list.TemplateApplied += (_, e) =>
+        {
+            if (e.NameScope.Find<ScrollViewer>("PART_ScrollViewer") is not { } scroll)
+            {
+                return;
+            }
+
+            _scrolls[map] = scroll;
+            scroll.ScrollChanged += (_, _) => Report(scroll, map);
+
+            Report(scroll, map);
+        };
+
+        map.ScrollRequested += (_, start) =>
+        {
+            if (_scrolls.TryGetValue(map, out ScrollViewer? scroll))
+            {
+                ScrollTo(scroll, start);
+            }
+        };
+    }
+
+    /// <summary>
+    /// Tells a map which part of its patch is on screen.
+    /// </summary>
+    private static void Report(ScrollViewer scroll, DiffMinimap map)
+    {
+        double extent = scroll.Extent.Height;
+
+        if (extent <= 0)
+        {
+            // Nothing to scroll: the whole of it is on screen, which is what a full window says.
+            map.ViewportStart = 0;
+            map.ViewportEnd = 1;
+            return;
+        }
+
+        map.ViewportStart = Math.Clamp(scroll.Offset.Y / extent, 0, 1);
+        map.ViewportEnd = Math.Clamp((scroll.Offset.Y + scroll.Viewport.Height) / extent, 0, 1);
+    }
+
+    /// <summary>
+    /// Scrolls a rendering so its view starts at a fraction of the patch.
+    /// </summary>
+    private static void ScrollTo(ScrollViewer scroll, double start)
+    {
+        double furthest = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+
+        scroll.Offset = new Vector(
+            scroll.Offset.X,
+            Math.Clamp(start * scroll.Extent.Height, 0, furthest));
     }
 
     /// <inheritdoc />

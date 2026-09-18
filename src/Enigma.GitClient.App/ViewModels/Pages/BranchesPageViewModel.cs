@@ -2,13 +2,42 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
+
+/// <summary>
+/// Something the branches list holds: a branch, or the heading above a group of them.
+/// </summary>
+/// <remarks>
+/// The list is flat so the page has one selection: nested lists would each keep their own, and two
+/// rows would be highlighted at once. What the flattening costs is this — the list holds two kinds
+/// of thing, and the view has to know which of them can be selected.
+/// </remarks>
+public interface IBranchListItem
+{
+    /// <summary>Gets a value indicating whether the item is one the reader can select.</summary>
+    bool IsSelectable { get; }
+}
+
+/// <summary>
+/// The heading above a group of branches, as a row of the flat list.
+/// </summary>
+/// <param name="Title">What the heading says: "Local", or a remote's name.</param>
+/// <param name="IsRemote">Whether the group it introduces holds remote branches.</param>
+/// <param name="Count">How many branches are under it, as the heading shows it.</param>
+public sealed record BranchGroupHeaderViewModel(string Title, bool IsRemote, string Count) : IBranchListItem
+{
+    /// <inheritdoc />
+    public bool IsSelectable => false;
+}
 
 /// <summary>
 /// One branch, as the branches page shows it.
@@ -17,7 +46,7 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// The row carries the page's commands rather than raising events, so a context menu opening in its
 /// own popup tree can still reach them with a plain binding against the row itself.
 /// </remarks>
-public sealed class BranchRowViewModel : ViewModelBase
+public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 {
     private readonly BranchesPageViewModel _owner;
 
@@ -37,6 +66,9 @@ public sealed class BranchRowViewModel : ViewModelBase
 
     /// <summary>Gets the branch this row stands for.</summary>
     public GitBranch Branch { get; }
+
+    /// <inheritdoc />
+    public bool IsSelectable => true;
 
     /// <summary>Gets the name shown on the row.</summary>
     public string Name => Branch.IsRemote ? Branch.NameWithoutRemote : Branch.ShortName;
@@ -161,6 +193,50 @@ public sealed class TagRowViewModel : ViewModelBase
 }
 
 /// <summary>
+/// One branch row dropped onto another.
+/// </summary>
+/// <param name="Source">The row that was dragged — the branch whose work is brought over.</param>
+/// <param name="Target">The row it was dropped on — the branch that is written to.</param>
+/// <remarks>
+/// The rows rather than their names, because what the drop means depends on what each one is: a
+/// remote source is merged from, a remote target is not written to at all, and the target being the
+/// checked-out branch is what decides whether anything has to be checked out first.
+/// </remarks>
+public sealed record BranchDrop(BranchRowViewModel Source, BranchRowViewModel Target)
+{
+    /// <summary>
+    /// The in-process format a row is dragged under.
+    /// </summary>
+    /// <remarks>
+    /// In-process: the payload is the live row, because the drag never leaves the window and a
+    /// branch name on its own would not say whether it is remote or checked out. An in-process
+    /// format never reaches the platform's clipboard, so nothing of it escapes the application.
+    /// </remarks>
+    public static readonly DataFormat<BranchRowViewModel> DragFormat =
+        DataFormat.CreateInProcessFormat<BranchRowViewModel>("enigma-gitclient/branch-row");
+
+    /// <summary>Gets what this pair asks the operations service to do.</summary>
+    public BranchDropRequest Request => new(
+        Source.FullName,
+        Source.IsRemote,
+        Target.FullName,
+        Target.IsRemote,
+        Target.IsCurrent);
+
+    /// <summary>Gets the same pair the other way round.</summary>
+    public BranchDrop Reversed() => new(Target, Source);
+
+    /// <summary>Gets what the menu item that merges this pair is called.</summary>
+    public string MergeHeader => $"Merge \"{Source.FullName}\" into \"{Target.FullName}\"";
+
+    /// <summary>Gets what the fast-forward-only item is called.</summary>
+    public string FastForwardHeader => $"Merge \"{Source.FullName}\" into \"{Target.FullName}\", fast-forward only";
+
+    /// <summary>Gets what the item that merges the other way round is called.</summary>
+    public string ReversedHeader => $"Merge \"{Target.FullName}\" into \"{Source.FullName}\"";
+}
+
+/// <summary>
 /// A group of branches on the page: the local ones, or one remote's.
 /// </summary>
 /// <param name="Title">The heading shown above the group.</param>
@@ -186,6 +262,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
+    private readonly IBranchDropOperations _dropOperations;
 
     /// <summary>
     /// Initialises a new instance.
@@ -195,23 +272,27 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// <param name="tagOperations">Performs the tag operations.</param>
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
     /// <param name="mergeOperations">Merges a branch into the current one.</param>
+    /// <param name="dropOperations">Carries out one branch dropped onto another.</param>
     public BranchesPageViewModel(
         IRepositoryContext repositoryContext,
         IBranchOperations operations,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
-        IMergeOperations mergeOperations)
+        IMergeOperations mergeOperations,
+        IBranchDropOperations dropOperations)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
+        ArgumentNullException.ThrowIfNull(dropOperations);
 
         _operations = operations;
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
+        _dropOperations = dropOperations;
 
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => IsRepositoryOpen);
         CreateBranchCommand = new AsyncRelayCommand(OnCreateAsync, () => IsRepositoryOpen);
@@ -222,6 +303,12 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
         MergeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnMergeAsync, CanMerge);
+
+        MergeDropCommand = new AsyncRelayCommand<BranchDrop>(drop => OnDropAsync(drop, FastForwardMode.WhenPossible), CanDrop);
+        FastForwardDropCommand = new AsyncRelayCommand<BranchDrop>(drop => OnDropAsync(drop, FastForwardMode.Only), CanDrop);
+        MergeReversedDropCommand = new AsyncRelayCommand<BranchDrop>(
+            drop => OnDropAsync(drop?.Reversed(), FastForwardMode.WhenPossible),
+            drop => CanDrop(drop?.Reversed()));
 
         ShowBranchesCommand = new RelayCommand(() => ShowTags = false);
         ShowTagsCommand = new RelayCommand(() => ShowTags = true);
@@ -263,6 +350,49 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the branches, grouped as local and one group per remote.</summary>
     public ObservableCollection<BranchGroupViewModel> Groups { get; } = [];
+
+    /// <summary>
+    /// Gets the same branches the groups hold, flattened into the one list the view shows: each
+    /// group's heading followed by its rows.
+    /// </summary>
+    /// <remarks>
+    /// The grouping is the model and this is its presentation, rebuilt from it every time. One list
+    /// rather than a list per group, because a page has one selection: nested lists would each keep
+    /// their own and two rows would be highlighted at once.
+    /// </remarks>
+    public ObservableCollection<IBranchListItem> Items { get; } = [];
+
+    /// <summary>
+    /// Gets or sets the item the reader has selected, which is a branch or nothing — a heading is
+    /// not selectable.
+    /// </summary>
+    public IBranchListItem? SelectedItem
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(SelectedBranch));
+            }
+        }
+    }
+
+    /// <summary>Gets the selected branch, or <see langword="null"/> when none is selected.</summary>
+    public BranchRowViewModel? SelectedBranch => SelectedItem as BranchRowViewModel;
+
+    /// <summary>
+    /// Gets or sets the tag the reader has selected.
+    /// </summary>
+    /// <remarks>
+    /// Its own property rather than one selection for the page: the two lists are alternatives, and
+    /// a tag selected while the branches are on screen is not a selection anybody can see.
+    /// </remarks>
+    public TagRowViewModel? SelectedTag
+    {
+        get;
+        set => SetProperty(ref field, value);
+    }
 
     /// <summary>
     /// Gets or sets a substring the shown branch names must contain.
@@ -319,6 +449,32 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// <summary>Gets the command that merges a branch into the one checked out.</summary>
     public AsyncRelayCommand<BranchRowViewModel> MergeCommand { get; }
 
+    /// <summary>Gets the command that merges the dropped branch into the one it landed on.</summary>
+    public AsyncRelayCommand<BranchDrop> MergeDropCommand { get; }
+
+    /// <summary>Gets the command that does the same, refusing anything but a fast-forward.</summary>
+    public AsyncRelayCommand<BranchDrop> FastForwardDropCommand { get; }
+
+    /// <summary>
+    /// Gets the command that merges the other way round — the branch that was landed on into the one
+    /// that was dragged.
+    /// </summary>
+    /// <remarks>
+    /// Offered because dragging the pair the wrong way round is the mistake this gesture invites,
+    /// and the menu is already naming both ends. It refuses when the reversed pair is one the
+    /// service would not carry out, which is what a remote source means.
+    /// </remarks>
+    public AsyncRelayCommand<BranchDrop> MergeReversedDropCommand { get; }
+
+    /// <summary>
+    /// Answers whether a drop is one the page would carry out, which is what the drag asks on every
+    /// pointer move.
+    /// </summary>
+    /// <param name="drop">The pair.</param>
+    /// <returns><see langword="true"/> when the drop would mean something.</returns>
+    public static bool CanDrop(BranchDrop? drop)
+        => drop is not null && BranchDropOperations.CanDrop(drop.Request);
+
     /// <summary>Gets the command that shows the branch list.</summary>
     public RelayCommand ShowBranchesCommand { get; }
 
@@ -374,7 +530,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     private void Rebuild()
     {
+        // Captured before the lists are emptied: clearing a list tells its ListBox the selection is
+        // gone, and the ListBox tells this page so. What survives a rebuild is the name.
+        string? selectedBranch = SelectedBranch?.FullName;
+        string? selectedTag = SelectedTag?.Name;
+
         Groups.Clear();
+        Items.Clear();
 
         RefCollection refs = RepositoryContext.Refs;
 
@@ -422,6 +584,16 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             Groups.Add(new BranchGroupViewModel(remote, true, byRemote[remote]));
         }
 
+        foreach (BranchGroupViewModel group in Groups)
+        {
+            Items.Add(new BranchGroupHeaderViewModel(group.Title, group.IsRemote, group.Count));
+
+            foreach (BranchRowViewModel row in group.Rows)
+            {
+                Items.Add(row);
+            }
+        }
+
         Tags.Clear();
 
         foreach (GitTag tag in refs.Tags)
@@ -432,8 +604,32 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             }
         }
 
+        RestoreSelection(selectedBranch, selectedTag);
+
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
+    }
+
+    /// <summary>
+    /// Puts the selection back on the rows that stand for what was selected before the rebuild.
+    /// </summary>
+    /// <param name="branch">The full name of the branch that was selected, if any.</param>
+    /// <param name="tag">The name of the tag that was selected, if any.</param>
+    /// <remarks>
+    /// By name, because every row is a new object: the page rebuilds on a refresh, on an operation
+    /// and on every keystroke in the filter box, and a selection that did not survive that would be
+    /// a selection nobody could keep. A row that is gone — deleted, renamed, filtered out — takes
+    /// the selection with it.
+    /// </remarks>
+    private void RestoreSelection(string? branch, string? tag)
+    {
+        SelectedItem = branch is null
+            ? null
+            : Items.OfType<BranchRowViewModel>().FirstOrDefault(row => row.FullName == branch);
+
+        SelectedTag = tag is null
+            ? null
+            : Tags.FirstOrDefault(row => row.Name == tag);
     }
 
     private bool Matches(GitBranch branch) => Matches(branch.ShortName);
@@ -484,6 +680,14 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
                 return outcome.ChangedAnything;
             }).ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnDropAsync(BranchDrop? drop, FastForwardMode fastForward)
+    {
+        if (drop is not null)
+        {
+            await Run(() => _dropOperations.DropAsync(drop.Request, fastForward)).ConfigureAwait(true);
         }
     }
 

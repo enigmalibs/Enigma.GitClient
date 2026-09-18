@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -229,6 +230,365 @@ public sealed class BranchesPageTests
             page.ClearSearchCommand.Execute(null);
 
             Assert.Equal(3, NamesOf(page).Count);
+        });
+    }
+
+    // ---------------------------------------------------------------- selection
+
+    [Fact]
+    public void Items_AreEachGroupsHeadingFollowedByItsBranches()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            // The flat list is the grouping, in the same order: a heading, then the branches under
+            // it, then the next heading.
+            List<string> shape = [.. page.Items.Select(item => item switch
+            {
+                BranchGroupHeaderViewModel header => $"# {header.Title}",
+                BranchRowViewModel row => row.FullName,
+                _ => "?",
+            })];
+
+            Assert.Equal("# Local", shape[0]);
+            Assert.Contains("# origin", shape);
+            Assert.True(shape.IndexOf("# origin") > shape.IndexOf("main"), "the remote group came before the local one");
+
+            // Every branch in the groups is in the list, and nothing else is.
+            Assert.Equal(
+                page.Groups.SelectMany(group => group.Rows).Select(row => row.FullName).Order(),
+                page.Items.OfType<BranchRowViewModel>().Select(row => row.FullName).Order());
+
+            Assert.Equal(page.Groups.Count, page.Items.OfType<BranchGroupHeaderViewModel>().Count());
+        });
+    }
+
+    [Fact]
+    public void Heading_IsNotSelectable()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            Assert.All(page.Items.OfType<BranchGroupHeaderViewModel>(), header => Assert.False(header.IsSelectable));
+            Assert.All(page.Items.OfType<BranchRowViewModel>(), row => Assert.True(row.IsSelectable));
+        });
+    }
+
+    [Fact]
+    public void Selection_IsTheBranchTheReaderPicked()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            Assert.Null(page.SelectedItem);
+            Assert.Null(page.SelectedBranch);
+
+            page.SelectedItem = Row(page, "merged");
+
+            Assert.NotNull(page.SelectedBranch);
+            Assert.Equal("merged", page.SelectedBranch!.FullName);
+
+            // A heading can be put there by nothing the view offers, and it is not a branch either
+            // way.
+            page.SelectedItem = page.Items.OfType<BranchGroupHeaderViewModel>().First();
+
+            Assert.Null(page.SelectedBranch);
+        });
+    }
+
+    [Fact]
+    public void Selection_SurvivesARebuildAndGoesWithTheBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            page.SelectedItem = Row(page, "merged");
+
+            await page.RefreshAsync();
+
+            // A new row object for the same branch: the selection followed the name, not the
+            // instance.
+            Assert.NotNull(page.SelectedBranch);
+            Assert.Equal("merged", page.SelectedBranch!.FullName);
+            Assert.Same(Row(page, "merged"), page.SelectedItem);
+
+            // A filter that hides it takes the selection with it, and putting it back does not
+            // guess that the reader still wants it.
+            page.SearchText = "unmerged";
+
+            Assert.Null(page.SelectedBranch);
+
+            page.SearchText = string.Empty;
+
+            Assert.Null(page.SelectedBranch);
+        });
+    }
+
+    [Fact]
+    public void Selection_IsClearedWhenTheBranchIsDeleted()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            page.SelectedItem = Row(page, "merged");
+            Assert.NotNull(page.SelectedBranch);
+
+            services.Dialogs.Result = DialogResult.Primary;
+            await page.DeleteCommand.ExecuteAsync(Row(page, "merged"));
+
+            Assert.DoesNotContain(page.Items.OfType<BranchRowViewModel>(), row => row.FullName == "merged");
+            Assert.Null(page.SelectedBranch);
+        });
+    }
+
+    [Fact]
+    public void Selection_OfATagIsItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            await GitAsync(repository, "tag", "v1.0.0");
+            await GitAsync(repository, "tag", "v1.1.0");
+
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+            page.ShowTags = true;
+
+            page.SelectedTag = page.Tags.Single(tag => tag.Name == "v1.0.0");
+
+            await page.RefreshAsync();
+
+            Assert.NotNull(page.SelectedTag);
+            Assert.Equal("v1.0.0", page.SelectedTag!.Name);
+
+            // The two lists are alternatives, so selecting a tag says nothing about the branches.
+            Assert.Null(page.SelectedBranch);
+        });
+    }
+
+    [Fact]
+    public void BranchList_IsAListBoxWhoseSelectionFollowsThePage()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Assert.Equal(page.Items.Count, list.ItemCount);
+
+            list.SelectedItem = Row(page, "merged");
+            window.UpdateLayout();
+
+            Assert.Same(list.SelectedItem, page.SelectedItem);
+            Assert.Equal("merged", page.SelectedBranch!.FullName);
+
+            // The heading's container is disabled, which is what stops it being selected, and it is
+            // drawn at full opacity because nothing about it is unavailable.
+            ListBoxItem heading = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => container.DataContext is BranchGroupHeaderViewModel);
+
+            Assert.False(heading.IsEnabled);
+            Assert.Equal(1, heading.Opacity);
+
+            window.Close();
+        });
+    }
+
+    // ---------------------------------------------------------------- dropping one branch on another
+
+    [Fact]
+    public void Drop_CarriesWhatTheTwoRowsSay()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            BranchDrop drop = new(Row(page, "origin/published"), Row(page, "main"));
+
+            Assert.Equal("origin/published", drop.Request.Source);
+            Assert.True(drop.Request.SourceIsRemote);
+            Assert.Equal("main", drop.Request.Target);
+            Assert.False(drop.Request.TargetIsRemote);
+            Assert.True(drop.Request.TargetIsCurrent);
+
+            // Both ends are named in every item, so a drag that went the wrong way round is
+            // recoverable from the menu it opened.
+            Assert.Contains("origin/published", drop.MergeHeader, StringComparison.Ordinal);
+            Assert.Contains("main", drop.MergeHeader, StringComparison.Ordinal);
+            Assert.Contains("fast-forward", drop.FastForwardHeader, StringComparison.Ordinal);
+            Assert.Equal("Merge \"main\" into \"origin/published\"", drop.ReversedHeader);
+
+            Assert.Equal("main", drop.Reversed().Request.Source);
+            Assert.Equal("origin/published", drop.Reversed().Request.Target);
+        });
+    }
+
+    [Fact]
+    public void Drop_IsOfferedOnlyForAPairThatMeansSomething()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            Assert.True(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "merged"), Row(page, "main"))));
+            Assert.False(BranchesPageViewModel.CanDrop(null));
+
+            // A branch onto itself means nothing.
+            Assert.False(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "main"), Row(page, "main"))));
+
+            // Nothing local writes to a remote-tracking ref: that is a push, and a push is not a
+            // thing to arrive at by dragging.
+            Assert.False(BranchesPageViewModel.CanDrop(
+                new BranchDrop(Row(page, "main"), Row(page, "origin/published"))));
+
+            // And the reverse of that pair is a merge, which is exactly why the menu offers it.
+            BranchDrop backwards = new(Row(page, "origin/published"), Row(page, "main"));
+
+            Assert.True(page.MergeDropCommand.CanExecute(backwards));
+            Assert.False(page.MergeReversedDropCommand.CanExecute(backwards));
+        });
+    }
+
+    [Fact]
+    public void Drop_MergesTheDraggedBranchIntoTheOneItLandedOn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+
+            await page.MergeDropCommand.ExecuteAsync(new BranchDrop(Row(page, "unmerged"), Row(page, "main")));
+
+            // The branch's own commit is on main now, and the page re-read to show it.
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/branch.txt")));
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+
+            // The menu was the question: no dialog was raised on top of it.
+            Assert.Empty(services.Dialogs.Shown);
+        });
+    }
+
+    [Fact]
+    public void Drop_ChecksTheTargetOutWhenItIsNotTheCurrentBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            // "merged" is a branch behind main, so merging main into it is a fast-forward — and it
+            // has to be checked out first, because git merges into HEAD.
+            await page.FastForwardDropCommand.ExecuteAsync(new BranchDrop(Row(page, "main"), Row(page, "merged")));
+
+            Assert.Equal("merged", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/app.txt")));
+        });
+    }
+
+    [Fact]
+    public void Drop_MergesTheOtherWayRoundWhenThatIsWhatWasMeant()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            // Dragged main onto unmerged, then picked the item that merges the other way: unmerged
+            // goes into main, and HEAD stays where it was.
+            await page.MergeReversedDropCommand.ExecuteAsync(new BranchDrop(Row(page, "main"), Row(page, "unmerged")));
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/branch.txt")));
+        });
+    }
+
+    [Fact]
+    public void Drop_OnARemoteBranchRunsNothingAndSaysWhy()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildWithRemoteAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            BranchDrop onRemote = new(Row(page, "unmerged"), Row(page, "origin/published"));
+
+            // The command refuses, so the menu never offers it; asked anyway, nothing runs and the
+            // reader is told why.
+            Assert.False(page.MergeDropCommand.CanExecute(onRemote));
+
+            await page.MergeDropCommand.ExecuteAsync(onRemote);
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.Empty(services.Dialogs.Shown);
+        });
+    }
+
+    [Fact]
+    public void BranchList_TakesDrops()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Assert.True(DragDrop.GetAllowDrop(list));
+
+            // A row container marked as the drop target wears a ring the selection cannot hide.
+            ListBoxItem row = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => container.DataContext is BranchRowViewModel);
+
+            row.Classes.Set("droptarget", true);
+            window.UpdateLayout();
+
+            Assert.True(row.BorderThickness.Left > 0);
+
+            row.Classes.Set("droptarget", false);
+            window.UpdateLayout();
+
+            window.Close();
         });
     }
 

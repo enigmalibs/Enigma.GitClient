@@ -1,7 +1,8 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ei="https://github.com/josueclement/Enigma.Icons"
-                    xmlns:controls="using:Enigma.GitClient.App.Controls">
+                    xmlns:controls="using:Enigma.GitClient.App.Controls"
+                    xmlns:diff="using:Enigma.GitClient.App.Controls.Diff">
 
   <!-- Themes for the application's own controls. Merged after Enigma.Avalonia.Desktop's
        dictionary so an override of an Enigma* key here would win; none is overridden today. -->
@@ -131,13 +132,22 @@
     <Style Selector="^.stash">
       <Setter Property="Background" Value="{DynamicResource RefBadgeStashBrush}" />
     </Style>
+  </ControlTheme>
 
-    <!-- Where a dragged branch would land. A ring rather than a fill: the badge's own colour is
-         what says which kind of reference it is, and a drag must not take that away while it is
-         being read. -->
-    <Style Selector="^.droptarget">
-      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
-    </Style>
+  <!--
+    The diff's minimap: the strip that replaced the patch's vertical scrollbar. Wide enough to aim
+    at with a pointer, and painted from the gutter's own colours so the map agrees with the lines it
+    stands for.
+  -->
+  <ControlTheme x:Key="{x:Type diff:DiffMinimap}" TargetType="diff:DiffMinimap">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="TrackBrush" Value="{DynamicResource DiffGutterBrush}" />
+    <Setter Property="AddedBrush" Value="{DynamicResource DiffAddedMarkerBrush}" />
+    <Setter Property="RemovedBrush" Value="{DynamicResource DiffRemovedMarkerBrush}" />
+    <Setter Property="HunkBrush" Value="{DynamicResource DiffHunkForegroundBrush}" />
+    <Setter Property="ViewportBrush" Value="{DynamicResource DiffMinimapViewportBrush}" />
+    <Setter Property="ViewportBorderBrush" Value="{DynamicResource DiffMinimapViewportBorderBrush}" />
   </ControlTheme>
 
   <ControlTheme x:Key="{x:Type controls:AuthorAvatar}" TargetType="controls:AuthorAvatar">

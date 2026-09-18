@@ -374,6 +374,83 @@ public sealed class RemotesAndSyncTests
         Assert.Equal("ssh://git@example.com/team/project.git", model.EffectivePushUrl);
     }
 
+    // ---------------------------------------------------------------- selection
+
+    [Fact]
+    public void Selection_IsTheRemoteTheReaderPickedAndSurvivesARefresh()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+
+            Assert.Null(page.SelectedRemote);
+
+            page.SelectedRemote = page.Remotes.Single(remote => remote.Name == "origin");
+
+            await page.RefreshAsync();
+
+            // A new row object for the same remote: the selection followed the name.
+            Assert.NotNull(page.SelectedRemote);
+            Assert.Equal("origin", page.SelectedRemote!.Name);
+            Assert.Same(page.Remotes.Single(), page.SelectedRemote);
+        });
+    }
+
+    [Fact]
+    public void Selection_IsClearedWhenTheRemoteIsRemoved()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+
+            page.SelectedRemote = page.Remotes.Single();
+            Assert.NotNull(page.SelectedRemote);
+
+            services.Dialogs.Result = DialogResult.Primary;
+            await page.RemoveCommand.ExecuteAsync(page.Remotes.Single());
+
+            Assert.Empty(page.Remotes);
+            Assert.Null(page.SelectedRemote);
+        });
+    }
+
+    [Fact]
+    public void RemoteList_IsAListBoxWhoseSelectionFollowsThePage()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+
+            RemotesPageView view = services.Get<RemotesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 400 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("RemoteList")
+                ?? throw new InvalidOperationException("The remotes page has no remote list.");
+
+            Assert.Equal(page.Remotes.Count, list.ItemCount);
+
+            list.SelectedItem = page.Remotes.Single();
+            window.UpdateLayout();
+
+            Assert.Same(page.SelectedRemote, list.SelectedItem);
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- the shell toolbar
 
     [Fact]

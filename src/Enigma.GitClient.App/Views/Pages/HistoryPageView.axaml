@@ -53,13 +53,22 @@
                     Content="First parent only"
                     ToolTip.Tip="Follow only the first parent of each merge, hiding the branches it brought in" />
 
-          <Grid Grid.Column="3" ColumnDefinitions="*,Auto" MaxWidth="360" HorizontalAlignment="Right">
-            <TextBox Grid.Column="0"
+          <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
+            <!-- What the search found, because nothing is hidden: without a count, a search that
+                 matched nothing and one that matched everything look exactly alike. -->
+            <TextBlock Grid.Column="0"
+                       Text="{Binding MatchSummary}"
+                       IsVisible="{Binding HasSearch}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"
+                       FontSize="11"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBox Grid.Column="1"
                      Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      PlaceholderText="Search commit messages"
                      VerticalAlignment="Center"
                      AutomationProperties.Name="Search commit messages" />
-            <Button Grid.Column="1"
+            <Button Grid.Column="2"
                     Classes="toolbar"
                     Command="{Binding ClearSearchCommand}"
                     ToolTip.Tip="Clear the search"
@@ -75,6 +84,82 @@
                   AutomationProperties.Name="Re-read the history">
             <ei:Icon Kind="ArrowsClockwise" Size="16" />
           </Button>
+        </Grid>
+      </Border>
+
+      <!--
+        The column header. It carries the same six columns as every row, at the same widths and the
+        same spacing, and the grips that change them: each grip resizes the fixed column it touches
+        and the message column absorbs the difference, so the edge under the pointer is the edge
+        that moves. It is drawn at the list's own viewport width rather than the page's, because a
+        vertical scrollbar takes its width out of the rows and not out of a header docked above
+        them.
+      -->
+      <Border DockPanel.Dock="Top"
+              Name="ColumnHeader"
+              Background="{DynamicResource EnigmaSurfaceBrush}"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="0"
+              IsVisible="{Binding !IsEmpty}">
+        <Grid Name="HeaderRow"
+              Width="{Binding Columns.HeaderWidth}"
+              HorizontalAlignment="Left"
+              Height="26"
+              ColumnSpacing="10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" MinWidth="120" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+
+          <!-- The graph column is titled by what it draws; a word in it would only be ellipsised. -->
+          <Panel Grid.Column="0" Width="{Binding GraphColumnWidth}" />
+
+          <Panel Grid.Column="1" Width="{Binding Columns.RefsWidth}">
+            <TextBlock Classes="columnheader" Text="Refs" />
+            <!-- Half over the gap, so the grip is where the eye says the boundary is; the negative
+                 margin keeps it out of the column's measured width. -->
+            <Thumb Name="RefsGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Right"
+                   Margin="0,0,-5,0"
+                   AutomationProperties.Name="Resize the refs column" />
+          </Panel>
+
+          <Panel Grid.Column="2">
+            <TextBlock Classes="columnheader" Text="Message" />
+          </Panel>
+
+          <Panel Grid.Column="3" Width="{Binding Columns.AuthorWidth}">
+            <TextBlock Classes="columnheader" Text="Author" />
+            <Thumb Name="AuthorGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Left"
+                   Margin="-5,0,0,0"
+                   AutomationProperties.Name="Resize the author column" />
+          </Panel>
+
+          <Panel Grid.Column="4" Width="{Binding Columns.DateWidth}">
+            <TextBlock Classes="columnheader" Text="Date" />
+            <Thumb Name="DateGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Left"
+                   Margin="-5,0,0,0"
+                   AutomationProperties.Name="Resize the date column" />
+          </Panel>
+
+          <Panel Grid.Column="5" Width="{Binding Columns.ShaWidth}">
+            <TextBlock Classes="columnheader" Text="Commit" />
+            <Thumb Name="ShaGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Left"
+                   Margin="-5,0,0,0"
+                   AutomationProperties.Name="Resize the commit column" />
+          </Panel>
         </Grid>
       </Border>
 
@@ -103,14 +188,13 @@
 
         <ListBox Name="CommitList"
                  DoubleTapped="OnCommitDoubleTapped"
-                 DragDrop.AllowDrop="True"
                  ItemsSource="{Binding Rows}"
                  SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                  IsVisible="{Binding !IsEmpty}"
                  Background="Transparent"
                  BorderThickness="0"
                  Padding="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  AutomationProperties.Name="Commit history">
 
           <ListBox.ItemsPanel>
@@ -126,12 +210,23 @@
               <!-- The row's own Grid carries the height, which is a preference; a MinHeight here would
                    quietly win whenever that preference is smaller. -->
               <Setter Property="MinHeight" Value="0" />
+              <!-- Stated rather than inherited from the theme: the row's hit area is only the whole
+                   line if the row's content is given the whole line. -->
+              <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             </Style>
           </ListBox.Styles>
 
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:CommitRowViewModel">
+              <!--
+                Background, because the row is a hit target and not merely a place to put text: a
+                Grid with no brush is transparent to the pointer everywhere a child is not, so a
+                right-click landing in the spacing between two columns — or in the room after the
+                last one — used to fall through to the list and open nothing.
+              -->
               <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                    Classes.match="{Binding IsSearchMatch}"
+                    Background="Transparent"
                     ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                   <!-- Auto, with the cell itself given one explicit width for every row: that is what
@@ -141,9 +236,9 @@
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="*" MinWidth="120" />
-                  <ColumnDefinition Width="190" />
-                  <ColumnDefinition Width="110" />
-                  <ColumnDefinition Width="70" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <!-- The row's own menu. It opens in its own popup tree, so the row carries the
@@ -198,14 +293,14 @@
                   The badges are a column of their own: one width for the whole page, handed to
                   every row, exactly as the graph cell takes GraphColumnWidth. An Auto column is
                   measured per row, which is what used to put the subject at a different x on every
-                  line that carried a badge.
+                  line that carried a badge. They are shown here and dragged nowhere: merging one
+                  branch into another by dropping it is the branches page's gesture.
                 -->
                 <ItemsControl Grid.Column="1"
                               Name="RefStrip"
-                              Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RefColumnWidth}"
+                              Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.RefsWidth}"
                               ItemsSource="{Binding Refs}"
                               ClipToBounds="True"
-                              ToolTip.Tip="Drag a branch onto another to merge it"
                               VerticalAlignment="Center">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -229,6 +324,7 @@
                            Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
                 <StackPanel Grid.Column="3"
+                            Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.AuthorWidth}"
                             Orientation="Horizontal"
                             Spacing="7"
                             VerticalAlignment="Center"
@@ -244,6 +340,7 @@
                 </StackPanel>
 
                 <TextBlock Grid.Column="4"
+                           Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.DateWidth}"
                            Text="{Binding DateText}"
                            VerticalAlignment="Center"
                            FontSize="12"
@@ -252,6 +349,7 @@
                            Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
                 <TextBlock Grid.Column="5"
+                           Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.ShaWidth}"
                            Classes="monospace"
                            Text="{Binding ShortSha}"
                            VerticalAlignment="Center"

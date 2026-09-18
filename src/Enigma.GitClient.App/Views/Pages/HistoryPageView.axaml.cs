@@ -19,7 +19,7 @@ namespace Enigma.GitClient.App.Views.Pages;
 public partial class HistoryPageView : UserControl
 {
     private HistoryPageViewModel? _page;
-    private RefBadge? _highlighted;
+    private ScrollViewer? _listScroll;
 
     /// <summary>
     /// Initialises a new instance.
@@ -32,15 +32,70 @@ public partial class HistoryPageView : UserControl
         // this is what keeps the page's own state honest about what is on screen.
         DiffDialog.Closed += OnDiffDialogClosed;
 
-        // Tunnelling, because the list handles the pointer itself: the press that starts a drag has
-        // to be seen on the way down, before the ListBox captures the pointer for its selection.
-        AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
-
-        AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
-        AddHandler(DragDrop.DropEvent, OnDrop);
-
         DiffDialogBody.AttachedToVisualTree += OnDialogBodyAttached;
+
+        Resizes(RefsGrip, HistoryColumn.Refs);
+        Resizes(AuthorGrip, HistoryColumn.Author);
+        Resizes(DateGrip, HistoryColumn.Date);
+        Resizes(ShaGrip, HistoryColumn.Sha);
+
+        // The list's own viewport is the width the header has to match, and it is known only once
+        // the list has a template to find a scroll viewer in.
+        CommitList.TemplateApplied += OnCommitListTemplateApplied;
+    }
+
+    // ---------------------------------------------------------------- the columns
+
+    /// <summary>
+    /// Makes a header grip resize a column.
+    /// </summary>
+    /// <param name="grip">The grip.</param>
+    /// <param name="column">The column it belongs to.</param>
+    /// <remarks>
+    /// A <see cref="Thumb"/> reports how far the pointer moved since the last report, which is
+    /// exactly what the layout takes: it decides for itself which way that moves the column's edge,
+    /// and how far it may go.
+    /// </remarks>
+    private void Resizes(Thumb grip, HistoryColumn column)
+        => grip.DragDelta += (_, e) => (DataContext as HistoryPageViewModel)?.Columns.Resize(column, e.Vector.X);
+
+    private void OnCommitListTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        if (_listScroll is not null)
+        {
+            _listScroll.ScrollChanged -= OnListScrollChanged;
+            _listScroll.SizeChanged -= OnListResized;
+        }
+
+        _listScroll = e.NameScope.Find<ScrollViewer>("PART_ScrollViewer")
+            ?? CommitList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        if (_listScroll is null)
+        {
+            return;
+        }
+
+        // Both, because the two ways the viewport changes are not the same event: the window being
+        // resized, and the vertical scrollbar appearing when one more row than fits is loaded.
+        _listScroll.ScrollChanged += OnListScrollChanged;
+        _listScroll.SizeChanged += OnListResized;
+
+        ReportViewport();
+    }
+
+    private void OnListScrollChanged(object? sender, ScrollChangedEventArgs e) => ReportViewport();
+
+    private void OnListResized(object? sender, SizeChangedEventArgs e) => ReportViewport();
+
+    /// <summary>
+    /// Tells the columns how wide the list's viewport is, which is what the header is drawn at.
+    /// </summary>
+    private void ReportViewport()
+    {
+        if (_listScroll is not null && DataContext is HistoryPageViewModel page)
+        {
+            page.Columns.Viewport = _listScroll.Viewport.Width;
+        }
     }
 
     /// <summary>
@@ -99,6 +154,9 @@ public partial class HistoryPageView : UserControl
         }
 
         ApplyDialogState(_page?.IsDiffDialogOpen ?? false);
+
+        // Another page's columns know nothing of this list's width.
+        ReportViewport();
     }
 
     private void OnPagePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -166,115 +224,5 @@ public partial class HistoryPageView : UserControl
         {
             activate.Execute(row);
         }
-    }
-
-    // ---------------------------------------------------------------- dragging one branch onto another
-
-    /// <summary>
-    /// Starts a drag when the press landed on a branch badge.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Handled on the page rather than in the row template: the rows are a virtualised list, so a
-    /// handler attached inside the template would be attached and detached again for every row that
-    /// scrolls past.
-    /// </para>
-    /// <para>
-    /// From the press itself, because <see cref="DragDrop.DoDragDropAsync"/> takes the pressed
-    /// event — it is the triggering pointer it tracks, and holding those arguments back to a later
-    /// move would hand it an event that has already been dispatched. The press is not marked
-    /// handled, so the list still selects the row under it, and the platform's own drag session is
-    /// what decides that a pointer which never moved was a click rather than a drag.
-    /// </para>
-    /// </remarks>
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        if (BadgeAt(e.Source) is not { DataContext: RefBadgeItem badge } || !IsDraggable(badge))
-        {
-            return;
-        }
-
-        DataTransfer data = new();
-        data.Add(DataTransferItem.Create(RefBadgeItem.DragFormat, badge));
-
-        // Fire and forget: the drop is what does the work, and the page reports what it did.
-        _ = DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
-    }
-
-    private void OnDragOver(object? sender, DragEventArgs e)
-    {
-        RefBadge? badge = BadgeAt(e.Source);
-
-        e.DragEffects = CanDrop(e, badge) ? DragDropEffects.Move : DragDropEffects.None;
-        e.Handled = true;
-
-        Highlight(e.DragEffects == DragDropEffects.Move ? badge : null);
-    }
-
-    private void OnDragLeave(object? sender, DragEventArgs e) => Highlight(null);
-
-    private void OnDrop(object? sender, DragEventArgs e)
-    {
-        RefBadge? badge = BadgeAt(e.Source);
-
-        Highlight(null);
-
-        if (!CanDrop(e, badge)
-            || e.DataTransfer.TryGetValue(RefBadgeItem.DragFormat) is not { } source
-            || badge?.DataContext is not RefBadgeItem target
-            || DataContext is not HistoryPageViewModel page)
-        {
-            return;
-        }
-
-        e.Handled = true;
-
-        BranchDrop drop = new(source, target);
-
-        if (page.DropBranchCommand.CanExecute(drop))
-        {
-            page.DropBranchCommand.Execute(drop);
-        }
-    }
-
-    /// <summary>
-    /// Whether a badge is one a drag can start from. Only branches: a tag or the stash names a
-    /// commit, and there is nothing to merge out of one.
-    /// </summary>
-    private static bool IsDraggable(RefBadgeItem badge)
-        => badge.Kind is Core.Refs.GitRefKind.LocalBranch or Core.Refs.GitRefKind.RemoteBranch;
-
-    private static bool CanDrop(DragEventArgs e, RefBadge? badge)
-        => e.DataTransfer.TryGetValue(RefBadgeItem.DragFormat) is { } source
-            && badge?.DataContext is RefBadgeItem target
-            && HistoryPageViewModel.CanDropBranch(source, target);
-
-    /// <summary>
-    /// Finds the badge an event landed on, which is normally a part of its template rather than the
-    /// badge itself.
-    /// </summary>
-    private static RefBadge? BadgeAt(object? source)
-        => source is Visual visual
-            ? visual as RefBadge ?? visual.GetSelfAndVisualAncestors().OfType<RefBadge>().FirstOrDefault()
-            : null;
-
-    /// <summary>
-    /// Says where the drag would land, and takes the mark off whatever carried it last.
-    /// </summary>
-    private void Highlight(RefBadge? badge)
-    {
-        if (ReferenceEquals(_highlighted, badge))
-        {
-            return;
-        }
-
-        _highlighted?.Classes.Set("droptarget", false);
-        _highlighted = badge;
-        _highlighted?.Classes.Set("droptarget", true);
     }
 }

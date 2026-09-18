@@ -17,9 +17,15 @@ diff.
   selected.
 - Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
   detached.
-- The branches sit in a column of their own beside the graph, aligned on every line — and one can be
-  dragged onto another to merge it, or to fast-forward only. The target is checked out first when it
-  is not the branch you are on.
+- The branches sit in a column of their own beside the graph, aligned on every line.
+- The columns have a header, and each one can be resized by dragging the boundary beside its title;
+  the message column takes whatever is left, so a long subject is trimmed rather than pushing the
+  rest of the line out of view.
+- A line's menu opens from anywhere on the line.
+- A merge is drawn at half the size of a commit, so the commits stand out in a busy graph.
+- The search box marks the commits it finds and hides nothing: the graph you are reading stays the
+  graph git drew. It says how many lines it found, and searches the messages of the commits you have
+  loaded.
 
 ### The diff
 
@@ -30,12 +36,20 @@ diff.
   scroll together, vertically and sideways, so a line on the left is always beside its counterpart.
 - Unified shows the change itself, with the context you chose; expand it around a change, or open
   the whole file.
+- Instead of a vertical scrollbar, a minimap beside the patch: it draws where the additions and the
+  removals are over the whole file, marks the part you are looking at, and scrolls there when you
+  click or drag it.
 - The changed files of a commit as a list or a tree, whichever you prefer.
 
 ### Working with the repository
 
 - Branches: create, rename, delete, set an upstream, check out — including anything in the graph,
   with a plain warning before HEAD is detached.
+- The branches, tags and remotes lists select a row, with the pointer or the keyboard, and keep the
+  selection while the page refreshes underneath.
+- Drag one branch onto another to merge them. The drop opens a menu naming both ends: merge, merge
+  fast-forward only, or merge the other way round if that is what you meant. The target is checked
+  out first when it is not the branch you are on, and dismissing the menu does nothing.
 - Tags: create (lightweight or annotated) and delete.
 - Working directory: status, stage and unstage by file or by directory, discard, and commit with a
   subject/body guide.

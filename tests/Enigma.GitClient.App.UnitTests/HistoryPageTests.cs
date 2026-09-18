@@ -291,10 +291,115 @@ public sealed class HistoryPageTests
         });
     }
 
-    // ---------------------------------------------------------------- filters
+    // ---------------------------------------------------------------- the search
 
     [Fact]
-    public void Page_SearchesTheWholeHistoryRatherThanTheLoadedRows()
+    public void Search_MarksWhatItFoundAndHidesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            int rows = page.Rows.Count;
+            Assert.Equal(6, rows);
+
+            page.SearchText = "branch";
+
+            // Every line is still there, and the graph with it: three of them are marked.
+            Assert.Equal(rows, page.Rows.Count);
+            Assert.Equal(3, page.MatchCount);
+            Assert.Equal("3 matches", page.MatchSummary);
+
+            Assert.All(
+                page.Rows.Where(row => row.IsSearchMatch),
+                row => Assert.Contains("branch", row.Subject, StringComparison.OrdinalIgnoreCase));
+
+            Assert.Contains(page.Rows, row => !row.IsSearchMatch);
+        });
+    }
+
+    [Fact]
+    public void Search_MatchesTheBodyAsWellAsTheSubject()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "notes.txt"), "note\n");
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Add a note", "-m", "Refs SUPPORT-4213 for the record");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "support-4213";
+
+            CommitRowViewModel marked = Assert.Single(page.Rows, row => row.IsSearchMatch);
+
+            Assert.Equal("Add a note", marked.Subject);
+            Assert.Equal("1 match", page.MatchSummary);
+        });
+    }
+
+    [Fact]
+    public void Search_SaysSoWhenItFoundNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "nothing matches this";
+
+            // The list is untouched — the page is not empty, and it says the search found nothing
+            // rather than leaving the reader to wonder.
+            Assert.False(page.IsEmpty);
+            Assert.Equal(6, page.Rows.Count);
+            Assert.Equal(0, page.MatchCount);
+            Assert.Equal("no match", page.MatchSummary);
+            Assert.All(page.Rows, row => Assert.False(row.IsSearchMatch));
+        });
+    }
+
+    [Fact]
+    public void Search_IsForgottenWhenTheBoxIsCleared()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "branch";
+            Assert.True(page.HasSearch);
+            Assert.Contains(page.Rows, row => row.IsSearchMatch);
+
+            page.ClearSearchCommand.Execute(null);
+
+            Assert.False(page.HasSearch);
+            Assert.Equal(string.Empty, page.MatchSummary);
+            Assert.Equal(0, page.MatchCount);
+            Assert.All(page.Rows, row => Assert.False(row.IsSearchMatch));
+        });
+    }
+
+    [Fact]
+    public void Search_MarksThePageLoadedAfterIt()
     {
         _fixture.RunAsync(async () =>
         {
@@ -308,33 +413,81 @@ public sealed class HistoryPageTests
 
             Assert.Equal(3, page.Rows.Count);
 
-            // "readme" is in the oldest commit, which the first page does not contain.
+            // "readme" is in the oldest commit, which the first page does not reach: the search
+            // marks what is loaded, and what is loaded is what the reader asked for.
             page.SearchText = "readme";
-            await Task.Delay(HistoryPageViewModel.SearchDebounce + TimeSpan.FromMilliseconds(250));
+            Assert.Equal(0, page.MatchCount);
 
-            Assert.Equal("Add the readme", Assert.Single(page.Rows).Subject);
+            while (page.HasMore)
+            {
+                await page.LoadMoreCommand.ExecuteAsync(null);
+            }
+
+            Assert.Equal("Add the readme", Assert.Single(page.Rows, row => row.IsSearchMatch).Subject);
         });
     }
 
     [Fact]
-    public void Page_ReportsAnEmptyResultDifferentlyWhenFiltered()
+    public void Search_LeavesTheUncommittedRowAlone()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
             RepositoryHandle repository = await BuildHistoryAsync(services);
+
+            // A dirty working directory, which is what puts the pseudo-row at the top.
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# dirty\n");
+
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
             HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
             await page.ReloadAsync();
 
-            page.SearchText = "nothing matches this";
-            await Task.Delay(HistoryPageViewModel.SearchDebounce + TimeSpan.FromMilliseconds(250));
+            CommitRowViewModel uncommitted = Assert.Single(page.Rows, row => row.IsUncommitted);
 
-            Assert.True(page.IsEmpty);
-            Assert.Contains("No commit matches", page.EmptyMessage, StringComparison.Ordinal);
+            // Its label is "Uncommitted changes", and it is not a commit message.
+            page.SearchText = "uncommitted";
+
+            Assert.False(uncommitted.IsSearchMatch);
+            Assert.Equal(0, page.MatchCount);
         });
     }
+
+    [Fact]
+    public void Search_MarksTheRowsOnScreen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Assert.All(RowGrids(workspace), row => Assert.DoesNotContain("match", row.Classes));
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            List<Grid> rows = RowGrids(workspace);
+
+            Assert.Equal(
+                model.Rows.Count(row => row.IsSearchMatch),
+                rows.Count(row => row.Classes.Contains("match")));
+
+            // The marked rows are the ones the page marked, and no row left the list for it.
+            Assert.Equal(model.Rows.Count, rows.Count);
+
+            foreach (Grid row in rows)
+            {
+                Assert.Equal(
+                    ((CommitRowViewModel)row.DataContext!).IsSearchMatch,
+                    row.Classes.Contains("match"));
+            }
+
+            window.Close();
+        });
+    }
+
+    // ---------------------------------------------------------------- filters
 
     [Fact]
     public void Page_HidesMergedInBranchesWithFirstParentOnly()
@@ -522,6 +675,12 @@ public sealed class HistoryPageTests
                 Assert.Contains("Extend the application file", texts);
                 Assert.Contains("Ada Lovelace", texts);
                 Assert.Contains("main", texts);
+
+                // The columns are named above the commits they hold.
+                Assert.Contains("Message", texts);
+                Assert.Contains("Author", texts);
+                Assert.Contains("Date", texts);
+                Assert.Contains("Commit", texts);
                 Assert.Contains(texts, text => text.Length == 7 && text.All(char.IsAsciiLetterOrDigit));
 
                 window.Close();
@@ -531,6 +690,260 @@ public sealed class HistoryPageTests
                 application.RequestedThemeVariant = original;
             }
         });
+    }
+
+    // ---------------------------------------------------------------- the row's hit area
+
+    /// <summary>
+    /// Finds the grids the rows are drawn with — the ones carrying each row's own context menu.
+    /// </summary>
+    private static List<Grid> RowGrids(Panel workspace)
+        => [.. workspace.GetVisualDescendants()
+            .OfType<Grid>()
+            .Where(grid => grid.ContextMenu is not null && grid.DataContext is CommitRowViewModel)];
+
+    [Fact]
+    public void Row_OpensItsMenuFromAnywhereOnTheLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, _, _, Panel workspace, _) = await ShowHistoryPageAsync(services);
+
+            Grid row = Assert.IsType<Grid>(RowGrids(workspace).FirstOrDefault());
+
+            // The line is the row: whatever the columns do, the grid is as wide as the list gives it.
+            Assert.True(row.Bounds.Width > 400, $"the row was only {row.Bounds.Width} wide");
+
+            TextBlock subject = row.Children.OfType<TextBlock>().First();
+
+            // The gap between two columns — ten points of ColumnSpacing carrying no child at all,
+            // which is exactly where a right-click used to fall through to the list.
+            Point gap = new(subject.Bounds.Right + 5, row.Bounds.Height / 2);
+
+            Assert.False(
+                row.Children.Any(child => child.Bounds.Contains(gap)),
+                "the point picked for the test is inside a cell, so it proves nothing");
+
+            // Hit testing reads the composed frame, so the window has to have drawn one.
+            Render(window);
+
+            Assert.Same(row, MenuOwnerAt(window, row.TranslatePoint(gap, window)));
+
+            // And a point over a cell still reaches the same menu, through the cell.
+            Assert.Same(row, MenuOwnerAt(window, row.TranslatePoint(subject.Bounds.Center, window)));
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// Draws the window, which is what gives the headless platform a frame to hit-test against.
+    /// </summary>
+    private static void Render(Window window)
+    {
+        window.UpdateLayout();
+
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    /// <summary>
+    /// The control a right-click at a point would open a menu from: the nearest ancestor of what
+    /// the pointer lands on that carries one.
+    /// </summary>
+    private static Control? MenuOwnerAt(Window window, Point? point)
+        => (window.InputHitTest(point ?? throw new InvalidOperationException("The point is not in the window.")) as Visual)?
+            .GetSelfAndVisualAncestors()
+            .OfType<Control>()
+            .FirstOrDefault(control => control.ContextMenu is not null);
+
+    // ---------------------------------------------------------------- the columns and their header
+
+    [Fact]
+    public void Columns_StartAtTheirDefaults()
+    {
+        HistoryColumnLayout columns = new();
+
+        Assert.Equal(0, columns.RefsWidth);
+        Assert.Equal(190, columns.AuthorWidth);
+        Assert.Equal(110, columns.DateWidth);
+        Assert.Equal(70, columns.ShaWidth);
+
+        // Nothing has been laid out yet, so the header is Auto rather than a width of zero.
+        Assert.True(double.IsNaN(columns.HeaderWidth));
+        Assert.Equal(HistoryColumnLayout.MinimumMessageWidth, columns.MessageWidth);
+    }
+
+    [Fact]
+    public void Columns_TakeTheMeasuredBadgeWidthUntilTheReaderResizesThatColumn()
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+
+        columns.SeedRefsWidth(140);
+        Assert.Equal(140, columns.RefsWidth);
+
+        columns.SeedRefsWidth(60);
+        Assert.Equal(60, columns.RefsWidth);
+
+        columns.Resize(HistoryColumn.Refs, 40);
+        Assert.Equal(100, columns.RefsWidth);
+
+        // From here the width is the reader's: a refresh that measures the badges again leaves it.
+        columns.SeedRefsWidth(60);
+        Assert.Equal(100, columns.RefsWidth);
+    }
+
+    [Theory]
+    // The badge column sits before the message and grows to the right; the three after it grow to
+    // the left, so every grip follows the pointer.
+    [InlineData(HistoryColumn.Refs, 30, 30)]
+    [InlineData(HistoryColumn.Refs, -30, 0)]
+    [InlineData(HistoryColumn.Author, -30, 220)]
+    [InlineData(HistoryColumn.Author, 30, 160)]
+    [InlineData(HistoryColumn.Date, -25, 135)]
+    [InlineData(HistoryColumn.Sha, -25, 95)]
+    public void Columns_ResizeTowardsTheMessage(HistoryColumn column, double delta, double expected)
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+
+        columns.Resize(column, delta);
+
+        Assert.Equal(expected, columns.WidthOf(column));
+    }
+
+    [Fact]
+    public void Columns_StopAtTheirMinimum()
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+
+        columns.Resize(HistoryColumn.Author, 500);
+        Assert.Equal(HistoryColumnLayout.MinimumWidth(HistoryColumn.Author), columns.AuthorWidth);
+
+        columns.Resize(HistoryColumn.Sha, 500);
+        Assert.Equal(HistoryColumnLayout.MinimumWidth(HistoryColumn.Sha), columns.ShaWidth);
+
+        // The badge column may go all the way: a history with nothing decorated asks for no column.
+        columns.Resize(HistoryColumn.Refs, -500);
+        Assert.Equal(0, columns.RefsWidth);
+    }
+
+    [Fact]
+    public void Columns_NeverTakeTheMessageBelowItsMinimum()
+    {
+        // Graph, refs, author, date, sha and five gaps leave the message exactly its minimum plus 40.
+        HistoryColumnLayout columns = new() { GraphWidth = 60 };
+        columns.SeedRefsWidth(100);
+        columns.Viewport = 60 + 100 + 190 + 110 + 70 + (HistoryColumnLayout.ColumnSpacing * 5)
+            + HistoryColumnLayout.MinimumMessageWidth + 40;
+
+        Assert.Equal(40, columns.Slack);
+
+        columns.Resize(HistoryColumn.Author, -300);
+
+        Assert.Equal(230, columns.AuthorWidth);
+        Assert.Equal(0, columns.Slack);
+        Assert.Equal(HistoryColumnLayout.MinimumMessageWidth, columns.MessageWidth);
+
+        // And nothing else can grow either, while shrinking still works.
+        columns.Resize(HistoryColumn.Date, -100);
+        Assert.Equal(110, columns.DateWidth);
+
+        columns.Resize(HistoryColumn.Date, 30);
+        Assert.Equal(80, columns.DateWidth);
+    }
+
+    [Fact]
+    public void Header_LinesUpWithEveryRow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Grid header = view.FindControl<Grid>("HeaderRow")
+                ?? throw new InvalidOperationException("The history page has no column header.");
+
+            // The header is drawn at the list's own viewport, which is what the rows are given too.
+            Assert.True(model.Columns.Viewport > 0, "the list never reported its viewport");
+            Assert.Equal(model.Columns.Viewport, header.Bounds.Width, 1);
+
+            AssertColumnsLineUp(header, workspace);
+
+            // And after a drag: the author column grows to the left, the message gives up the room.
+            double message = model.Columns.MessageWidth;
+            model.Columns.Resize(HistoryColumn.Author, -40);
+            window.UpdateLayout();
+
+            Assert.Equal(230, model.Columns.AuthorWidth);
+            Assert.Equal(message - 40, model.Columns.MessageWidth, 1);
+
+            AssertColumnsLineUp(header, workspace);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Header_LinesUpWithTheRowsWhenAScrollbarTakesTheirWidth()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services, extraCommits: 40);
+
+            Grid header = view.FindControl<Grid>("HeaderRow")
+                ?? throw new InvalidOperationException("The history page has no column header.");
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            // Fluent's scrollbar hides itself over the content, so by default it costs the rows
+            // nothing. Pinned, it takes its width out of the viewport — which is the case the
+            // header exists to survive, and the reason it follows the viewport rather than the page.
+            ScrollViewer.SetAllowAutoHide(list, false);
+
+            // Twice: the first pass is where the viewport shrinks and the header is told, the
+            // second is where the header is laid out at what it was told.
+            window.UpdateLayout();
+            window.UpdateLayout();
+
+            Assert.True(
+                model.Columns.Viewport < view.Bounds.Width,
+                $"the scrollbar took nothing: viewport {model.Columns.Viewport}, page {view.Bounds.Width}");
+
+            Assert.Equal(model.Columns.Viewport, header.Bounds.Width, 1);
+            AssertColumnsLineUp(header, workspace);
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// Asserts every row's cells sit at the same x as the header cell above them.
+    /// </summary>
+    private static void AssertColumnsLineUp(Grid header, Panel workspace)
+    {
+        List<double> headerEdges = [.. header.Children.Select(cell => cell.Bounds.Right)];
+
+        foreach (Grid row in RowGrids(workspace))
+        {
+            List<double> rowEdges = [.. row.Children.Select(cell => cell.Bounds.Right)];
+
+            Assert.Equal(headerEdges.Count, rowEdges.Count);
+
+            for (int column = 0; column < headerEdges.Count; column++)
+            {
+                Assert.True(
+                    Math.Abs(headerEdges[column] - rowEdges[column]) <= 1,
+                    $"column {column} ends at {headerEdges[column]} in the header and {rowEdges[column]} in a row");
+            }
+        }
     }
 
     // ---------------------------------------------------------------- the badge column
@@ -642,155 +1055,29 @@ public sealed class HistoryPageTests
         });
     }
 
-    // ---------------------------------------------------------------- dragging a branch
-
-    [Theory]
-    // sourceKind, sourceName, targetKind, targetName, targetIsCurrent, expected
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.LocalBranch, "main", true, true)]
-    [InlineData(GitRefKind.RemoteBranch, "origin/feature", GitRefKind.LocalBranch, "main", true, true)]
-    [InlineData(GitRefKind.LocalBranch, "main", GitRefKind.LocalBranch, "main", true, false)]
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.RemoteBranch, "origin/main", false, false)]
-    [InlineData(GitRefKind.Tag, "v1.0.0", GitRefKind.LocalBranch, "main", true, false)]
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.Tag, "v1.0.0", false, false)]
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.Stash, "stash", false, false)]
-    public void CanDropBranch_AcceptsOnlyBranchOntoLocalBranch(
-        GitRefKind sourceKind,
-        string sourceName,
-        GitRefKind targetKind,
-        string targetName,
-        bool targetIsCurrent,
-        bool expected)
-        => Assert.Equal(
-            expected,
-            HistoryPageViewModel.CanDropBranch(
-                new RefBadgeItem(sourceKind, sourceName, false),
-                new RefBadgeItem(targetKind, targetName, targetIsCurrent)));
+    // ---------------------------------------------------------------- the badges are not dragged
 
     [Fact]
-    public void CanDropBranch_RefusesAMissingEnd()
-    {
-        RefBadgeItem badge = new(GitRefKind.LocalBranch, "main", true);
-
-        Assert.False(HistoryPageViewModel.CanDropBranch(null, badge));
-        Assert.False(HistoryPageViewModel.CanDropBranch(badge, null));
-        Assert.False(HistoryPageViewModel.CanDropBranch(null, null));
-    }
-
-    [Fact]
-    public void Request_CarriesWhatTheTwoBadgesSay()
-    {
-        BranchDropRequest request = HistoryPageViewModel.Request(
-            new RefBadgeItem(GitRefKind.RemoteBranch, "origin/feature", false),
-            new RefBadgeItem(GitRefKind.LocalBranch, "main", true));
-
-        Assert.Equal("origin/feature", request.Source);
-        Assert.True(request.SourceIsRemote);
-        Assert.Equal("main", request.Target);
-        Assert.False(request.TargetIsRemote);
-        Assert.True(request.TargetIsCurrent);
-    }
-
-    [Fact]
-    public void DropBranch_MergesAndReReadsTheHistory()
+    public void CommitList_TakesNoDrops()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildHistoryAsync(services);
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
-            await page.ReloadAsync();
-
-            int before = page.Rows.Count;
-
-            // "feature" is an unmerged side branch of the repository the fixture builds, and main
-            // is what is checked out.
-            services.Dialogs.Result = DialogResult.Primary;
-
-            await page.DropBranchCommand.ExecuteAsync(new BranchDrop(
-                new RefBadgeItem(GitRefKind.LocalBranch, "feature", false),
-                new RefBadgeItem(GitRefKind.LocalBranch, "main", true)));
-
-            Assert.Single(services.Dialogs.Shown);
-
-            // The merge brought the side branch's commit in, and the page re-read to show it.
-            Assert.True(
-                page.Rows.Count >= before,
-                "the history was not re-read after the drop");
-
-            Assert.Contains(page.Rows, row => row.Subject == "Start the feature branch");
-        });
-    }
-
-    [Fact]
-    public void DropBranch_RefusesAPairThatCannotBeMerged()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildHistoryAsync(services);
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
-            await page.ReloadAsync();
-
-            BranchDrop onItself = new(
-                new RefBadgeItem(GitRefKind.LocalBranch, "main", true),
-                new RefBadgeItem(GitRefKind.LocalBranch, "main", true));
-
-            Assert.False(page.DropBranchCommand.CanExecute(onItself));
-
-            await page.DropBranchCommand.ExecuteAsync(onItself);
-
-            // Nothing was asked and nothing was run.
-            Assert.Empty(services.Dialogs.Shown);
-        });
-    }
-
-    [Fact]
-    public void CommitList_AcceptsDrops()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, _, HistoryPageView view, _, _) = await ShowHistoryPageAsync(services);
+            (Window window, _, HistoryPageView view, Panel workspace, _) = await ShowHistoryPageAsync(services);
 
             ListBox list = view.FindControl<ListBox>("CommitList")
                 ?? throw new InvalidOperationException("The history page has no commit list.");
 
-            Assert.True(DragDrop.GetAllowDrop(list));
+            // Merging one branch into another by dropping it is the branches page's gesture; here
+            // the badges say which references point at a commit and nothing more.
+            Assert.False(DragDrop.GetAllowDrop(list));
 
-            window.Close();
-        });
-    }
+            List<ItemsControl> strips = [.. workspace.GetVisualDescendants()
+                .OfType<ItemsControl>()
+                .Where(control => control.Name == "RefStrip")];
 
-    [Fact]
-    public void RefBadge_MarksItselfAsADropTarget()
-    {
-        _fixture.Run(() =>
-        {
-            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
-
-            Window window = new() { Content = badge, Width = 300, Height = 60 };
-            window.Show();
-            window.UpdateLayout();
-
-            Border border = badge.GetVisualDescendants().OfType<Border>().First();
-            IBrush? plain = border.BorderBrush;
-
-            badge.Classes.Set("droptarget", true);
-            window.UpdateLayout();
-
-            // The ring is what says where a dragged branch would land; the badge's own colour still
-            // says what kind of reference it is.
-            Assert.NotEqual(plain, border.BorderBrush);
-            Assert.True(border.BorderThickness.Left > 0);
-
-            badge.Classes.Set("droptarget", false);
-            window.UpdateLayout();
-
-            Assert.Equal(plain, border.BorderBrush);
+            Assert.NotEmpty(strips);
+            Assert.All(strips, strip => Assert.Null(ToolTip.GetTip(strip)));
 
             window.Close();
         });
@@ -803,9 +1090,9 @@ public sealed class HistoryPageTests
     /// dialog's behaviour is read from.
     /// </summary>
     private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Panel Workspace, ContentDialog Dialog)>
-        ShowHistoryPageAsync(TestServices services)
+        ShowHistoryPageAsync(TestServices services, int extraCommits = 0)
     {
-        RepositoryHandle repository = await BuildHistoryAsync(services);
+        RepositoryHandle repository = await BuildHistoryAsync(services, extraCommits);
         await services.Get<IRepositoryContext>().OpenAsync(repository);
 
         HistoryPageViewModel model = services.Get<HistoryPageViewModel>();

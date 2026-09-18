@@ -124,6 +124,29 @@ public sealed class CommitGraphCellTests
     public void Node_IsNeverGrownToFillTheRoomItIsGiven()
         => Assert.Equal(4.5, CommitGraphCell.CalculateNodeRadius(4.5, 96, 40, 2, isHead: false));
 
+    [Theory]
+    // A merge is half the commit on the same row, whatever that row fitted the commit to.
+    [InlineData(36, 16, false, 4.5)]
+    [InlineData(18, 16, false, 3.5)]
+    [InlineData(18, 16, true, 2.25)]
+    [InlineData(36, 8, false, 3)]
+    public void MergeNode_IsHalfTheSizeOfACommit(double rowHeight, double laneWidth, bool isHead, double expected)
+    {
+        double commit = CommitGraphCell.CalculateNodeRadius(9, rowHeight, laneWidth, 2, isHead);
+
+        Assert.Equal(expected, CommitGraphCell.CalculateMergeNodeRadius(commit));
+        Assert.Equal(commit / 2, CommitGraphCell.CalculateMergeNodeRadius(commit));
+    }
+
+    [Fact]
+    public void MergeNode_NeverDisappearsHoweverSmallTheRowIs()
+    {
+        double commit = CommitGraphCell.CalculateNodeRadius(9, 1, 1, 2, isHead: true);
+
+        Assert.Equal(1, commit);
+        Assert.Equal(1, CommitGraphCell.CalculateMergeNodeRadius(commit));
+    }
+
     // ---------------------------------------------------------------- palette
 
     [Fact]
@@ -306,6 +329,77 @@ public sealed class CommitGraphCellTests
 
         return colours.Count;
     }
+
+    /// <summary>
+    /// Counts the pixels the graph painted over the frame's background, which is how much ink a row
+    /// actually put on the canvas.
+    /// </summary>
+    private static int CountPaintedPixels(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        using WriteableBitmap bitmap = WriteableBitmap.Decode(stream);
+        using ILockedFramebuffer buffer = bitmap.Lock();
+
+        int painted = 0;
+
+        unsafe
+        {
+            byte* pixels = (byte*)buffer.Address;
+
+            for (int y = 0; y < buffer.Size.Height; y++)
+            {
+                byte* row = pixels + (y * buffer.RowBytes);
+
+                for (int x = 0; x < buffer.Size.Width; x++)
+                {
+                    // The frame's background is #1E1F22; anything else is the graph.
+                    if (row[(x * 4) + 2] != 0x1E || row[(x * 4) + 1] != 0x1F || row[x * 4] != 0x22)
+                    {
+                        painted++;
+                    }
+                }
+            }
+        }
+
+        return painted;
+    }
+
+    [Fact]
+    public void Render_DrawsAMergeSmallerThanACommit()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = ThemeVariant.Dark;
+
+            try
+            {
+                // The same row twice, differing in nothing but what it stands for: one lane, one
+                // edge straight through it, so the only thing the two frames can differ by is the
+                // node.
+                GraphRow commit = Row(isMerge: false);
+                GraphRow merge = Row(isMerge: true);
+
+                (_, string commitFrame) = RenderRows([commit], "graph-node-commit.png");
+                (_, string mergeFrame) = RenderRows([merge], "graph-node-merge.png");
+
+                int commitInk = CountPaintedPixels(commitFrame);
+                int mergeInk = CountPaintedPixels(mergeFrame);
+
+                Assert.True(
+                    mergeInk < commitInk,
+                    $"the merge covered {mergeInk} pixels and the commit {commitInk}");
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    private static GraphRow Row(bool isMerge)
+        => new("a", 0, 0, isMerge, isRoot: false, [new GraphEdge(0, 0, GraphEdgeKind.Straight, 0)], 0);
 
     [Fact]
     public void Render_DrawsABranchAndItsMergeInSeveralColours()

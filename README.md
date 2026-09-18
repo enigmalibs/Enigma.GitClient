@@ -13,15 +13,20 @@ Two things matter more than everything else in this app:
 ## Features
 
 - Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
+- History list with a column header you can resize, and a search that highlights what it
+  found instead of hiding everything else
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit, shown as a **list or a tree** (your choice)
 - Colour-coded file diffs with word-level intra-line highlighting
 - Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
   change with the context you chose
+- A minimap in place of the diff's vertical scrollbar: where the changes are, where you are, and
+  click or drag it to go there
 - Branch management — create, rename, delete, set upstream, checkout
+- Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
+  drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse
 - Tag management — create (lightweight or annotated) and delete
 - Checkout of anything in the graph from a row's own menu, including a detached commit
-- Drag one branch badge onto another in the graph to merge it, or to fast-forward only
 - Create, clone and open repositories, with a recent-repositories list
 - Working directory: status, stage/unstage, discard and commit
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
