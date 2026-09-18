@@ -875,18 +875,17 @@ public sealed class DiffViewerTests
     }
 
     [Fact]
-    public void Viewer_MeasuresEachPaneByItsOwnLongestLine()
+    public void Viewer_MeasuresTheSideBySideRenderingByItsWiderSide()
     {
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync(Parse(LongLinePatch));
 
-            // The 400-character line, plus the column of air that keeps it off the edge.
-            Assert.Equal(401, harness.Viewer.Render.LeftScroll.Columns);
+            // The 400-character line, plus the column of air that keeps it off the edge. The new
+            // side holds only "short" and the context line, but the two panes share one extent, so
+            // either can be scrolled to the end of the longest line on either of them.
+            Assert.Equal(401, harness.Viewer.Render.SideBySideScroll.Columns);
             Assert.Equal(401, harness.Viewer.Render.UnifiedScroll.Columns);
-
-            // The new side has only "short" and the context line: it is not the side that overflows.
-            Assert.Equal(6, harness.Viewer.Render.RightScroll.Columns);
         });
     }
 
@@ -897,35 +896,63 @@ public sealed class DiffViewerTests
         {
             Harness harness = await ShownAsync(Parse(TabbedPatch));
 
-            double narrow = harness.Viewer.Render.LeftScroll.Columns;
+            double narrow = harness.Viewer.Render.SideBySideScroll.Columns;
 
             harness.Viewer.Render.TabWidth = 8;
 
             Assert.True(
-                harness.Viewer.Render.LeftScroll.Columns > narrow,
+                harness.Viewer.Render.SideBySideScroll.Columns > narrow,
                 "a wider tab did not make the line it indents any wider");
         });
     }
 
     [Fact]
-    public void Viewer_ScrollsOnePaneWithoutMovingTheOther()
+    public void Viewer_ScrollsBothSidesTogether()
     {
         _fixture.RunAsync(async () =>
         {
             Harness harness = await ShownAsync(Parse(LongLinePatch));
 
-            harness.Viewer.Render.LeftScroll.Viewport = 40;
-            harness.Viewer.Render.RightScroll.Viewport = 40;
+            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
 
-            Assert.True(harness.Viewer.Render.LeftScroll.IsScrollable);
+            Assert.True(harness.Viewer.Render.SideBySideScroll.IsScrollable);
 
-            // The new side fits in forty columns, so it has nowhere to go and no bar to show.
-            Assert.False(harness.Viewer.Render.RightScroll.IsScrollable);
+            harness.Viewer.Render.SideBySideScroll.Offset = 120;
 
-            harness.Viewer.Render.LeftScroll.Offset = 120;
+            // One offset behind both sides: every DiffLineText of the rendering, old side and new,
+            // is drawn at the same column. That is what "synchronised" means here — there is
+            // nothing to keep in step, because there is only one thing.
+            Assert.All(
+                harness.Viewer.SideBySideRows,
+                row =>
+                {
+                    Assert.Same(harness.Viewer.Render.SideBySideScroll, row.Options.SideBySideScroll);
+                    Assert.Equal(120, row.Options.SideBySideScroll.Offset);
+                });
 
-            Assert.Equal(120, harness.Viewer.Render.LeftScroll.Offset);
-            Assert.Equal(0, harness.Viewer.Render.RightScroll.Offset);
+            // And the unified rendering keeps its own, which the two share nothing with.
+            Assert.Equal(0, harness.Viewer.Render.UnifiedScroll.Offset);
+        });
+    }
+
+    [Fact]
+    public void Viewer_HasOneVerticalScrollForBothSides()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(SamplePatch));
+
+            // The two sides are cells of one row rather than two lists, so nothing can make them
+            // drift vertically: scrolling the rendering scrolls both by construction.
+            Assert.NotEmpty(harness.Viewer.SideBySideRows);
+
+            Assert.All(
+                harness.Viewer.SideBySideRows,
+                row => Assert.True(
+                    row.IsHunkHeader || row.Left is not null || row.Right is not null,
+                    "a side-by-side row carried neither side"));
+
+            Assert.Contains(harness.Viewer.SideBySideRows, row => row.Left is not null && row.Right is not null);
         });
     }
 
@@ -937,8 +964,8 @@ public sealed class DiffViewerTests
             Harness harness = await ShownAsync(Parse(LongLinePatch));
 
             harness.Viewer.Render.UnifiedScroll.Viewport = 40;
-            harness.Viewer.Render.LeftScroll.Viewport = 40;
-            harness.Viewer.Render.LeftScroll.Offset = 120;
+            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
+            harness.Viewer.Render.SideBySideScroll.Offset = 120;
 
             harness.Viewer.Render.WrapLines = true;
 
@@ -950,7 +977,7 @@ public sealed class DiffViewerTests
 
             harness.Viewer.Render.WrapLines = false;
 
-            Assert.True(harness.Viewer.Render.LeftScroll.IsScrollable);
+            Assert.True(harness.Viewer.Render.SideBySideScroll.IsScrollable);
         });
     }
 
@@ -961,8 +988,8 @@ public sealed class DiffViewerTests
         {
             Harness harness = await ShownAsync(Parse(LongLinePatch));
 
-            harness.Viewer.Render.LeftScroll.Viewport = 40;
-            harness.Viewer.Render.LeftScroll.Offset = 200;
+            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
+            harness.Viewer.Render.SideBySideScroll.Offset = 200;
 
             harness.Diffs.Patch = Parse(SamplePatch);
 
@@ -1012,8 +1039,8 @@ public sealed class DiffViewerTests
             Assert.True(pane.Bounds.Width < window.Width, "the pane is not half of a side-by-side row");
 
             // The view reported what it can show, which is what makes the bar appear at all.
-            Assert.True(harness.Viewer.Render.LeftScroll.Viewport > 0);
-            Assert.True(harness.Viewer.Render.LeftScroll.IsScrollable);
+            Assert.True(harness.Viewer.Render.SideBySideScroll.Viewport > 0);
+            Assert.True(harness.Viewer.Render.SideBySideScroll.IsScrollable);
 
             window.Content = null;
             window.Close();
@@ -1031,8 +1058,8 @@ public sealed class DiffViewerTests
             Window window = new() { Content = view, Width = 900, Height = 420 };
             window.Show();
 
-            harness.Viewer.Render.LeftScroll.Viewport = 40;
-            harness.Viewer.Render.LeftScroll.Offset = 120;
+            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
+            harness.Viewer.Render.SideBySideScroll.Offset = 120;
 
             for (int attempt = 0; attempt < 10; attempt++)
             {

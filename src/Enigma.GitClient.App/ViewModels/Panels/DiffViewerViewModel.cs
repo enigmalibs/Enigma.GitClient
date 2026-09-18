@@ -134,8 +134,8 @@ public sealed class DiffScrollState : ViewModelBase
 /// </summary>
 /// <remarks>
 /// Every row holds the same instance, which is what lets a toggle repaint thousands of rows without
-/// rebuilding any of them — and what lets three of them scroll sideways together, since the scroll
-/// states below are shared by exactly the same route.
+/// rebuilding any of them — and what lets a whole rendering scroll sideways as one, since the
+/// scroll states below are shared by exactly the same route.
 /// </remarks>
 public sealed class DiffRenderOptions : ViewModelBase
 {
@@ -153,8 +153,7 @@ public sealed class DiffRenderOptions : ViewModelBase
                 // Wrapping and scrolling are the two answers to the same question, so turning one
                 // on puts the other away — bars and offsets both.
                 UnifiedScroll.IsEnabled = !value;
-                LeftScroll.IsEnabled = !value;
-                RightScroll.IsEnabled = !value;
+                SideBySideScroll.IsEnabled = !value;
             }
         }
     }
@@ -165,21 +164,24 @@ public sealed class DiffRenderOptions : ViewModelBase
     /// <summary>Gets how far the unified rendering is scrolled sideways.</summary>
     public DiffScrollState UnifiedScroll { get; } = new();
 
-    /// <summary>Gets how far the side-by-side rendering's old file is scrolled sideways.</summary>
-    public DiffScrollState LeftScroll { get; } = new();
-
-    /// <summary>Gets how far the side-by-side rendering's new file is scrolled sideways.</summary>
-    public DiffScrollState RightScroll { get; } = new();
+    /// <summary>
+    /// Gets how far the side-by-side rendering is scrolled sideways — both panes at once.
+    /// </summary>
+    /// <remarks>
+    /// One state, not two kept in step: the two bars and the two columns of text all bind it, so
+    /// they cannot drift. Two mirrored states would, the moment the sides' maxima differed — and
+    /// they do differ, because the old file and the new one have different longest lines.
+    /// </remarks>
+    public DiffScrollState SideBySideScroll { get; } = new();
 
     /// <summary>
-    /// Enumerates the three panes, for the things that apply to all of them.
+    /// Enumerates the panes, for the things that apply to all of them.
     /// </summary>
     /// <returns>The scroll states.</returns>
     public IEnumerable<DiffScrollState> Panes()
     {
         yield return UnifiedScroll;
-        yield return LeftScroll;
-        yield return RightScroll;
+        yield return SideBySideScroll;
     }
 }
 
@@ -820,8 +822,12 @@ public sealed class DiffViewerViewModel : ViewModelBase
     private void MeasureExtents()
     {
         Render.UnifiedScroll.Columns = LongestLine(UnifiedRows, row => row.Single);
-        Render.LeftScroll.Columns = LongestLine(SideBySideRows, row => row.Left);
-        Render.RightScroll.Columns = LongestLine(SideBySideRows, row => row.Right);
+
+        // The wider of the two sides: one shared extent, so either pane can be scrolled to the end
+        // of the longest line on either of them and the two bars agree about how far there is left.
+        Render.SideBySideScroll.Columns = Math.Max(
+            LongestLine(SideBySideRows, row => row.Left),
+            LongestLine(SideBySideRows, row => row.Right));
     }
 
     private double LongestLine(

@@ -1,6 +1,6 @@
 # FEATURE-295F — Diff viewer: sync, paths, full file
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-history-and-diffs
@@ -44,7 +44,7 @@ rather than paths.
 ## PHASE01 — Synchronised side-by-side scrolling
 
 **Branch:** `feature/feature-295f-phase01-synced-scroll`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-295F-PHASE01.md`
 
 ### Steps
 
