@@ -20,6 +20,7 @@ public partial class HistoryPageView : UserControl
 {
     private HistoryPageViewModel? _page;
     private RefBadge? _highlighted;
+    private ScrollViewer? _listScroll;
 
     /// <summary>
     /// Initialises a new instance.
@@ -41,6 +42,69 @@ public partial class HistoryPageView : UserControl
         AddHandler(DragDrop.DropEvent, OnDrop);
 
         DiffDialogBody.AttachedToVisualTree += OnDialogBodyAttached;
+
+        Resizes(RefsGrip, HistoryColumn.Refs);
+        Resizes(AuthorGrip, HistoryColumn.Author);
+        Resizes(DateGrip, HistoryColumn.Date);
+        Resizes(ShaGrip, HistoryColumn.Sha);
+
+        // The list's own viewport is the width the header has to match, and it is known only once
+        // the list has a template to find a scroll viewer in.
+        CommitList.TemplateApplied += OnCommitListTemplateApplied;
+    }
+
+    // ---------------------------------------------------------------- the columns
+
+    /// <summary>
+    /// Makes a header grip resize a column.
+    /// </summary>
+    /// <param name="grip">The grip.</param>
+    /// <param name="column">The column it belongs to.</param>
+    /// <remarks>
+    /// A <see cref="Thumb"/> reports how far the pointer moved since the last report, which is
+    /// exactly what the layout takes: it decides for itself which way that moves the column's edge,
+    /// and how far it may go.
+    /// </remarks>
+    private void Resizes(Thumb grip, HistoryColumn column)
+        => grip.DragDelta += (_, e) => (DataContext as HistoryPageViewModel)?.Columns.Resize(column, e.Vector.X);
+
+    private void OnCommitListTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        if (_listScroll is not null)
+        {
+            _listScroll.ScrollChanged -= OnListScrollChanged;
+            _listScroll.SizeChanged -= OnListResized;
+        }
+
+        _listScroll = e.NameScope.Find<ScrollViewer>("PART_ScrollViewer")
+            ?? CommitList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        if (_listScroll is null)
+        {
+            return;
+        }
+
+        // Both, because the two ways the viewport changes are not the same event: the window being
+        // resized, and the vertical scrollbar appearing when one more row than fits is loaded.
+        _listScroll.ScrollChanged += OnListScrollChanged;
+        _listScroll.SizeChanged += OnListResized;
+
+        ReportViewport();
+    }
+
+    private void OnListScrollChanged(object? sender, ScrollChangedEventArgs e) => ReportViewport();
+
+    private void OnListResized(object? sender, SizeChangedEventArgs e) => ReportViewport();
+
+    /// <summary>
+    /// Tells the columns how wide the list's viewport is, which is what the header is drawn at.
+    /// </summary>
+    private void ReportViewport()
+    {
+        if (_listScroll is not null && DataContext is HistoryPageViewModel page)
+        {
+            page.Columns.Viewport = _listScroll.Viewport.Width;
+        }
     }
 
     /// <summary>
@@ -99,6 +163,9 @@ public partial class HistoryPageView : UserControl
         }
 
         ApplyDialogState(_page?.IsDiffDialogOpen ?? false);
+
+        // Another page's columns know nothing of this list's width.
+        ReportViewport();
     }
 
     private void OnPagePropertyChanged(object? sender, PropertyChangedEventArgs e)

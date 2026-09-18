@@ -73,7 +73,7 @@ what it found instead of hiding everything else.
 ## PHASE02 — Real columns with a resizable header
 
 **Branch:** `feature/feature-3030-phase02-column-header`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3030-PHASE02.md`
 
 ### Steps
 

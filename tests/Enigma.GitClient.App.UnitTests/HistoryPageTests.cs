@@ -522,6 +522,12 @@ public sealed class HistoryPageTests
                 Assert.Contains("Extend the application file", texts);
                 Assert.Contains("Ada Lovelace", texts);
                 Assert.Contains("main", texts);
+
+                // The columns are named above the commits they hold.
+                Assert.Contains("Message", texts);
+                Assert.Contains("Author", texts);
+                Assert.Contains("Date", texts);
+                Assert.Contains("Commit", texts);
                 Assert.Contains(texts, text => text.Length == 7 && text.All(char.IsAsciiLetterOrDigit));
 
                 window.Close();
@@ -602,6 +608,190 @@ public sealed class HistoryPageTests
             .GetSelfAndVisualAncestors()
             .OfType<Control>()
             .FirstOrDefault(control => control.ContextMenu is not null);
+
+    // ---------------------------------------------------------------- the columns and their header
+
+    [Fact]
+    public void Columns_StartAtTheirDefaults()
+    {
+        HistoryColumnLayout columns = new();
+
+        Assert.Equal(0, columns.RefsWidth);
+        Assert.Equal(190, columns.AuthorWidth);
+        Assert.Equal(110, columns.DateWidth);
+        Assert.Equal(70, columns.ShaWidth);
+
+        // Nothing has been laid out yet, so the header is Auto rather than a width of zero.
+        Assert.True(double.IsNaN(columns.HeaderWidth));
+        Assert.Equal(HistoryColumnLayout.MinimumMessageWidth, columns.MessageWidth);
+    }
+
+    [Fact]
+    public void Columns_TakeTheMeasuredBadgeWidthUntilTheReaderResizesThatColumn()
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+
+        columns.SeedRefsWidth(140);
+        Assert.Equal(140, columns.RefsWidth);
+
+        columns.SeedRefsWidth(60);
+        Assert.Equal(60, columns.RefsWidth);
+
+        columns.Resize(HistoryColumn.Refs, 40);
+        Assert.Equal(100, columns.RefsWidth);
+
+        // From here the width is the reader's: a refresh that measures the badges again leaves it.
+        columns.SeedRefsWidth(60);
+        Assert.Equal(100, columns.RefsWidth);
+    }
+
+    [Theory]
+    // The badge column sits before the message and grows to the right; the three after it grow to
+    // the left, so every grip follows the pointer.
+    [InlineData(HistoryColumn.Refs, 30, 30)]
+    [InlineData(HistoryColumn.Refs, -30, 0)]
+    [InlineData(HistoryColumn.Author, -30, 220)]
+    [InlineData(HistoryColumn.Author, 30, 160)]
+    [InlineData(HistoryColumn.Date, -25, 135)]
+    [InlineData(HistoryColumn.Sha, -25, 95)]
+    public void Columns_ResizeTowardsTheMessage(HistoryColumn column, double delta, double expected)
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+
+        columns.Resize(column, delta);
+
+        Assert.Equal(expected, columns.WidthOf(column));
+    }
+
+    [Fact]
+    public void Columns_StopAtTheirMinimum()
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+
+        columns.Resize(HistoryColumn.Author, 500);
+        Assert.Equal(HistoryColumnLayout.MinimumWidth(HistoryColumn.Author), columns.AuthorWidth);
+
+        columns.Resize(HistoryColumn.Sha, 500);
+        Assert.Equal(HistoryColumnLayout.MinimumWidth(HistoryColumn.Sha), columns.ShaWidth);
+
+        // The badge column may go all the way: a history with nothing decorated asks for no column.
+        columns.Resize(HistoryColumn.Refs, -500);
+        Assert.Equal(0, columns.RefsWidth);
+    }
+
+    [Fact]
+    public void Columns_NeverTakeTheMessageBelowItsMinimum()
+    {
+        // Graph, refs, author, date, sha and five gaps leave the message exactly its minimum plus 40.
+        HistoryColumnLayout columns = new() { GraphWidth = 60 };
+        columns.SeedRefsWidth(100);
+        columns.Viewport = 60 + 100 + 190 + 110 + 70 + (HistoryColumnLayout.ColumnSpacing * 5)
+            + HistoryColumnLayout.MinimumMessageWidth + 40;
+
+        Assert.Equal(40, columns.Slack);
+
+        columns.Resize(HistoryColumn.Author, -300);
+
+        Assert.Equal(230, columns.AuthorWidth);
+        Assert.Equal(0, columns.Slack);
+        Assert.Equal(HistoryColumnLayout.MinimumMessageWidth, columns.MessageWidth);
+
+        // And nothing else can grow either, while shrinking still works.
+        columns.Resize(HistoryColumn.Date, -100);
+        Assert.Equal(110, columns.DateWidth);
+
+        columns.Resize(HistoryColumn.Date, 30);
+        Assert.Equal(80, columns.DateWidth);
+    }
+
+    [Fact]
+    public void Header_LinesUpWithEveryRow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Grid header = view.FindControl<Grid>("HeaderRow")
+                ?? throw new InvalidOperationException("The history page has no column header.");
+
+            // The header is drawn at the list's own viewport, which is what the rows are given too.
+            Assert.True(model.Columns.Viewport > 0, "the list never reported its viewport");
+            Assert.Equal(model.Columns.Viewport, header.Bounds.Width, 1);
+
+            AssertColumnsLineUp(header, workspace);
+
+            // And after a drag: the author column grows to the left, the message gives up the room.
+            double message = model.Columns.MessageWidth;
+            model.Columns.Resize(HistoryColumn.Author, -40);
+            window.UpdateLayout();
+
+            Assert.Equal(230, model.Columns.AuthorWidth);
+            Assert.Equal(message - 40, model.Columns.MessageWidth, 1);
+
+            AssertColumnsLineUp(header, workspace);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Header_LinesUpWithTheRowsWhenAScrollbarTakesTheirWidth()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services, extraCommits: 40);
+
+            Grid header = view.FindControl<Grid>("HeaderRow")
+                ?? throw new InvalidOperationException("The history page has no column header.");
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            // Fluent's scrollbar hides itself over the content, so by default it costs the rows
+            // nothing. Pinned, it takes its width out of the viewport — which is the case the
+            // header exists to survive, and the reason it follows the viewport rather than the page.
+            ScrollViewer.SetAllowAutoHide(list, false);
+
+            // Twice: the first pass is where the viewport shrinks and the header is told, the
+            // second is where the header is laid out at what it was told.
+            window.UpdateLayout();
+            window.UpdateLayout();
+
+            Assert.True(
+                model.Columns.Viewport < view.Bounds.Width,
+                $"the scrollbar took nothing: viewport {model.Columns.Viewport}, page {view.Bounds.Width}");
+
+            Assert.Equal(model.Columns.Viewport, header.Bounds.Width, 1);
+            AssertColumnsLineUp(header, workspace);
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// Asserts every row's cells sit at the same x as the header cell above them.
+    /// </summary>
+    private static void AssertColumnsLineUp(Grid header, Panel workspace)
+    {
+        List<double> headerEdges = [.. header.Children.Select(cell => cell.Bounds.Right)];
+
+        foreach (Grid row in RowGrids(workspace))
+        {
+            List<double> rowEdges = [.. row.Children.Select(cell => cell.Bounds.Right)];
+
+            Assert.Equal(headerEdges.Count, rowEdges.Count);
+
+            for (int column = 0; column < headerEdges.Count; column++)
+            {
+                Assert.True(
+                    Math.Abs(headerEdges[column] - rowEdges[column]) <= 1,
+                    $"column {column} ends at {headerEdges[column]} in the header and {rowEdges[column]} in a row");
+            }
+        }
+    }
 
     // ---------------------------------------------------------------- the badge column
 
@@ -873,9 +1063,9 @@ public sealed class HistoryPageTests
     /// dialog's behaviour is read from.
     /// </summary>
     private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Panel Workspace, ContentDialog Dialog)>
-        ShowHistoryPageAsync(TestServices services)
+        ShowHistoryPageAsync(TestServices services, int extraCommits = 0)
     {
-        RepositoryHandle repository = await BuildHistoryAsync(services);
+        RepositoryHandle repository = await BuildHistoryAsync(services, extraCommits);
         await services.Get<IRepositoryContext>().OpenAsync(repository);
 
         HistoryPageViewModel model = services.Get<HistoryPageViewModel>();
