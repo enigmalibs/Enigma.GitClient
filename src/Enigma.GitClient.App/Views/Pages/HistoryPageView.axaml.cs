@@ -93,12 +93,13 @@ public partial class HistoryPageView : UserControl
     }
 
     /// <summary>
-    /// Checks out whatever the double-clicked row stands for.
+    /// Shows what the double-clicked row changed.
     /// </summary>
     /// <remarks>
     /// A double-click is a gesture, not state, so it has nowhere to live but here. The handler does
     /// no work of its own: it finds the row and runs the command the ViewModel already exposes, so
-    /// the behaviour stays testable without a pointer.
+    /// the behaviour stays testable without a pointer. The first click of the pair has already put
+    /// the selection on the row, which is why the page's own selection is what it acts on.
     /// </remarks>
     /// <param name="sender">The list.</param>
     /// <param name="e">The gesture.</param>

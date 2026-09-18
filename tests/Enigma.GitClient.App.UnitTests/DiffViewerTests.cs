@@ -1265,7 +1265,9 @@ public sealed class DiffViewerTests
                 HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
                 await page.ReloadAsync();
 
-                page.SelectedRow = page.Rows.Single(row => row.Subject == "Edit the file");
+                // The dialog is what draws the viewer, and it is asked for rather than implied by
+                // the selection.
+                page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Edit the file"));
                 await WaitUntilAsync(() => page.Files.FileCount > 0);
 
                 Assert.True(page.Files.SelectPath("src/app.txt"));

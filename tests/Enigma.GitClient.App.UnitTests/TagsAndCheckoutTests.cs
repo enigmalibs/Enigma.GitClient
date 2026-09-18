@@ -540,7 +540,7 @@ public sealed class TagsAndCheckoutTests
     }
 
     [Fact]
-    public void History_ActivatingARowPrefersItsBranch()
+    public void History_ChecksOutARowsBranchFromItsMenu()
     {
         _fixture.RunAsync(async () =>
         {
@@ -556,16 +556,16 @@ public sealed class TagsAndCheckoutTests
             Assert.True(row.HasBranch);
             Assert.Equal("topic", row.BranchName);
 
-            await row.Commands!.Activate.ExecuteAsync(row);
+            await row.Commands!.CheckoutBranch.ExecuteAsync(row);
 
-            // A branch is there, so activating moves onto it rather than detaching.
+            // The menu is the only way HEAD moves now, and it moves onto the branch itself.
             Assert.Equal("topic", services.Get<IRepositoryContext>().Head?.BranchName);
             Assert.Empty(services.Dialogs.Shown);
         });
     }
 
     [Fact]
-    public void History_ActivatingABranchlessRowDetaches()
+    public void History_ChecksOutABranchlessRowFromItsMenuAndDetaches()
     {
         _fixture.RunAsync(async () =>
         {
@@ -584,9 +584,37 @@ public sealed class TagsAndCheckoutTests
 
             services.Dialogs.Result = DialogResult.Primary;
 
-            await row.Commands!.Activate.ExecuteAsync(row);
+            await row.Commands!.CheckoutCommit.ExecuteAsync(row);
 
             Assert.True(services.Get<IRepositoryContext>().Head?.IsDetached);
+        });
+    }
+
+    [Fact]
+    public void History_ActivatingARowChecksNothingOut()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            string? before = context.Head?.BranchName;
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            CommitRowViewModel row = history.Rows.Single(candidate => candidate.Subject == "Add the readme");
+
+            Assert.True(row.HasBranch);
+
+            row.Commands!.Activate.Execute(row);
+
+            // A double-click shows what the row changed; moving HEAD is the menu's job alone.
+            Assert.Equal(before, context.Head?.BranchName);
+            Assert.False(context.Head?.IsDetached);
+            Assert.True(history.IsDiffDialogOpen);
         });
     }
 

@@ -561,7 +561,7 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffDialog_StaysClosedUntilACommitIsSelected()
+    public void DiffDialog_StaysClosedWhenARowIsMerelySelected()
     {
         _fixture.RunAsync(async () =>
         {
@@ -577,15 +577,48 @@ public sealed class HistoryPageTests
             ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
             Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
 
+            // Selecting a line selects it. The diffs are asked for, not implied.
             model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffDialogOpen);
+            Assert.False(dialog.IsOpen);
+            Assert.Same(model.Rows[0], model.SelectedRow);
+
+            // Asking opens it, and the graph keeps its height whatever is on top of it.
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
             Assert.True(model.IsDiffDialogOpen);
             Assert.True(dialog.IsOpen);
-
-            // And the graph keeps its height whatever is on top of it.
             Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffDialog_OpensOnADoubleClick()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+
+            // What the view's DoubleTapped handler runs.
+            row.Commands!.Activate.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(model.IsDiffDialogOpen);
+            Assert.True(dialog.IsOpen);
+            Assert.Equal(row.Subject, dialog.Title);
 
             window.Close();
         });
@@ -601,7 +634,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.SelectedRow = row;
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -611,9 +644,9 @@ public sealed class HistoryPageTests
             Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
             Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.DiffViewerView>());
 
-            // Selecting another row leaves the dialog open and moves it onto that commit.
+            // Asking for another row's changes leaves the dialog open and moves it onto that commit.
             CommitRowViewModel other = model.Rows.Last(candidate => candidate.Commit is not null);
-            model.SelectedRow = other;
+            model.RowCommands.ShowChanges.Execute(other);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -633,7 +666,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
-            model.SelectedRow = model.Rows[0];
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -669,7 +702,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.SelectedRow = row;
+            model.RowCommands.Activate.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -699,7 +732,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
-            model.SelectedRow = model.Rows[0];
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -723,7 +756,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
-            model.SelectedRow = model.Rows[0];
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -751,7 +784,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.SelectedRow = row;
+            model.RowCommands.Activate.Execute(row);
             Dispatcher.UIThread.RunJobs();
 
             model.CloseDiffDialogCommand.Execute(null);

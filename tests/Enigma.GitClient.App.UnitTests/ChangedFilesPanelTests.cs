@@ -634,7 +634,9 @@ public sealed class ChangedFilesPanelTests
                 HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
                 await page.ReloadAsync();
 
-                page.SelectedRow = page.Rows.Single(row => row.Subject == "Rework the sources");
+                // The dialog is what draws the panels, and it is asked for rather than implied by
+                // the selection.
+                page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Rework the sources"));
                 await WaitForFilesAsync(page);
 
                 HistoryPageView view = services.Get<HistoryPageView>();

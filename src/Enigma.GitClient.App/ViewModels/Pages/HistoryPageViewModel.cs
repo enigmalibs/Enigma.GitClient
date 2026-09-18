@@ -123,7 +123,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
-            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null),
+            new RelayCommand<CommitRowViewModel>(OnActivate, row => row is not null),
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName);
@@ -231,9 +231,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 OnPropertyChanged(nameof(HasSelection));
                 NotifySelectedCommitDetails();
 
-                // Selecting a line is what shows the diffs, and losing the selection — what a
-                // reload after a checkout does — is what puts them away again.
-                IsDiffDialogOpen = value is not null;
+                // Selecting a line selects it and nothing more: the diffs are asked for, by a
+                // double-click or by the row's menu. Losing the selection — what a reload after a
+                // checkout does — still puts them away, because a dialog describing a commit
+                // nobody has selected is describing nothing.
+                if (value is null)
+                {
+                    IsDiffDialogOpen = false;
+                }
 
                 _ = LoadChangedFilesAsync();
             }
@@ -254,6 +259,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// and writes the reader's own dismissal — the cross, the Close button, Escape, the scrim —
     /// back into it. Closing deliberately leaves <see cref="SelectedRow"/> alone, because the
     /// selection is also what "create a branch here" starts from and what the row highlight shows.
+    /// Nothing but an explicit request opens it: a double-click on a row, or that row's menu.
     /// </remarks>
     public bool IsDiffDialogOpen
     {
@@ -769,13 +775,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
 
     /// <summary>
-    /// Shows what a row changed.
+    /// Shows what a row changed, selecting it first when it is not the selected one.
     /// </summary>
     /// <param name="row">The row.</param>
     /// <remarks>
-    /// Selecting the row is enough when it is not the selected one — its setter opens the dialog.
-    /// The case this exists for is the other one: the reader closed the dialog and wants the same
-    /// commit back, which no selection change would announce.
+    /// The one way into the dialog, shared by the row's menu and by a double-click: a selection
+    /// change no longer opens anything, so both gestures ask for it here.
     /// </remarks>
     private void OnShowChanges(CommitRowViewModel? row)
     {
@@ -787,7 +792,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         if (!ReferenceEquals(row, SelectedRow))
         {
             SelectedRow = row;
-            return;
         }
 
         IsDiffDialogOpen = true;
@@ -835,11 +839,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// What a double-click on a row does: move onto its branch when it has one, and onto the commit
-    /// itself otherwise. Checking out the commit under the pointer is what the specification asks
-    /// for; going to the branch first is what a reader means by it when there is one.
-    /// </summary>
-    /// <summary>
     /// Opens a row's commit on whichever host the repository's remote points at.
     /// </summary>
     private async Task OnOpenOnHostAsync(CommitRowViewModel? row)
@@ -850,7 +849,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnActivateAsync(CommitRowViewModel? row)
+    /// <summary>
+    /// What a double-click on a row does: show what it changed.
+    /// </summary>
+    /// <param name="row">The row.</param>
+    /// <remarks>
+    /// It used to check the row out, which is now the row menu's job alone — a gesture that moves
+    /// HEAD is not one to arrive at by clicking twice. The uncommitted pseudo-row keeps its own
+    /// meaning: there is nothing there to compare against a parent, and the page that acts on that
+    /// work is the working directory.
+    /// </remarks>
+    private void OnActivate(CommitRowViewModel? row)
     {
         if (row is null)
         {
@@ -859,30 +868,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         if (row.IsUncommitted)
         {
-            // There is nothing to check out here — the row stands for work that is not committed
-            // yet, and the page that handles it is the working directory.
             WorkingDirectoryRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
-        if (row.Commit is null)
-        {
-            return;
-        }
-
-        if (row.CanCheckoutBranch)
-        {
-            await OnCheckoutBranchAsync(row).ConfigureAwait(true);
-            return;
-        }
-
-        if (row.HasBranch)
-        {
-            // Already on it; there is nothing to do and nothing to say.
-            return;
-        }
-
-        await OnCheckoutCommitAsync(row).ConfigureAwait(true);
+        OnShowChanges(row);
     }
 
     private void NotifySelectedCommitDetails()
