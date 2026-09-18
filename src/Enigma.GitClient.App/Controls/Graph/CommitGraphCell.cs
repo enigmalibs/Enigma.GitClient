@@ -87,6 +87,13 @@ public sealed class CommitGraphCell : Control
     private const double HeadRingGap = 3;
     private const double HeadRingThickness = 1.5;
 
+    /// <summary>
+    /// How much of a commit's radius a merge node is drawn at. A merge is a join rather than a
+    /// point where work happened, and drawing it smaller is what lets the eye pick the commits out
+    /// of a busy graph without reading the lanes.
+    /// </summary>
+    private const double MergeNodeScale = 0.5;
+
     private readonly GraphPalette _palette = new();
 
     static CommitGraphCell()
@@ -251,6 +258,20 @@ public sealed class CommitGraphCell : Control
         return Math.Clamp(nodeRadius, 1, Math.Max(1, Math.Min(rowLimit, laneLimit)));
     }
 
+    /// <summary>
+    /// Calculates the radius a merge's ring is drawn at: half a commit's, and never less than a
+    /// pixel.
+    /// </summary>
+    /// <param name="nodeRadius">The radius a commit on the same row would be drawn at.</param>
+    /// <returns>The radius to draw.</returns>
+    /// <remarks>
+    /// Taken from the fitted radius rather than from the wanted one, so the floor
+    /// <see cref="CalculateNodeRadius"/> guarantees at the smallest row height and lane width the
+    /// preferences allow is not undone by halving it.
+    /// </remarks>
+    public static double CalculateMergeNodeRadius(double nodeRadius)
+        => Math.Max(1, nodeRadius * MergeNodeScale);
+
     /// <inheritdoc />
     protected override Size MeasureOverride(Size availableSize)
         => new(CalculateWidth(Row?.MaxLane ?? 0, LaneWidth, LanePadding, MaximumLanes), 0);
@@ -368,6 +389,13 @@ public sealed class CommitGraphCell : Control
             // filled node — the difference has to be visible at a glance.
             context.DrawEllipse(outline, new Pen(lane, StrokeThickness, DashStyle.Dash), centre, radius, radius);
             return;
+        }
+
+        if (row.IsMerge)
+        {
+            // Half size, and decided before the HEAD ring is drawn, so a merge that HEAD points at
+            // gets a ring around the node it actually has.
+            radius = CalculateMergeNodeRadius(radius);
         }
 
         if (IsHead)

@@ -142,7 +142,7 @@ what it found instead of hiding everything else.
 ## PHASE04 — A merge node half the size of a commit
 
 **Branch:** `feature/feature-3030-phase04-smaller-merge-nodes`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3030-PHASE04.md`
 
 ### Steps
 
