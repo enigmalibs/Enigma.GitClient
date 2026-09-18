@@ -291,10 +291,115 @@ public sealed class HistoryPageTests
         });
     }
 
-    // ---------------------------------------------------------------- filters
+    // ---------------------------------------------------------------- the search
 
     [Fact]
-    public void Page_SearchesTheWholeHistoryRatherThanTheLoadedRows()
+    public void Search_MarksWhatItFoundAndHidesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            int rows = page.Rows.Count;
+            Assert.Equal(6, rows);
+
+            page.SearchText = "branch";
+
+            // Every line is still there, and the graph with it: three of them are marked.
+            Assert.Equal(rows, page.Rows.Count);
+            Assert.Equal(3, page.MatchCount);
+            Assert.Equal("3 matches", page.MatchSummary);
+
+            Assert.All(
+                page.Rows.Where(row => row.IsSearchMatch),
+                row => Assert.Contains("branch", row.Subject, StringComparison.OrdinalIgnoreCase));
+
+            Assert.Contains(page.Rows, row => !row.IsSearchMatch);
+        });
+    }
+
+    [Fact]
+    public void Search_MatchesTheBodyAsWellAsTheSubject()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "notes.txt"), "note\n");
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Add a note", "-m", "Refs SUPPORT-4213 for the record");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "support-4213";
+
+            CommitRowViewModel marked = Assert.Single(page.Rows, row => row.IsSearchMatch);
+
+            Assert.Equal("Add a note", marked.Subject);
+            Assert.Equal("1 match", page.MatchSummary);
+        });
+    }
+
+    [Fact]
+    public void Search_SaysSoWhenItFoundNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "nothing matches this";
+
+            // The list is untouched — the page is not empty, and it says the search found nothing
+            // rather than leaving the reader to wonder.
+            Assert.False(page.IsEmpty);
+            Assert.Equal(6, page.Rows.Count);
+            Assert.Equal(0, page.MatchCount);
+            Assert.Equal("no match", page.MatchSummary);
+            Assert.All(page.Rows, row => Assert.False(row.IsSearchMatch));
+        });
+    }
+
+    [Fact]
+    public void Search_IsForgottenWhenTheBoxIsCleared()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "branch";
+            Assert.True(page.HasSearch);
+            Assert.Contains(page.Rows, row => row.IsSearchMatch);
+
+            page.ClearSearchCommand.Execute(null);
+
+            Assert.False(page.HasSearch);
+            Assert.Equal(string.Empty, page.MatchSummary);
+            Assert.Equal(0, page.MatchCount);
+            Assert.All(page.Rows, row => Assert.False(row.IsSearchMatch));
+        });
+    }
+
+    [Fact]
+    public void Search_MarksThePageLoadedAfterIt()
     {
         _fixture.RunAsync(async () =>
         {
@@ -308,33 +413,81 @@ public sealed class HistoryPageTests
 
             Assert.Equal(3, page.Rows.Count);
 
-            // "readme" is in the oldest commit, which the first page does not contain.
+            // "readme" is in the oldest commit, which the first page does not reach: the search
+            // marks what is loaded, and what is loaded is what the reader asked for.
             page.SearchText = "readme";
-            await Task.Delay(HistoryPageViewModel.SearchDebounce + TimeSpan.FromMilliseconds(250));
+            Assert.Equal(0, page.MatchCount);
 
-            Assert.Equal("Add the readme", Assert.Single(page.Rows).Subject);
+            while (page.HasMore)
+            {
+                await page.LoadMoreCommand.ExecuteAsync(null);
+            }
+
+            Assert.Equal("Add the readme", Assert.Single(page.Rows, row => row.IsSearchMatch).Subject);
         });
     }
 
     [Fact]
-    public void Page_ReportsAnEmptyResultDifferentlyWhenFiltered()
+    public void Search_LeavesTheUncommittedRowAlone()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
             RepositoryHandle repository = await BuildHistoryAsync(services);
+
+            // A dirty working directory, which is what puts the pseudo-row at the top.
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# dirty\n");
+
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
             HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
             await page.ReloadAsync();
 
-            page.SearchText = "nothing matches this";
-            await Task.Delay(HistoryPageViewModel.SearchDebounce + TimeSpan.FromMilliseconds(250));
+            CommitRowViewModel uncommitted = Assert.Single(page.Rows, row => row.IsUncommitted);
 
-            Assert.True(page.IsEmpty);
-            Assert.Contains("No commit matches", page.EmptyMessage, StringComparison.Ordinal);
+            // Its label is "Uncommitted changes", and it is not a commit message.
+            page.SearchText = "uncommitted";
+
+            Assert.False(uncommitted.IsSearchMatch);
+            Assert.Equal(0, page.MatchCount);
         });
     }
+
+    [Fact]
+    public void Search_MarksTheRowsOnScreen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Assert.All(RowGrids(workspace), row => Assert.DoesNotContain("match", row.Classes));
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            List<Grid> rows = RowGrids(workspace);
+
+            Assert.Equal(
+                model.Rows.Count(row => row.IsSearchMatch),
+                rows.Count(row => row.Classes.Contains("match")));
+
+            // The marked rows are the ones the page marked, and no row left the list for it.
+            Assert.Equal(model.Rows.Count, rows.Count);
+
+            foreach (Grid row in rows)
+            {
+                Assert.Equal(
+                    ((CommitRowViewModel)row.DataContext!).IsSearchMatch,
+                    row.Classes.Contains("match"));
+            }
+
+            window.Close();
+        });
+    }
+
+    // ---------------------------------------------------------------- filters
 
     [Fact]
     public void Page_HidesMergedInBranchesWithFirstParentOnly()

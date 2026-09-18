@@ -53,13 +53,22 @@
                     Content="First parent only"
                     ToolTip.Tip="Follow only the first parent of each merge, hiding the branches it brought in" />
 
-          <Grid Grid.Column="3" ColumnDefinitions="*,Auto" MaxWidth="360" HorizontalAlignment="Right">
-            <TextBox Grid.Column="0"
+          <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
+            <!-- What the search found, because nothing is hidden: without a count, a search that
+                 matched nothing and one that matched everything look exactly alike. -->
+            <TextBlock Grid.Column="0"
+                       Text="{Binding MatchSummary}"
+                       IsVisible="{Binding HasSearch}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"
+                       FontSize="11"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBox Grid.Column="1"
                      Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      PlaceholderText="Search commit messages"
                      VerticalAlignment="Center"
                      AutomationProperties.Name="Search commit messages" />
-            <Button Grid.Column="1"
+            <Button Grid.Column="2"
                     Classes="toolbar"
                     Command="{Binding ClearSearchCommand}"
                     ToolTip.Tip="Clear the search"
@@ -216,6 +225,7 @@
                 last one — used to fall through to the list and open nothing.
               -->
               <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                    Classes.match="{Binding IsSearchMatch}"
                     Background="Transparent"
                     ColumnSpacing="10">
                 <Grid.ColumnDefinitions>

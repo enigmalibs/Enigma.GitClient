@@ -273,6 +273,20 @@ public sealed class CommitRowViewModel : ViewModelBase
     public bool IsHead { get; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the row is one the search found.
+    /// </summary>
+    /// <remarks>
+    /// Settable and observable, unlike everything else on the row: the rest is formatted once when
+    /// the row is built, but a search must be able to mark a row the list has already realised
+    /// without rebuilding it.
+    /// </remarks>
+    public bool IsSearchMatch
+    {
+        get;
+        set => SetProperty(ref field, value);
+    }
+
+    /// <summary>
     /// Gets a value indicating whether this is the pseudo-row standing for the working directory.
     /// </summary>
     public bool IsUncommitted { get; }
@@ -314,6 +328,29 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Gets the commit's full SHA, empty for the uncommitted-changes row.
     /// </summary>
     public string Sha => Commit?.Sha ?? string.Empty;
+
+    /// <summary>
+    /// Whether this row's commit message contains what is being searched for.
+    /// </summary>
+    /// <param name="search">What to look for, already trimmed.</param>
+    /// <returns><see langword="true"/> when the subject or the body contains it.</returns>
+    /// <remarks>
+    /// Subject and body, case-insensitively: that is what git's own <c>--grep</c> matched when the
+    /// search box filtered the query, so the same words still find the same commits. The
+    /// uncommitted-changes row has no message and matches nothing.
+    /// </remarks>
+    public bool Matches(string search)
+    {
+        ArgumentNullException.ThrowIfNull(search);
+
+        if (IsUncommitted || search.Length == 0)
+        {
+            return false;
+        }
+
+        return Subject.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+            || (Commit?.Body.Contains(search, StringComparison.CurrentCultureIgnoreCase) ?? false);
+    }
 
     /// <summary>
     /// Creates the pseudo-row shown above the history when the working directory is dirty.

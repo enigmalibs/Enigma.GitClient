@@ -17,9 +17,15 @@ diff.
   selected.
 - Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
   detached.
-- The branches sit in a column of their own beside the graph, aligned on every line — and one can be
-  dragged onto another to merge it, or to fast-forward only. The target is checked out first when it
-  is not the branch you are on.
+- The branches sit in a column of their own beside the graph, aligned on every line.
+- The columns have a header, and each one can be resized by dragging the boundary beside its title;
+  the message column takes whatever is left, so a long subject is trimmed rather than pushing the
+  rest of the line out of view.
+- A line's menu opens from anywhere on the line.
+- A merge is drawn at half the size of a commit, so the commits stand out in a busy graph.
+- The search box marks the commits it finds and hides nothing: the graph you are reading stays the
+  graph git drew. It says how many lines it found, and searches the messages of the commits you have
+  loaded.
 
 ### The diff
 

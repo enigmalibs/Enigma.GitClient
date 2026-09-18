@@ -83,6 +83,10 @@
            the theme package so it cannot quietly change out from under the button. -->
       <Color x:Key="ActionAccentColor">#3574F0</Color>
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
+
+      <!-- A history row the search found. A wash the eye can pick out of a long list while the
+           selected row stays the obviously selected one, so it is well short of the selection. -->
+      <Color x:Key="SearchMatchColor">#3A3517</Color>
     </ResourceDictionary>
 
     <ResourceDictionary x:Key="Light">
@@ -142,6 +146,8 @@
 
       <Color x:Key="ActionAccentColor">#2E63D6</Color>
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
+
+      <Color x:Key="SearchMatchColor">#FBF0C2</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
@@ -197,6 +203,8 @@
   <SolidColorBrush x:Key="ConflictResolvedForegroundBrush" Color="{DynamicResource ConflictResolvedForegroundColor}" />
   <SolidColorBrush x:Key="ConflictPendingBrush" Color="{DynamicResource ConflictPendingColor}" />
   <SolidColorBrush x:Key="ConflictPendingForegroundBrush" Color="{DynamicResource ConflictPendingForegroundColor}" />
+
+  <SolidColorBrush x:Key="SearchMatchBrush" Color="{DynamicResource SearchMatchColor}" />
 
   <SolidColorBrush x:Key="ActionAccentBrush" Color="{DynamicResource ActionAccentColor}" />
   <SolidColorBrush x:Key="ActionAccentForegroundBrush" Color="{DynamicResource ActionAccentForegroundColor}" />

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -35,12 +36,6 @@ public sealed record HistoryScopeOption(string Label, CommitLogScope Scope);
 /// </summary>
 public sealed class HistoryPageViewModel : PageViewModelBase
 {
-    /// <summary>
-    /// How long to wait after the last keystroke before searching. Long enough not to run a query
-    /// per character, short enough to feel immediate.
-    /// </summary>
-    public static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(300);
-
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
@@ -59,7 +54,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private GraphLayoutState? _layoutCarry;
     private CommitLogQuery _query = new();
     private CancellationTokenSource? _loadCancellation;
-    private CancellationTokenSource? _searchDebounce;
     private bool _hasMore;
 
     /// <summary>
@@ -197,12 +191,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Gets or sets what to search commit messages for.
+    /// Gets or sets what to look for in the commit messages.
     /// </summary>
     /// <remarks>
-    /// The search re-queries git rather than filtering the rows already loaded: filtering in memory
-    /// would search only the current page and quietly miss everything older, which is worse than not
-    /// searching at all.
+    /// <para>
+    /// The search marks the rows it finds and removes none: the graph is laid out a page at a time,
+    /// so a list filtered down to the matches draws lanes between commits that are not adjacent in
+    /// the history — a picture of a repository that does not exist. Nothing is hidden, so the lanes
+    /// stay the ones git built.
+    /// </para>
+    /// <para>
+    /// The price is that it searches what is loaded rather than the whole history, which is the
+    /// honest reading of "highlight the lines that were found": a line that is not on screen cannot
+    /// be highlighted. What is loaded grows with <c>Load more commits</c>, and the rows it brings in
+    /// are marked as they arrive.
+    /// </para>
     /// </remarks>
     public string SearchText
     {
@@ -212,11 +215,37 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             if (SetProperty(ref field, value))
             {
                 ClearSearchCommand.NotifyCanExecuteChanged();
-                _query = _query with { MessageFilter = value.Trim().Length == 0 ? null : value.Trim(), Skip = 0 };
-                QueueDebouncedReload();
+                MarkMatches();
             }
         }
     } = string.Empty;
+
+    /// <summary>
+    /// Gets how many of the loaded rows match the search.
+    /// </summary>
+    public int MatchCount { get; private set => SetProperty(ref field, value); }
+
+    /// <summary>
+    /// Gets a value indicating whether anything is being searched for.
+    /// </summary>
+    public bool HasSearch => SearchText.Trim().Length > 0;
+
+    /// <summary>
+    /// Gets what the toolbar says beside the search box, empty while nothing is searched for.
+    /// </summary>
+    /// <remarks>
+    /// Without it, a search that found nothing and a search that found everything look the same:
+    /// the list is the whole list either way.
+    /// </remarks>
+    public string MatchSummary
+        => !HasSearch
+            ? string.Empty
+            : MatchCount switch
+            {
+                0 => "no match",
+                1 => "1 match",
+                _ => $"{MatchCount.ToString(CultureInfo.CurrentCulture)} matches",
+            };
 
     /// <summary>
     /// Gets or sets the row the user has selected, which the rest of the shell follows.
@@ -637,6 +666,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         RecalculateGraphWidth();
         RecalculateRefColumnWidth();
+
+        // The rows that just arrived have never been looked at by the search.
+        MarkMatches();
     }
 
     /// <summary>
@@ -678,28 +710,33 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     private void QueueReload() => _ = ReloadAsync();
 
-    private void QueueDebouncedReload()
+    /// <summary>
+    /// Marks the loaded rows the search finds, and counts them.
+    /// </summary>
+    /// <remarks>
+    /// Over the subject and the body, case-insensitively — what git's own <c>--grep</c> searched
+    /// when the box filtered the query, so the same words still find the same commits.
+    /// </remarks>
+    private void MarkMatches()
     {
-        _searchDebounce?.Cancel();
-        _searchDebounce?.Dispose();
+        string search = SearchText.Trim();
+        int found = 0;
 
-        CancellationTokenSource debounce = new();
-        _searchDebounce = debounce;
-
-        _ = DebounceAsync(debounce);
-    }
-
-    private async Task DebounceAsync(CancellationTokenSource debounce)
-    {
-        try
+        foreach (CommitRowViewModel row in Rows)
         {
-            await Task.Delay(SearchDebounce, debounce.Token).ConfigureAwait(true);
-            await ReloadAsync().ConfigureAwait(true);
+            bool matches = search.Length > 0 && row.Matches(search);
+            row.IsSearchMatch = matches;
+
+            if (matches)
+            {
+                found++;
+            }
         }
-        catch (OperationCanceledException)
-        {
-            // Superseded by a later keystroke.
-        }
+
+        MatchCount = found;
+
+        OnPropertyChanged(nameof(HasSearch));
+        OnPropertyChanged(nameof(MatchSummary));
     }
 
     private void CancelInFlightLoad()
