@@ -1,6 +1,6 @@
 # FEATURE-3030 — History list: columns, menus, search
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-columns-selection-minimap
@@ -166,7 +166,7 @@ what it found instead of hiding everything else.
 ## PHASE05 — The search highlights instead of filtering
 
 **Branch:** `feature/feature-3030-phase05-search-highlight`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3030-PHASE05.md`
 
 ### Steps
 
