@@ -56,6 +56,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
             services.AddSingleton<ISyncOperations, SyncOperations>();
             services.AddSingleton<IMergeOperations, MergeOperations>();
+            services.AddSingleton<IBranchDropOperations, BranchDropOperations>();
             services.AddSingleton<IHostLinkService, HostLinkService>();
 
             services.AddSingleton<MainWindow>();
