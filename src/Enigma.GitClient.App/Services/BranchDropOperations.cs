@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Merging;
@@ -8,7 +7,7 @@ using Enigma.GitClient.Core.Merging;
 namespace Enigma.GitClient.App.Services;
 
 /// <summary>
-/// One branch dropped onto another in the graph.
+/// One branch dropped onto another in the branches list.
 /// </summary>
 /// <param name="Source">The branch being dragged — the one whose work is brought over.</param>
 /// <param name="SourceIsRemote">Whether the dragged branch lives on a remote.</param>
@@ -23,22 +22,27 @@ public sealed record BranchDropRequest(
     bool TargetIsCurrent);
 
 /// <summary>
-/// What dropping one branch onto another in the graph does.
+/// What dropping one branch onto another in the branches list does.
 /// </summary>
 /// <remarks>
 /// A composition, not a new git verb: <c>git merge</c> merges into <c>HEAD</c>, so "merge A into B"
-/// means being on B first. The flow therefore asks which operation was meant, moves onto the target
-/// when it is not already checked out, and then merges — each step through the operations service
-/// that already owns its questions and its reporting.
+/// means being on B first. The flow therefore moves onto the target when it is not already checked
+/// out, and then merges — each step through the operations service that already owns its questions
+/// and its reporting.
 /// </remarks>
 public interface IBranchDropOperations
 {
     /// <summary>
-    /// Asks what the drop meant and carries it out.
+    /// Carries out a drop the reader has already chosen an action for.
     /// </summary>
     /// <param name="request">Which branch was dropped on which.</param>
+    /// <param name="fastForward">How to treat a target that is simply behind.</param>
     /// <returns><see langword="true"/> when the repository changed.</returns>
-    Task<bool> DropAsync(BranchDropRequest request);
+    /// <remarks>
+    /// The mode is the caller's because the question is: the drop opens a menu naming both branches
+    /// and the actions they allow, so asking again in a dialog would be asking twice.
+    /// </remarks>
+    Task<bool> DropAsync(BranchDropRequest request, FastForwardMode fastForward = FastForwardMode.WhenPossible);
 }
 
 /// <summary>
@@ -48,7 +52,6 @@ public sealed class BranchDropOperations : IBranchDropOperations
 {
     private readonly IBranchOperations _branches;
     private readonly IMergeOperations _merges;
-    private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
 
     /// <summary>
@@ -56,22 +59,18 @@ public sealed class BranchDropOperations : IBranchDropOperations
     /// </summary>
     /// <param name="branches">Moves onto the target branch when it is not the current one.</param>
     /// <param name="merges">Performs the merge and reports what it did.</param>
-    /// <param name="dialogs">Asks which of the two operations the drop meant.</param>
     /// <param name="infoBar">Explains a drop that means nothing.</param>
     public BranchDropOperations(
         IBranchOperations branches,
         IMergeOperations merges,
-        IContentDialogService dialogs,
         IInfoBarService infoBar)
     {
         ArgumentNullException.ThrowIfNull(branches);
         ArgumentNullException.ThrowIfNull(merges);
-        ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
 
         _branches = branches;
         _merges = merges;
-        _dialogs = dialogs;
         _infoBar = infoBar;
     }
 
@@ -106,32 +105,15 @@ public sealed class BranchDropOperations : IBranchDropOperations
     }
 
     /// <inheritdoc />
-    public async Task<bool> DropAsync(BranchDropRequest request)
+    public async Task<bool> DropAsync(
+        BranchDropRequest request,
+        FastForwardMode fastForward = FastForwardMode.WhenPossible)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         if (!CanDrop(request))
         {
             await ExplainAsync(request).ConfigureAwait(true);
-            return false;
-        }
-
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
-        {
-            dialog.Title = $"Merge \"{request.Source}\" into \"{request.Target}\"";
-            dialog.Content = request.TargetIsCurrent
-                ? $"\"{request.Source}\" is merged into \"{request.Target}\", which is the branch you are on.\n\n"
-                    + "Fast-forward only refuses anything that would need a merge commit."
-                : $"\"{request.Target}\" is checked out first, then \"{request.Source}\" is merged into it.\n\n"
-                    + "Fast-forward only refuses anything that would need a merge commit.";
-            dialog.PrimaryButtonText = "Merge";
-            dialog.SecondaryButtonText = "Fast-forward only";
-            dialog.CloseButtonText = "Cancel";
-            dialog.DefaultButton = DefaultButton.Primary;
-        }).ConfigureAwait(true);
-
-        if (answer is not (DialogResult.Primary or DialogResult.Secondary))
-        {
             return false;
         }
 
@@ -142,11 +124,7 @@ public sealed class BranchDropOperations : IBranchDropOperations
             return false;
         }
 
-        FastForwardMode mode = answer == DialogResult.Secondary
-            ? FastForwardMode.Only
-            : FastForwardMode.WhenPossible;
-
-        MergeOutcome outcome = await _merges.MergeAsync(request.Source, mode).ConfigureAwait(true);
+        MergeOutcome outcome = await _merges.MergeAsync(request.Source, fastForward).ConfigureAwait(true);
 
         // The checkout alone moved HEAD, so a merge that changed nothing still leaves the graph to
         // re-read.

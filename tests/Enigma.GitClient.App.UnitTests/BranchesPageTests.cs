@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -412,6 +413,180 @@ public sealed class BranchesPageTests
 
             Assert.False(heading.IsEnabled);
             Assert.Equal(1, heading.Opacity);
+
+            window.Close();
+        });
+    }
+
+    // ---------------------------------------------------------------- dropping one branch on another
+
+    [Fact]
+    public void Drop_CarriesWhatTheTwoRowsSay()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            BranchDrop drop = new(Row(page, "origin/published"), Row(page, "main"));
+
+            Assert.Equal("origin/published", drop.Request.Source);
+            Assert.True(drop.Request.SourceIsRemote);
+            Assert.Equal("main", drop.Request.Target);
+            Assert.False(drop.Request.TargetIsRemote);
+            Assert.True(drop.Request.TargetIsCurrent);
+
+            // Both ends are named in every item, so a drag that went the wrong way round is
+            // recoverable from the menu it opened.
+            Assert.Contains("origin/published", drop.MergeHeader, StringComparison.Ordinal);
+            Assert.Contains("main", drop.MergeHeader, StringComparison.Ordinal);
+            Assert.Contains("fast-forward", drop.FastForwardHeader, StringComparison.Ordinal);
+            Assert.Equal("Merge \"main\" into \"origin/published\"", drop.ReversedHeader);
+
+            Assert.Equal("main", drop.Reversed().Request.Source);
+            Assert.Equal("origin/published", drop.Reversed().Request.Target);
+        });
+    }
+
+    [Fact]
+    public void Drop_IsOfferedOnlyForAPairThatMeansSomething()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            Assert.True(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "merged"), Row(page, "main"))));
+            Assert.False(BranchesPageViewModel.CanDrop(null));
+
+            // A branch onto itself means nothing.
+            Assert.False(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "main"), Row(page, "main"))));
+
+            // Nothing local writes to a remote-tracking ref: that is a push, and a push is not a
+            // thing to arrive at by dragging.
+            Assert.False(BranchesPageViewModel.CanDrop(
+                new BranchDrop(Row(page, "main"), Row(page, "origin/published"))));
+
+            // And the reverse of that pair is a merge, which is exactly why the menu offers it.
+            BranchDrop backwards = new(Row(page, "origin/published"), Row(page, "main"));
+
+            Assert.True(page.MergeDropCommand.CanExecute(backwards));
+            Assert.False(page.MergeReversedDropCommand.CanExecute(backwards));
+        });
+    }
+
+    [Fact]
+    public void Drop_MergesTheDraggedBranchIntoTheOneItLandedOn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+
+            await page.MergeDropCommand.ExecuteAsync(new BranchDrop(Row(page, "unmerged"), Row(page, "main")));
+
+            // The branch's own commit is on main now, and the page re-read to show it.
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/branch.txt")));
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+
+            // The menu was the question: no dialog was raised on top of it.
+            Assert.Empty(services.Dialogs.Shown);
+        });
+    }
+
+    [Fact]
+    public void Drop_ChecksTheTargetOutWhenItIsNotTheCurrentBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            // "merged" is a branch behind main, so merging main into it is a fast-forward — and it
+            // has to be checked out first, because git merges into HEAD.
+            await page.FastForwardDropCommand.ExecuteAsync(new BranchDrop(Row(page, "main"), Row(page, "merged")));
+
+            Assert.Equal("merged", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/app.txt")));
+        });
+    }
+
+    [Fact]
+    public void Drop_MergesTheOtherWayRoundWhenThatIsWhatWasMeant()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            // Dragged main onto unmerged, then picked the item that merges the other way: unmerged
+            // goes into main, and HEAD stays where it was.
+            await page.MergeReversedDropCommand.ExecuteAsync(new BranchDrop(Row(page, "main"), Row(page, "unmerged")));
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/branch.txt")));
+        });
+    }
+
+    [Fact]
+    public void Drop_OnARemoteBranchRunsNothingAndSaysWhy()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildWithRemoteAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            BranchDrop onRemote = new(Row(page, "unmerged"), Row(page, "origin/published"));
+
+            // The command refuses, so the menu never offers it; asked anyway, nothing runs and the
+            // reader is told why.
+            Assert.False(page.MergeDropCommand.CanExecute(onRemote));
+
+            await page.MergeDropCommand.ExecuteAsync(onRemote);
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.Empty(services.Dialogs.Shown);
+        });
+    }
+
+    [Fact]
+    public void BranchList_TakesDrops()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Assert.True(DragDrop.GetAllowDrop(list));
+
+            // A row container marked as the drop target wears a ring the selection cannot hide.
+            ListBoxItem row = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => container.DataContext is BranchRowViewModel);
+
+            row.Classes.Set("droptarget", true);
+            window.UpdateLayout();
+
+            Assert.True(row.BorderThickness.Left > 0);
+
+            row.Classes.Set("droptarget", false);
+            window.UpdateLayout();
 
             window.Close();
         });
