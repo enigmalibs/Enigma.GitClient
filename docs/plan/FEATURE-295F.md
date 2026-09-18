@@ -79,7 +79,7 @@ rather than paths.
 ## PHASE02 — The whole file, side by side
 
 **Branch:** `feature/feature-295f-phase02-whole-file`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-295F-PHASE02.md`
 
 ### Steps
 

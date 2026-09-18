@@ -16,6 +16,8 @@ Two things matter more than everything else in this app:
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit, shown as a **list or a tree** (your choice)
 - Colour-coded file diffs with word-level intra-line highlighting
+- Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
+  change with the context you chose
 - Branch management — create, rename, delete, set upstream, checkout
 - Tag management — create (lightweight or annotated) and delete
 - Checkout of anything in the graph from a row's own menu, including a detached commit

@@ -26,7 +26,10 @@ diff.
 - Colour-coded additions and deletions with word-level highlighting inside a changed line, unified
   or side by side.
 - Tints tuned for contrast in both themes, so a changed word is readable rather than merely coloured.
-- Expand the context around a change, or open the whole file.
+- Side by side shows the whole file on both sides — not the changed parts alone — and the two sides
+  scroll together, vertically and sideways, so a line on the left is always beside its counterpart.
+- Unified shows the change itself, with the context you chose; expand it around a change, or open
+  the whole file.
 - The changed files of a commit as a list or a tree, whichever you prefer.
 
 ### Working with the repository

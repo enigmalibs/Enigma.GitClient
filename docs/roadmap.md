@@ -64,5 +64,5 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-1AEA     | The diff dialog scrolls everything  | DONE        | docs/plan/BUG-1AEA.md     |
 | FEATURE-295F | Diff viewer: sync, paths, full file | IN PROGRESS | docs/plan/FEATURE-295F.md |
 | - PHASE01    | Synchronised side-by-side scroll    | DONE        | (in FEATURE-295F.md)      |
-| - PHASE02    | The whole file, side by side        | TODO        | (in FEATURE-295F.md)      |
+| - PHASE02    | The whole file, side by side        | DONE        | (in FEATURE-295F.md)      |
 | - PHASE03    | No path beside the file name        | TODO        | (in FEATURE-295F.md)      |
