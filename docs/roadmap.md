@@ -58,7 +58,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-0DC2     | Scrolled diff text over the gutter  | DONE        | docs/plan/BUG-0DC2.md     |
 | FEATURE-14E8 | History: diffs, badges and dragging | IN PROGRESS | docs/plan/FEATURE-14E8.md |
 | - PHASE01    | Open the diffs on demand            | DONE        | (in FEATURE-14E8.md)      |
-| - PHASE02    | Branch badges in their own column   | TODO        | (in FEATURE-14E8.md)      |
+| - PHASE02    | Branch badges in their own column   | DONE        | (in FEATURE-14E8.md)      |
 | - PHASE03    | Merging by dropping a branch        | TODO        | (in FEATURE-14E8.md)      |
 | - PHASE04    | Dragging branches in the graph      | TODO        | (in FEATURE-14E8.md)      |
 | BUG-1AEA     | The diff dialog scrolls everything  | TODO        | docs/plan/BUG-1AEA.md     |

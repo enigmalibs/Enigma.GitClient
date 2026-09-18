@@ -530,6 +530,115 @@ public sealed class HistoryPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the badge column
+
+    [Fact]
+    public void RefColumn_IsEmptyWhenNothingIsDecorated()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "bare-history"), "main");
+
+            await CommitAsync(repository, "README.md", "# one\n", "Add the readme");
+
+            // Only the checked-out branch decorates anything, and it is on the newest commit; the
+            // older one carries nothing, which is the case the column must not pay for.
+            await CommitAsync(repository, "README.md", "# two\n", "Extend the readme");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            await page.ReloadAsync();
+            Assert.True(page.RefColumnWidth > 0, "the checked-out branch's badge asks for a column");
+
+            // A history read with no references at all asks for nothing.
+            Assert.Equal(0, RefBadgeMetrics.Measure([]));
+            Assert.Equal(0, RefBadgeMetrics.Measure(null));
+        });
+    }
+
+    [Fact]
+    public void RefColumn_GrowsWithTheLongestBadgeAndStopsAtItsMaximum()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            double before = page.RefColumnWidth;
+            Assert.True(before > 0);
+
+            await GitAsync(repository, "branch", "a-considerably-longer-branch-name-than-main", "main");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+            await page.ReloadAsync();
+
+            Assert.True(
+                page.RefColumnWidth > before,
+                "the column kept its width when a longer branch name appeared");
+
+            // And one absurd name does not take the subject's room.
+            await GitAsync(repository, "branch", new string('x', 200), "main");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+            await page.ReloadAsync();
+
+            Assert.Equal(HistoryPageViewModel.MaximumRefColumnWidth, page.RefColumnWidth);
+        });
+    }
+
+    [Fact]
+    public void RefColumn_PutsEveryRowsSubjectAtTheSameX()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Assert.True(model.RefColumnWidth > 0);
+            Assert.Contains(model.Rows, row => row.HasRefs);
+            Assert.Contains(model.Rows, row => !row.HasRefs);
+
+            List<ItemsControl> strips = [.. workspace.GetVisualDescendants()
+                .OfType<ItemsControl>()
+                .Where(control => control.Name == "RefStrip")];
+
+            Assert.NotEmpty(strips);
+
+            // Every row's strip is the page's one width, decorated or not — which is what keeps the
+            // columns after it on the same horizontal position. Within a pixel: layout rounding
+            // snaps a measured width to the device grid, and the measurement is in points.
+            foreach (ItemsControl strip in strips)
+            {
+                Assert.True(
+                    Math.Abs(strip.Bounds.Width - model.RefColumnWidth) <= 1,
+                    $"a row's badge strip was {strip.Bounds.Width} wide, not the column's {model.RefColumnWidth}");
+            }
+
+            List<double> subjectLefts = [.. strips
+                .Select(strip => strip.GetVisualParent() as Grid)
+                .OfType<Grid>()
+                .Select(row => row.Children.OfType<TextBlock>().First())
+                .Select(subject => subject.Bounds.X)];
+
+            Assert.NotEmpty(subjectLefts);
+            Assert.All(subjectLefts, left => Assert.Equal(subjectLefts[0], left, 3));
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- the diff dialog
 
     /// <summary>
