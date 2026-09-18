@@ -89,7 +89,7 @@ the operations that join them.
 ## PHASE02 — Branch badges in their own column
 
 **Branch:** `feature/feature-14e8-phase02-badge-column`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-14E8-PHASE02.md`
 
 ### Steps
 

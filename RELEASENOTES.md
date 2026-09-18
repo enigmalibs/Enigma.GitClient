@@ -11,11 +11,12 @@ diff.
   repository with a hundred thousand commits scrolls like a list of ten.
 - Author, timestamp and the 7-character short hash on every row, with the full date in the tooltip.
 - The uncommitted changes sit at the top of the graph and lead to the working directory.
-- Selecting a line opens what it changed in a dialog over the graph — the changed files and the
-  diff, almost as large as the window — which closes from the cross at its top right, the Close
-  button at its bottom, or Escape, leaving the line selected. "Show what it changed", at the top of
-  a line's menu, brings it back.
-- Double-click the selected line to check out its branch, or the commit itself.
+- Double-click a line — or pick "Show what it changed" from its menu — to open what it changed in a
+  dialog over the graph: the changed files and the diff, almost as large as the window. It closes
+  from the cross at its top right, the Close button at its bottom, or Escape, leaving the line
+  selected.
+- Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
+  detached.
 
 ### The diff
 

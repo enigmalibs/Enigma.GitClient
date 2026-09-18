@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Controls.Graph;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Panels;
@@ -403,8 +404,30 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public double RowHeight { get; private set => SetProperty(ref field, value); }
         = AppSettings.Defaults.GraphRowHeight;
 
+    /// <summary>
+    /// Gets the width the badge column needs for the rows currently loaded.
+    /// </summary>
+    /// <remarks>
+    /// One width for the whole page, for the same reason <see cref="GraphColumnWidth"/> is: the
+    /// column is <c>Auto</c>, and an <c>Auto</c> column is measured per row, so a badge on one line
+    /// used to push that line's subject, author, date and sha sideways while its neighbours stayed
+    /// where they were. Zero when nothing is decorated, so an undecorated history spends no width
+    /// on the column at all.
+    /// </remarks>
+    public double RefColumnWidth
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    }
+
     /// <summary>Gets the padding on each side of the graph column.</summary>
     public static double LanePadding => 8;
+
+    /// <summary>
+    /// Gets how wide the badge column may grow to. One very long branch name is not a reason to
+    /// take the subject's room away; past this the badge ellipsises instead.
+    /// </summary>
+    public static double MaximumRefColumnWidth => 280;
 
     /// <summary>Gets how many lanes the graph column may grow to.</summary>
     public static int MaximumLanes => 14;
@@ -445,6 +468,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _query = _query with { Skip = 0 };
         SelectedRow = null;
         HasMore = false;
+        RefColumnWidth = 0;
 
         NotifyEmptyState();
 
@@ -593,6 +617,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         HasMore = page.HasMore;
 
         RecalculateGraphWidth();
+        RecalculateRefColumnWidth();
     }
 
     /// <summary>
@@ -604,6 +629,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             LaneWidth,
             LanePadding,
             MaximumLanes);
+
+    /// <summary>
+    /// Re-measures the badge column, which changes with the references on the rows in view.
+    /// </summary>
+    private void RecalculateRefColumnWidth()
+    {
+        double widest = 0;
+
+        foreach (CommitRowViewModel row in Rows)
+        {
+            widest = Math.Max(widest, RefBadgeMetrics.Measure(row.Refs));
+        }
+
+        RefColumnWidth = Math.Min(widest, MaximumRefColumnWidth);
+    }
 
     private int LargestLoadedLane()
     {
