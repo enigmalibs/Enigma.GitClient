@@ -61,7 +61,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Branch badges in their own column   | DONE   | (in FEATURE-14E8.md)      |
 | - PHASE03    | Merging by dropping a branch        | DONE   | (in FEATURE-14E8.md)      |
 | - PHASE04    | Dragging branches in the graph      | DONE   | (in FEATURE-14E8.md)      |
-| BUG-1AEA     | The diff dialog scrolls everything  | TODO   | docs/plan/BUG-1AEA.md     |
+| BUG-1AEA     | The diff dialog scrolls everything  | DONE   | docs/plan/BUG-1AEA.md     |
 | FEATURE-295F | Diff viewer: sync, paths, full file | TODO   | docs/plan/FEATURE-295F.md |
 | - PHASE01    | Synchronised side-by-side scroll    | TODO   | (in FEATURE-295F.md)      |
 | - PHASE02    | The whole file, side by side        | TODO   | (in FEATURE-295F.md)      |

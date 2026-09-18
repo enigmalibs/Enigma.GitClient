@@ -199,7 +199,7 @@
                IsVisible="{Binding IsListMode}"
                Background="Transparent"
                BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto"
                AutomationProperties.Name="Changed files" />
 
       <TreeView ItemsSource="{Binding Nodes}"
@@ -208,7 +208,7 @@
                 Background="Transparent"
                 BorderThickness="0"
                 Padding="0,2,18,2"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 AutomationProperties.Name="Changed files">
         <TreeView.ItemTemplate>
           <TreeDataTemplate x:DataType="vm:ChangedFileNodeViewModel" ItemsSource="{Binding Children}">

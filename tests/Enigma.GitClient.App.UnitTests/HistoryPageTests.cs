@@ -1096,6 +1096,123 @@ public sealed class HistoryPageTests
         });
     }
 
+    [Fact]
+    public void DiffDialog_LetsEachPaneScrollItself()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "big"), "main");
+
+            // Big in both directions: more files than the list can show, and a patch longer than
+            // the viewer can show.
+            string before = string.Join('\n', Enumerable.Range(0, 2000).Select(line => $"line {line}")) + "\n";
+            string after = string.Join('\n', Enumerable.Range(0, 2000).Select(line => line % 5 == 0 ? $"changed {line}" : $"line {line}")) + "\n";
+
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "big.txt"), before);
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Add the big file");
+
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "big.txt"), after);
+
+            for (int index = 0; index < 40; index++)
+            {
+                await File.WriteAllTextAsync(
+                    Path.Combine(repository.WorkTreePath, $"file{index.ToString(CultureInfo.InvariantCulture)}.txt"),
+                    "content\n");
+            }
+
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Change a great deal");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel model = services.Get<HistoryPageViewModel>();
+            await model.ReloadAsync();
+
+            HistoryPageView view = services.Get<HistoryPageView>();
+            view.DataContext = model;
+
+            Window window = new() { Content = view, Width = 1200, Height = 900 };
+            window.Show();
+            window.UpdateLayout();
+
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Subject == "Change a great deal"));
+
+            await WaitUntilAsync(() => model.Files.FileCount > 0);
+
+            model.Files.ViewMode = ViewModels.Panels.ChangedFilesViewMode.List;
+
+            Assert.True(model.Files.SelectPath("big.txt"));
+            await WaitUntilAsync(() => model.Diff.HasPatch);
+
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            ContentDialog dialog = view.FindControl<ContentDialog>("DiffDialog")!;
+            DockPanel body = view.FindControl<DockPanel>("DiffDialogBody")!;
+
+            ScrollViewer card = body.GetVisualAncestors().OfType<ScrollViewer>().First();
+
+            // Nothing is left for the card to scroll: the body is bounded by it.
+            Assert.Equal(card.Viewport.Height, card.Extent.Height, 3);
+            Assert.True(
+                body.Bounds.Height <= dialog.DialogHeight,
+                $"the body is {body.Bounds.Height} tall inside a {dialog.DialogHeight} card");
+
+            // And each pane has more than it can show, with its own viewport to show it in.
+            // The list's own scroll, not the filter box's: a TextBox templates one too.
+            ScrollViewer files = ScrollOf(dialog.GetVisualDescendants()
+                .OfType<Views.Panels.ChangedFilesPanelView>()
+                .Single());
+
+            ScrollViewer diff = ScrollOf(dialog.GetVisualDescendants()
+                .OfType<Views.Panels.DiffViewerView>()
+                .Single());
+
+            Assert.True(
+                files.Extent.Height > files.Viewport.Height,
+                $"the file list does not scroll itself: extent {files.Extent.Height}, viewport {files.Viewport.Height}");
+
+            Assert.True(
+                diff.Extent.Height > diff.Viewport.Height,
+                $"the diff does not scroll itself: extent {diff.Extent.Height}, viewport {diff.Viewport.Height}");
+
+            // They are two scrolls, not one.
+            Assert.NotSame(files, diff);
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// The scroll of the one list a panel is currently showing.
+    /// </summary>
+    private static ScrollViewer ScrollOf(Control panel)
+        => panel.GetVisualDescendants()
+            .OfType<ListBox>()
+            .Where(list => list.IsVisible && list.Bounds.Height > 0)
+            .SelectMany(list => list.GetVisualDescendants().OfType<ScrollViewer>())
+            .First();
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int attempts = 200)
+    {
+        for (int attempt = 0; attempt < attempts && !condition(); attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition(), "the page never reached the state the test waited for");
+    }
+
     [Theory]
     [InlineData(1000, 940)]
     [InlineData(0, 0)]
