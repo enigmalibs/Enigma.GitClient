@@ -83,7 +83,7 @@ of what that pair can do — the gesture the history page gives up in FEATURE-30
 ## PHASE02 — Selectable remote rows
 
 **Branch:** `feature/feature-3b62-phase02-selectable-remotes`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3B62-PHASE02.md`
 
 ### Steps
 

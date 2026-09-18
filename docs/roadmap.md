@@ -77,5 +77,5 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The minimap replaces the scrollbar   | DONE        | (in FEATURE-5EC4.md)      |
 | FEATURE-3B62 | Selectable rows and branch drops     | IN PROGRESS | docs/plan/FEATURE-3B62.md |
 | - PHASE01    | Selectable branch and tag rows       | DONE        | (in FEATURE-3B62.md)      |
-| - PHASE02    | Selectable remote rows               | TODO        | (in FEATURE-3B62.md)      |
+| - PHASE02    | Selectable remote rows               | DONE        | (in FEATURE-3B62.md)      |
 | - PHASE03    | Dropping one branch onto another     | TODO        | (in FEATURE-3B62.md)      |
