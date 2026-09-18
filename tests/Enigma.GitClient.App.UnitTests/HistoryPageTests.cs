@@ -902,155 +902,29 @@ public sealed class HistoryPageTests
         });
     }
 
-    // ---------------------------------------------------------------- dragging a branch
-
-    [Theory]
-    // sourceKind, sourceName, targetKind, targetName, targetIsCurrent, expected
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.LocalBranch, "main", true, true)]
-    [InlineData(GitRefKind.RemoteBranch, "origin/feature", GitRefKind.LocalBranch, "main", true, true)]
-    [InlineData(GitRefKind.LocalBranch, "main", GitRefKind.LocalBranch, "main", true, false)]
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.RemoteBranch, "origin/main", false, false)]
-    [InlineData(GitRefKind.Tag, "v1.0.0", GitRefKind.LocalBranch, "main", true, false)]
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.Tag, "v1.0.0", false, false)]
-    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.Stash, "stash", false, false)]
-    public void CanDropBranch_AcceptsOnlyBranchOntoLocalBranch(
-        GitRefKind sourceKind,
-        string sourceName,
-        GitRefKind targetKind,
-        string targetName,
-        bool targetIsCurrent,
-        bool expected)
-        => Assert.Equal(
-            expected,
-            HistoryPageViewModel.CanDropBranch(
-                new RefBadgeItem(sourceKind, sourceName, false),
-                new RefBadgeItem(targetKind, targetName, targetIsCurrent)));
+    // ---------------------------------------------------------------- the badges are not dragged
 
     [Fact]
-    public void CanDropBranch_RefusesAMissingEnd()
-    {
-        RefBadgeItem badge = new(GitRefKind.LocalBranch, "main", true);
-
-        Assert.False(HistoryPageViewModel.CanDropBranch(null, badge));
-        Assert.False(HistoryPageViewModel.CanDropBranch(badge, null));
-        Assert.False(HistoryPageViewModel.CanDropBranch(null, null));
-    }
-
-    [Fact]
-    public void Request_CarriesWhatTheTwoBadgesSay()
-    {
-        BranchDropRequest request = HistoryPageViewModel.Request(
-            new RefBadgeItem(GitRefKind.RemoteBranch, "origin/feature", false),
-            new RefBadgeItem(GitRefKind.LocalBranch, "main", true));
-
-        Assert.Equal("origin/feature", request.Source);
-        Assert.True(request.SourceIsRemote);
-        Assert.Equal("main", request.Target);
-        Assert.False(request.TargetIsRemote);
-        Assert.True(request.TargetIsCurrent);
-    }
-
-    [Fact]
-    public void DropBranch_MergesAndReReadsTheHistory()
+    public void CommitList_TakesNoDrops()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildHistoryAsync(services);
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
-            await page.ReloadAsync();
-
-            int before = page.Rows.Count;
-
-            // "feature" is an unmerged side branch of the repository the fixture builds, and main
-            // is what is checked out.
-            services.Dialogs.Result = DialogResult.Primary;
-
-            await page.DropBranchCommand.ExecuteAsync(new BranchDrop(
-                new RefBadgeItem(GitRefKind.LocalBranch, "feature", false),
-                new RefBadgeItem(GitRefKind.LocalBranch, "main", true)));
-
-            Assert.Single(services.Dialogs.Shown);
-
-            // The merge brought the side branch's commit in, and the page re-read to show it.
-            Assert.True(
-                page.Rows.Count >= before,
-                "the history was not re-read after the drop");
-
-            Assert.Contains(page.Rows, row => row.Subject == "Start the feature branch");
-        });
-    }
-
-    [Fact]
-    public void DropBranch_RefusesAPairThatCannotBeMerged()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildHistoryAsync(services);
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
-            await page.ReloadAsync();
-
-            BranchDrop onItself = new(
-                new RefBadgeItem(GitRefKind.LocalBranch, "main", true),
-                new RefBadgeItem(GitRefKind.LocalBranch, "main", true));
-
-            Assert.False(page.DropBranchCommand.CanExecute(onItself));
-
-            await page.DropBranchCommand.ExecuteAsync(onItself);
-
-            // Nothing was asked and nothing was run.
-            Assert.Empty(services.Dialogs.Shown);
-        });
-    }
-
-    [Fact]
-    public void CommitList_AcceptsDrops()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, _, HistoryPageView view, _, _) = await ShowHistoryPageAsync(services);
+            (Window window, _, HistoryPageView view, Panel workspace, _) = await ShowHistoryPageAsync(services);
 
             ListBox list = view.FindControl<ListBox>("CommitList")
                 ?? throw new InvalidOperationException("The history page has no commit list.");
 
-            Assert.True(DragDrop.GetAllowDrop(list));
+            // Merging one branch into another by dropping it is the branches page's gesture; here
+            // the badges say which references point at a commit and nothing more.
+            Assert.False(DragDrop.GetAllowDrop(list));
 
-            window.Close();
-        });
-    }
+            List<ItemsControl> strips = [.. workspace.GetVisualDescendants()
+                .OfType<ItemsControl>()
+                .Where(control => control.Name == "RefStrip")];
 
-    [Fact]
-    public void RefBadge_MarksItselfAsADropTarget()
-    {
-        _fixture.Run(() =>
-        {
-            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
-
-            Window window = new() { Content = badge, Width = 300, Height = 60 };
-            window.Show();
-            window.UpdateLayout();
-
-            Border border = badge.GetVisualDescendants().OfType<Border>().First();
-            IBrush? plain = border.BorderBrush;
-
-            badge.Classes.Set("droptarget", true);
-            window.UpdateLayout();
-
-            // The ring is what says where a dragged branch would land; the badge's own colour still
-            // says what kind of reference it is.
-            Assert.NotEqual(plain, border.BorderBrush);
-            Assert.True(border.BorderThickness.Left > 0);
-
-            badge.Classes.Set("droptarget", false);
-            window.UpdateLayout();
-
-            Assert.Equal(plain, border.BorderBrush);
+            Assert.NotEmpty(strips);
+            Assert.All(strips, strip => Assert.Null(ToolTip.GetTip(strip)));
 
             window.Close();
         });

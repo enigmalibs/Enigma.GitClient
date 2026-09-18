@@ -131,13 +131,6 @@
     <Style Selector="^.stash">
       <Setter Property="Background" Value="{DynamicResource RefBadgeStashBrush}" />
     </Style>
-
-    <!-- Where a dragged branch would land. A ring rather than a fill: the badge's own colour is
-         what says which kind of reference it is, and a drag must not take that away while it is
-         being read. -->
-    <Style Selector="^.droptarget">
-      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
-    </Style>
   </ControlTheme>
 
   <ControlTheme x:Key="{x:Type controls:AuthorAvatar}" TargetType="controls:AuthorAvatar">

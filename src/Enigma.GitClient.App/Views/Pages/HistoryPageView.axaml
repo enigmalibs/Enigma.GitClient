@@ -179,7 +179,6 @@
 
         <ListBox Name="CommitList"
                  DoubleTapped="OnCommitDoubleTapped"
-                 DragDrop.AllowDrop="True"
                  ItemsSource="{Binding Rows}"
                  SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                  IsVisible="{Binding !IsEmpty}"
@@ -284,14 +283,14 @@
                   The badges are a column of their own: one width for the whole page, handed to
                   every row, exactly as the graph cell takes GraphColumnWidth. An Auto column is
                   measured per row, which is what used to put the subject at a different x on every
-                  line that carried a badge.
+                  line that carried a badge. They are shown here and dragged nowhere: merging one
+                  branch into another by dropping it is the branches page's gesture.
                 -->
                 <ItemsControl Grid.Column="1"
                               Name="RefStrip"
                               Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.RefsWidth}"
                               ItemsSource="{Binding Refs}"
                               ClipToBounds="True"
-                              ToolTip.Tip="Drag a branch onto another to merge it"
                               VerticalAlignment="Center">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>

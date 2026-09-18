@@ -111,7 +111,7 @@ what it found instead of hiding everything else.
 ## PHASE03 — No dragging from the history badges
 
 **Branch:** `feature/feature-3030-phase03-no-badge-drag`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3030-PHASE03.md`
 
 ### Steps
 

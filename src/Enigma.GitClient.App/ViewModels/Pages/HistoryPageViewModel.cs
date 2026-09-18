@@ -30,13 +30,6 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 public sealed record HistoryScopeOption(string Label, CommitLogScope Scope);
 
 /// <summary>
-/// One branch badge dropped onto another.
-/// </summary>
-/// <param name="Source">The badge that was dragged.</param>
-/// <param name="Target">The badge it was dropped on.</param>
-public sealed record BranchDrop(RefBadgeItem Source, RefBadgeItem Target);
-
-/// <summary>
 /// The commit graph: pages commits in, lays them out, and keeps the selection in step with the rest
 /// of the shell.
 /// </summary>
@@ -55,7 +48,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
-    private readonly IBranchDropOperations _branchDropOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private bool _absoluteDates;
@@ -77,7 +69,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="reader">Reads the commits.</param>
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
-    /// <param name="branchDropOperations">Carries out one branch dropped on another.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
@@ -90,7 +81,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
-        IBranchDropOperations branchDropOperations,
         IHostLinkService links,
         ISettingsService settings,
         DiffViewerViewModel diff,
@@ -106,7 +96,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
-        ArgumentNullException.ThrowIfNull(branchDropOperations);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
@@ -122,7 +111,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
-        _branchDropOperations = branchDropOperations;
         _links = links;
         _settings = settings;
 
@@ -153,8 +141,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         Files.SelectionChanged += (_, _) => _ = ShowSelectedFileAsync();
         _infoBar = infoBar;
         _logger = logger;
-
-        DropBranchCommand = new AsyncRelayCommand<BranchDrop>(OnDropBranchAsync, CanDropBranch);
 
         CloseDiffDialogCommand = new RelayCommand(() => IsDiffDialogOpen = false);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
@@ -476,76 +462,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command the dialog's cross runs.</summary>
     public RelayCommand CloseDiffDialogCommand { get; }
-
-    /// <summary>
-    /// Gets the command run when one branch badge is dropped on another.
-    /// </summary>
-    public AsyncRelayCommand<BranchDrop> DropBranchCommand { get; }
-
-    /// <summary>
-    /// Answers whether one badge may be dropped on another, which is what the drag asks on every
-    /// pointer move to decide whether it is over something it can land on.
-    /// </summary>
-    /// <param name="source">The badge being dragged.</param>
-    /// <param name="target">The badge under the pointer.</param>
-    /// <returns><see langword="true"/> when the drop would mean something.</returns>
-    /// <remarks>
-    /// Only branches: a tag or the stash names a commit, and merging "into" one of them is not a
-    /// thing git can do. The rest of the policy — no branch onto itself, no remote target — belongs
-    /// to the operation that would carry the drop out, and is asked there rather than restated.
-    /// </remarks>
-    public static bool CanDropBranch(RefBadgeItem? source, RefBadgeItem? target)
-    {
-        if (source is null || target is null)
-        {
-            return false;
-        }
-
-        if (!IsBranch(source.Kind) || !IsBranch(target.Kind))
-        {
-            return false;
-        }
-
-        return BranchDropOperations.CanDrop(Request(source, target));
-    }
-
-    /// <summary>
-    /// Builds the request a pair of badges stands for.
-    /// </summary>
-    /// <param name="source">The badge being dragged.</param>
-    /// <param name="target">The badge it was dropped on.</param>
-    /// <returns>The request.</returns>
-    public static BranchDropRequest Request(RefBadgeItem source, RefBadgeItem target)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(target);
-
-        return new BranchDropRequest(
-            source.Name,
-            source.Kind == GitRefKind.RemoteBranch,
-            target.Name,
-            target.Kind == GitRefKind.RemoteBranch,
-            target.IsCurrent);
-    }
-
-    private static bool IsBranch(GitRefKind kind)
-        => kind is GitRefKind.LocalBranch or GitRefKind.RemoteBranch;
-
-    private static bool CanDropBranch(BranchDrop? drop)
-        => drop is not null && CanDropBranch(drop.Source, drop.Target);
-
-    private async Task OnDropBranchAsync(BranchDrop? drop)
-    {
-        if (drop is null || !CanDropBranch(drop))
-        {
-            return;
-        }
-
-        if (await _branchDropOperations.DropAsync(Request(drop.Source, drop.Target)).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
