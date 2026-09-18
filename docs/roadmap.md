@@ -68,7 +68,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | No path beside the file name         | DONE        | (in FEATURE-295F.md)      |
 | FEATURE-3030 | History list: columns, menus, search | IN PROGRESS | docs/plan/FEATURE-3030.md |
 | - PHASE01    | Right-click anywhere on the row      | DONE        | (in FEATURE-3030.md)      |
-| - PHASE02    | Real columns with a resizable header | TODO        | (in FEATURE-3030.md)      |
+| - PHASE02    | Real columns with a resizable header | DONE        | (in FEATURE-3030.md)      |
 | - PHASE03    | No dragging from the history badges  | TODO        | (in FEATURE-3030.md)      |
 | - PHASE04    | Merge nodes half a commit's size     | TODO        | (in FEATURE-3030.md)      |
 | - PHASE05    | Search highlights instead of filters | TODO        | (in FEATURE-3030.md)      |

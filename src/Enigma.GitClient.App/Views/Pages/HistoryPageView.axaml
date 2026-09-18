@@ -78,6 +78,82 @@
         </Grid>
       </Border>
 
+      <!--
+        The column header. It carries the same six columns as every row, at the same widths and the
+        same spacing, and the grips that change them: each grip resizes the fixed column it touches
+        and the message column absorbs the difference, so the edge under the pointer is the edge
+        that moves. It is drawn at the list's own viewport width rather than the page's, because a
+        vertical scrollbar takes its width out of the rows and not out of a header docked above
+        them.
+      -->
+      <Border DockPanel.Dock="Top"
+              Name="ColumnHeader"
+              Background="{DynamicResource EnigmaSurfaceBrush}"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="0"
+              IsVisible="{Binding !IsEmpty}">
+        <Grid Name="HeaderRow"
+              Width="{Binding Columns.HeaderWidth}"
+              HorizontalAlignment="Left"
+              Height="26"
+              ColumnSpacing="10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" MinWidth="120" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+
+          <!-- The graph column is titled by what it draws; a word in it would only be ellipsised. -->
+          <Panel Grid.Column="0" Width="{Binding GraphColumnWidth}" />
+
+          <Panel Grid.Column="1" Width="{Binding Columns.RefsWidth}">
+            <TextBlock Classes="columnheader" Text="Refs" />
+            <!-- Half over the gap, so the grip is where the eye says the boundary is; the negative
+                 margin keeps it out of the column's measured width. -->
+            <Thumb Name="RefsGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Right"
+                   Margin="0,0,-5,0"
+                   AutomationProperties.Name="Resize the refs column" />
+          </Panel>
+
+          <Panel Grid.Column="2">
+            <TextBlock Classes="columnheader" Text="Message" />
+          </Panel>
+
+          <Panel Grid.Column="3" Width="{Binding Columns.AuthorWidth}">
+            <TextBlock Classes="columnheader" Text="Author" />
+            <Thumb Name="AuthorGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Left"
+                   Margin="-5,0,0,0"
+                   AutomationProperties.Name="Resize the author column" />
+          </Panel>
+
+          <Panel Grid.Column="4" Width="{Binding Columns.DateWidth}">
+            <TextBlock Classes="columnheader" Text="Date" />
+            <Thumb Name="DateGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Left"
+                   Margin="-5,0,0,0"
+                   AutomationProperties.Name="Resize the date column" />
+          </Panel>
+
+          <Panel Grid.Column="5" Width="{Binding Columns.ShaWidth}">
+            <TextBlock Classes="columnheader" Text="Commit" />
+            <Thumb Name="ShaGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Left"
+                   Margin="-5,0,0,0"
+                   AutomationProperties.Name="Resize the commit column" />
+          </Panel>
+        </Grid>
+      </Border>
+
       <!-- Load more, pinned to the bottom so it never scrolls out of reach. -->
       <Border DockPanel.Dock="Bottom"
               Background="{DynamicResource EnigmaSurfaceBrush}"
@@ -110,7 +186,7 @@
                  Background="Transparent"
                  BorderThickness="0"
                  Padding="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  AutomationProperties.Name="Commit history">
 
           <ListBox.ItemsPanel>
@@ -151,9 +227,9 @@
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="*" MinWidth="120" />
-                  <ColumnDefinition Width="190" />
-                  <ColumnDefinition Width="110" />
-                  <ColumnDefinition Width="70" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <!-- The row's own menu. It opens in its own popup tree, so the row carries the
@@ -212,7 +288,7 @@
                 -->
                 <ItemsControl Grid.Column="1"
                               Name="RefStrip"
-                              Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RefColumnWidth}"
+                              Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.RefsWidth}"
                               ItemsSource="{Binding Refs}"
                               ClipToBounds="True"
                               ToolTip.Tip="Drag a branch onto another to merge it"
@@ -239,6 +315,7 @@
                            Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
                 <StackPanel Grid.Column="3"
+                            Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.AuthorWidth}"
                             Orientation="Horizontal"
                             Spacing="7"
                             VerticalAlignment="Center"
@@ -254,6 +331,7 @@
                 </StackPanel>
 
                 <TextBlock Grid.Column="4"
+                           Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.DateWidth}"
                            Text="{Binding DateText}"
                            VerticalAlignment="Center"
                            FontSize="12"
@@ -262,6 +340,7 @@
                            Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
                 <TextBlock Grid.Column="5"
+                           Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.ShaWidth}"
                            Classes="monospace"
                            Text="{Binding ShortSha}"
                            VerticalAlignment="Center"

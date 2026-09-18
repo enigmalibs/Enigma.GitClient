@@ -394,8 +394,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public double GraphColumnWidth
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                Columns.GraphWidth = value;
+            }
+        }
     }
+
+    /// <summary>
+    /// Gets the width of every column the list draws, shared by the header and by every row.
+    /// </summary>
+    public HistoryColumnLayout Columns { get; } = new();
 
     /// <summary>
     /// Gets the distance between two graph lanes, which is a preference.
@@ -431,7 +442,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public double RefColumnWidth
     {
         get;
-        private set => SetProperty(ref field, value);
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                // Offered, not imposed: once the reader has dragged that column's grip, the width
+                // is theirs and the measurement stops overriding it.
+                Columns.SeedRefsWidth(value);
+            }
+        }
     }
 
     /// <summary>Gets the padding on each side of the graph column.</summary>

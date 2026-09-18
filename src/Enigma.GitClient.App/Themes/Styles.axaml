@@ -112,6 +112,45 @@
   </Style>
 
   <!--
+    The history list's column header. The title is quiet — it names the column and then gets out of
+    the way of the commits — and the grip is a hit area rather than a control: what the reader sees
+    at a column boundary is the one-pixel rule inside it, which brightens under the pointer to say
+    it can be dragged.
+  -->
+
+  <Style Selector="TextBlock.columnheader">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="Thumb.columngrip">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="{TemplateBinding Background}">
+          <Border Name="PART_Rule"
+                  Width="1"
+                  Margin="0,5"
+                  HorizontalAlignment="Center"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="Thumb.columngrip:pointerover /template/ Border#PART_Rule">
+    <Setter Property="Width" Value="2" />
+    <Setter Property="Margin" Value="0,2" />
+    <Setter Property="Background" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <!--
     The diff viewer. A row's own tint is quiet; the word-level tint drawn behind the changed
     stretches is the loud one, so the eye goes to the words that actually differ rather than to the
     whole line. Both follow the theme, so neither goes unreadable in the light variant.
