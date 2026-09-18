@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Avalonia.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.Core.Graph;
@@ -61,18 +60,6 @@ public sealed record HistoryRowCommands(
 
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 {
-    /// <summary>
-    /// The format one badge is dragged onto another under.
-    /// </summary>
-    /// <remarks>
-    /// In-process: the payload is the live <see cref="RefBadgeItem"/> rather than text, because the
-    /// drag never leaves the window and a branch name on its own would not say whether it is remote
-    /// or checked out. An in-process format is never handed to the platform's clipboard, so nothing
-    /// of it escapes the application either.
-    /// </remarks>
-    public static readonly DataFormat<RefBadgeItem> DragFormat =
-        DataFormat.CreateInProcessFormat<RefBadgeItem>("enigma-gitclient/ref-badge");
-
     /// <summary>
     /// Projects a reference onto a badge.
     /// </summary>
