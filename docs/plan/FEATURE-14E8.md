@@ -123,7 +123,7 @@ the operations that join them.
 ## PHASE03 — Merging by dropping a branch
 
 **Branch:** `feature/feature-14e8-phase03-branch-drop`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-14E8-PHASE03.md`
 
 ### Steps
 

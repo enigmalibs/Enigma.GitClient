@@ -76,6 +76,20 @@ public sealed class CompositionRootTests
     }
 
     [Theory]
+    [InlineData(typeof(IBranchOperations))]
+    [InlineData(typeof(ITagOperations))]
+    [InlineData(typeof(ICheckoutOperations))]
+    [InlineData(typeof(ISyncOperations))]
+    [InlineData(typeof(IMergeOperations))]
+    [InlineData(typeof(IBranchDropOperations))]
+    public void Container_ResolvesEveryOperationsService(Type serviceType)
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.NotNull(provider.GetRequiredService(serviceType));
+    }
+
+    [Theory]
     [InlineData(typeof(HistoryPageViewModel))]
     [InlineData(typeof(ChangesPageViewModel))]
     [InlineData(typeof(BranchesPageViewModel))]
