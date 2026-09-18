@@ -1,6 +1,6 @@
 # FEATURE-5EC4 — A minimap scrollbar for diffs
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-columns-selection-minimap
@@ -77,7 +77,7 @@ scrolls the patch when it is clicked or dragged.
 ## PHASE02 — The minimap replaces the diff's scrollbar
 
 **Branch:** `feature/feature-5ec4-phase02-minimap-scrollbar`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5EC4-PHASE02.md`
 
 ### Steps
 

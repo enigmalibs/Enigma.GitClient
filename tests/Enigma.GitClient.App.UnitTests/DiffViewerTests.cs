@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -1523,6 +1524,174 @@ public sealed class DiffViewerTests
         {
             await Task.Delay(5);
         }
+    }
+
+    // ---------------------------------------------------------------- the minimap in the view
+
+    /// <summary>
+    /// Shows a diff viewer over a patch long enough to scroll, and returns the window, the map on
+    /// screen and the scroll it drives.
+    /// </summary>
+    private static (Window Window, DiffViewerView View, DiffMinimap Map, ScrollViewer Scroll) ShowScrollable(
+        Harness harness,
+        bool sideBySide)
+    {
+        DiffViewerView view = new() { DataContext = harness.Viewer };
+
+        Window window = new() { Content = view, Width = 900, Height = 300 };
+        window.Show();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+
+        DiffMinimap map = view.FindControl<DiffMinimap>(sideBySide ? "SideBySideMinimap" : "UnifiedMinimap")
+            ?? throw new InvalidOperationException("The diff viewer has no minimap.");
+        ListBox list = view.FindControl<ListBox>(sideBySide ? "SideBySideList" : "UnifiedList")
+            ?? throw new InvalidOperationException("The diff viewer has no diff list.");
+
+        ScrollViewer scroll = list.GetVisualDescendants().OfType<ScrollViewer>().First();
+
+        return (window, view, map, scroll);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Viewer_ShowsNoVerticalScrollbar(bool sideBySide)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildLargePatch(400)));
+
+            if (!sideBySide)
+            {
+                harness.Viewer.ShowUnifiedCommand.Execute(null);
+                await WaitForRequestsAsync(harness, 2);
+            }
+
+            (Window window, _, _, ScrollViewer scroll) = ShowScrollable(harness, sideBySide);
+
+            // Hidden, not disabled: the map replaces the bar, not the scrolling.
+            Assert.Equal(ScrollBarVisibility.Hidden, scroll.VerticalScrollBarVisibility);
+            Assert.True(scroll.Extent.Height > scroll.Viewport.Height, "the patch was expected to scroll");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Minimap_FollowsThePatchAsItIsScrolled()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildLargePatch(400)));
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 2);
+
+            (Window window, _, DiffMinimap map, ScrollViewer scroll) = ShowScrollable(harness, sideBySide: false);
+
+            Assert.Equal(0, map.ViewportStart, 3);
+            Assert.True(map.ViewportEnd < 1, "the whole patch cannot be on screen in a 300px window");
+
+            scroll.Offset = new Vector(scroll.Offset.X, scroll.Extent.Height / 2);
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // Around the middle rather than exactly on it: the list snaps an offset to a row, and
+            // a virtualising panel's extent is an estimate that firms up as rows are realised.
+            Assert.InRange(map.ViewportStart, 0.45, 0.6);
+            Assert.True(map.ViewportEnd > map.ViewportStart);
+
+            scroll.Offset = new Vector(scroll.Offset.X, scroll.Extent.Height);
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // At the end of the patch the window sits against the bottom of the strip.
+            Assert.Equal(1, map.ViewportEnd, 2);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Minimap_ScrollsThePatchWhenItIsPressed()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildLargePatch(400)));
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 2);
+
+            (Window window, _, DiffMinimap map, ScrollViewer scroll) = ShowScrollable(harness, sideBySide: false);
+
+            Assert.Equal(0, scroll.Offset.Y);
+
+            // Pressed at the bottom of the strip: the end of the patch, and no further.
+            map.RequestScrollTo(map.Bounds.Height);
+            window.UpdateLayout();
+
+            Assert.Equal(scroll.Extent.Height - scroll.Viewport.Height, scroll.Offset.Y, 1);
+
+            // And back to the top.
+            map.RequestScrollTo(0);
+            window.UpdateLayout();
+
+            Assert.Equal(0, scroll.Offset.Y, 1);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Minimap_DrawsTheRenderingOnScreen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildLargePatch(400)));
+
+            (Window window, DiffViewerView view, DiffMinimap side, _) = ShowScrollable(harness, sideBySide: true);
+
+            DiffMinimap unified = view.FindControl<DiffMinimap>("UnifiedMinimap")
+                ?? throw new InvalidOperationException("The diff viewer has no unified minimap.");
+
+            // One map per rendering, each describing its own rows — which is why switching between
+            // them needs no rebinding.
+            Assert.Same(harness.Viewer.SideBySideMap, side.Marks);
+            Assert.Same(harness.Viewer.UnifiedMap, unified.Marks);
+            Assert.Equal(harness.Viewer.SideBySideRows.Count, side.RowCount);
+            Assert.Equal(harness.Viewer.UnifiedRows.Count, unified.RowCount);
+
+            // Only the rendering on screen is shown, map and all.
+            Assert.True(side.IsEffectivelyVisible);
+            Assert.False(unified.IsEffectivelyVisible);
+
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 2);
+            window.UpdateLayout();
+
+            Assert.False(side.IsEffectivelyVisible);
+            Assert.True(unified.IsEffectivelyVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Minimap_IsNotShownWhenThereIsNoPatch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(
+                new FilePatch(null, "logo.png", FileChangeKind.Modified, [], isBinary: true));
+
+            (Window window, _, DiffMinimap map, _) = ShowScrollable(harness, sideBySide: true);
+
+            // A strip beside an empty state says there is something to navigate, and there is not.
+            Assert.False(harness.Viewer.HasPatch);
+            Assert.False(map.IsEffectivelyVisible);
+
+            window.Close();
+        });
     }
 
     // ---------------------------------------------------------------- the change map
