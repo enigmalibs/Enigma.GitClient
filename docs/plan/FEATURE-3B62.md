@@ -1,6 +1,6 @@
 # FEATURE-3B62 — Selectable rows and branch drops
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-columns-selection-minimap
@@ -47,7 +47,7 @@ of what that pair can do — the gesture the history page gives up in FEATURE-30
 ## PHASE01 — Selectable branch and tag rows
 
 **Branch:** `feature/feature-3b62-phase01-selectable-branches`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3B62-PHASE01.md`
 
 ### Steps
 

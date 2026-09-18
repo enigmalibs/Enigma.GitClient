@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
@@ -11,13 +12,39 @@ using Enigma.GitClient.Core.Refs;
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
 /// <summary>
+/// Something the branches list holds: a branch, or the heading above a group of them.
+/// </summary>
+/// <remarks>
+/// The list is flat so the page has one selection: nested lists would each keep their own, and two
+/// rows would be highlighted at once. What the flattening costs is this — the list holds two kinds
+/// of thing, and the view has to know which of them can be selected.
+/// </remarks>
+public interface IBranchListItem
+{
+    /// <summary>Gets a value indicating whether the item is one the reader can select.</summary>
+    bool IsSelectable { get; }
+}
+
+/// <summary>
+/// The heading above a group of branches, as a row of the flat list.
+/// </summary>
+/// <param name="Title">What the heading says: "Local", or a remote's name.</param>
+/// <param name="IsRemote">Whether the group it introduces holds remote branches.</param>
+/// <param name="Count">How many branches are under it, as the heading shows it.</param>
+public sealed record BranchGroupHeaderViewModel(string Title, bool IsRemote, string Count) : IBranchListItem
+{
+    /// <inheritdoc />
+    public bool IsSelectable => false;
+}
+
+/// <summary>
 /// One branch, as the branches page shows it.
 /// </summary>
 /// <remarks>
 /// The row carries the page's commands rather than raising events, so a context menu opening in its
 /// own popup tree can still reach them with a plain binding against the row itself.
 /// </remarks>
-public sealed class BranchRowViewModel : ViewModelBase
+public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 {
     private readonly BranchesPageViewModel _owner;
 
@@ -37,6 +64,9 @@ public sealed class BranchRowViewModel : ViewModelBase
 
     /// <summary>Gets the branch this row stands for.</summary>
     public GitBranch Branch { get; }
+
+    /// <inheritdoc />
+    public bool IsSelectable => true;
 
     /// <summary>Gets the name shown on the row.</summary>
     public string Name => Branch.IsRemote ? Branch.NameWithoutRemote : Branch.ShortName;
@@ -265,6 +295,49 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     public ObservableCollection<BranchGroupViewModel> Groups { get; } = [];
 
     /// <summary>
+    /// Gets the same branches the groups hold, flattened into the one list the view shows: each
+    /// group's heading followed by its rows.
+    /// </summary>
+    /// <remarks>
+    /// The grouping is the model and this is its presentation, rebuilt from it every time. One list
+    /// rather than a list per group, because a page has one selection: nested lists would each keep
+    /// their own and two rows would be highlighted at once.
+    /// </remarks>
+    public ObservableCollection<IBranchListItem> Items { get; } = [];
+
+    /// <summary>
+    /// Gets or sets the item the reader has selected, which is a branch or nothing — a heading is
+    /// not selectable.
+    /// </summary>
+    public IBranchListItem? SelectedItem
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(SelectedBranch));
+            }
+        }
+    }
+
+    /// <summary>Gets the selected branch, or <see langword="null"/> when none is selected.</summary>
+    public BranchRowViewModel? SelectedBranch => SelectedItem as BranchRowViewModel;
+
+    /// <summary>
+    /// Gets or sets the tag the reader has selected.
+    /// </summary>
+    /// <remarks>
+    /// Its own property rather than one selection for the page: the two lists are alternatives, and
+    /// a tag selected while the branches are on screen is not a selection anybody can see.
+    /// </remarks>
+    public TagRowViewModel? SelectedTag
+    {
+        get;
+        set => SetProperty(ref field, value);
+    }
+
+    /// <summary>
     /// Gets or sets a substring the shown branch names must contain.
     /// </summary>
     public string SearchText
@@ -374,7 +447,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     private void Rebuild()
     {
+        // Captured before the lists are emptied: clearing a list tells its ListBox the selection is
+        // gone, and the ListBox tells this page so. What survives a rebuild is the name.
+        string? selectedBranch = SelectedBranch?.FullName;
+        string? selectedTag = SelectedTag?.Name;
+
         Groups.Clear();
+        Items.Clear();
 
         RefCollection refs = RepositoryContext.Refs;
 
@@ -422,6 +501,16 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             Groups.Add(new BranchGroupViewModel(remote, true, byRemote[remote]));
         }
 
+        foreach (BranchGroupViewModel group in Groups)
+        {
+            Items.Add(new BranchGroupHeaderViewModel(group.Title, group.IsRemote, group.Count));
+
+            foreach (BranchRowViewModel row in group.Rows)
+            {
+                Items.Add(row);
+            }
+        }
+
         Tags.Clear();
 
         foreach (GitTag tag in refs.Tags)
@@ -432,8 +521,32 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             }
         }
 
+        RestoreSelection(selectedBranch, selectedTag);
+
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
+    }
+
+    /// <summary>
+    /// Puts the selection back on the rows that stand for what was selected before the rebuild.
+    /// </summary>
+    /// <param name="branch">The full name of the branch that was selected, if any.</param>
+    /// <param name="tag">The name of the tag that was selected, if any.</param>
+    /// <remarks>
+    /// By name, because every row is a new object: the page rebuilds on a refresh, on an operation
+    /// and on every keystroke in the filter box, and a selection that did not survive that would be
+    /// a selection nobody could keep. A row that is gone — deleted, renamed, filtered out — takes
+    /// the selection with it.
+    /// </remarks>
+    private void RestoreSelection(string? branch, string? tag)
+    {
+        SelectedItem = branch is null
+            ? null
+            : Items.OfType<BranchRowViewModel>().FirstOrDefault(row => row.FullName == branch);
+
+        SelectedTag = tag is null
+            ? null
+            : Tags.FirstOrDefault(row => row.Name == tag);
     }
 
     private bool Matches(GitBranch branch) => Matches(branch.ShortName);
