@@ -89,8 +89,13 @@ public partial class DiffViewerView : UserControl
 
         viewer.Render.UnifiedScroll.Viewport =
             Columns(UnifiedBar.Bounds.Width - metrics.GutterWidth - side, metrics);
-        viewer.Render.LeftScroll.Viewport = Columns(LeftBar.Bounds.Width - side, metrics);
-        viewer.Render.RightScroll.Viewport = Columns(RightBar.Bounds.Width - side, metrics);
+
+        // The narrower of the two panes: they share one offset, so neither may be scrolled past
+        // what it can itself show. In practice the two are equal — the panes are a 50/50 split —
+        // but the smaller is the honest answer when they are not.
+        viewer.Render.SideBySideScroll.Viewport = Math.Min(
+            Columns(LeftBar.Bounds.Width - side, metrics),
+            Columns(RightBar.Bounds.Width - side, metrics));
     }
 
     private static double Columns(double pixels, DiffMetrics metrics)
@@ -114,7 +119,7 @@ public partial class DiffViewerView : UserControl
             return;
         }
 
-        DiffScrollState pane = PaneUnder(viewer, e.GetPosition(this).X);
+        DiffScrollState pane = PaneUnder(viewer);
 
         if (!pane.IsScrollable)
         {
@@ -126,15 +131,13 @@ public partial class DiffViewerView : UserControl
     }
 
     /// <summary>
-    /// Works out which pane the pointer is over, which is the one a sideways wheel moves.
+    /// Works out which scroll a sideways wheel moves, which is the one the rendering on screen has.
     /// </summary>
-    private DiffScrollState PaneUnder(DiffViewerViewModel viewer, double x)
-    {
-        if (viewer.IsUnified)
-        {
-            return viewer.Render.UnifiedScroll;
-        }
-
-        return x < Bounds.Width / 2 ? viewer.Render.LeftScroll : viewer.Render.RightScroll;
-    }
+    /// <remarks>
+    /// The side-by-side rendering has one scroll for both panes, so where the pointer is over it no
+    /// longer matters: a wheel anywhere in it moves both sides together, which is what the two
+    /// being synchronised means.
+    /// </remarks>
+    private static DiffScrollState PaneUnder(DiffViewerViewModel viewer)
+        => viewer.IsUnified ? viewer.Render.UnifiedScroll : viewer.Render.SideBySideScroll;
 }
