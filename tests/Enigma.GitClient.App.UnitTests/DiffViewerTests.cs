@@ -723,6 +723,77 @@ public sealed class DiffViewerTests
         });
     }
 
+    [Fact]
+    public void DiffLineText_KeepsAScrolledLineOutOfTheGutterBesideIt()
+    {
+        _fixture.Run(() =>
+        {
+            const int gutter = 80;
+
+            PixelSize frame = new(320, 24);
+            PixelRect numbers = new(0, 0, gutter, frame.Height);
+            PixelRect text = new(gutter, 0, frame.Width - gutter, frame.Height);
+
+            DiffLineText line = new()
+            {
+                Text = new string('W', 200),
+                Foreground = Brushes.White,
+                FontSize = 12,
+                HorizontalOffset = 40,
+            };
+
+            // A row in miniature: a strip standing in for the line-number gutter, and the line in
+            // the column beside it. Nothing here clips, so the only containment is the control's.
+            Grid row = new()
+            {
+                Background = Brushes.Black,
+                ColumnDefinitions = new ColumnDefinitions($"{gutter},*"),
+            };
+
+            row.Children.Add(line);
+            Grid.SetColumn(line, 1);
+
+            // The control owns it, so a template that says nothing about clipping still gets it.
+            Assert.True(line.ClipToBounds, "a diff line no longer contains its own ink");
+
+            // The reported bug, reproduced by taking the containment away: the text scrolled left of
+            // its own origin lands in the strip the line numbers occupy.
+            line.ClipToBounds = false;
+
+            Assert.True(
+                ColoursIn(row, frame, numbers) > 1,
+                "the scrolled line never reached the gutter, so this frame cannot show it kept out");
+
+            line.ClipToBounds = true;
+
+            Assert.Equal(1, ColoursIn(row, frame, numbers));
+
+            Assert.True(
+                ColoursIn(row, frame, text) > 1,
+                "the clipped line drew nothing at all, so an untouched gutter proves nothing");
+        });
+    }
+
+    /// <summary>
+    /// Lays a tree out at a fixed size, renders it, and counts the colours one region of the frame
+    /// came out in — "was anything painted <em>here</em>", which is what a clip is judged on.
+    /// </summary>
+    private static int ColoursIn(Control root, PixelSize frame, PixelRect region)
+    {
+        root.InvalidateMeasure();
+        root.Measure(new Size(frame.Width, frame.Height));
+        root.Arrange(new Rect(0, 0, frame.Width, frame.Height));
+
+        using RenderTargetBitmap target = new(frame, new Vector(96, 96));
+        target.Render(root);
+
+        using MemoryStream stream = new();
+        target.Save(stream, PngBitmapEncoderOptions.Default);
+        stream.Position = 0;
+
+        return SnapshotColours.Count(stream, region);
+    }
+
     /// <summary>
     /// Draws one line on its own and counts the colours that came out: one means nothing was
     /// painted, which is how "the glyphs moved out of view" is told from "the glyphs are there".
@@ -943,6 +1014,50 @@ public sealed class DiffViewerTests
             // The view reported what it can show, which is what makes the bar appear at all.
             Assert.True(harness.Viewer.Render.LeftScroll.Viewport > 0);
             Assert.True(harness.Viewer.Render.LeftScroll.IsScrollable);
+
+            window.Content = null;
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Viewer_KeepsAScrolledLineClearOfItsLineNumbers()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(LongLinePatch));
+
+            DiffViewerView view = new() { DataContext = harness.Viewer };
+            Window window = new() { Content = view, Width = 900, Height = 420 };
+            window.Show();
+
+            harness.Viewer.Render.LeftScroll.Viewport = 40;
+            harness.Viewer.Render.LeftScroll.Offset = 120;
+
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            DiffLineText wide = view.GetVisualDescendants()
+                .OfType<DiffLineText>()
+                .Single(line => line.Text?.Length == 400);
+
+            Assert.Equal(120, wide.HorizontalOffset);
+
+            // The pane's own clip cannot do this one: it holds the gutter and the marker as well as
+            // the text, so a line scrolled left of its column is still inside it.
+            Assert.True(wide.ClipToBounds, "the scrolled line paints over the line numbers again");
+
+            // And the column it is clipped to really is the one beside the numbers: the gutter and
+            // the marker are laid out before it, and neither moves when the pane scrolls.
+            DiffMetrics metrics = DiffTypography.Current;
+
+            Assert.True(
+                wide.Bounds.X >= metrics.GutterWidth + metrics.MarkerWidth - 0.5,
+                $"the text column starts at {wide.Bounds.X}, inside the gutter and marker beside it");
 
             window.Content = null;
             window.Close();

@@ -55,3 +55,4 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-2288 | Diffs in a dialog, not a panel     | DONE        | docs/plan/FEATURE-2288.md |
 | - PHASE01    | The commit diff dialog             | DONE        | (in FEATURE-2288.md)      |
 | - PHASE02    | Reopen it from the row menu        | DONE        | (in FEATURE-2288.md)      |
+| BUG-0DC2     | Scrolled diff text over the gutter | DONE        | docs/plan/BUG-0DC2.md     |
