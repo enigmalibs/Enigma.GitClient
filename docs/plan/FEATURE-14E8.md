@@ -1,6 +1,6 @@
 # FEATURE-14E8 — History: diffs, badges and dragging
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-history-and-diffs
@@ -160,7 +160,7 @@ the operations that join them.
 ## PHASE04 — Dragging branches in the graph
 
 **Branch:** `feature/feature-14e8-phase04-branch-drag`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-14E8-PHASE04.md`
 
 ### Steps
 

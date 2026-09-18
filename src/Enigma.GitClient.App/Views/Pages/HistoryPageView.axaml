@@ -103,6 +103,7 @@
 
         <ListBox Name="CommitList"
                  DoubleTapped="OnCommitDoubleTapped"
+                 DragDrop.AllowDrop="True"
                  ItemsSource="{Binding Rows}"
                  SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                  IsVisible="{Binding !IsEmpty}"
@@ -204,6 +205,7 @@
                               Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RefColumnWidth}"
                               ItemsSource="{Binding Refs}"
                               ClipToBounds="True"
+                              ToolTip.Tip="Drag a branch onto another to merge it"
                               VerticalAlignment="Center">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
