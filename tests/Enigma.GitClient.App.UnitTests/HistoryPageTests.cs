@@ -533,6 +533,76 @@ public sealed class HistoryPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the row's hit area
+
+    /// <summary>
+    /// Finds the grids the rows are drawn with — the ones carrying each row's own context menu.
+    /// </summary>
+    private static List<Grid> RowGrids(Panel workspace)
+        => [.. workspace.GetVisualDescendants()
+            .OfType<Grid>()
+            .Where(grid => grid.ContextMenu is not null && grid.DataContext is CommitRowViewModel)];
+
+    [Fact]
+    public void Row_OpensItsMenuFromAnywhereOnTheLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, _, _, Panel workspace, _) = await ShowHistoryPageAsync(services);
+
+            Grid row = Assert.IsType<Grid>(RowGrids(workspace).FirstOrDefault());
+
+            // The line is the row: whatever the columns do, the grid is as wide as the list gives it.
+            Assert.True(row.Bounds.Width > 400, $"the row was only {row.Bounds.Width} wide");
+
+            TextBlock subject = row.Children.OfType<TextBlock>().First();
+
+            // The gap between two columns — ten points of ColumnSpacing carrying no child at all,
+            // which is exactly where a right-click used to fall through to the list.
+            Point gap = new(subject.Bounds.Right + 5, row.Bounds.Height / 2);
+
+            Assert.False(
+                row.Children.Any(child => child.Bounds.Contains(gap)),
+                "the point picked for the test is inside a cell, so it proves nothing");
+
+            // Hit testing reads the composed frame, so the window has to have drawn one.
+            Render(window);
+
+            Assert.Same(row, MenuOwnerAt(window, row.TranslatePoint(gap, window)));
+
+            // And a point over a cell still reaches the same menu, through the cell.
+            Assert.Same(row, MenuOwnerAt(window, row.TranslatePoint(subject.Bounds.Center, window)));
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// Draws the window, which is what gives the headless platform a frame to hit-test against.
+    /// </summary>
+    private static void Render(Window window)
+    {
+        window.UpdateLayout();
+
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    /// <summary>
+    /// The control a right-click at a point would open a menu from: the nearest ancestor of what
+    /// the pointer lands on that carries one.
+    /// </summary>
+    private static Control? MenuOwnerAt(Window window, Point? point)
+        => (window.InputHitTest(point ?? throw new InvalidOperationException("The point is not in the window.")) as Visual)?
+            .GetSelfAndVisualAncestors()
+            .OfType<Control>()
+            .FirstOrDefault(control => control.ContextMenu is not null);
+
     // ---------------------------------------------------------------- the badge column
 
     [Fact]

@@ -126,12 +126,22 @@
               <!-- The row's own Grid carries the height, which is a preference; a MinHeight here would
                    quietly win whenever that preference is smaller. -->
               <Setter Property="MinHeight" Value="0" />
+              <!-- Stated rather than inherited from the theme: the row's hit area is only the whole
+                   line if the row's content is given the whole line. -->
+              <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             </Style>
           </ListBox.Styles>
 
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:CommitRowViewModel">
+              <!--
+                Background, because the row is a hit target and not merely a place to put text: a
+                Grid with no brush is transparent to the pointer everywhere a child is not, so a
+                right-click landing in the spacing between two columns — or in the room after the
+                last one — used to fall through to the list and open nothing.
+              -->
               <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                    Background="Transparent"
                     ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                   <!-- Auto, with the cell itself given one explicit width for every row: that is what

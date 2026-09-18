@@ -1,6 +1,6 @@
 # FEATURE-3030 — History list: columns, menus, search
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-columns-selection-minimap
@@ -51,7 +51,7 @@ what it found instead of hiding everything else.
 ## PHASE01 — Right-click anywhere on the row
 
 **Branch:** `feature/feature-3030-phase01-row-hit-area`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3030-PHASE01.md`
 
 ### Steps
 
