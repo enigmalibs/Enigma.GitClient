@@ -1,6 +1,6 @@
 # FEATURE-295F — Diff viewer: sync, paths, full file
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-18-history-and-diffs
@@ -113,7 +113,7 @@ rather than paths.
 ## PHASE03 — No path beside the file name
 
 **Branch:** `feature/feature-295f-phase03-no-path-column`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-295F-PHASE03.md`
 
 ### Steps
 
