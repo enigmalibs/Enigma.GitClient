@@ -26,7 +26,7 @@
       <!-- The name sits in the one star column so the Grid can shrink it and the trimming
            actually fires. A horizontal StackPanel would measure every child with infinite width,
            which is what made a deeply indented tree row run past the panel's edge. -->
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6" Height="22">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Height="22">
 
         <!-- The row's own menu. A ContextMenu opens in its own popup tree, so it cannot reach the
              panel through a visual ancestor: the row passes the panel's commands through instead,
@@ -95,16 +95,6 @@
 
         <TextBlock Grid.Column="2"
                    Classes="dim"
-                   Text="{Binding DirectoryLabel}"
-                   IsVisible="{Binding HasDirectoryLabel}"
-                   VerticalAlignment="Center"
-                   FontSize="11"
-                   MaxWidth="140"
-                   TextTrimming="CharacterEllipsis"
-                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-
-        <TextBlock Grid.Column="3"
-                   Classes="dim"
                    Text="{Binding RenameLabel}"
                    IsVisible="{Binding IsRenamed}"
                    ToolTip.Tip="{Binding RenameSource}"
@@ -114,7 +104,7 @@
                    TextTrimming="CharacterEllipsis"
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
-        <Button Grid.Column="4"
+        <Button Grid.Column="3"
                 Classes="toolbar rowaction"
                 IsVisible="{Binding HasActions}"
                 Command="{Binding Actions.Primary}"
@@ -124,7 +114,7 @@
           <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Size="13" />
         </Button>
 
-        <TextBlock Grid.Column="5"
+        <TextBlock Grid.Column="4"
                    Classes="dim"
                    Text="{Binding LineCounts}"
                    VerticalAlignment="Center"
@@ -132,7 +122,7 @@
                    IsVisible="{Binding !IsDirectory}"
                    Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
-        <TextBlock Grid.Column="5"
+        <TextBlock Grid.Column="4"
                    Classes="dim"
                    Text="{Binding DirectorySummary}"
                    VerticalAlignment="Center"
@@ -199,7 +189,7 @@
                IsVisible="{Binding IsListMode}"
                Background="Transparent"
                BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto"
                AutomationProperties.Name="Changed files" />
 
       <TreeView ItemsSource="{Binding Nodes}"
@@ -208,7 +198,7 @@
                 Background="Transparent"
                 BorderThickness="0"
                 Padding="0,2,18,2"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 AutomationProperties.Name="Changed files">
         <TreeView.ItemTemplate>
           <TreeDataTemplate x:DataType="vm:ChangedFileNodeViewModel" ItemsSource="{Binding Children}">

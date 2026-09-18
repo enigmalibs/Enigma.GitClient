@@ -95,7 +95,7 @@
                                  ShowWhitespace="{Binding Options.ShowWhitespace}"
                                  WrapLines="{Binding Options.WrapLines}"
                                  TabWidth="{Binding Options.TabWidth}"
-                                 HorizontalOffset="{Binding Options.LeftScroll.Offset}" />
+                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}" />
             </Grid>
           </Border>
 
@@ -120,7 +120,7 @@
                                  ShowWhitespace="{Binding Options.ShowWhitespace}"
                                  WrapLines="{Binding Options.WrapLines}"
                                  TabWidth="{Binding Options.TabWidth}"
-                                 HorizontalOffset="{Binding Options.RightScroll.Offset}" />
+                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}" />
             </Grid>
           </Border>
         </Grid>
@@ -302,30 +302,32 @@
             IsVisible="{Binding IsSideBySide}"
             Background="{DynamicResource EnigmaSurfaceBrush}">
 
-        <Panel Grid.Column="0" IsVisible="{Binding Render.LeftScroll.IsScrollable}">
+        <!-- Two bars, one state. Each stays under the pane it belongs to, and because they bind
+             the same offset they cannot disagree — dragging either moves both sides. -->
+        <Panel Grid.Column="0" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
           <ScrollBar x:Name="LeftBar"
                      Orientation="Horizontal"
                      Visibility="Visible"
                      Minimum="0"
-                     Maximum="{Binding Render.LeftScroll.Maximum}"
-                     Value="{Binding Render.LeftScroll.Offset, Mode=TwoWay}"
-                     ViewportSize="{Binding Render.LeftScroll.Viewport}"
-                     LargeChange="{Binding Render.LeftScroll.PageSize}"
+                     Maximum="{Binding Render.SideBySideScroll.Maximum}"
+                     Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
+                     ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
+                     LargeChange="{Binding Render.SideBySideScroll.PageSize}"
                      SmallChange="1"
-                     AutomationProperties.Name="Scroll the old file sideways" />
+                     AutomationProperties.Name="Scroll both files sideways" />
         </Panel>
 
-        <Panel Grid.Column="2" IsVisible="{Binding Render.RightScroll.IsScrollable}">
+        <Panel Grid.Column="2" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
           <ScrollBar x:Name="RightBar"
                      Orientation="Horizontal"
                      Visibility="Visible"
                      Minimum="0"
-                     Maximum="{Binding Render.RightScroll.Maximum}"
-                     Value="{Binding Render.RightScroll.Offset, Mode=TwoWay}"
-                     ViewportSize="{Binding Render.RightScroll.Viewport}"
-                     LargeChange="{Binding Render.RightScroll.PageSize}"
+                     Maximum="{Binding Render.SideBySideScroll.Maximum}"
+                     Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
+                     ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
+                     LargeChange="{Binding Render.SideBySideScroll.PageSize}"
                      SmallChange="1"
-                     AutomationProperties.Name="Scroll the new file sideways" />
+                     AutomationProperties.Name="Scroll both files sideways" />
         </Panel>
       </Grid>
     </Grid>

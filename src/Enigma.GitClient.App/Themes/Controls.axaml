@@ -89,11 +89,14 @@
     <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="Background" Value="{DynamicResource RefBadgeLocalBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource RefBadgeForegroundBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="1"
                 CornerRadius="3"
-                Padding="5,1"
+                Padding="4,0"
                 ToolTip.Tip="{TemplateBinding Text}">
           <StackPanel Orientation="Horizontal" Spacing="4">
             <ei:Icon Kind="{TemplateBinding IconKind}"
@@ -127,6 +130,13 @@
 
     <Style Selector="^.stash">
       <Setter Property="Background" Value="{DynamicResource RefBadgeStashBrush}" />
+    </Style>
+
+    <!-- Where a dragged branch would land. A ring rather than a fill: the badge's own colour is
+         what says which kind of reference it is, and a drag must not take that away while it is
+         being read. -->
+    <Style Selector="^.droptarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
     </Style>
   </ControlTheme>
 

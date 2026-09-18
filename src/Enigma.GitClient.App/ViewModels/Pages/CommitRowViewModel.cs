@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Avalonia.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.Core.Graph;
@@ -33,13 +34,13 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// <param name="CreateTagHere">Creates a tag at the row's commit.</param>
 /// <param name="MergeBranch">Merges the branch pointing at the row's commit into the current one.</param>
 /// <param name="Activate">
-/// What a double-click does: check out the row's branch when it has one, the commit itself
-/// otherwise.
+/// What a double-click does: show what the row changed — or, on the uncommitted-changes row, ask
+/// the shell for the working directory. It no longer checks anything out: moving HEAD is the
+/// menu's job, not something to arrive at by clicking twice.
 /// </param>
 /// <param name="ShowChanges">
-/// Shows what the row changed. Selecting a line already opens that dialog, so this is what brings it
-/// back after it has been closed — a menu entry rather than a second click, which the dialog would
-/// take for a dismissal.
+/// Shows what the row changed. The same thing a double-click does, offered by name for a reader who
+/// closed the dialog and wants the same commit back — no selection change would announce that.
 /// </param>
 /// <param name="OpenOnHost">Opens the row's commit on the host its remote points at.</param>
 /// <param name="HostLabel">
@@ -53,13 +54,25 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
     AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
     AsyncRelayCommand<CommitRowViewModel> MergeBranch,
-    AsyncRelayCommand<CommitRowViewModel> Activate,
+    RelayCommand<CommitRowViewModel> Activate,
     RelayCommand<CommitRowViewModel> ShowChanges,
     AsyncRelayCommand<CommitRowViewModel>? OpenOnHost = null,
     Func<string?>? HostLabel = null);
 
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 {
+    /// <summary>
+    /// The format one badge is dragged onto another under.
+    /// </summary>
+    /// <remarks>
+    /// In-process: the payload is the live <see cref="RefBadgeItem"/> rather than text, because the
+    /// drag never leaves the window and a branch name on its own would not say whether it is remote
+    /// or checked out. An in-process format is never handed to the platform's clipboard, so nothing
+    /// of it escapes the application either.
+    /// </remarks>
+    public static readonly DataFormat<RefBadgeItem> DragFormat =
+        DataFormat.CreateInProcessFormat<RefBadgeItem>("enigma-gitclient/ref-badge");
+
     /// <summary>
     /// Projects a reference onto a badge.
     /// </summary>

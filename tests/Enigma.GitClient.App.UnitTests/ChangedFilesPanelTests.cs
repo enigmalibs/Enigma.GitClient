@@ -95,12 +95,13 @@ public sealed class ChangedFilesPanelTests
         Assert.Equal(5, panel.Nodes.Count);
         Assert.All(panel.Nodes, node => Assert.False(node.IsDirectory));
 
-        // The name carries the row, the directory sits beside it dimmed — a full path per row would
-        // be unreadable at panel width.
+        // The name and nothing else: a path repeated on every row costs the name the width it
+        // needs to be read at all. The whole path is still what the row stands for, and what its
+        // tooltip shows.
         ChangedFileNodeViewModel program = panel.Nodes.Single(node => node.Path == "src/app/Program.cs");
         Assert.Equal("Program.cs", program.Label);
-        Assert.Equal("src/app", program.DirectoryLabel);
-        Assert.True(program.HasDirectoryLabel);
+        Assert.Equal("src/app/Program.cs", program.Path);
+        Assert.Equal("src/app", program.File!.DirectoryPath);
     }
 
     [Fact]
@@ -605,8 +606,9 @@ public sealed class ChangedFilesPanelTests
 
                 Assert.Contains("Program.cs", list);
 
-                // The list shows the directory beside the name; the tree shows it as a row instead.
-                Assert.Contains("src/app", list);
+                // Names, not paths: the directory is a row of its own in the tree and nowhere in
+                // the list.
+                Assert.DoesNotContain("src/app", list);
                 Assert.Contains("+4 −1", list);
             }
             finally
@@ -634,7 +636,9 @@ public sealed class ChangedFilesPanelTests
                 HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
                 await page.ReloadAsync();
 
-                page.SelectedRow = page.Rows.Single(row => row.Subject == "Rework the sources");
+                // The dialog is what draws the panels, and it is asked for rather than implied by
+                // the selection.
+                page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Rework the sources"));
                 await WaitForFilesAsync(page);
 
                 HistoryPageView view = services.Get<HistoryPageView>();

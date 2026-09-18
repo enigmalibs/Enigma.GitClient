@@ -59,15 +59,10 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     /// <param name="owner">The panel the row belongs to, whose commands the row's menu runs.</param>
     /// <param name="file">The changed file.</param>
     /// <param name="label">What the row displays.</param>
-    /// <param name="showDirectory">
-    /// Whether the directory is shown beside the name. The flat list needs it to tell two files of
-    /// the same name apart; the tree already says it in the parent row, where repeating it is noise.
-    /// </param>
     public ChangedFileNodeViewModel(
         ChangedFilesPanelViewModel owner,
         ChangedFile file,
-        string label,
-        bool showDirectory = false)
+        string label)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(file);
@@ -76,7 +71,6 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
         File = file;
         Label = label;
         Children = [];
-        ShowDirectory = showDirectory;
     }
 
     /// <summary>
@@ -204,21 +198,6 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
 
     /// <summary>Gets a value indicating whether the file has unresolved conflicts.</summary>
     public bool IsConflicted => File?.ChangeKind == FileChangeKind.Unmerged;
-
-    /// <summary>
-    /// Gets a value indicating whether the row shows the file's directory beside its name.
-    /// </summary>
-    public bool ShowDirectory { get; }
-
-    /// <summary>
-    /// Gets the directory a file lives in, shown dimmed beside its name in list mode.
-    /// </summary>
-    public string DirectoryLabel => File?.DirectoryPath ?? string.Empty;
-
-    /// <summary>
-    /// Gets a value indicating whether there is a directory to show beside the name.
-    /// </summary>
-    public bool HasDirectoryLabel => ShowDirectory && DirectoryLabel.Length > 0;
 
     /// <summary>
     /// Gets the full path a moved file came from, shown as the rename label's tooltip.
@@ -690,7 +669,10 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         {
             foreach (ChangedFile file in visible)
             {
-                Nodes.Add(new ChangedFileNodeViewModel(this, file, file.Name, showDirectory: true));
+                // The name alone. Two files of the same name in different directories are told
+                // apart by the row's tooltip, which is the whole path — a column repeating it on
+                // every row costs the name the width it needs to be read at all.
+                Nodes.Add(new ChangedFileNodeViewModel(this, file, file.Name));
             }
         }
         else

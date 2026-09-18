@@ -103,6 +103,7 @@
 
         <ListBox Name="CommitList"
                  DoubleTapped="OnCommitDoubleTapped"
+                 DragDrop.AllowDrop="True"
                  ItemsSource="{Binding Rows}"
                  SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                  IsVisible="{Binding !IsEmpty}"
@@ -193,9 +194,18 @@
                                        LanePadding="8"
                                        VerticalAlignment="Stretch" />
 
+                <!--
+                  The badges are a column of their own: one width for the whole page, handed to
+                  every row, exactly as the graph cell takes GraphColumnWidth. An Auto column is
+                  measured per row, which is what used to put the subject at a different x on every
+                  line that carried a badge.
+                -->
                 <ItemsControl Grid.Column="1"
+                              Name="RefStrip"
+                              Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RefColumnWidth}"
                               ItemsSource="{Binding Refs}"
-                              IsVisible="{Binding HasRefs}"
+                              ClipToBounds="True"
+                              ToolTip.Tip="Drag a branch onto another to merge it"
                               VerticalAlignment="Center">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>

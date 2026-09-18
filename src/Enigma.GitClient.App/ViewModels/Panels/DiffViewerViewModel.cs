@@ -134,8 +134,8 @@ public sealed class DiffScrollState : ViewModelBase
 /// </summary>
 /// <remarks>
 /// Every row holds the same instance, which is what lets a toggle repaint thousands of rows without
-/// rebuilding any of them — and what lets three of them scroll sideways together, since the scroll
-/// states below are shared by exactly the same route.
+/// rebuilding any of them — and what lets a whole rendering scroll sideways as one, since the
+/// scroll states below are shared by exactly the same route.
 /// </remarks>
 public sealed class DiffRenderOptions : ViewModelBase
 {
@@ -153,8 +153,7 @@ public sealed class DiffRenderOptions : ViewModelBase
                 // Wrapping and scrolling are the two answers to the same question, so turning one
                 // on puts the other away — bars and offsets both.
                 UnifiedScroll.IsEnabled = !value;
-                LeftScroll.IsEnabled = !value;
-                RightScroll.IsEnabled = !value;
+                SideBySideScroll.IsEnabled = !value;
             }
         }
     }
@@ -165,21 +164,24 @@ public sealed class DiffRenderOptions : ViewModelBase
     /// <summary>Gets how far the unified rendering is scrolled sideways.</summary>
     public DiffScrollState UnifiedScroll { get; } = new();
 
-    /// <summary>Gets how far the side-by-side rendering's old file is scrolled sideways.</summary>
-    public DiffScrollState LeftScroll { get; } = new();
-
-    /// <summary>Gets how far the side-by-side rendering's new file is scrolled sideways.</summary>
-    public DiffScrollState RightScroll { get; } = new();
+    /// <summary>
+    /// Gets how far the side-by-side rendering is scrolled sideways — both panes at once.
+    /// </summary>
+    /// <remarks>
+    /// One state, not two kept in step: the two bars and the two columns of text all bind it, so
+    /// they cannot drift. Two mirrored states would, the moment the sides' maxima differed — and
+    /// they do differ, because the old file and the new one have different longest lines.
+    /// </remarks>
+    public DiffScrollState SideBySideScroll { get; } = new();
 
     /// <summary>
-    /// Enumerates the three panes, for the things that apply to all of them.
+    /// Enumerates the panes, for the things that apply to all of them.
     /// </summary>
     /// <returns>The scroll states.</returns>
     public IEnumerable<DiffScrollState> Panes()
     {
         yield return UnifiedScroll;
-        yield return LeftScroll;
-        yield return RightScroll;
+        yield return SideBySideScroll;
     }
 }
 
@@ -413,16 +415,15 @@ public sealed class DiffViewerViewModel : ViewModelBase
         ShowUnifiedCommand = new RelayCommand(() => ViewMode = DiffViewMode.Unified);
         ShowSideBySideCommand = new RelayCommand(() => ViewMode = DiffViewMode.SideBySide);
 
-        Apply(_settings.Current);
-        _settings.Changed += (_, e) => Apply(e.Settings);
-
+        // Both refuse once the whole file is already on screen, which the side-by-side rendering
+        // always is: widening the context there would re-read the identical patch.
         ExpandContextCommand = new AsyncRelayCommand(
             () => SetContextAsync(Math.Min(ContextLines * ExpansionFactor, WholeFileContext)),
-            () => HasPatch && ContextLines < WholeFileContext);
+            () => HasPatch && EffectiveContextLines < WholeFileContext);
 
         ExpandAllContextCommand = new AsyncRelayCommand(
             () => SetContextAsync(WholeFileContext),
-            () => HasPatch && ContextLines < WholeFileContext);
+            () => HasPatch && EffectiveContextLines < WholeFileContext);
 
         ShowAnywayCommand = new AsyncRelayCommand(ShowAnywayAsync, () => IsTruncated);
 
@@ -444,6 +445,11 @@ public sealed class DiffViewerViewModel : ViewModelBase
                 MeasureExtents();
             }
         };
+
+        // Last, and not before the commands: taking the stored preferences on sets ViewMode, whose
+        // setter now tells the expand commands their answer changed.
+        Apply(_settings.Current);
+        _settings.Changed += (_, e) => Apply(e.Settings);
     }
 
     /// <summary>Gets the rendering choices shared by every row.</summary>
@@ -461,6 +467,11 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// <summary>
     /// Gets or sets how the patch is laid out.
     /// </summary>
+    /// <remarks>
+    /// Changing it re-reads the patch, because the two renderings ask git for different things: the
+    /// side-by-side one shows the whole file, the unified one the reader's own context. Rendering
+    /// the rows already in hand in the other shape would show the wrong amount of file.
+    /// </remarks>
     public DiffViewMode ViewMode
     {
         get;
@@ -470,7 +481,13 @@ public sealed class DiffViewerViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsUnified));
                 OnPropertyChanged(nameof(IsSideBySide));
+                OnPropertyChanged(nameof(EffectiveContextLines));
                 Selection.Clear();
+
+                ExpandContextCommand.NotifyCanExecuteChanged();
+                ExpandAllContextCommand.NotifyCanExecuteChanged();
+
+                _ = ReloadAsync();
             }
         }
     } = DiffViewMode.Unified;
@@ -484,7 +501,28 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// <summary>
     /// Gets or sets how many unchanged lines are shown around each change.
     /// </summary>
-    public int ContextLines { get; private set => SetProperty(ref field, value); } = 3;
+    public int ContextLines
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(EffectiveContextLines));
+            }
+        }
+    } = 3;
+
+    /// <summary>
+    /// Gets the context git is actually asked for: the whole file while the side-by-side rendering
+    /// is shown, the reader's own <see cref="ContextLines"/> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Two views of one file read as two views of one file only when both of them *are* the file.
+    /// The unified rendering is the other question — "what changed" — and keeps the context
+    /// preference and its expand buttons.
+    /// </remarks>
+    public int EffectiveContextLines => IsSideBySide ? WholeFileContext : ContextLines;
 
     /// <summary>
     /// Gets or sets a value indicating whether whitespace-only changes are ignored, which is a
@@ -640,7 +678,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
         DiffOptions options = new()
         {
-            ContextLines = ContextLines,
+            ContextLines = EffectiveContextLines,
             IgnoreAllWhitespace = IgnoreAllWhitespace,
             IgnoreBlankLines = IgnoreBlankLines,
             Parsing = DiffParseOptions.Default with { MaxLinesPerFile = _maxLines },
@@ -820,8 +858,12 @@ public sealed class DiffViewerViewModel : ViewModelBase
     private void MeasureExtents()
     {
         Render.UnifiedScroll.Columns = LongestLine(UnifiedRows, row => row.Single);
-        Render.LeftScroll.Columns = LongestLine(SideBySideRows, row => row.Left);
-        Render.RightScroll.Columns = LongestLine(SideBySideRows, row => row.Right);
+
+        // The wider of the two sides: one shared extent, so either pane can be scrolled to the end
+        // of the longest line on either of them and the two bars agree about how far there is left.
+        Render.SideBySideScroll.Columns = Math.Max(
+            LongestLine(SideBySideRows, row => row.Left),
+            LongestLine(SideBySideRows, row => row.Right));
     }
 
     private double LongestLine(

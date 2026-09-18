@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Controls.Graph;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Panels;
@@ -29,6 +30,13 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 public sealed record HistoryScopeOption(string Label, CommitLogScope Scope);
 
 /// <summary>
+/// One branch badge dropped onto another.
+/// </summary>
+/// <param name="Source">The badge that was dragged.</param>
+/// <param name="Target">The badge it was dropped on.</param>
+public sealed record BranchDrop(RefBadgeItem Source, RefBadgeItem Target);
+
+/// <summary>
 /// The commit graph: pages commits in, lays them out, and keeps the selection in step with the rest
 /// of the shell.
 /// </summary>
@@ -47,6 +55,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
+    private readonly IBranchDropOperations _branchDropOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private bool _absoluteDates;
@@ -68,6 +77,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="reader">Reads the commits.</param>
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
+    /// <param name="branchDropOperations">Carries out one branch dropped on another.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
@@ -80,6 +90,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
+        IBranchDropOperations branchDropOperations,
         IHostLinkService links,
         ISettingsService settings,
         DiffViewerViewModel diff,
@@ -95,6 +106,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
+        ArgumentNullException.ThrowIfNull(branchDropOperations);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
@@ -110,6 +122,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
+        _branchDropOperations = branchDropOperations;
         _links = links;
         _settings = settings;
 
@@ -123,7 +136,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
-            new AsyncRelayCommand<CommitRowViewModel>(OnActivateAsync, row => row is not null),
+            new RelayCommand<CommitRowViewModel>(OnActivate, row => row is not null),
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName);
@@ -140,6 +153,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         Files.SelectionChanged += (_, _) => _ = ShowSelectedFileAsync();
         _infoBar = infoBar;
         _logger = logger;
+
+        DropBranchCommand = new AsyncRelayCommand<BranchDrop>(OnDropBranchAsync, CanDropBranch);
 
         CloseDiffDialogCommand = new RelayCommand(() => IsDiffDialogOpen = false);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
@@ -231,9 +246,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 OnPropertyChanged(nameof(HasSelection));
                 NotifySelectedCommitDetails();
 
-                // Selecting a line is what shows the diffs, and losing the selection — what a
-                // reload after a checkout does — is what puts them away again.
-                IsDiffDialogOpen = value is not null;
+                // Selecting a line selects it and nothing more: the diffs are asked for, by a
+                // double-click or by the row's menu. Losing the selection — what a reload after a
+                // checkout does — still puts them away, because a dialog describing a commit
+                // nobody has selected is describing nothing.
+                if (value is null)
+                {
+                    IsDiffDialogOpen = false;
+                }
 
                 _ = LoadChangedFilesAsync();
             }
@@ -254,6 +274,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// and writes the reader's own dismissal — the cross, the Close button, Escape, the scrim —
     /// back into it. Closing deliberately leaves <see cref="SelectedRow"/> alone, because the
     /// selection is also what "create a branch here" starts from and what the row highlight shows.
+    /// Nothing but an explicit request opens it: a double-click on a row, or that row's menu.
     /// </remarks>
     public bool IsDiffDialogOpen
     {
@@ -397,8 +418,30 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public double RowHeight { get; private set => SetProperty(ref field, value); }
         = AppSettings.Defaults.GraphRowHeight;
 
+    /// <summary>
+    /// Gets the width the badge column needs for the rows currently loaded.
+    /// </summary>
+    /// <remarks>
+    /// One width for the whole page, for the same reason <see cref="GraphColumnWidth"/> is: the
+    /// column is <c>Auto</c>, and an <c>Auto</c> column is measured per row, so a badge on one line
+    /// used to push that line's subject, author, date and sha sideways while its neighbours stayed
+    /// where they were. Zero when nothing is decorated, so an undecorated history spends no width
+    /// on the column at all.
+    /// </remarks>
+    public double RefColumnWidth
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    }
+
     /// <summary>Gets the padding on each side of the graph column.</summary>
     public static double LanePadding => 8;
+
+    /// <summary>
+    /// Gets how wide the badge column may grow to. One very long branch name is not a reason to
+    /// take the subject's room away; past this the badge ellipsises instead.
+    /// </summary>
+    public static double MaximumRefColumnWidth => 280;
 
     /// <summary>Gets how many lanes the graph column may grow to.</summary>
     public static int MaximumLanes => 14;
@@ -414,6 +457,76 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command the dialog's cross runs.</summary>
     public RelayCommand CloseDiffDialogCommand { get; }
+
+    /// <summary>
+    /// Gets the command run when one branch badge is dropped on another.
+    /// </summary>
+    public AsyncRelayCommand<BranchDrop> DropBranchCommand { get; }
+
+    /// <summary>
+    /// Answers whether one badge may be dropped on another, which is what the drag asks on every
+    /// pointer move to decide whether it is over something it can land on.
+    /// </summary>
+    /// <param name="source">The badge being dragged.</param>
+    /// <param name="target">The badge under the pointer.</param>
+    /// <returns><see langword="true"/> when the drop would mean something.</returns>
+    /// <remarks>
+    /// Only branches: a tag or the stash names a commit, and merging "into" one of them is not a
+    /// thing git can do. The rest of the policy — no branch onto itself, no remote target — belongs
+    /// to the operation that would carry the drop out, and is asked there rather than restated.
+    /// </remarks>
+    public static bool CanDropBranch(RefBadgeItem? source, RefBadgeItem? target)
+    {
+        if (source is null || target is null)
+        {
+            return false;
+        }
+
+        if (!IsBranch(source.Kind) || !IsBranch(target.Kind))
+        {
+            return false;
+        }
+
+        return BranchDropOperations.CanDrop(Request(source, target));
+    }
+
+    /// <summary>
+    /// Builds the request a pair of badges stands for.
+    /// </summary>
+    /// <param name="source">The badge being dragged.</param>
+    /// <param name="target">The badge it was dropped on.</param>
+    /// <returns>The request.</returns>
+    public static BranchDropRequest Request(RefBadgeItem source, RefBadgeItem target)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+
+        return new BranchDropRequest(
+            source.Name,
+            source.Kind == GitRefKind.RemoteBranch,
+            target.Name,
+            target.Kind == GitRefKind.RemoteBranch,
+            target.IsCurrent);
+    }
+
+    private static bool IsBranch(GitRefKind kind)
+        => kind is GitRefKind.LocalBranch or GitRefKind.RemoteBranch;
+
+    private static bool CanDropBranch(BranchDrop? drop)
+        => drop is not null && CanDropBranch(drop.Source, drop.Target);
+
+    private async Task OnDropBranchAsync(BranchDrop? drop)
+    {
+        if (drop is null || !CanDropBranch(drop))
+        {
+            return;
+        }
+
+        if (await _branchDropOperations.DropAsync(Request(drop.Source, drop.Target)).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
@@ -439,6 +552,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _query = _query with { Skip = 0 };
         SelectedRow = null;
         HasMore = false;
+        RefColumnWidth = 0;
 
         NotifyEmptyState();
 
@@ -587,6 +701,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         HasMore = page.HasMore;
 
         RecalculateGraphWidth();
+        RecalculateRefColumnWidth();
     }
 
     /// <summary>
@@ -598,6 +713,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             LaneWidth,
             LanePadding,
             MaximumLanes);
+
+    /// <summary>
+    /// Re-measures the badge column, which changes with the references on the rows in view.
+    /// </summary>
+    private void RecalculateRefColumnWidth()
+    {
+        double widest = 0;
+
+        foreach (CommitRowViewModel row in Rows)
+        {
+            widest = Math.Max(widest, RefBadgeMetrics.Measure(row.Refs));
+        }
+
+        RefColumnWidth = Math.Min(widest, MaximumRefColumnWidth);
+    }
 
     private int LargestLoadedLane()
     {
@@ -769,13 +899,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
 
     /// <summary>
-    /// Shows what a row changed.
+    /// Shows what a row changed, selecting it first when it is not the selected one.
     /// </summary>
     /// <param name="row">The row.</param>
     /// <remarks>
-    /// Selecting the row is enough when it is not the selected one — its setter opens the dialog.
-    /// The case this exists for is the other one: the reader closed the dialog and wants the same
-    /// commit back, which no selection change would announce.
+    /// The one way into the dialog, shared by the row's menu and by a double-click: a selection
+    /// change no longer opens anything, so both gestures ask for it here.
     /// </remarks>
     private void OnShowChanges(CommitRowViewModel? row)
     {
@@ -787,7 +916,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         if (!ReferenceEquals(row, SelectedRow))
         {
             SelectedRow = row;
-            return;
         }
 
         IsDiffDialogOpen = true;
@@ -835,11 +963,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// What a double-click on a row does: move onto its branch when it has one, and onto the commit
-    /// itself otherwise. Checking out the commit under the pointer is what the specification asks
-    /// for; going to the branch first is what a reader means by it when there is one.
-    /// </summary>
-    /// <summary>
     /// Opens a row's commit on whichever host the repository's remote points at.
     /// </summary>
     private async Task OnOpenOnHostAsync(CommitRowViewModel? row)
@@ -850,7 +973,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnActivateAsync(CommitRowViewModel? row)
+    /// <summary>
+    /// What a double-click on a row does: show what it changed.
+    /// </summary>
+    /// <param name="row">The row.</param>
+    /// <remarks>
+    /// It used to check the row out, which is now the row menu's job alone — a gesture that moves
+    /// HEAD is not one to arrive at by clicking twice. The uncommitted pseudo-row keeps its own
+    /// meaning: there is nothing there to compare against a parent, and the page that acts on that
+    /// work is the working directory.
+    /// </remarks>
+    private void OnActivate(CommitRowViewModel? row)
     {
         if (row is null)
         {
@@ -859,30 +992,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         if (row.IsUncommitted)
         {
-            // There is nothing to check out here — the row stands for work that is not committed
-            // yet, and the page that handles it is the working directory.
             WorkingDirectoryRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
-        if (row.Commit is null)
-        {
-            return;
-        }
-
-        if (row.CanCheckoutBranch)
-        {
-            await OnCheckoutBranchAsync(row).ConfigureAwait(true);
-            return;
-        }
-
-        if (row.HasBranch)
-        {
-            // Already on it; there is nothing to do and nothing to say.
-            return;
-        }
-
-        await OnCheckoutCommitAsync(row).ConfigureAwait(true);
+        OnShowChanges(row);
     }
 
     private void NotifySelectedCommitDetails()

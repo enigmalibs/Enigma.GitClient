@@ -12,6 +12,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Avalonia.Input;
+using Avalonia.Media;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Formatting;
@@ -20,6 +22,7 @@ using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
 
@@ -530,6 +533,269 @@ public sealed class HistoryPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the badge column
+
+    [Fact]
+    public void RefColumn_IsEmptyWhenNothingIsDecorated()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "bare-history"), "main");
+
+            await CommitAsync(repository, "README.md", "# one\n", "Add the readme");
+
+            // Only the checked-out branch decorates anything, and it is on the newest commit; the
+            // older one carries nothing, which is the case the column must not pay for.
+            await CommitAsync(repository, "README.md", "# two\n", "Extend the readme");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            await page.ReloadAsync();
+            Assert.True(page.RefColumnWidth > 0, "the checked-out branch's badge asks for a column");
+
+            // A history read with no references at all asks for nothing.
+            Assert.Equal(0, RefBadgeMetrics.Measure([]));
+            Assert.Equal(0, RefBadgeMetrics.Measure(null));
+        });
+    }
+
+    [Fact]
+    public void RefColumn_GrowsWithTheLongestBadgeAndStopsAtItsMaximum()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            double before = page.RefColumnWidth;
+            Assert.True(before > 0);
+
+            await GitAsync(repository, "branch", "a-considerably-longer-branch-name-than-main", "main");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+            await page.ReloadAsync();
+
+            Assert.True(
+                page.RefColumnWidth > before,
+                "the column kept its width when a longer branch name appeared");
+
+            // And one absurd name does not take the subject's room.
+            await GitAsync(repository, "branch", new string('x', 200), "main");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+            await page.ReloadAsync();
+
+            Assert.Equal(HistoryPageViewModel.MaximumRefColumnWidth, page.RefColumnWidth);
+        });
+    }
+
+    [Fact]
+    public void RefColumn_PutsEveryRowsSubjectAtTheSameX()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Assert.True(model.RefColumnWidth > 0);
+            Assert.Contains(model.Rows, row => row.HasRefs);
+            Assert.Contains(model.Rows, row => !row.HasRefs);
+
+            List<ItemsControl> strips = [.. workspace.GetVisualDescendants()
+                .OfType<ItemsControl>()
+                .Where(control => control.Name == "RefStrip")];
+
+            Assert.NotEmpty(strips);
+
+            // Every row's strip is the page's one width, decorated or not — which is what keeps the
+            // columns after it on the same horizontal position. Within a pixel: layout rounding
+            // snaps a measured width to the device grid, and the measurement is in points.
+            foreach (ItemsControl strip in strips)
+            {
+                Assert.True(
+                    Math.Abs(strip.Bounds.Width - model.RefColumnWidth) <= 1,
+                    $"a row's badge strip was {strip.Bounds.Width} wide, not the column's {model.RefColumnWidth}");
+            }
+
+            List<double> subjectLefts = [.. strips
+                .Select(strip => strip.GetVisualParent() as Grid)
+                .OfType<Grid>()
+                .Select(row => row.Children.OfType<TextBlock>().First())
+                .Select(subject => subject.Bounds.X)];
+
+            Assert.NotEmpty(subjectLefts);
+            Assert.All(subjectLefts, left => Assert.Equal(subjectLefts[0], left, 3));
+
+            window.Close();
+        });
+    }
+
+    // ---------------------------------------------------------------- dragging a branch
+
+    [Theory]
+    // sourceKind, sourceName, targetKind, targetName, targetIsCurrent, expected
+    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.LocalBranch, "main", true, true)]
+    [InlineData(GitRefKind.RemoteBranch, "origin/feature", GitRefKind.LocalBranch, "main", true, true)]
+    [InlineData(GitRefKind.LocalBranch, "main", GitRefKind.LocalBranch, "main", true, false)]
+    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.RemoteBranch, "origin/main", false, false)]
+    [InlineData(GitRefKind.Tag, "v1.0.0", GitRefKind.LocalBranch, "main", true, false)]
+    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.Tag, "v1.0.0", false, false)]
+    [InlineData(GitRefKind.LocalBranch, "feature", GitRefKind.Stash, "stash", false, false)]
+    public void CanDropBranch_AcceptsOnlyBranchOntoLocalBranch(
+        GitRefKind sourceKind,
+        string sourceName,
+        GitRefKind targetKind,
+        string targetName,
+        bool targetIsCurrent,
+        bool expected)
+        => Assert.Equal(
+            expected,
+            HistoryPageViewModel.CanDropBranch(
+                new RefBadgeItem(sourceKind, sourceName, false),
+                new RefBadgeItem(targetKind, targetName, targetIsCurrent)));
+
+    [Fact]
+    public void CanDropBranch_RefusesAMissingEnd()
+    {
+        RefBadgeItem badge = new(GitRefKind.LocalBranch, "main", true);
+
+        Assert.False(HistoryPageViewModel.CanDropBranch(null, badge));
+        Assert.False(HistoryPageViewModel.CanDropBranch(badge, null));
+        Assert.False(HistoryPageViewModel.CanDropBranch(null, null));
+    }
+
+    [Fact]
+    public void Request_CarriesWhatTheTwoBadgesSay()
+    {
+        BranchDropRequest request = HistoryPageViewModel.Request(
+            new RefBadgeItem(GitRefKind.RemoteBranch, "origin/feature", false),
+            new RefBadgeItem(GitRefKind.LocalBranch, "main", true));
+
+        Assert.Equal("origin/feature", request.Source);
+        Assert.True(request.SourceIsRemote);
+        Assert.Equal("main", request.Target);
+        Assert.False(request.TargetIsRemote);
+        Assert.True(request.TargetIsCurrent);
+    }
+
+    [Fact]
+    public void DropBranch_MergesAndReReadsTheHistory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            int before = page.Rows.Count;
+
+            // "feature" is an unmerged side branch of the repository the fixture builds, and main
+            // is what is checked out.
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DropBranchCommand.ExecuteAsync(new BranchDrop(
+                new RefBadgeItem(GitRefKind.LocalBranch, "feature", false),
+                new RefBadgeItem(GitRefKind.LocalBranch, "main", true)));
+
+            Assert.Single(services.Dialogs.Shown);
+
+            // The merge brought the side branch's commit in, and the page re-read to show it.
+            Assert.True(
+                page.Rows.Count >= before,
+                "the history was not re-read after the drop");
+
+            Assert.Contains(page.Rows, row => row.Subject == "Start the feature branch");
+        });
+    }
+
+    [Fact]
+    public void DropBranch_RefusesAPairThatCannotBeMerged()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            BranchDrop onItself = new(
+                new RefBadgeItem(GitRefKind.LocalBranch, "main", true),
+                new RefBadgeItem(GitRefKind.LocalBranch, "main", true));
+
+            Assert.False(page.DropBranchCommand.CanExecute(onItself));
+
+            await page.DropBranchCommand.ExecuteAsync(onItself);
+
+            // Nothing was asked and nothing was run.
+            Assert.Empty(services.Dialogs.Shown);
+        });
+    }
+
+    [Fact]
+    public void CommitList_AcceptsDrops()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, _, HistoryPageView view, _, _) = await ShowHistoryPageAsync(services);
+
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            Assert.True(DragDrop.GetAllowDrop(list));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void RefBadge_MarksItselfAsADropTarget()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+
+            Window window = new() { Content = badge, Width = 300, Height = 60 };
+            window.Show();
+            window.UpdateLayout();
+
+            Border border = badge.GetVisualDescendants().OfType<Border>().First();
+            IBrush? plain = border.BorderBrush;
+
+            badge.Classes.Set("droptarget", true);
+            window.UpdateLayout();
+
+            // The ring is what says where a dragged branch would land; the badge's own colour still
+            // says what kind of reference it is.
+            Assert.NotEqual(plain, border.BorderBrush);
+            Assert.True(border.BorderThickness.Left > 0);
+
+            badge.Classes.Set("droptarget", false);
+            window.UpdateLayout();
+
+            Assert.Equal(plain, border.BorderBrush);
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- the diff dialog
 
     /// <summary>
@@ -561,7 +827,7 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffDialog_StaysClosedUntilACommitIsSelected()
+    public void DiffDialog_StaysClosedWhenARowIsMerelySelected()
     {
         _fixture.RunAsync(async () =>
         {
@@ -577,15 +843,48 @@ public sealed class HistoryPageTests
             ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
             Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
 
+            // Selecting a line selects it. The diffs are asked for, not implied.
             model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffDialogOpen);
+            Assert.False(dialog.IsOpen);
+            Assert.Same(model.Rows[0], model.SelectedRow);
+
+            // Asking opens it, and the graph keeps its height whatever is on top of it.
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
             Assert.True(model.IsDiffDialogOpen);
             Assert.True(dialog.IsOpen);
-
-            // And the graph keeps its height whatever is on top of it.
             Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffDialog_OpensOnADoubleClick()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+
+            // What the view's DoubleTapped handler runs.
+            row.Commands!.Activate.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(model.IsDiffDialogOpen);
+            Assert.True(dialog.IsOpen);
+            Assert.Equal(row.Subject, dialog.Title);
 
             window.Close();
         });
@@ -601,7 +900,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.SelectedRow = row;
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -611,9 +910,9 @@ public sealed class HistoryPageTests
             Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
             Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.DiffViewerView>());
 
-            // Selecting another row leaves the dialog open and moves it onto that commit.
+            // Asking for another row's changes leaves the dialog open and moves it onto that commit.
             CommitRowViewModel other = model.Rows.Last(candidate => candidate.Commit is not null);
-            model.SelectedRow = other;
+            model.RowCommands.ShowChanges.Execute(other);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -633,7 +932,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
-            model.SelectedRow = model.Rows[0];
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -669,7 +968,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.SelectedRow = row;
+            model.RowCommands.Activate.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -699,7 +998,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
-            model.SelectedRow = model.Rows[0];
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -723,7 +1022,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
                 await ShowHistoryPageAsync(services);
 
-            model.SelectedRow = model.Rows[0];
+            model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -751,7 +1050,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.SelectedRow = row;
+            model.RowCommands.Activate.Execute(row);
             Dispatcher.UIThread.RunJobs();
 
             model.CloseDiffDialogCommand.Execute(null);
@@ -795,6 +1094,123 @@ public sealed class HistoryPageTests
 
             window.Close();
         });
+    }
+
+    [Fact]
+    public void DiffDialog_LetsEachPaneScrollItself()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "big"), "main");
+
+            // Big in both directions: more files than the list can show, and a patch longer than
+            // the viewer can show.
+            string before = string.Join('\n', Enumerable.Range(0, 2000).Select(line => $"line {line}")) + "\n";
+            string after = string.Join('\n', Enumerable.Range(0, 2000).Select(line => line % 5 == 0 ? $"changed {line}" : $"line {line}")) + "\n";
+
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "big.txt"), before);
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Add the big file");
+
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "big.txt"), after);
+
+            for (int index = 0; index < 40; index++)
+            {
+                await File.WriteAllTextAsync(
+                    Path.Combine(repository.WorkTreePath, $"file{index.ToString(CultureInfo.InvariantCulture)}.txt"),
+                    "content\n");
+            }
+
+            await GitAsync(repository, "add", "--all");
+            await GitAsync(repository, "commit", "-m", "Change a great deal");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel model = services.Get<HistoryPageViewModel>();
+            await model.ReloadAsync();
+
+            HistoryPageView view = services.Get<HistoryPageView>();
+            view.DataContext = model;
+
+            Window window = new() { Content = view, Width = 1200, Height = 900 };
+            window.Show();
+            window.UpdateLayout();
+
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Subject == "Change a great deal"));
+
+            await WaitUntilAsync(() => model.Files.FileCount > 0);
+
+            model.Files.ViewMode = ViewModels.Panels.ChangedFilesViewMode.List;
+
+            Assert.True(model.Files.SelectPath("big.txt"));
+            await WaitUntilAsync(() => model.Diff.HasPatch);
+
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            ContentDialog dialog = view.FindControl<ContentDialog>("DiffDialog")!;
+            DockPanel body = view.FindControl<DockPanel>("DiffDialogBody")!;
+
+            ScrollViewer card = body.GetVisualAncestors().OfType<ScrollViewer>().First();
+
+            // Nothing is left for the card to scroll: the body is bounded by it.
+            Assert.Equal(card.Viewport.Height, card.Extent.Height, 3);
+            Assert.True(
+                body.Bounds.Height <= dialog.DialogHeight,
+                $"the body is {body.Bounds.Height} tall inside a {dialog.DialogHeight} card");
+
+            // And each pane has more than it can show, with its own viewport to show it in.
+            // The list's own scroll, not the filter box's: a TextBox templates one too.
+            ScrollViewer files = ScrollOf(dialog.GetVisualDescendants()
+                .OfType<Views.Panels.ChangedFilesPanelView>()
+                .Single());
+
+            ScrollViewer diff = ScrollOf(dialog.GetVisualDescendants()
+                .OfType<Views.Panels.DiffViewerView>()
+                .Single());
+
+            Assert.True(
+                files.Extent.Height > files.Viewport.Height,
+                $"the file list does not scroll itself: extent {files.Extent.Height}, viewport {files.Viewport.Height}");
+
+            Assert.True(
+                diff.Extent.Height > diff.Viewport.Height,
+                $"the diff does not scroll itself: extent {diff.Extent.Height}, viewport {diff.Viewport.Height}");
+
+            // They are two scrolls, not one.
+            Assert.NotSame(files, diff);
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// The scroll of the one list a panel is currently showing.
+    /// </summary>
+    private static ScrollViewer ScrollOf(Control panel)
+        => panel.GetVisualDescendants()
+            .OfType<ListBox>()
+            .Where(list => list.IsVisible && list.Bounds.Height > 0)
+            .SelectMany(list => list.GetVisualDescendants().OfType<ScrollViewer>())
+            .First();
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int attempts = 200)
+    {
+        for (int attempt = 0; attempt < attempts && !condition(); attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition(), "the page never reached the state the test waited for");
     }
 
     [Theory]
