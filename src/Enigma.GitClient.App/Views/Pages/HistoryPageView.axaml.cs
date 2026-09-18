@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -38,6 +39,43 @@ public partial class HistoryPageView : UserControl
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
+
+        DiffDialogBody.AttachedToVisualTree += OnDialogBodyAttached;
+    }
+
+    /// <summary>
+    /// Stops the dialog's card scrolling this body, so the two panes inside it scroll themselves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The card wraps its content in a <see cref="ScrollViewer"/> — that is what the control
+    /// library's <c>DialogMaxHeight</c> is for, and it is right for a dialog whose content is a
+    /// paragraph. It is wrong for this one: a scrolling <see cref="ScrollViewer"/> measures its
+    /// child with infinite height, so the body was laid out at the full height of the patch (84 069
+    /// px over a 4 000-line file), each inner list was handed exactly the height it asked for, and
+    /// one bar moved the file list and the diff together.
+    /// </para>
+    /// <para>
+    /// <see cref="ScrollBarVisibility.Disabled"/> is the one state in which a scroll presenter
+    /// measures its child against the room it actually has. With it, the body is bounded by the
+    /// card, the two lists get real viewports and their own bars, and the diff's
+    /// <c>VirtualizingStackPanel</c> goes back to realising the rows on screen instead of all of
+    /// them.
+    /// </para>
+    /// <para>
+    /// Guarded rather than asserted: a future version of the control library that templates its
+    /// card differently leaves the page exactly as it behaves today rather than throwing.
+    /// </para>
+    /// </remarks>
+    private void OnDialogBodyAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (DiffDialogBody.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault() is not { } card)
+        {
+            return;
+        }
+
+        card.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        card.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
     }
 
     /// <summary>

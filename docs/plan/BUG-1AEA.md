@@ -1,6 +1,6 @@
 # BUG-1AEA — The diff dialog scrolls everything
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-1AEA.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-1aea-dialog-pane-scrolling`
 **Run:** feature/2026-09-18-history-and-diffs
