@@ -465,6 +465,19 @@ public sealed class DiffViewerViewModel : ViewModelBase
     public ObservableCollection<object> Selection { get; } = [];
 
     /// <summary>
+    /// Gets where the changes are in the unified rendering, as runs of consecutive rows.
+    /// </summary>
+    /// <remarks>
+    /// One map per rendering, because the two have different rows: the side-by-side projection
+    /// pairs a removal with the addition that replaced it and pads the shorter side with fillers,
+    /// so a run's row indices mean nothing in the other rendering.
+    /// </remarks>
+    public IReadOnlyList<DiffChangeMark> UnifiedMap { get; private set => SetProperty(ref field, value); } = [];
+
+    /// <summary>Gets where the changes are in the side-by-side rendering.</summary>
+    public IReadOnlyList<DiffChangeMark> SideBySideMap { get; private set => SetProperty(ref field, value); } = [];
+
+    /// <summary>
     /// Gets or sets how the patch is laid out.
     /// </summary>
     /// <remarks>
@@ -815,6 +828,9 @@ public sealed class DiffViewerViewModel : ViewModelBase
             }
         }
 
+        UnifiedMap = BuildMap(UnifiedRows);
+        SideBySideMap = BuildMap(SideBySideRows);
+
         foreach (DiffScrollState pane in Render.Panes())
         {
             // Another file starts at its own beginning, whatever the last one was scrolled to.
@@ -844,6 +860,78 @@ public sealed class DiffViewerViewModel : ViewModelBase
         ShowAnywayCommand.NotifyCanExecuteChanged();
         CopyPatchCommand.NotifyCanExecuteChanged();
         CopySelectionCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Reduces a rendering's rows to the runs a minimap draws.
+    /// </summary>
+    /// <param name="rows">The rendering's rows.</param>
+    /// <returns>One run per stretch of consecutive rows of the same kind, in row order.</returns>
+    /// <remarks>
+    /// Context lines produce nothing: a map of a whole-file diff would otherwise be a solid bar
+    /// with the changes invisible inside it. A hunk band is kept, because it is where a change
+    /// begins and it is what a reader aims at.
+    /// </remarks>
+    private static IReadOnlyList<DiffChangeMark> BuildMap(IReadOnlyList<DiffRowViewModel> rows)
+    {
+        List<DiffChangeMark> marks = [];
+        DiffMarkKind? open = null;
+        int start = 0;
+
+        for (int index = 0; index < rows.Count; index++)
+        {
+            DiffMarkKind? kind = KindOf(rows[index]);
+
+            if (kind == open)
+            {
+                continue;
+            }
+
+            if (open is { } previous)
+            {
+                marks.Add(new DiffChangeMark(previous, start, index - start));
+            }
+
+            open = kind;
+            start = index;
+        }
+
+        if (open is { } last)
+        {
+            marks.Add(new DiffChangeMark(last, start, rows.Count - start));
+        }
+
+        return marks;
+    }
+
+    /// <summary>
+    /// What a row contributes to the map, or <see langword="null"/> when it contributes nothing.
+    /// </summary>
+    /// <remarks>
+    /// A side-by-side row carries both sides, and a change shows as a removal on the left and an
+    /// addition on the right. It is marked as an addition: a map with one colour per row cannot say
+    /// "both", and what the reader is looking at is the file as it will be.
+    /// </remarks>
+    private static DiffMarkKind? KindOf(DiffRowViewModel row)
+    {
+        if (row.IsHunkHeader)
+        {
+            return DiffMarkKind.Hunk;
+        }
+
+        if (row.Single is { } single)
+        {
+            return single.IsAdded ? DiffMarkKind.Added
+                : single.IsRemoved ? DiffMarkKind.Removed
+                : null;
+        }
+
+        if (row.Right?.IsAdded == true)
+        {
+            return DiffMarkKind.Added;
+        }
+
+        return row.Left?.IsRemoved == true ? DiffMarkKind.Removed : null;
     }
 
     /// <summary>

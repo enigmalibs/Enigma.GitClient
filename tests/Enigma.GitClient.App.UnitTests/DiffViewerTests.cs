@@ -1525,6 +1525,242 @@ public sealed class DiffViewerTests
         }
     }
 
+    // ---------------------------------------------------------------- the change map
+
+    [Fact]
+    public void Map_HasOneRunPerStretchOfTheSameKind()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await UnifiedAsync();
+
+            // The sample patch: a hunk band, a context line, two removals, three additions, a
+            // context line. Context contributes nothing — a map that marked it would be a solid bar.
+            Assert.Collection(
+                harness.Viewer.UnifiedMap,
+                mark =>
+                {
+                    Assert.Equal(DiffMarkKind.Hunk, mark.Kind);
+                    Assert.Equal(0, mark.FirstRow);
+                    Assert.Equal(1, mark.RowCount);
+                },
+                mark =>
+                {
+                    Assert.Equal(DiffMarkKind.Removed, mark.Kind);
+                    Assert.Equal(2, mark.FirstRow);
+                    Assert.Equal(2, mark.RowCount);
+                },
+                mark =>
+                {
+                    Assert.Equal(DiffMarkKind.Added, mark.Kind);
+                    Assert.Equal(4, mark.FirstRow);
+                    Assert.Equal(3, mark.RowCount);
+                });
+
+            // Every run lands inside the rendering it describes.
+            Assert.All(
+                harness.Viewer.UnifiedMap,
+                mark => Assert.True(mark.EndRow <= harness.Viewer.UnifiedRows.Count));
+        });
+    }
+
+    [Fact]
+    public void Map_MarksBothRenderings()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync();
+
+            Assert.NotEmpty(harness.Viewer.UnifiedMap);
+            Assert.NotEmpty(harness.Viewer.SideBySideMap);
+
+            // Side by side pairs a removal with the addition that replaced it, so the same patch is
+            // fewer rows and the runs are not the same — which is why there are two maps.
+            Assert.True(harness.Viewer.SideBySideRows.Count < harness.Viewer.UnifiedRows.Count);
+
+            Assert.All(
+                harness.Viewer.SideBySideMap,
+                mark => Assert.True(mark.EndRow <= harness.Viewer.SideBySideRows.Count));
+
+            // A row that is a removal on the left and an addition on the right reads as an
+            // addition: the reader is looking at the file as it will be.
+            Assert.Contains(harness.Viewer.SideBySideMap, mark => mark.Kind == DiffMarkKind.Added);
+        });
+    }
+
+    [Fact]
+    public void Map_IsEmptyWhenThereIsNoPatch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync();
+
+            Assert.NotEmpty(harness.Viewer.UnifiedMap);
+
+            harness.Viewer.Clear();
+
+            Assert.Empty(harness.Viewer.UnifiedMap);
+            Assert.Empty(harness.Viewer.SideBySideMap);
+        });
+    }
+
+    [Fact]
+    public void Map_MergesConsecutiveLinesOfOneKind()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            // Twelve additions in a row, and nothing else but the band and one context line.
+            System.Text.StringBuilder patch = new();
+            patch.Append("diff --git a/src/run.txt b/src/run.txt\n");
+            patch.Append("--- a/src/run.txt\n");
+            patch.Append("+++ b/src/run.txt\n");
+            patch.Append("@@ -1,1 +1,13 @@\n");
+            patch.Append(" one\n");
+
+            for (int index = 0; index < 12; index++)
+            {
+                patch.Append(System.Globalization.CultureInfo.InvariantCulture, $"+added {index.ToString(System.Globalization.CultureInfo.InvariantCulture)}\n");
+            }
+
+            Harness harness = await UnifiedAsync(Parse(patch.ToString()));
+
+            DiffChangeMark added = Assert.Single(harness.Viewer.UnifiedMap, mark => mark.Kind == DiffMarkKind.Added);
+
+            Assert.Equal(12, added.RowCount);
+        });
+    }
+
+    [Theory]
+    // y, height, how much of the patch is on screen, expected start
+    [InlineData(0, 200, 0.2, 0)]
+    [InlineData(100, 200, 0.2, 0.4)]
+    [InlineData(200, 200, 0.2, 0.8)]
+    // Past either edge, and the window still stops at the ends of the patch.
+    [InlineData(-50, 200, 0.2, 0)]
+    [InlineData(400, 200, 0.2, 0.8)]
+    // The whole patch on screen: there is nowhere to scroll to.
+    [InlineData(100, 200, 1, 0)]
+    public void Minimap_PutsThePointerInTheMiddleOfTheView(
+        double y,
+        double height,
+        double viewportFraction,
+        double expected)
+        => Assert.Equal(expected, DiffMinimap.StartFor(y, height, viewportFraction), 6);
+
+    [Fact]
+    public void Minimap_AsksToScrollWhereItWasPressed()
+    {
+        _fixture.Run(() =>
+        {
+            DiffMinimap map = new()
+            {
+                RowCount = 100,
+                Marks = [new DiffChangeMark(DiffMarkKind.Added, 50, 4)],
+                ViewportStart = 0,
+                ViewportEnd = 0.25,
+                Height = 200,
+            };
+
+            Window window = new() { Content = map, Width = 60, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            List<double> asked = [];
+            map.ScrollRequested += (_, start) => asked.Add(start);
+
+            map.RequestScrollTo(map.Bounds.Height);
+
+            // Pressed at the very bottom: as far down as the patch goes, and no further.
+            double request = Assert.Single(asked);
+            Assert.Equal(0.75, request, 6);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Minimap_DrawsItsMarksAndItsWindow()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = ThemeVariant.Dark;
+
+            try
+            {
+                DiffMinimap map = new()
+                {
+                    RowCount = 60,
+                    Marks =
+                    [
+                        new DiffChangeMark(DiffMarkKind.Hunk, 0, 1),
+                        new DiffChangeMark(DiffMarkKind.Removed, 4, 6),
+                        new DiffChangeMark(DiffMarkKind.Added, 10, 12),
+                    ],
+                    ViewportStart = 0.1,
+                    ViewportEnd = 0.4,
+                };
+
+                Window window = new() { Content = map, Width = 40, Height = 300 };
+                window.Show();
+
+                string directory = Path.Combine(AppContext.BaseDirectory, "snapshots");
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "diff-minimap.png");
+
+                int colours = 0;
+
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+                    Dispatcher.UIThread.RunJobs();
+
+                    using Bitmap frame = window.CaptureRenderedFrame()
+                        ?? throw new InvalidOperationException("The minimap produced no rendered frame.");
+
+                    frame.Save(path, PngBitmapEncoderOptions.Default);
+                    colours = SnapshotColours.Count(path);
+
+                    if (colours >= 4)
+                    {
+                        break;
+                    }
+                }
+
+                // The track, two mark colours, the band's, and the window washed over them.
+                Assert.True(colours >= 4, $"the minimap frame holds only {colours} distinct colours");
+
+                window.Close();
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
+    public void Minimap_DrawsNothingButItsTrackWithNoPatch()
+    {
+        _fixture.Run(() =>
+        {
+            DiffMinimap map = new() { RowCount = 0, Marks = [] };
+
+            Window window = new() { Content = map, Width = 40, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            // No rows, no marks, and the whole of nothing is on screen: nothing to draw and nothing
+            // that throws while not drawing it.
+            Assert.Equal(0, map.RowCount);
+            Assert.Empty(map.Marks!);
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static Color Colour(string key, ThemeVariant variant)
