@@ -7,8 +7,12 @@
              x:DataType="vm:RemotesPageViewModel">
 
   <UserControl.Styles>
-    <Style Selector="Border.remoterow:pointerover">
-      <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+    <!-- A row fills its container and brings its own separator line; the hover and the selection
+         are the list's, as they are on every other list in the application. -->
+    <Style Selector="ListBox > ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     </Style>
   </UserControl.Styles>
 
@@ -60,101 +64,105 @@
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
 
-      <ScrollViewer IsVisible="{Binding !IsEmpty}">
-        <ItemsControl ItemsSource="{Binding Remotes}" Margin="0,4">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:RemoteRowViewModel">
-              <Border Classes="remoterow"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                      BorderThickness="0,0,0,1"
-                      Padding="16,10">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+      <ListBox Name="RemoteList"
+               IsVisible="{Binding !IsEmpty}"
+               ItemsSource="{Binding Remotes}"
+               SelectedItem="{Binding SelectedRemote, Mode=TwoWay}"
+               Background="Transparent"
+               BorderThickness="0"
+               Padding="0,4"
+               AutomationProperties.Name="Remotes">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:RemoteRowViewModel">
+            <Border Background="Transparent"
+                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,10">
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
 
-                  <Grid.ContextMenu>
-                    <ContextMenu>
-                      <MenuItem Header="Fetch"
-                                Command="{Binding FetchCommand}"
-                                CommandParameter="{Binding}" />
-                      <Separator />
-                      <MenuItem Header="Edit…"
-                                Command="{Binding EditCommand}"
-                                CommandParameter="{Binding}" />
-                      <MenuItem Header="Remove…"
-                                Command="{Binding RemoveCommand}"
-                                CommandParameter="{Binding}" />
-                    </ContextMenu>
-                  </Grid.ContextMenu>
+                <Grid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Fetch"
+                              Command="{Binding FetchCommand}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="Edit…"
+                              Command="{Binding EditCommand}"
+                              CommandParameter="{Binding}" />
+                    <MenuItem Header="Remove…"
+                              Command="{Binding RemoveCommand}"
+                              CommandParameter="{Binding}" />
+                  </ContextMenu>
+                </Grid.ContextMenu>
 
-                  <ei:Icon Grid.Column="0"
-                           Kind="HardDrives"
-                           Size="16"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <ei:Icon Grid.Column="0"
+                         Kind="HardDrives"
+                         Size="16"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
-                  <StackPanel Grid.Column="1" Spacing="3">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <TextBlock Text="{Binding Name}"
-                                 VerticalAlignment="Center"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                      <Border Classes="pill"
-                              Background="{DynamicResource EnigmaSelectionBrush}"
-                              IsVisible="{Binding HasHost}"
-                              VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Host}"
-                                   FontSize="10"
-                                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-                      </Border>
-                    </StackPanel>
-
-                    <TextBlock Text="{Binding FetchUrl}"
-                               FontSize="11"
-                               TextTrimming="CharacterEllipsis"
-                               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-
-                    <TextBlock Text="{Binding PushUrl, StringFormat='pushes to {0}'}"
-                               IsVisible="{Binding HasSeparatePushUrl}"
-                               FontSize="11"
-                               TextTrimming="CharacterEllipsis"
-                               Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                <StackPanel Grid.Column="1" Spacing="3">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Name}"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                    <Border Classes="pill"
+                            Background="{DynamicResource EnigmaSelectionBrush}"
+                            IsVisible="{Binding HasHost}"
+                            VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Host}"
+                                 FontSize="10"
+                                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                    </Border>
                   </StackPanel>
 
-                  <TextBlock Grid.Column="2"
-                             Text="{Binding BranchSummary}"
-                             VerticalAlignment="Center"
+                  <TextBlock Text="{Binding FetchUrl}"
                              FontSize="11"
-                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
-                  <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                    <Button Classes="toolbar"
-                            Command="{Binding FetchCommand}"
-                            CommandParameter="{Binding}"
-                            ToolTip.Tip="Fetch from this remote"
-                            AutomationProperties.Name="Fetch from this remote">
-                      <ei:Icon Kind="ArrowsDownUp" Size="14" />
-                    </Button>
-                    <Button Classes="toolbar"
-                            Command="{Binding EditCommand}"
-                            CommandParameter="{Binding}"
-                            ToolTip.Tip="Edit"
-                            AutomationProperties.Name="Edit this remote">
-                      <ei:Icon Kind="PencilSimple" Size="14" />
-                    </Button>
-                    <Button Classes="toolbar"
-                            Command="{Binding RemoveCommand}"
-                            CommandParameter="{Binding}"
-                            ToolTip.Tip="Remove"
-                            AutomationProperties.Name="Remove this remote">
-                      <ei:Icon Kind="Trash" Size="14" />
-                    </Button>
-                  </StackPanel>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+                  <TextBlock Text="{Binding PushUrl, StringFormat='pushes to {0}'}"
+                             IsVisible="{Binding HasSeparatePushUrl}"
+                             FontSize="11"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2"
+                           Text="{Binding BranchSummary}"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                  <Button Classes="toolbar"
+                          Command="{Binding FetchCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Fetch from this remote"
+                          AutomationProperties.Name="Fetch from this remote">
+                    <ei:Icon Kind="ArrowsDownUp" Size="14" />
+                  </Button>
+                  <Button Classes="toolbar"
+                          Command="{Binding EditCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Edit"
+                          AutomationProperties.Name="Edit this remote">
+                    <ei:Icon Kind="PencilSimple" Size="14" />
+                  </Button>
+                  <Button Classes="toolbar"
+                          Command="{Binding RemoveCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Remove"
+                          AutomationProperties.Name="Remove this remote">
+                    <ei:Icon Kind="Trash" Size="14" />
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
     </Grid>
   </DockPanel>
 </UserControl>

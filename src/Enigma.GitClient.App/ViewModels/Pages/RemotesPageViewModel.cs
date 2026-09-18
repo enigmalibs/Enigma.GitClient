@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -139,6 +140,20 @@ public sealed class RemotesPageViewModel : PageViewModelBase
     /// <summary>Gets the remotes the repository knows about.</summary>
     public ObservableCollection<RemoteRowViewModel> Remotes { get; } = [];
 
+    /// <summary>
+    /// Gets or sets the remote the reader has selected.
+    /// </summary>
+    /// <remarks>
+    /// Restored by name after every read, because the page rebuilds its rows on a refresh, on every
+    /// repository state change and after each operation — a selection tied to a row object would
+    /// not last a second.
+    /// </remarks>
+    public RemoteRowViewModel? SelectedRemote
+    {
+        get;
+        set => SetProperty(ref field, value);
+    }
+
     /// <summary>Gets a value indicating whether the page has nothing to show.</summary>
     public bool IsEmpty => Remotes.Count == 0;
 
@@ -200,6 +215,10 @@ public sealed class RemotesPageViewModel : PageViewModelBase
             }
         }
 
+        // Captured before the list is emptied: clearing it tells the ListBox the selection is gone,
+        // and the ListBox tells this page so. What survives a read is the name.
+        string? selected = SelectedRemote?.Name;
+
         // Read first, replace after. Clearing before the await lets a second refresh — and one
         // arrives on every state change — interleave with this one and list every remote twice.
         Remotes.Clear();
@@ -208,6 +227,10 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         {
             Remotes.Add(new RemoteRowViewModel(this, remote, CountBranches(remote.Name)));
         }
+
+        SelectedRemote = selected is null
+            ? null
+            : Remotes.FirstOrDefault(row => row.Name == selected);
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
