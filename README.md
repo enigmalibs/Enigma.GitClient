@@ -19,6 +19,7 @@ Two things matter more than everything else in this app:
 - Branch management — create, rename, delete, set upstream, checkout
 - Tag management — create (lightweight or annotated) and delete
 - Checkout of anything in the graph from a row's own menu, including a detached commit
+- Drag one branch badge onto another in the graph to merge it, or to fast-forward only
 - Create, clone and open repositories, with a recent-repositories list
 - Working directory: status, stage/unstage, discard and commit
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash

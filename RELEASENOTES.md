@@ -17,6 +17,9 @@ diff.
   selected.
 - Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
   detached.
+- The branches sit in a column of their own beside the graph, aligned on every line — and one can be
+  dragged onto another to merge it, or to fast-forward only. The target is checked out first when it
+  is not the branch you are on.
 
 ### The diff
 
