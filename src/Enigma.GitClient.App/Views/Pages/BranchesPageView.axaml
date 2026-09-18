@@ -36,6 +36,13 @@
       <Setter Property="Opacity" Value="1" />
     </Style>
 
+    <!-- Where a dragged branch would land. A ring rather than a fill: the row underneath may be the
+         selected one or the hovered one, and a drop mark has to be legible over both. -->
+    <Style Selector="ListBoxItem.droptarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
     <Style Selector="Border.pill">
       <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
@@ -356,6 +363,7 @@
         made unselectable by the container theme below.
       -->
       <ListBox Name="BranchList"
+               DragDrop.AllowDrop="True"
                IsVisible="{Binding ShowBranches}"
                ItemsSource="{Binding Items}"
                SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
