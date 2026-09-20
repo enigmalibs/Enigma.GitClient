@@ -592,6 +592,30 @@ public sealed class BranchesPageTests
         });
     }
 
+    [Theory]
+    [InlineData(0, 0, false)]          // a press and a release in the same place is a click
+    [InlineData(1, 1, false)]          // and so is a shaky hand
+    [InlineData(4, 0, true)]           // a deliberate move sideways
+    [InlineData(0, -4, true)]          // or upwards
+    [InlineData(-10, 12, true)]        // or anywhere else
+    public void ADragStartsOnlyOnceThePointerHasMoved(double x, double y, bool isDrag)
+        => Assert.Equal(isDrag, BranchDragGesture.IsDrag(new Point(100, 100), new Point(100 + x, 100 + y)));
+
+    [Fact]
+    public void TheDragThresholdIsTheSameInEveryDirection()
+    {
+        Point origin = new(50, 50);
+
+        // The same distance, four ways: a threshold that is a distance and not a box.
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithX(origin.X + BranchDragGesture.Threshold)));
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithX(origin.X - BranchDragGesture.Threshold)));
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithY(origin.Y + BranchDragGesture.Threshold)));
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithY(origin.Y - BranchDragGesture.Threshold)));
+
+        // And a pointer that has not travelled it is still a click, diagonally too.
+        Assert.False(BranchDragGesture.IsDrag(origin, new Point(origin.X + 2, origin.Y + 2)));
+    }
+
     [Fact]
     public void ASelectedBranchRow_ReadsInFull()
     {

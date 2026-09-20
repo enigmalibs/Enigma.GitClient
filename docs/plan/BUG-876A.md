@@ -1,6 +1,6 @@
 # BUG-876A — Branch rows: selection and dragging
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -39,7 +39,7 @@ something is held over it.
 ## PHASE01 — Deselected rows go back to normal
 
 **Branch:** `bugfix/bug-876a-phase01-drag-threshold`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-876A-PHASE01.md`
 
 ### Steps
 
