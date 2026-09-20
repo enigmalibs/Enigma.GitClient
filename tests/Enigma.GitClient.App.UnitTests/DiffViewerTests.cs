@@ -1848,6 +1848,91 @@ public sealed class DiffViewerTests
     }
 
     [Fact]
+    public void Minimap_IsWideEnoughToAimAt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildLargePatch(400)));
+
+            (Window window, _, DiffMinimap map, _) = ShowScrollable(harness, sideBySide: true);
+
+            // The strip is the patch's only vertical control, so it is sized to be dragged with a
+            // trackpad rather than clicked with a cursor.
+            Assert.Equal(36, map.Bounds.Width, 3);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Minimap_ScalesItsMarksToTheStrip()
+    {
+        _fixture.Run(() =>
+        {
+            // One run over every row: the strip is the mark, apart from the inset kept clear on
+            // each side of it. Explicit brushes so the assertion is about geometry, not the theme.
+            DiffMinimap map = new()
+            {
+                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Left,
+                RowCount = 10,
+                Marks = [new DiffChangeMark(DiffMarkKind.Added, 0, 10)],
+                TrackBrush = Brushes.Black,
+                AddedBrush = Brushes.White,
+                ViewportStart = 0,
+                ViewportEnd = 1,
+            };
+
+            Window window = new() { Content = map, Width = 80, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            Assert.Equal(36, map.Bounds.Width, 3);
+
+            string directory = Path.Combine(AppContext.BaseDirectory, "snapshots");
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "diff-minimap-width.png");
+
+            int strip = 0;
+
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+                Dispatcher.UIThread.RunJobs();
+
+                using Bitmap frame = window.CaptureRenderedFrame()
+                    ?? throw new InvalidOperationException("The minimap produced no rendered frame.");
+
+                frame.Save(path, PngBitmapEncoderOptions.Default);
+
+                using FileStream whole = System.IO.File.OpenRead(path);
+                strip = SnapshotColours.Count(whole, new PixelRect(0, 0, 36, 200));
+
+                if (strip >= 2)
+                {
+                    break;
+                }
+            }
+
+            // The track and the mark, plus whatever the anti-aliased edge of the run blends into:
+            // more than one colour across the strip is what says the run does not fill it.
+            Assert.True(strip >= 2, $"the strip holds {strip} colours, so nothing was drawn on it");
+
+            // The inset is a tenth of the width, so at thirty-six pixels the first three columns
+            // are track and nothing else. A two-pixel inset — what a fourteen-pixel strip wanted —
+            // would have put the mark inside this band.
+            using FileStream edge = System.IO.File.OpenRead(path);
+            Assert.Equal(1, SnapshotColours.Count(edge, new PixelRect(0, 0, 3, 200)));
+
+            // And the middle of the strip is the mark.
+            using FileStream middle = System.IO.File.OpenRead(path);
+            Assert.Equal(1, SnapshotColours.Count(middle, new PixelRect(16, 0, 4, 200)));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void Minimap_DrawsItsMarksAndItsWindow()
     {
         _fixture.Run(() =>

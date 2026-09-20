@@ -135,12 +135,14 @@
   </ControlTheme>
 
   <!--
-    The diff's minimap: the strip that replaced the patch's vertical scrollbar. Wide enough to aim
-    at with a pointer, and painted from the gutter's own colours so the map agrees with the lines it
-    stands for.
+    The diff's minimap: the strip that replaced the patch's vertical scrollbar, and therefore the
+    only thing left to drag a long patch by. Thirty-six pixels because a trackpad is not a mouse:
+    the strip has to be aimed at with a thumb rather than clicked with a cursor, and at fourteen it
+    was a hairline. It is painted from the gutter's own colours so the map agrees with the lines it
+    stands for; the control scales its marks and its window to whatever width it is given.
   -->
   <ControlTheme x:Key="{x:Type diff:DiffMinimap}" TargetType="diff:DiffMinimap">
-    <Setter Property="Width" Value="14" />
+    <Setter Property="Width" Value="36" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="TrackBrush" Value="{DynamicResource DiffGutterBrush}" />
     <Setter Property="AddedBrush" Value="{DynamicResource DiffAddedMarkerBrush}" />
