@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -245,6 +246,106 @@ public sealed class ShellRenderTests
 
             Assert.True(toolbar.Length >= 4, $"the branches toolbar drew {toolbar.Length} icons");
             Assert.All(toolbar, icon => Assert.Equal(18, icon.Size));
+        });
+    }
+
+    // ---------------------------------------------------------------- dimmed text on a selection
+
+    private static IBrush Brush(string key)
+    {
+        Application application = Application.Current!;
+
+        Assert.True(application.TryFindResource(key, application.ActualThemeVariant, out object? brush), key);
+
+        return Assert.IsAssignableFrom<IBrush>(brush);
+    }
+
+    [Theory]
+    [InlineData("dim", "EnigmaForegroundSecondaryBrush")]
+    [InlineData("faint", "EnigmaForegroundTertiaryBrush")]
+    public void DimmedText_TakesItsBrushFromItsRole(string role, string key)
+    {
+        _fixture.Run(() =>
+        {
+            TextBlock text = new() { Text = "an author", Classes = { role } };
+            Window window = new() { Content = text, Width = 200, Height = 100 };
+
+            Layout(window, 200, 100);
+
+            Assert.Same(Brush(key), text.Foreground);
+        });
+    }
+
+    [Theory]
+    [InlineData("dim")]
+    [InlineData("faint")]
+    public void DimmedText_ReadsInFullOnTheSelectedRow(string role)
+    {
+        _fixture.Run(() =>
+        {
+            ListBox list = new()
+            {
+                ItemsSource = new[] { "first", "second" },
+                ItemTemplate = new FuncDataTemplate<string>(
+                    (item, _) => new TextBlock { Text = item, Classes = { role } },
+                    supportsRecycling: true),
+            };
+
+            Window window = new() { Content = list, Width = 300, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            list.SelectedIndex = 0;
+            window.UpdateLayout();
+
+            TextBlock Row(int index) => list.ContainerFromIndex(index)!
+                .GetVisualDescendants()
+                .OfType<TextBlock>()
+                .First();
+
+            // The selected line is the line being read, so its quiet columns stop being quiet.
+            Assert.Same(Brush("EnigmaForegroundBrush"), Row(0).Foreground);
+
+            // And the rest of the list is unchanged.
+            Assert.NotSame(Brush("EnigmaForegroundBrush"), Row(1).Foreground);
+
+            // Deselecting puts it back.
+            list.SelectedIndex = 1;
+            window.UpdateLayout();
+
+            Assert.NotSame(Brush("EnigmaForegroundBrush"), Row(0).Foreground);
+            Assert.Same(Brush("EnigmaForegroundBrush"), Row(1).Foreground);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DimmedTextInATree_ReadsInFullOnTheSelectedNode()
+    {
+        _fixture.Run(() =>
+        {
+            TreeView tree = new()
+            {
+                ItemsSource = new[] { "first", "second" },
+                ItemTemplate = new FuncTreeDataTemplate<string>(
+                    (item, _) => new TextBlock { Text = item, Classes = { "faint" } },
+                    _ => Array.Empty<string>()),
+            };
+
+            Window window = new() { Content = tree, Width = 300, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            tree.SelectedItem = "first";
+            window.UpdateLayout();
+
+            TextBlock[] texts = [.. tree.GetVisualDescendants().OfType<TextBlock>()];
+
+            Assert.Same(Brush("EnigmaForegroundBrush"), texts.First(text => text.Text == "first").Foreground);
+            Assert.Same(Brush("EnigmaForegroundTertiaryBrush"), texts.First(text => text.Text == "second").Foreground);
+
+            window.Close();
         });
     }
 }

@@ -336,7 +336,7 @@
                              VerticalAlignment="Center"
                              FontSize="12"
                              TextTrimming="CharacterEllipsis"
-                             Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                             Classes="dim" />
                 </StackPanel>
 
                 <TextBlock Grid.Column="4"
@@ -346,15 +346,14 @@
                            FontSize="12"
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding DateTooltip}"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                           Classes="dim" />
 
                 <TextBlock Grid.Column="5"
                            Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.ShaWidth}"
-                           Classes="monospace"
+                           Classes="monospace faint"
                            Text="{Binding ShortSha}"
                            VerticalAlignment="Center"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                           FontSize="12" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>

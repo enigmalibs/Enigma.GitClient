@@ -186,10 +186,10 @@
                         <TextBlock Text="{Binding Branch}"
                                    IsVisible="{Binding HasBranch}"
                                    FontSize="11"
-                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                                   Classes="faint" />
                         <TextBlock Text="{Binding When}"
                                    FontSize="11"
-                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                                   Classes="faint" />
                       </StackPanel>
                     </StackPanel>
 
@@ -257,7 +257,7 @@
                              VerticalAlignment="Center"
                              FontSize="11"
                              ToolTip.Tip="Characters in the subject line; 50 is the usual guide"
-                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                             Classes="faint" />
                   <TextBlock Text="long lines"
                              IsVisible="{Binding HasLongBodyLine}"
                              VerticalAlignment="Center"

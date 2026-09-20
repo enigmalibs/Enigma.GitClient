@@ -13,19 +13,17 @@
 
         <ei:Icon Grid.Column="0"
                  Kind="{Binding Icon}"
-                 Classes="row"
-                 VerticalAlignment="Center"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="row dim"
+                 VerticalAlignment="Center" />
 
         <StackPanel Grid.Column="1" VerticalAlignment="Center">
           <TextBlock Text="{Binding DisplayName}"
                      TextTrimming="CharacterEllipsis"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
-          <TextBlock Classes="dim"
+          <TextBlock Classes="faint"
                      Text="{Binding Host}"
                      FontSize="11"
-                     TextTrimming="CharacterEllipsis"
-                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                     TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <Button Grid.Column="2"
@@ -44,12 +42,11 @@
 
         <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Classes="dim"
+            <TextBlock Classes="faint"
                        Text="{Binding Owner}"
                        IsVisible="{Binding HasOwner}"
                        VerticalAlignment="Center"
-                       FontSize="12"
-                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                       FontSize="12" />
             <TextBlock Text="{Binding Name}"
                        VerticalAlignment="Center"
                        FontWeight="SemiBold"
@@ -60,27 +57,25 @@
                     IsVisible="{Binding IsPrivate}">
               <TextBlock Text="private"
                          FontSize="11"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                         Classes="dim" />
             </Border>
           </StackPanel>
 
-          <TextBlock Classes="dim"
+          <TextBlock Classes="faint"
                      Text="{Binding Description}"
                      IsVisible="{Binding HasDescription}"
                      FontSize="11"
                      MaxWidth="560"
                      HorizontalAlignment="Left"
-                     TextTrimming="CharacterEllipsis"
-                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                     TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <TextBlock Grid.Column="1"
-                   Classes="dim"
+                   Classes="faint"
                    Text="{Binding LastPushed}"
                    IsVisible="{Binding HasLastPushed}"
                    VerticalAlignment="Center"
-                   FontSize="11"
-                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                   FontSize="11" />
 
         <Button Grid.Column="2"
                 Classes="toolbar rowaction"
@@ -103,12 +98,6 @@
     </DataTemplate>
 
   </UserControl.Resources>
-
-  <UserControl.Styles>
-    <Style Selector="ListBoxItem:selected TextBlock.dim">
-      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
-    </Style>
-  </UserControl.Styles>
 
   <DockPanel>
 
