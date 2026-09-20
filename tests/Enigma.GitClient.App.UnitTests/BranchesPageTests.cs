@@ -610,6 +610,70 @@ public sealed class BranchesPageTests
         Assert.True(BranchDragGesture.ScrollFor(58, 60) > 0);
     }
 
+    [Fact]
+    public void ADraggedBranch_AdvertisesSomethingThePlatformCanOffer()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            BranchRowViewModel row = Row(page, "merged");
+            DataTransfer transfer = BranchDrop.TransferFor(row);
+
+            // The in-process row is what the drop reads: a name alone would not say whether the
+            // branch is remote or checked out.
+            Assert.Same(row, transfer.TryGetValue(BranchDrop.DragFormat));
+
+            // And the name is what the platform is offered. Avalonia publishes no in-process format
+            // to the platform at all, so a drag carrying only the row advertises no type — which is
+            // a drag nothing can accept, and a pointer that says so for the whole gesture.
+            Assert.Equal("merged", transfer.TryGetValue(DataFormat.Text));
+
+            Assert.Contains(transfer.Formats, format => format.Kind != DataFormatKind.InProcess);
+        });
+    }
+
+    [Fact]
+    public void ADraggedRemoteBranch_CarriesItsFullName()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            BranchRowViewModel row = Row(page, "origin/published");
+
+            // The row shows "published" and the drag carries "origin/published": the full name is
+            // what every command is given, and it is what a reader dropping it elsewhere wants.
+            Assert.Equal("published", row.Name);
+            Assert.Equal("origin/published", BranchDrop.TransferFor(row).TryGetValue(DataFormat.Text));
+        });
+    }
+
+    [Fact]
+    public void ADraggedBranch_StillResolvesTheSamePair()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            BranchRowViewModel source = Row(page, "unmerged");
+            BranchRowViewModel target = Row(page, "main");
+
+            // What the drop does with the transfer is unchanged by the second item.
+            BranchRowViewModel carried = Assert.IsType<BranchRowViewModel>(
+                BranchDrop.TransferFor(source).TryGetValue(BranchDrop.DragFormat));
+
+            BranchDrop drop = new(carried, target);
+
+            Assert.True(BranchesPageViewModel.CanDrop(drop));
+            Assert.Equal("unmerged", drop.Request.Source);
+            Assert.Equal("main", drop.Request.Target);
+        });
+    }
+
     [Theory]
     [InlineData(true, true, DragDropEffects.Move)]     // a branch, over the list: the gesture is under way
     [InlineData(true, false, DragDropEffects.None)]    // a branch, somewhere else on the page
