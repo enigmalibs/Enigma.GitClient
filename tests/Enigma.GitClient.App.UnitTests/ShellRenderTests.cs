@@ -241,12 +241,13 @@ public sealed class ShellRenderTests
 
             Layout(window);
 
-            // The refresh, the segmented toggles and "New branch" all sit on the page's strip.
+            // "New branch" and the refresh both sit on the page's strip. The segmented toggles that
+            // used to sit between them went with the tags, which have a page of their own.
             Icon[] toolbar = [.. page.GetVisualDescendants()
                 .OfType<Icon>()
                 .Where(icon => icon.Classes.Contains("toolbar"))];
 
-            Assert.True(toolbar.Length >= 4, $"the branches toolbar drew {toolbar.Length} icons");
+            Assert.True(toolbar.Length >= 2, $"the branches toolbar drew {toolbar.Length} icons");
             Assert.All(toolbar, icon => Assert.Equal(18, icon.Size));
         });
     }

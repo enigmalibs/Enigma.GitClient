@@ -168,89 +168,6 @@
       </Border>
     </DataTemplate>
 
-    <DataTemplate x:Key="TagRow" x:DataType="vm:TagRowViewModel">
-      <Border Classes="branchrow"
-              Background="Transparent"
-              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-              BorderThickness="0,0,0,1"
-              Padding="14,7">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
-
-          <Grid.ContextMenu>
-            <ContextMenu>
-              <MenuItem Header="Check out (detaches HEAD)"
-                        Command="{Binding CheckoutCommand}"
-                        CommandParameter="{Binding}" />
-              <Separator />
-              <MenuItem Header="Delete…"
-                        Command="{Binding DeleteCommand}"
-                        CommandParameter="{Binding}" />
-            </ContextMenu>
-          </Grid.ContextMenu>
-
-          <ei:Icon Grid.Column="0"
-                   Kind="Tag"
-                   Classes="row dim"
-                   VerticalAlignment="Center" />
-
-          <StackPanel Grid.Column="1" Spacing="2">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="{Binding Name}"
-                         VerticalAlignment="Center"
-                         TextTrimming="CharacterEllipsis"
-                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
-              <Border Classes="pill" VerticalAlignment="Center">
-                <TextBlock Classes="dim" Text="{Binding Kind}" FontSize="10" />
-              </Border>
-            </StackPanel>
-
-            <TextBlock Text="{Binding Message}"
-                       IsVisible="{Binding HasMessage}"
-                       FontSize="11"
-                       TextTrimming="CharacterEllipsis"
-                       Classes="dim" />
-          </StackPanel>
-
-          <TextBlock Grid.Column="2"
-                     Classes="monospace faint"
-                     Text="{Binding ShortSha}"
-                     VerticalAlignment="Center"
-                     FontSize="11" />
-
-          <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
-            <TextBlock Text="{Binding Tagger}"
-                       IsVisible="{Binding HasTagger}"
-                       FontSize="11"
-                       TextTrimming="CharacterEllipsis"
-                       MaxWidth="160"
-                       HorizontalAlignment="Right"
-                       Classes="faint" />
-            <TextBlock Text="{Binding Date}"
-                       FontSize="11"
-                       HorizontalAlignment="Right"
-                       Classes="faint" />
-          </StackPanel>
-
-          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-            <Button Classes="toolbar"
-                    Command="{Binding CheckoutCommand}"
-                    CommandParameter="{Binding}"
-                    ToolTip.Tip="Check out (detaches HEAD)"
-                    AutomationProperties.Name="Check out this tag">
-              <ei:Icon Kind="SignIn" Classes="row" />
-            </Button>
-            <Button Classes="toolbar"
-                    Command="{Binding DeleteCommand}"
-                    CommandParameter="{Binding}"
-                    ToolTip.Tip="Delete"
-                    AutomationProperties.Name="Delete tag">
-              <ei:Icon Kind="Trash" Classes="row" />
-            </Button>
-          </StackPanel>
-        </Grid>
-      </Border>
-    </DataTemplate>
-
   </UserControl.Resources>
 
   <DockPanel>
@@ -260,7 +177,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
@@ -278,28 +195,10 @@
                  MaxWidth="320"
                  HorizontalAlignment="Right"
                  VerticalAlignment="Center"
-                 AutomationProperties.Name="Filter branches and tags" />
+                 AutomationProperties.Name="Filter branches" />
 
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-          <ToggleButton Classes="segment"
-                        IsChecked="{Binding ShowBranches, Mode=OneWay}"
-                        Command="{Binding ShowBranchesCommand}"
-                        ToolTip.Tip="Branches"
-                        AutomationProperties.Name="Branches">
-            <ei:Icon Kind="GitBranch" Classes="toolbar" />
-          </ToggleButton>
-          <ToggleButton Classes="segment"
-                        IsChecked="{Binding ShowTags, Mode=OneWay}"
-                        Command="{Binding ShowTagsCommand}"
-                        ToolTip.Tip="Tags"
-                        AutomationProperties.Name="Tags">
-            <ei:Icon Kind="Tag" Classes="toolbar" />
-          </ToggleButton>
-        </StackPanel>
-
-        <Button Grid.Column="3"
+        <Button Grid.Column="2"
                 Classes="toolbar"
-                IsVisible="{Binding ShowBranches}"
                 Command="{Binding CreateBranchCommand}"
                 ToolTip.Tip="Create a branch"
                 AutomationProperties.Name="Create a branch">
@@ -310,18 +209,6 @@
         </Button>
 
         <Button Grid.Column="3"
-                Classes="toolbar"
-                IsVisible="{Binding ShowTags}"
-                Command="{Binding CreateTagCommand}"
-                ToolTip.Tip="Create a tag"
-                AutomationProperties.Name="Create a tag">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
-            <TextBlock Text="New tag" VerticalAlignment="Center" />
-          </StackPanel>
-        </Button>
-
-        <Button Grid.Column="4"
                 Classes="toolbar"
                 Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Refresh"
@@ -334,20 +221,10 @@
     <Grid>
 
       <controls:EmptyState IconKind="GitBranch"
-                           Title="Branches and tags"
+                           Title="Branches"
                            Message="{Binding EmptyMessage}"
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
-
-      <ListBox Name="TagList"
-               IsVisible="{Binding ShowTags}"
-               ItemsSource="{Binding Tags}"
-               ItemTemplate="{StaticResource TagRow}"
-               SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
-               Background="Transparent"
-               BorderThickness="0"
-               Padding="0,4"
-               AutomationProperties.Name="Tags" />
 
       <!--
         One list for every group, not a list per group: the page has one selection, and nested lists
@@ -357,7 +234,6 @@
       -->
       <ListBox Name="BranchList"
                DragDrop.AllowDrop="True"
-               IsVisible="{Binding ShowBranches}"
                ItemsSource="{Binding Items}"
                SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                Background="Transparent"

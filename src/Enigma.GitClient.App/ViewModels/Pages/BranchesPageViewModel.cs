@@ -194,14 +194,14 @@ public sealed record BranchGroupViewModel(string Title, bool IsRemote, IReadOnly
 /// ViewModel behind the branches page.
 /// </summary>
 /// <remarks>
-/// The page shows and filters; every write, with its dialog and its confirmation, belongs to
-/// <see cref="IBranchOperations"/>, which the graph's own context menu calls too. Two places
-/// offering the same operation have to ask the same questions.
+/// Branches and nothing else: tags were the other half of this page, behind a switch, and are now
+/// <see cref="TagsPageViewModel"/>. The page shows and filters; every write, with its dialog and its
+/// confirmation, belongs to <see cref="IBranchOperations"/>, which the graph's own context menu
+/// calls too. Two places offering the same operation have to ask the same questions.
 /// </remarks>
 public sealed class BranchesPageViewModel : PageViewModelBase
 {
     private readonly IBranchOperations _operations;
-    private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
     private readonly IBranchDropOperations _dropOperations;
@@ -211,27 +211,23 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="operations">Performs the branch operations, dialogs and all.</param>
-    /// <param name="tagOperations">Performs the tag operations.</param>
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
     /// <param name="mergeOperations">Merges a branch into the current one.</param>
     /// <param name="dropOperations">Carries out one branch dropped onto another.</param>
     public BranchesPageViewModel(
         IRepositoryContext repositoryContext,
         IBranchOperations operations,
-        ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
         IBranchDropOperations dropOperations)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
-        ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
 
         _operations = operations;
-        _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
         _dropOperations = dropOperations;
@@ -252,43 +248,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             drop => OnDropAsync(drop?.Reversed(), FastForwardMode.WhenPossible),
             drop => CanDrop(drop?.Reversed()));
 
-        ShowBranchesCommand = new RelayCommand(() => ShowTags = false);
-        ShowTagsCommand = new RelayCommand(() => ShowTags = true);
-        CreateTagCommand = new AsyncRelayCommand(OnCreateTagAsync, () => IsRepositoryOpen);
-        CheckoutTagCommand = new AsyncRelayCommand<TagRowViewModel>(OnCheckoutTagAsync, row => row is not null);
-        DeleteTagCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteTagAsync, row => row is not null);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
-    public string Title => "Branches and tags";
+    public string Title => "Branches";
 
-    /// <summary>Gets the tags the repository holds.</summary>
-    public ObservableCollection<TagRowViewModel> Tags { get; } = [];
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the tag list is shown instead of the branches.
-    /// </summary>
-    public bool ShowTags
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(ShowBranches));
-                OnPropertyChanged(nameof(SearchPlaceholder));
-                Rebuild();
-            }
-        }
-    }
-
-    /// <summary>Gets a value indicating whether the branch list is shown.</summary>
-    public bool ShowBranches => !ShowTags;
-
-    /// <summary>
-    /// Gets what the filter box says it filters, which follows whichever list is shown.
-    /// </summary>
-    public string SearchPlaceholder => ShowTags ? "Filter tags" : "Filter branches";
+    /// <summary>Gets what the filter box says it filters.</summary>
+    public string SearchPlaceholder => "Filter branches";
 
     /// <summary>Gets the branches, grouped as local and one group per remote.</summary>
     public ObservableCollection<BranchGroupViewModel> Groups { get; } = [];
@@ -324,19 +290,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     public BranchRowViewModel? SelectedBranch => SelectedItem as BranchRowViewModel;
 
     /// <summary>
-    /// Gets or sets the tag the reader has selected.
-    /// </summary>
-    /// <remarks>
-    /// Its own property rather than one selection for the page: the two lists are alternatives, and
-    /// a tag selected while the branches are on screen is not a selection anybody can see.
-    /// </remarks>
-    public TagRowViewModel? SelectedTag
-    {
-        get;
-        set => SetProperty(ref field, value);
-    }
-
-    /// <summary>
     /// Gets or sets a substring the shown branch names must contain.
     /// </summary>
     public string SearchText
@@ -353,19 +306,17 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     } = string.Empty;
 
     /// <summary>Gets a value indicating whether the page has nothing to show.</summary>
-    public bool IsEmpty => ShowTags ? Tags.Count == 0 : Groups.Count == 0;
+    public bool IsEmpty => Groups.Count == 0;
 
     /// <summary>
     /// Gets the sentence shown while the page has nothing to display.
     /// </summary>
     public string EmptyMessage
         => !IsRepositoryOpen
-            ? "Open a repository to manage its branches and tags."
+            ? "Open a repository to manage its branches."
             : SearchText.Trim().Length > 0
-                ? ShowTags ? "No tag matches this search." : "No branch matches this search."
-                : ShowTags
-                    ? "This repository has no tags yet."
-                    : "This repository has no branches yet. The first commit creates one.";
+                ? "No branch matches this search."
+                : "This repository has no branches yet. The first commit creates one.";
 
     /// <summary>Gets the command that re-reads the references.</summary>
     public AsyncRelayCommand RefreshCommand { get; }
@@ -417,21 +368,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     public static bool CanDrop(BranchDrop? drop)
         => drop is not null && BranchDropOperations.CanDrop(drop.Request);
 
-    /// <summary>Gets the command that shows the branch list.</summary>
-    public RelayCommand ShowBranchesCommand { get; }
-
-    /// <summary>Gets the command that shows the tag list.</summary>
-    public RelayCommand ShowTagsCommand { get; }
-
-    /// <summary>Gets the command that opens the create-tag dialog.</summary>
-    public AsyncRelayCommand CreateTagCommand { get; }
-
-    /// <summary>Gets the command that checks a tag out, detaching HEAD.</summary>
-    public AsyncRelayCommand<TagRowViewModel> CheckoutTagCommand { get; }
-
-    /// <summary>Gets the command that deletes a tag.</summary>
-    public AsyncRelayCommand<TagRowViewModel> DeleteTagCommand { get; }
-
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
     {
@@ -460,7 +396,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         RefreshCommand.NotifyCanExecuteChanged();
         CreateBranchCommand.NotifyCanExecuteChanged();
-        CreateTagCommand.NotifyCanExecuteChanged();
         Rebuild();
     }
 
@@ -472,10 +407,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     private void Rebuild()
     {
-        // Captured before the lists are emptied: clearing a list tells its ListBox the selection is
+        // Captured before the list is emptied: clearing a list tells its ListBox the selection is
         // gone, and the ListBox tells this page so. What survives a rebuild is the name.
         string? selectedBranch = SelectedBranch?.FullName;
-        string? selectedTag = SelectedTag?.Name;
 
         Groups.Clear();
         Items.Clear();
@@ -536,43 +470,26 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             }
         }
 
-        Tags.Clear();
-
-        foreach (GitTag tag in refs.Tags)
-        {
-            if (Matches(tag.ShortName))
-            {
-                Tags.Add(new TagRowViewModel(tag, CheckoutTagCommand, DeleteTagCommand));
-            }
-        }
-
-        RestoreSelection(selectedBranch, selectedTag);
+        RestoreSelection(selectedBranch);
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
     }
 
     /// <summary>
-    /// Puts the selection back on the rows that stand for what was selected before the rebuild.
+    /// Puts the selection back on the row that stands for what was selected before the rebuild.
     /// </summary>
     /// <param name="branch">The full name of the branch that was selected, if any.</param>
-    /// <param name="tag">The name of the tag that was selected, if any.</param>
     /// <remarks>
     /// By name, because every row is a new object: the page rebuilds on a refresh, on an operation
     /// and on every keystroke in the filter box, and a selection that did not survive that would be
     /// a selection nobody could keep. A row that is gone — deleted, renamed, filtered out — takes
     /// the selection with it.
     /// </remarks>
-    private void RestoreSelection(string? branch, string? tag)
-    {
-        SelectedItem = branch is null
+    private void RestoreSelection(string? branch)
+        => SelectedItem = branch is null
             ? null
             : Items.OfType<BranchRowViewModel>().FirstOrDefault(row => row.FullName == branch);
-
-        SelectedTag = tag is null
-            ? null
-            : Tags.FirstOrDefault(row => row.Name == tag);
-    }
 
     private bool Matches(GitBranch branch) => Matches(branch.ShortName);
 
@@ -630,24 +547,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         if (drop is not null)
         {
             await Run(() => _dropOperations.DropAsync(drop.Request, fastForward)).ConfigureAwait(true);
-        }
-    }
-
-    private Task OnCreateTagAsync() => Run(() => _tagOperations.CreateAsync());
-
-    private async Task OnCheckoutTagAsync(TagRowViewModel? row)
-    {
-        if (row is not null)
-        {
-            await Run(() => _checkoutOperations.CheckoutAsync(row.Name)).ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnDeleteTagAsync(TagRowViewModel? row)
-    {
-        if (row is not null)
-        {
-            await Run(() => _tagOperations.DeleteAsync(row.Name)).ConfigureAwait(true);
         }
     }
 

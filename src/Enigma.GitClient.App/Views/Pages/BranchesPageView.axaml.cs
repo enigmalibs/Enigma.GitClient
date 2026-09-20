@@ -115,7 +115,7 @@ internal static class BranchDragGesture
 }
 
 /// <summary>
-/// The branches and tags page.
+/// The branches page.
 /// </summary>
 /// <remarks>
 /// The code behind this view exists for one gesture: dragging one branch onto another. A drag is a
@@ -255,12 +255,9 @@ public partial class BranchesPageView : UserControl
     /// </remarks>
     private void ForgetHover()
     {
-        foreach (ListBox list in new[] { BranchList, TagList })
+        foreach (ListBoxItem container in BranchList.GetRealizedContainers().OfType<ListBoxItem>())
         {
-            foreach (ListBoxItem container in list.GetRealizedContainers().OfType<ListBoxItem>())
-            {
-                ((IPseudoClasses)container.Classes).Set(":pointerover", false);
-            }
+            ((IPseudoClasses)container.Classes).Set(":pointerover", false);
         }
     }
 
