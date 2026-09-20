@@ -82,7 +82,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-0DB4 | Bigger icons, readable selected rows  | DONE   | docs/plan/FEATURE-0DB4.md |
 | - PHASE01    | One icon scale for the whole app      | DONE   | (in FEATURE-0DB4.md)      |
 | - PHASE02    | Readable text on a selected row       | DONE   | (in FEATURE-0DB4.md)      |
-| BUG-3BAE     | Search matches are not highlighted    | TODO   | docs/plan/BUG-3BAE.md     |
+| BUG-3BAE     | Search matches are not highlighted    | DONE   | docs/plan/BUG-3BAE.md     |
 | FEATURE-F04E | Diffs take the whole page             | TODO   | docs/plan/FEATURE-F04E.md |
 | - PHASE01    | The diff view replaces the history    | TODO   | (in FEATURE-F04E.md)      |
 | - PHASE02    | Escape leaves the diff at once        | TODO   | (in FEATURE-F04E.md)      |

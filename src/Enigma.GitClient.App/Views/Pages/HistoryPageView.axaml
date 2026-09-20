@@ -219,14 +219,18 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:CommitRowViewModel">
               <!--
-                Background, because the row is a hit target and not merely a place to put text: a
-                Grid with no brush is transparent to the pointer everywhere a child is not, so a
-                right-click landing in the spacing between two columns — or in the room after the
-                last one — used to fall through to the list and open nothing.
+                The row's background is the house style's, not this template's. It is a hit target
+                and not merely a place to put text — a Grid with no brush is transparent to the
+                pointer everywhere a child is not, so a right-click landing in the spacing between
+                two columns used to fall through to the list and open nothing — and it is also what
+                the search washes. Written here as a local value, it outranked the wash: in Avalonia
+                a local value beats every style setter, so `commitrow` says "transparent" and
+                `commitrow.match` says "found", at the same precedence, and the more specific one
+                wins.
               -->
               <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                    Classes="commitrow"
                     Classes.match="{Binding IsSearchMatch}"
-                    Background="Transparent"
                     ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                   <!-- Auto, with the cell itself given one explicit width for every row: that is what
