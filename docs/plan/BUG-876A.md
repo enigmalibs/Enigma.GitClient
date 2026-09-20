@@ -1,6 +1,6 @@
 # BUG-876A — Branch rows: selection and dragging
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -95,7 +95,7 @@ something is held over it.
 ## PHASE03 — The list scrolls while dragging
 
 **Branch:** `bugfix/bug-876a-phase03-drag-autoscroll`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-876A-PHASE03.md`
 
 ### Steps
 

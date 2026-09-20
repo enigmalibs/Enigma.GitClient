@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.GitClient.App.ViewModels.Pages;
 
@@ -60,6 +61,57 @@ internal static class BranchDragGesture
     /// </remarks>
     public static DragDropEffects EffectFor(bool carriesBranch, bool isOverTheList)
         => carriesBranch && isOverTheList ? DragDropEffects.Move : DragDropEffects.None;
+
+    /// <summary>
+    /// How near an edge the pointer has to be for the list to scroll towards it, in pixels.
+    /// </summary>
+    public const double ScrollBand = 32;
+
+    /// <summary>The furthest one tick scrolls, in pixels, at the very edge of the list.</summary>
+    public const double ScrollStep = 24;
+
+    /// <summary>
+    /// How far the list should scroll while a drag is held at a given height in it.
+    /// </summary>
+    /// <param name="y">Where the pointer is, in the list's own coordinates.</param>
+    /// <param name="viewportHeight">How tall the part of the list on screen is.</param>
+    /// <returns>
+    /// Pixels to scroll by: negative towards the top, positive towards the bottom, and zero
+    /// anywhere in the middle.
+    /// </returns>
+    /// <remarks>
+    /// The speed grows with how far into the band the pointer is, so nudging the edge creeps and
+    /// pushing past it runs — and it never drops to nothing inside the band, because a scroll that
+    /// stops just short of the edge is a list that cannot be reached to the end of. The band is
+    /// capped at a third of the viewport so that a short list does not become one long edge.
+    /// </remarks>
+    public static double ScrollFor(double y, double viewportHeight)
+    {
+        if (viewportHeight <= 0)
+        {
+            return 0;
+        }
+
+        double band = Math.Min(ScrollBand, viewportHeight / 3);
+
+        if (y < band)
+        {
+            return -ScrollStep * Depth((band - y) / band);
+        }
+
+        if (y > viewportHeight - band)
+        {
+            return ScrollStep * Depth((y - (viewportHeight - band)) / band);
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// How fast a pointer that far into the band moves the list, from a quarter of the step to all
+    /// of it.
+    /// </summary>
+    private static double Depth(double fraction) => Math.Clamp(fraction, 0.25, 1);
 }
 
 /// <summary>
@@ -72,8 +124,12 @@ internal static class BranchDragGesture
 /// </remarks>
 public partial class BranchesPageView : UserControl
 {
+    private readonly DispatcherTimer _autoScroll;
+
     private ListBoxItem? _highlighted;
     private PendingDrag? _pending;
+    private ScrollViewer? _listScroll;
+    private double _autoScrollBy;
 
     /// <summary>
     /// Initialises a new instance.
@@ -93,6 +149,11 @@ public partial class BranchesPageView : UserControl
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
+
+        // A timer, because the pointer stops reporting while it is held still — and a branch held
+        // over the bottom of the list is exactly the gesture that has to keep scrolling.
+        _autoScroll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        _autoScroll.Tick += (_, _) => ScrollTowardsTheEdge();
     }
 
     /// <summary>
@@ -180,6 +241,7 @@ public partial class BranchesPageView : UserControl
         finally
         {
             ForgetHover();
+            StopScrolling();
         }
     }
 
@@ -215,7 +277,69 @@ public partial class BranchesPageView : UserControl
         e.Handled = true;
 
         Highlight(DropFor(e, container) is not null ? container : null);
+        FollowTheEdge(e);
     }
+
+    // ---------------------------------------------------------------- scrolling while dragging
+
+    /// <summary>
+    /// Starts, steers or stops the scrolling that a drag held near an edge asks for.
+    /// </summary>
+    private void FollowTheEdge(DragEventArgs e)
+    {
+        if (ListScroll() is not { } scroll)
+        {
+            StopScrolling();
+            return;
+        }
+
+        _autoScrollBy = BranchDragGesture.ScrollFor(e.GetPosition(scroll).Y, scroll.Viewport.Height);
+
+        if (_autoScrollBy == 0)
+        {
+            StopScrolling();
+            return;
+        }
+
+        if (!_autoScroll.IsEnabled)
+        {
+            _autoScroll.Start();
+        }
+    }
+
+    private void StopScrolling()
+    {
+        _autoScrollBy = 0;
+        _autoScroll.Stop();
+    }
+
+    /// <summary>
+    /// Moves the list by one tick's worth, and stops when there is nothing left that way.
+    /// </summary>
+    private void ScrollTowardsTheEdge()
+    {
+        if (ListScroll() is not { } scroll)
+        {
+            StopScrolling();
+            return;
+        }
+
+        double furthest = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+        double moved = Math.Clamp(scroll.Offset.Y + _autoScrollBy, 0, furthest);
+
+        if (moved == scroll.Offset.Y)
+        {
+            return;
+        }
+
+        scroll.Offset = new Vector(scroll.Offset.X, moved);
+    }
+
+    /// <summary>
+    /// The branches list's own scroll, once the list has a template to find one in.
+    /// </summary>
+    private ScrollViewer? ListScroll()
+        => _listScroll ??= BranchList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
 
     /// <summary>
     /// Whether an event landed inside the branches list.
@@ -224,7 +348,11 @@ public partial class BranchesPageView : UserControl
         => source is Visual visual
             && visual.GetSelfAndVisualAncestors().Any(ancestor => ReferenceEquals(ancestor, BranchList));
 
-    private void OnDragLeave(object? sender, DragEventArgs e) => Highlight(null);
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        Highlight(null);
+        StopScrolling();
+    }
 
     /// <summary>
     /// Opens the menu of what the dropped pair can do.
@@ -240,6 +368,7 @@ public partial class BranchesPageView : UserControl
         ListBoxItem? container = RowAt(e.Source);
 
         Highlight(null);
+        StopScrolling();
 
         if (DropFor(e, container) is not { } drop || container is null)
         {
