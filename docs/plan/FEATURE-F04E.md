@@ -1,6 +1,6 @@
 # FEATURE-F04E — Diffs take the whole page
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -40,7 +40,7 @@ leave it the moment it opens.
 ## PHASE01 — The diff view replaces the history
 
 **Branch:** `feature/feature-f04e-phase01-full-page-diff`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-F04E-PHASE01.md`
 
 ### Steps
 
