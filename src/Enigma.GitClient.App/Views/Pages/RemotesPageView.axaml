@@ -26,7 +26,7 @@
       <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <ei:Icon Kind="CloudArrowUp" Size="18" VerticalAlignment="Center"
+          <ei:Icon Kind="CloudArrowUp" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
                      VerticalAlignment="Center"
@@ -41,7 +41,7 @@
                 ToolTip.Tip="Add a remote"
                 AutomationProperties.Name="Add a remote">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
             <TextBlock Text="New remote" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
@@ -51,7 +51,7 @@
                 Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Refresh"
                 AutomationProperties.Name="Refresh">
-          <ei:Icon Kind="ArrowsClockwise" Size="15" />
+          <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
         </Button>
       </Grid>
     </Border>
@@ -97,7 +97,7 @@
 
                 <ei:Icon Grid.Column="0"
                          Kind="HardDrives"
-                         Size="16"
+                         Classes="row"
                          VerticalAlignment="Center"
                          Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
@@ -141,21 +141,21 @@
                           CommandParameter="{Binding}"
                           ToolTip.Tip="Fetch from this remote"
                           AutomationProperties.Name="Fetch from this remote">
-                    <ei:Icon Kind="ArrowsDownUp" Size="14" />
+                    <ei:Icon Kind="ArrowsDownUp" Classes="row" />
                   </Button>
                   <Button Classes="toolbar"
                           Command="{Binding EditCommand}"
                           CommandParameter="{Binding}"
                           ToolTip.Tip="Edit"
                           AutomationProperties.Name="Edit this remote">
-                    <ei:Icon Kind="PencilSimple" Size="14" />
+                    <ei:Icon Kind="PencilSimple" Classes="row" />
                   </Button>
                   <Button Classes="toolbar"
                           Command="{Binding RemoveCommand}"
                           CommandParameter="{Binding}"
                           ToolTip.Tip="Remove"
                           AutomationProperties.Name="Remove this remote">
-                    <ei:Icon Kind="Trash" Size="14" />
+                    <ei:Icon Kind="Trash" Classes="row" />
                   </Button>
                 </StackPanel>
               </Grid>

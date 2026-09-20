@@ -80,7 +80,7 @@
 
         <ei:Icon Grid.Column="0"
                  Kind="Folder"
-                 Size="14"
+                 Classes="row"
                  VerticalAlignment="Center"
                  IsVisible="{Binding IsDirectory}"
                  Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
@@ -111,7 +111,7 @@
                 CommandParameter="{Binding}"
                 ToolTip.Tip="{Binding Actions.PrimaryLabel}"
                 AutomationProperties.Name="{Binding Actions.PrimaryLabel}">
-          <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Size="13" />
+          <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Classes="row" />
         </Button>
 
         <TextBlock Grid.Column="4"
@@ -153,14 +153,14 @@
                         Command="{Binding ShowAsListCommand}"
                         ToolTip.Tip="Show the files as a flat list"
                         AutomationProperties.Name="Show the files as a flat list">
-            <ei:Icon Kind="ListBullets" Size="14" />
+            <ei:Icon Kind="ListBullets" Classes="toolbar" />
           </ToggleButton>
           <ToggleButton Classes="segment"
                         IsChecked="{Binding IsTreeMode, Mode=OneWay}"
                         Command="{Binding ShowAsTreeCommand}"
                         ToolTip.Tip="Show the files as a tree"
                         AutomationProperties.Name="Show the files as a tree">
-            <ei:Icon Kind="TreeStructure" Size="14" />
+            <ei:Icon Kind="TreeStructure" Classes="toolbar" />
           </ToggleButton>
         </StackPanel>
       </Grid>

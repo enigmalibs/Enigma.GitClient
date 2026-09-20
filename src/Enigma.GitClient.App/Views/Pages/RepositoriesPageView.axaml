@@ -15,7 +15,7 @@
             Padding="16,12">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <ei:Icon Kind="Folders" Size="18" VerticalAlignment="Center"
+          <ei:Icon Kind="Folders" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="Repositories"
                      VerticalAlignment="Center"
@@ -27,13 +27,13 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button Command="{Binding OpenCommand}" AutomationProperties.Name="Open a repository">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <ei:Icon Kind="FolderOpen" Size="15" VerticalAlignment="Center" />
+              <ei:Icon Kind="FolderOpen" Classes="toolbar" VerticalAlignment="Center" />
               <TextBlock Text="Open" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button Command="{Binding CloneCommand}" AutomationProperties.Name="Clone a repository">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <ei:Icon Kind="CloudArrowDown" Size="15" VerticalAlignment="Center" />
+              <ei:Icon Kind="CloudArrowDown" Classes="toolbar" VerticalAlignment="Center" />
               <TextBlock Text="Clone" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
@@ -41,7 +41,7 @@
                   Classes="accent"
                   AutomationProperties.Name="Create a repository">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <ei:Icon Kind="Plus" Size="15" VerticalAlignment="Center" />
+              <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
               <TextBlock Text="Create" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
@@ -96,14 +96,14 @@
                           CommandParameter="{Binding}"
                           ToolTip.Tip="Pin to the top"
                           AutomationProperties.Name="Pin to the top">
-                    <ei:Icon Kind="PushPin" Size="15" />
+                    <ei:Icon Kind="PushPin" Classes="row" />
                   </Button>
                   <Button Classes="toolbar"
                           Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).ForgetRecentCommand}"
                           CommandParameter="{Binding}"
                           ToolTip.Tip="Forget this repository (it is not deleted)"
                           AutomationProperties.Name="Forget this repository">
-                    <ei:Icon Kind="X" Size="15" />
+                    <ei:Icon Kind="X" Classes="row" />
                   </Button>
                   <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenRecentCommand}"
                           CommandParameter="{Binding}"

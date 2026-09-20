@@ -89,7 +89,7 @@
 
           <ei:Icon Grid.Column="0"
                    Kind="GitBranch"
-                   Size="14"
+                   Classes="row"
                    VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
@@ -159,14 +159,14 @@
                     CommandParameter="{Binding}"
                     ToolTip.Tip="Check out"
                     AutomationProperties.Name="Check out">
-              <ei:Icon Kind="SignIn" Size="14" />
+              <ei:Icon Kind="SignIn" Classes="row" />
             </Button>
             <Button Classes="toolbar"
                     Command="{Binding DeleteCommand}"
                     CommandParameter="{Binding}"
                     ToolTip.Tip="Delete"
                     AutomationProperties.Name="Delete branch">
-              <ei:Icon Kind="Trash" Size="14" />
+              <ei:Icon Kind="Trash" Classes="row" />
             </Button>
           </StackPanel>
         </Grid>
@@ -195,7 +195,7 @@
 
           <ei:Icon Grid.Column="0"
                    Kind="Tag"
-                   Size="14"
+                   Classes="row"
                    VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
@@ -244,14 +244,14 @@
                     CommandParameter="{Binding}"
                     ToolTip.Tip="Check out (detaches HEAD)"
                     AutomationProperties.Name="Check out this tag">
-              <ei:Icon Kind="SignIn" Size="14" />
+              <ei:Icon Kind="SignIn" Classes="row" />
             </Button>
             <Button Classes="toolbar"
                     Command="{Binding DeleteCommand}"
                     CommandParameter="{Binding}"
                     ToolTip.Tip="Delete"
                     AutomationProperties.Name="Delete tag">
-              <ei:Icon Kind="Trash" Size="14" />
+              <ei:Icon Kind="Trash" Classes="row" />
             </Button>
           </StackPanel>
         </Grid>
@@ -270,7 +270,7 @@
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <ei:Icon Kind="GitBranch" Size="18" VerticalAlignment="Center"
+          <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
                      VerticalAlignment="Center"
@@ -293,14 +293,14 @@
                         Command="{Binding ShowBranchesCommand}"
                         ToolTip.Tip="Branches"
                         AutomationProperties.Name="Branches">
-            <ei:Icon Kind="GitBranch" Size="14" />
+            <ei:Icon Kind="GitBranch" Classes="toolbar" />
           </ToggleButton>
           <ToggleButton Classes="segment"
                         IsChecked="{Binding ShowTags, Mode=OneWay}"
                         Command="{Binding ShowTagsCommand}"
                         ToolTip.Tip="Tags"
                         AutomationProperties.Name="Tags">
-            <ei:Icon Kind="Tag" Size="14" />
+            <ei:Icon Kind="Tag" Classes="toolbar" />
           </ToggleButton>
         </StackPanel>
 
@@ -311,7 +311,7 @@
                 ToolTip.Tip="Create a branch"
                 AutomationProperties.Name="Create a branch">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
             <TextBlock Text="New branch" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
@@ -323,7 +323,7 @@
                 ToolTip.Tip="Create a tag"
                 AutomationProperties.Name="Create a tag">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
             <TextBlock Text="New tag" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
@@ -333,7 +333,7 @@
                 Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Refresh"
                 AutomationProperties.Name="Refresh">
-          <ei:Icon Kind="ArrowsClockwise" Size="15" />
+          <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
         </Button>
       </Grid>
     </Border>
@@ -377,7 +377,7 @@
             <Border Padding="14,6" Background="{DynamicResource EnigmaSurfaceBrush}">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <ei:Icon Kind="HardDrives"
-                         Size="13"
+                         Classes="pill"
                          VerticalAlignment="Center"
                          IsVisible="{Binding IsRemote}"
                          Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
