@@ -452,6 +452,16 @@ public sealed class DiffViewerViewModel : ViewModelBase
         _settings.Changed += (_, e) => Apply(e.Settings);
     }
 
+    /// <summary>
+    /// Raised once a patch — or the absence of one — has reached the rows.
+    /// </summary>
+    /// <remarks>
+    /// What a view does with it is put the reader where the change is. It is raised from the one
+    /// place every path ends in, so a new file, a re-read, a rendering switch and a clear all say
+    /// it exactly once.
+    /// </remarks>
+    public event EventHandler? PatchChanged;
+
     /// <summary>Gets the rendering choices shared by every row.</summary>
     public DiffRenderOptions Render { get; } = new();
 
@@ -476,6 +486,26 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
     /// <summary>Gets where the changes are in the side-by-side rendering.</summary>
     public IReadOnlyList<DiffChangeMark> SideBySideMap { get; private set => SetProperty(ref field, value); } = [];
+
+    /// <summary>
+    /// Gets the row the unified rendering's first change begins at, or 0 when it has none.
+    /// </summary>
+    /// <remarks>
+    /// The first run of the rendering's own map, which is the hunk band that introduces the first
+    /// change — so it is already the row a reader wants to be looking at when the file opens. A
+    /// patch with no changed line at all (a rename, a mode change) reports 0, which is the top.
+    /// </remarks>
+    public int UnifiedFirstChangeRow { get; private set => SetProperty(ref field, value); }
+
+    /// <summary>
+    /// Gets the row the side-by-side rendering's first change begins at, or 0 when it has none.
+    /// </summary>
+    /// <remarks>
+    /// Its own number, not the unified one: the side-by-side projection pairs a removal with the
+    /// addition that replaced it and pads the shorter side, so the two renderings put the same
+    /// change on different rows.
+    /// </remarks>
+    public int SideBySideFirstChangeRow { get; private set => SetProperty(ref field, value); }
 
     /// <summary>
     /// Gets or sets how the patch is laid out.
@@ -831,6 +861,9 @@ public sealed class DiffViewerViewModel : ViewModelBase
         UnifiedMap = BuildMap(UnifiedRows);
         SideBySideMap = BuildMap(SideBySideRows);
 
+        UnifiedFirstChangeRow = FirstChangeRow(UnifiedMap);
+        SideBySideFirstChangeRow = FirstChangeRow(SideBySideMap);
+
         foreach (DiffScrollState pane in Render.Panes())
         {
             // Another file starts at its own beginning, whatever the last one was scrolled to.
@@ -860,6 +893,34 @@ public sealed class DiffViewerViewModel : ViewModelBase
         ShowAnywayCommand.NotifyCanExecuteChanged();
         CopyPatchCommand.NotifyCanExecuteChanged();
         CopySelectionCommand.NotifyCanExecuteChanged();
+
+        // Last: whoever moves the view to the change is moving it to rows that now exist.
+        PatchChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Where a rendering's first change begins.
+    /// </summary>
+    /// <param name="map">The rendering's map.</param>
+    /// <returns>
+    /// The first row that was added or removed, or 0 when the rendering has no changed line at all.
+    /// </returns>
+    /// <remarks>
+    /// The added and removed runs, not the hunk band that precedes them: the side-by-side rendering
+    /// reads the whole file, so its single band sits at row 0 whatever the change is, and aiming at
+    /// it would open every file at the top — which is what the reader was complaining about.
+    /// </remarks>
+    private static int FirstChangeRow(IReadOnlyList<DiffChangeMark> map)
+    {
+        foreach (DiffChangeMark mark in map)
+        {
+            if (mark.Kind is DiffMarkKind.Added or DiffMarkKind.Removed)
+            {
+                return mark.FirstRow;
+            }
+        }
+
+        return 0;
     }
 
     /// <summary>

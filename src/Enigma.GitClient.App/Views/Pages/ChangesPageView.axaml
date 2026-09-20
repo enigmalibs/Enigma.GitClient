@@ -17,7 +17,7 @@
       <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <ei:Icon Kind="FileText" Size="18" VerticalAlignment="Center"
+          <ei:Icon Kind="FileText" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
                      VerticalAlignment="Center"
@@ -31,7 +31,7 @@
                 Background="{DynamicResource EnigmaSelectionBrush}"
                 VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" Spacing="5">
-            <ei:Icon Kind="GitBranch" Size="13" VerticalAlignment="Center"
+            <ei:Icon Kind="GitBranch" Classes="pill" VerticalAlignment="Center"
                      Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             <TextBlock Text="{Binding BranchName}"
                        VerticalAlignment="Center"
@@ -52,7 +52,7 @@
                 Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Refresh"
                 AutomationProperties.Name="Refresh">
-          <ei:Icon Kind="ArrowsClockwise" Size="15" />
+          <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
         </Button>
       </Grid>
     </Border>
@@ -87,14 +87,14 @@
                         Command="{Binding DiscardAllCommand}"
                         ToolTip.Tip="Discard everything"
                         AutomationProperties.Name="Discard everything">
-                  <ei:Icon Kind="TrashSimple" Size="14" />
+                  <ei:Icon Kind="TrashSimple" Classes="toolbar" />
                 </Button>
                 <Button Grid.Column="2"
                         Classes="toolbar"
                         Command="{Binding StashAllCommand}"
                         ToolTip.Tip="Put everything aside on the stash"
                         AutomationProperties.Name="Stash all changes">
-                  <ei:Icon Kind="Archive" Size="14" />
+                  <ei:Icon Kind="Archive" Classes="toolbar" />
                 </Button>
                 <Button Grid.Column="3"
                         Classes="toolbar"
@@ -102,7 +102,7 @@
                         ToolTip.Tip="Stage everything"
                         AutomationProperties.Name="Stage everything">
                   <StackPanel Orientation="Horizontal" Spacing="5">
-                    <ei:Icon Kind="Plus" Size="13" VerticalAlignment="Center" />
+                    <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
                     <TextBlock Text="Stage all" FontSize="12" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
@@ -135,7 +135,7 @@
                         ToolTip.Tip="Unstage everything"
                         AutomationProperties.Name="Unstage everything">
                   <StackPanel Orientation="Horizontal" Spacing="5">
-                    <ei:Icon Kind="Minus" Size="13" VerticalAlignment="Center" />
+                    <ei:Icon Kind="Minus" Classes="toolbar" VerticalAlignment="Center" />
                     <TextBlock Text="Unstage all" FontSize="12" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
@@ -186,10 +186,10 @@
                         <TextBlock Text="{Binding Branch}"
                                    IsVisible="{Binding HasBranch}"
                                    FontSize="11"
-                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                                   Classes="faint" />
                         <TextBlock Text="{Binding When}"
                                    FontSize="11"
-                                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                                   Classes="faint" />
                       </StackPanel>
                     </StackPanel>
 
@@ -199,14 +199,14 @@
                               CommandParameter="{Binding}"
                               ToolTip.Tip="Restore and remove"
                               AutomationProperties.Name="Restore and remove this stash">
-                        <ei:Icon Kind="ArrowCounterClockwise" Size="13" />
+                        <ei:Icon Kind="ArrowCounterClockwise" Classes="row" />
                       </Button>
                       <Button Classes="toolbar rowaction"
                               Command="{Binding DropCommand}"
                               CommandParameter="{Binding}"
                               ToolTip.Tip="Drop"
                               AutomationProperties.Name="Drop this stash">
-                        <ei:Icon Kind="Trash" Size="13" />
+                        <ei:Icon Kind="Trash" Classes="row" />
                       </Button>
                     </StackPanel>
                   </Grid>
@@ -257,7 +257,7 @@
                              VerticalAlignment="Center"
                              FontSize="11"
                              ToolTip.Tip="Characters in the subject line; 50 is the usual guide"
-                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                             Classes="faint" />
                   <TextBlock Text="long lines"
                              IsVisible="{Binding HasLongBodyLine}"
                              VerticalAlignment="Center"

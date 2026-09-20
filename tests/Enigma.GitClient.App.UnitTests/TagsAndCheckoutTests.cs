@@ -614,7 +614,7 @@ public sealed class TagsAndCheckoutTests
             // A double-click shows what the row changed; moving HEAD is the menu's job alone.
             Assert.Equal(before, context.Head?.BranchName);
             Assert.False(context.Head?.IsDetached);
-            Assert.True(history.IsDiffDialogOpen);
+            Assert.True(history.IsDiffViewOpen);
         });
     }
 

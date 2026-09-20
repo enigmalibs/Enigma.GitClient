@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ei="https://github.com/josueclement/Enigma.Icons"
              xmlns:controls="using:Enigma.GitClient.App.Controls"
-             xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
              xmlns:panels="using:Enigma.GitClient.App.Views.Panels"
              xmlns:graph="using:Enigma.GitClient.App.Controls.Graph"
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
@@ -10,8 +9,8 @@
              x:DataType="vm:HistoryPageViewModel">
 
   <!--
-    The page is the graph, and the dialog is drawn over it: a ContentDialog dims and blocks its own
-    bounds, so it has to be the last child of the panel it is meant to cover.
+    The page is the graph, with the diffs drawn over the whole of it when they are asked for: the
+    panel that carries them is the last child here, so it covers everything above it.
   -->
   <Panel Name="PageRoot">
     <DockPanel>
@@ -25,7 +24,7 @@
         <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <ei:Icon Kind="GitCommit" Size="16" VerticalAlignment="Center"
+            <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
                      Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             <TextBlock Text="History"
                        VerticalAlignment="Center"
@@ -73,7 +72,7 @@
                     Command="{Binding ClearSearchCommand}"
                     ToolTip.Tip="Clear the search"
                     AutomationProperties.Name="Clear the search">
-              <ei:Icon Kind="X" Size="14" />
+              <ei:Icon Kind="X" Classes="toolbar" />
             </Button>
           </Grid>
 
@@ -82,7 +81,7 @@
                   Command="{Binding RefreshCommand}"
                   ToolTip.Tip="Re-read the history"
                   AutomationProperties.Name="Re-read the history">
-            <ei:Icon Kind="ArrowsClockwise" Size="16" />
+            <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
           </Button>
         </Grid>
       </Border>
@@ -219,14 +218,18 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:CommitRowViewModel">
               <!--
-                Background, because the row is a hit target and not merely a place to put text: a
-                Grid with no brush is transparent to the pointer everywhere a child is not, so a
-                right-click landing in the spacing between two columns — or in the room after the
-                last one — used to fall through to the list and open nothing.
+                The row's background is the house style's, not this template's. It is a hit target
+                and not merely a place to put text — a Grid with no brush is transparent to the
+                pointer everywhere a child is not, so a right-click landing in the spacing between
+                two columns used to fall through to the list and open nothing — and it is also what
+                the search washes. Written here as a local value, it outranked the wash: in Avalonia
+                a local value beats every style setter, so `commitrow` says "transparent" and
+                `commitrow.match` says "found", at the same precedence, and the more specific one
+                wins.
               -->
               <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                    Classes="commitrow"
                     Classes.match="{Binding IsSearchMatch}"
-                    Background="Transparent"
                     ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                   <!-- Auto, with the cell itself given one explicit width for every row: that is what
@@ -336,7 +339,7 @@
                              VerticalAlignment="Center"
                              FontSize="12"
                              TextTrimming="CharacterEllipsis"
-                             Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                             Classes="dim" />
                 </StackPanel>
 
                 <TextBlock Grid.Column="4"
@@ -346,15 +349,14 @@
                            FontSize="12"
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding DateTooltip}"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                           Classes="dim" />
 
                 <TextBlock Grid.Column="5"
                            Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.ShaWidth}"
-                           Classes="monospace"
+                           Classes="monospace faint"
                            Text="{Binding ShortSha}"
                            VerticalAlignment="Center"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                           FontSize="12" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -363,64 +365,71 @@
     </DockPanel>
 
     <!--
-      What the selected commit changed. The card is a fraction of the page in both directions rather
-      than a fixed size, so it follows the window; the maxima are bound too, because the control's
-      own default maximum would otherwise clamp it to 600. The bottom Close button is the control's,
-      the cross is the content's — the control's title area draws no glyph of its own.
-    -->
-    <contentDialog:ContentDialog Name="DiffDialog"
-                                 Title="{Binding SelectedSubject}"
-                                 CloseButtonText="Close"
-                                 DialogWidth="{Binding #PageRoot.Bounds.Width, Converter={x:Static controls:DialogSizing.Fill}}"
-                                 DialogMaxWidth="{Binding #PageRoot.Bounds.Width, Converter={x:Static controls:DialogSizing.Fill}}"
-                                 DialogHeight="{Binding #PageRoot.Bounds.Height, Converter={x:Static controls:DialogSizing.Fill}}"
-                                 DialogMaxHeight="{Binding #PageRoot.Bounds.Height, Converter={x:Static controls:DialogSizing.Fill}}">
-      <DockPanel Name="DiffDialogBody">
+      What the selected commit changed, on the whole page.
 
-        <!-- Who made what is on screen, and the way out of it. -->
+      Last child of the root panel and painted opaque, so it covers the graph rather than replacing
+      it: the history underneath stays laid out, which is what keeps the reader's place in it — a
+      collapsed list is re-measured at nothing and its scroll offset clamped to the top. It is also
+      why there is no scrolling card around this body any more: the panel is bounded by the page, so
+      the file list and the patch each get a real viewport and scroll themselves.
+    -->
+    <Border Name="DiffPage"
+            IsVisible="{Binding IsDiffViewOpen}"
+            Focusable="True"
+            Background="{DynamicResource EnigmaBackgroundBrush}">
+      <DockPanel Name="DiffPageBody">
+
+        <!-- Which commit this is, and the way back to the graph. -->
         <Border DockPanel.Dock="Top"
+                Background="{DynamicResource EnigmaSurfaceBrush}"
                 BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
-                Padding="0,0,0,8"
-                Margin="0,0,0,8">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <StackPanel Grid.Column="0" Spacing="4">
+                Padding="12,8">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+
+            <Button Grid.Column="0"
+                    Name="LeaveDiffView"
+                    Classes="toolbar"
+                    VerticalAlignment="Top"
+                    Command="{Binding CloseDiffViewCommand}"
+                    ToolTip.Tip="Back to the history"
+                    AutomationProperties.Name="Back to the history">
+              <ei:Icon Kind="ArrowLeft" Classes="toolbar" />
+            </Button>
+
+            <StackPanel Grid.Column="1" Spacing="4">
+
+              <TextBlock Name="DiffSubject"
+                         Text="{Binding SelectedSubject}"
+                         FontSize="14"
+                         FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
               <StackPanel Orientation="Horizontal"
                           Spacing="12"
                           IsVisible="{Binding HasSelectedCommit}">
-                <TextBlock Text="{Binding SelectedAuthor}"
+                <TextBlock Classes="dim"
+                           Text="{Binding SelectedAuthor}"
                            FontSize="12"
-                           TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-                <TextBlock Text="{Binding SelectedDate}"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-                <TextBlock Classes="monospace"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="faint"
+                           Text="{Binding SelectedDate}"
+                           FontSize="12" />
+                <TextBlock Classes="monospace faint"
                            Text="{Binding SelectedSha}"
                            FontSize="12"
-                           TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                           TextTrimming="CharacterEllipsis" />
               </StackPanel>
 
-              <TextBlock Text="{Binding SelectedBody}"
+              <TextBlock Classes="dim"
+                         Text="{Binding SelectedBody}"
                          IsVisible="{Binding HasSelectedBody}"
                          FontSize="12"
                          TextWrapping="Wrap"
                          MaxLines="3"
-                         TextTrimming="CharacterEllipsis"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                         TextTrimming="CharacterEllipsis" />
             </StackPanel>
-
-            <Button Grid.Column="1"
-                    Name="CloseDiffDialog"
-                    Classes="toolbar"
-                    VerticalAlignment="Top"
-                    Command="{Binding CloseDiffDialogCommand}"
-                    ToolTip.Tip="Close"
-                    AutomationProperties.Name="Close">
-              <ei:Icon Kind="X" Size="14" />
-            </Button>
           </Grid>
         </Border>
 
@@ -435,6 +444,6 @@
           <panels:DiffViewerView Grid.Column="2" DataContext="{Binding Diff}" />
         </Grid>
       </DockPanel>
-    </contentDialog:ContentDialog>
+    </Border>
   </Panel>
 </UserControl>

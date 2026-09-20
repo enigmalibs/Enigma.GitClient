@@ -14,7 +14,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Media;
-using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
@@ -482,6 +481,51 @@ public sealed class HistoryPageTests
                     ((CommitRowViewModel)row.DataContext!).IsSearchMatch,
                     row.Classes.Contains("match"));
             }
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Search_WashesTheRowsItFound()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("SearchMatchBrush", application.ActualThemeVariant, out object? brush));
+
+            Color found = Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+
+            // A row is always painted with something: that is what makes the whole line a hit
+            // target for its own menu, washed or not.
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            Assert.All(RowGrids(workspace), row => Assert.NotEqual(found, Painted(row)));
+            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            List<Grid> washed = [.. RowGrids(workspace).Where(row => Painted(row) == found)];
+
+            Assert.NotEmpty(washed);
+            Assert.Equal(model.Rows.Count(row => row.IsSearchMatch), washed.Count);
+
+            foreach (Grid row in RowGrids(workspace))
+            {
+                Assert.Equal(
+                    ((CommitRowViewModel)row.DataContext!).IsSearchMatch,
+                    Painted(row) == found);
+            }
+
+            model.ClearSearchCommand.Execute(null);
+            window.UpdateLayout();
+
+            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             window.Close();
         });
@@ -1083,13 +1127,13 @@ public sealed class HistoryPageTests
         });
     }
 
-    // ---------------------------------------------------------------- the diff dialog
+    // ---------------------------------------------------------------- the diffs on the page
 
     /// <summary>
-    /// Builds the page against a real repository, shows it, and hands the test the pieces the
-    /// dialog's behaviour is read from.
+    /// Builds the page against a real repository, shows it, and hands the test the pieces the diff
+    /// view's behaviour is read from.
     /// </summary>
-    private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Panel Workspace, ContentDialog Dialog)>
+    private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View, Panel Workspace, Border DiffPage)>
         ShowHistoryPageAsync(TestServices services, int extraCommits = 0)
     {
         RepositoryHandle repository = await BuildHistoryAsync(services, extraCommits);
@@ -1107,24 +1151,30 @@ public sealed class HistoryPageTests
 
         Panel workspace = view.FindControl<Panel>("Workspace")
             ?? throw new InvalidOperationException("The history page has no workspace.");
-        ContentDialog dialog = view.FindControl<ContentDialog>("DiffDialog")
-            ?? throw new InvalidOperationException("The history page has no diff dialog.");
+        Border diffPage = view.FindControl<Border>("DiffPage")
+            ?? throw new InvalidOperationException("The history page has no diff view.");
 
-        return (window, model, view, workspace, dialog);
+        return (window, model, view, workspace, diffPage);
     }
 
+    /// <summary>
+    /// What the diff view says it is showing.
+    /// </summary>
+    private static string SubjectOf(HistoryPageView view)
+        => view.FindControl<TextBlock>("DiffSubject")?.Text ?? string.Empty;
+
     [Fact]
-    public void DiffDialog_StaysClosedWhenARowIsMerelySelected()
+    public void DiffView_StaysClosedWhenARowIsMerelySelected()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, Panel workspace, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, _, Panel workspace, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             Assert.Null(model.SelectedRow);
-            Assert.False(model.IsDiffDialogOpen);
-            Assert.False(dialog.IsOpen);
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
 
             // Nothing is taken from the graph: the list is the page's body.
             ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
@@ -1135,17 +1185,18 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.False(model.IsDiffDialogOpen);
-            Assert.False(dialog.IsOpen);
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
             Assert.Same(model.Rows[0], model.SelectedRow);
 
-            // Asking opens it, and the graph keeps its height whatever is on top of it.
+            // Asking shows them, and the graph underneath keeps the height — and therefore the
+            // scroll position — it had.
             model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.True(model.IsDiffDialogOpen);
-            Assert.True(dialog.IsOpen);
+            Assert.True(model.IsDiffViewOpen);
+            Assert.True(diffPage.IsVisible);
             Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
 
             window.Close();
@@ -1153,12 +1204,12 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffDialog_OpensOnADoubleClick()
+    public void DiffView_OpensOnADoubleClick()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
@@ -1169,21 +1220,21 @@ public sealed class HistoryPageTests
             window.UpdateLayout();
 
             Assert.Same(row, model.SelectedRow);
-            Assert.True(model.IsDiffDialogOpen);
-            Assert.True(dialog.IsOpen);
-            Assert.Equal(row.Subject, dialog.Title);
+            Assert.True(model.IsDiffViewOpen);
+            Assert.True(diffPage.IsVisible);
+            Assert.Equal(row.Subject, SubjectOf(view));
 
             window.Close();
         });
     }
 
     [Fact]
-    public void DiffDialog_ShowsWhatTheSelectedCommitChanged()
+    public void DiffView_ShowsWhatTheSelectedCommitChanged()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
@@ -1191,67 +1242,63 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Equal(row.Subject, dialog.Title);
+            Assert.Equal(row.Subject, SubjectOf(view));
 
-            // The changed files and the diff moved into the dialog as they were.
-            Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
-            Assert.Single(dialog.GetVisualDescendants().OfType<Views.Panels.DiffViewerView>());
+            // The changed files and the diff moved onto the page as they were.
+            Assert.Single(diffPage.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
+            Assert.Single(diffPage.GetVisualDescendants().OfType<Views.Panels.DiffViewerView>());
 
-            // Asking for another row's changes leaves the dialog open and moves it onto that commit.
+            // Asking for another row's changes leaves the view open and moves it onto that commit.
             CommitRowViewModel other = model.Rows.Last(candidate => candidate.Commit is not null);
             model.RowCommands.ShowChanges.Execute(other);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.True(dialog.IsOpen);
-            Assert.Equal(other.Subject, dialog.Title);
+            Assert.True(diffPage.IsVisible);
+            Assert.Equal(other.Subject, SubjectOf(view));
 
             window.Close();
         });
     }
 
     [Fact]
-    public void DiffDialog_IsAlmostAsLargeAsThePageAndFollowsIt()
+    public void DiffView_TakesTheWholePageAndFollowsIt()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, HistoryPageView view, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Equal(view.Bounds.Width * DialogSizing.Fraction, dialog.DialogWidth, 3);
-            Assert.Equal(view.Bounds.Height * DialogSizing.Fraction, dialog.DialogHeight, 3);
+            Assert.Equal(view.Bounds.Width, diffPage.Bounds.Width, 3);
+            Assert.Equal(view.Bounds.Height, diffPage.Bounds.Height, 3);
 
-            // The maxima move with it, or the control's own default would clamp the card.
-            Assert.Equal(dialog.DialogWidth, dialog.DialogMaxWidth, 3);
-            Assert.Equal(dialog.DialogHeight, dialog.DialogMaxHeight, 3);
-
-            double before = dialog.DialogWidth;
+            // The history is still laid out underneath, which is what keeps the reader's place in
+            // it; the panel is simply drawn over it.
+            Assert.True(workspace.Bounds.Height > 0);
 
             window.Width = 900;
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
 
-            Assert.True(
-                dialog.DialogWidth < before,
-                "the dialog kept its width when the window was made narrower");
-            Assert.Equal(view.Bounds.Width * DialogSizing.Fraction, dialog.DialogWidth, 3);
+            Assert.Equal(view.Bounds.Width, diffPage.Bounds.Width, 3);
 
             window.Close();
         });
     }
 
     [Fact]
-    public void DiffDialog_ClosesWithoutLosingTheSelection()
+    public void DiffView_ClosesWithoutLosingTheSelection()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
@@ -1259,12 +1306,12 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            model.CloseDiffDialogCommand.Execute(null);
+            model.CloseDiffViewCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.False(dialog.IsOpen);
-            Assert.False(model.IsDiffDialogOpen);
+            Assert.False(diffPage.IsVisible);
+            Assert.False(model.IsDiffViewOpen);
 
             // The selection is also the start point "create a branch here" falls back to, and the
             // highlight that says where the reader is, so closing must not take it away.
@@ -1277,23 +1324,28 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffDialog_ClosedByTheControlIsClosedForThePageToo()
+    public void DiffView_ClosesFromItsBackButton()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            // What Escape, the scrim and the Close button all end in.
-            await dialog.HideAsync();
-            Dispatcher.UIThread.RunJobs();
+            Button back = view.FindControl<Button>("LeaveDiffView")
+                ?? throw new InvalidOperationException("The diff view has no way back.");
 
-            Assert.False(model.IsDiffDialogOpen);
+            Assert.NotNull(back.Command);
+            back.Command.Execute(back.CommandParameter);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
             Assert.NotNull(model.SelectedRow);
 
             window.Close();
@@ -1301,57 +1353,57 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffDialog_GoesAwayWithTheSelection()
+    public void DiffView_GoesAwayWithTheSelection()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             model.RowCommands.Activate.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.True(dialog.IsOpen);
+            Assert.True(diffPage.IsVisible);
 
             // What a reload does after a checkout: the selection it was showing is gone.
             model.SelectedRow = null;
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.False(model.IsDiffDialogOpen);
-            Assert.False(dialog.IsOpen);
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
 
             window.Close();
         });
     }
 
     [Fact]
-    public void ShowChanges_BringsTheDialogBackForTheSelectedRow()
+    public void ShowChanges_BringsTheViewBackForTheSelectedRow()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
             model.RowCommands.Activate.Execute(row);
             Dispatcher.UIThread.RunJobs();
 
-            model.CloseDiffDialogCommand.Execute(null);
+            model.CloseDiffViewCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.False(dialog.IsOpen);
+            Assert.False(diffPage.IsVisible);
 
-            // The selection never changed, so nothing but the menu can bring the dialog back.
+            // The selection never changed, so nothing but the menu can bring the view back.
             model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.True(dialog.IsOpen);
+            Assert.True(diffPage.IsVisible);
             Assert.Same(row, model.SelectedRow);
 
             window.Close();
@@ -1364,7 +1416,7 @@ public sealed class HistoryPageTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, ContentDialog dialog) =
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.Last(candidate => candidate.Commit is not null);
@@ -1376,15 +1428,129 @@ public sealed class HistoryPageTests
             window.UpdateLayout();
 
             Assert.Same(row, model.SelectedRow);
-            Assert.True(dialog.IsOpen);
-            Assert.Equal(row.Subject, dialog.Title);
+            Assert.True(diffPage.IsVisible);
+            Assert.Equal(row.Subject, SubjectOf(view));
 
             window.Close();
         });
     }
 
     [Fact]
-    public void DiffDialog_LetsEachPaneScrollItself()
+    public void DiffView_TakesTheFocusWhenItOpens()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.Activate.Execute(model.Rows[0]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // Nothing was clicked: the page moved the focus itself, which is what makes the first
+            // Escape work.
+            Assert.True(diffPage.IsFocused, "the diff view did not take the focus when it opened");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_LeavesTheDiffViewWithoutAClickFirst()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.RowCommands.Activate.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(diffPage.IsVisible);
+
+            // Straight to the key, with nothing clicked in between.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
+
+            // Every other way out keeps the selection, and so does this one.
+            Assert.Same(row, model.SelectedRow);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_ClosesTheDiffViewFromInsideItsOwnPanes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.Activate.Execute(model.Rows[0]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // The file filter is the control most likely to have the focus, and a TextBox is
+            // exactly the kind of control that swallows a key it is offered.
+            TextBox filter = diffPage.GetVisualDescendants().OfType<TextBox>().First();
+            filter.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(filter.IsFocused);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_DoesNothingOnTheGraphItself()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(diffPage.IsVisible);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // Nothing opened, nothing closed, and the selection is where the reader left it.
+            Assert.False(model.IsDiffViewOpen);
+            Assert.Same(model.Rows[0], model.SelectedRow);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_LetsEachPaneScrollItself()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1443,24 +1609,21 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            ContentDialog dialog = view.FindControl<ContentDialog>("DiffDialog")!;
-            DockPanel body = view.FindControl<DockPanel>("DiffDialogBody")!;
+            Border diffPage = view.FindControl<Border>("DiffPage")!;
+            DockPanel body = view.FindControl<DockPanel>("DiffPageBody")!;
 
-            ScrollViewer card = body.GetVisualAncestors().OfType<ScrollViewer>().First();
-
-            // Nothing is left for the card to scroll: the body is bounded by it.
-            Assert.Equal(card.Viewport.Height, card.Extent.Height, 3);
+            // The body is bounded by the page, so nothing above the two panes scrolls at all.
             Assert.True(
-                body.Bounds.Height <= dialog.DialogHeight,
-                $"the body is {body.Bounds.Height} tall inside a {dialog.DialogHeight} card");
+                body.Bounds.Height <= diffPage.Bounds.Height,
+                $"the body is {body.Bounds.Height} tall inside a {diffPage.Bounds.Height} page");
 
             // And each pane has more than it can show, with its own viewport to show it in.
             // The list's own scroll, not the filter box's: a TextBox templates one too.
-            ScrollViewer files = ScrollOf(dialog.GetVisualDescendants()
+            ScrollViewer files = ScrollOf(diffPage.GetVisualDescendants()
                 .OfType<Views.Panels.ChangedFilesPanelView>()
                 .Single());
 
-            ScrollViewer diff = ScrollOf(dialog.GetVisualDescendants()
+            ScrollViewer diff = ScrollOf(diffPage.GetVisualDescendants()
                 .OfType<Views.Panels.DiffViewerView>()
                 .Single());
 
@@ -1499,12 +1662,4 @@ public sealed class HistoryPageTests
 
         Assert.True(condition(), "the page never reached the state the test waited for");
     }
-
-    [Theory]
-    [InlineData(1000, 940)]
-    [InlineData(0, 0)]
-    [InlineData(double.NaN, 0)]
-    [InlineData(double.PositiveInfinity, 0)]
-    public void DialogSizing_TakesMostOfWhatItIsGiven(double available, double expected)
-        => Assert.Equal(expected, DialogSizing.Fill.Convert(available, typeof(double), null, CultureInfo.InvariantCulture));
 }

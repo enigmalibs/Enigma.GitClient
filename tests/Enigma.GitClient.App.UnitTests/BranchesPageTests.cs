@@ -592,6 +592,154 @@ public sealed class BranchesPageTests
         });
     }
 
+    [Theory]
+    [InlineData(150, 0)]        // the middle of the list: nothing to do
+    [InlineData(100, 0)]
+    [InlineData(200, 0)]
+    [InlineData(4, -1)]         // near the top: towards the top
+    [InlineData(-20, -1)]       // and past it, which a fast pointer reaches
+    [InlineData(296, 1)]        // near the bottom: towards the bottom
+    [InlineData(400, 1)]
+    public void ADragNearAnEdgeScrollsTheList(double y, int direction)
+    {
+        double scroll = BranchDragGesture.ScrollFor(y, viewportHeight: 300);
+
+        Assert.Equal(direction, Math.Sign(scroll));
+        Assert.True(Math.Abs(scroll) <= BranchDragGesture.ScrollStep);
+    }
+
+    [Fact]
+    public void ADragScrollsFasterTheDeeperIntoTheEdgeItIs()
+    {
+        // Deeper into the band is faster, and the very edge is the whole step.
+        double edge = Math.Abs(BranchDragGesture.ScrollFor(0, 300));
+        double inside = Math.Abs(BranchDragGesture.ScrollFor(BranchDragGesture.ScrollBand - 2, 300));
+
+        Assert.True(edge > inside, $"the edge scrolls by {edge} and the band's inside by {inside}");
+        Assert.Equal(BranchDragGesture.ScrollStep, edge, 3);
+
+        // It never falls to nothing inside the band: a list that stops scrolling short of its end
+        // is a list whose last row cannot be dropped on.
+        Assert.True(inside > 0);
+
+        // And a list with no viewport scrolls by nothing rather than by NaN.
+        Assert.Equal(0, BranchDragGesture.ScrollFor(10, 0));
+    }
+
+    [Fact]
+    public void TheScrollBandNeverSwallowsAShortList()
+    {
+        // A third of the viewport at most, so a list two rows tall still has a middle.
+        Assert.Equal(0, BranchDragGesture.ScrollFor(30, 60));
+
+        Assert.True(BranchDragGesture.ScrollFor(2, 60) < 0);
+        Assert.True(BranchDragGesture.ScrollFor(58, 60) > 0);
+    }
+
+    [Theory]
+    [InlineData(true, true, DragDropEffects.Move)]     // a branch, over the list: the gesture is under way
+    [InlineData(true, false, DragDropEffects.None)]    // a branch, somewhere else on the page
+    [InlineData(false, true, DragDropEffects.None)]    // something else, over the list
+    [InlineData(false, false, DragDropEffects.None)]
+    public void TheDragCursorAnswersWhetherTheGestureIsUnderWay(bool carriesBranch, bool overTheList, DragDropEffects expected)
+        => Assert.Equal(expected, BranchDragGesture.EffectFor(carriesBranch, overTheList));
+
+    [Fact]
+    public void TheDragCursorSaysYesEvenWhereTheDropWouldNot()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            // The pairs the policy refuses — a branch on itself, anything onto a remote — are still
+            // refused: the ring and the menu are the policy's, and only the cursor changed.
+            Assert.False(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "main"), Row(page, "main"))));
+            Assert.False(BranchesPageViewModel.CanDrop(
+                new BranchDrop(Row(page, "main"), Row(page, "origin/published"))));
+
+            // And while either of those is under the pointer, the cursor still says the drag is
+            // running rather than that it is impossible.
+            Assert.Equal(DragDropEffects.Move, BranchDragGesture.EffectFor(carriesBranch: true, isOverTheList: true));
+        });
+    }
+
+    [Theory]
+    [InlineData(0, 0, false)]          // a press and a release in the same place is a click
+    [InlineData(1, 1, false)]          // and so is a shaky hand
+    [InlineData(4, 0, true)]           // a deliberate move sideways
+    [InlineData(0, -4, true)]          // or upwards
+    [InlineData(-10, 12, true)]        // or anywhere else
+    public void ADragStartsOnlyOnceThePointerHasMoved(double x, double y, bool isDrag)
+        => Assert.Equal(isDrag, BranchDragGesture.IsDrag(new Point(100, 100), new Point(100 + x, 100 + y)));
+
+    [Fact]
+    public void TheDragThresholdIsTheSameInEveryDirection()
+    {
+        Point origin = new(50, 50);
+
+        // The same distance, four ways: a threshold that is a distance and not a box.
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithX(origin.X + BranchDragGesture.Threshold)));
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithX(origin.X - BranchDragGesture.Threshold)));
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithY(origin.Y + BranchDragGesture.Threshold)));
+        Assert.True(BranchDragGesture.IsDrag(origin, origin.WithY(origin.Y - BranchDragGesture.Threshold)));
+
+        // And a pointer that has not travelled it is still a click, diagonally too.
+        Assert.False(BranchDragGesture.IsDrag(origin, new Point(origin.X + 2, origin.Y + 2)));
+    }
+
+    [Fact]
+    public void ASelectedBranchRow_ReadsInFull()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem[] rows = [.. list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .Where(container => container.DataContext is BranchRowViewModel)];
+
+            Assert.True(rows.Length >= 2, "the branches page realised fewer than two rows");
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+
+            // The tip's subject, its author and its date are the quiet columns of a branch row.
+            static TextBlock[] Quiet(ListBoxItem row) =>
+                [.. row.GetVisualDescendants()
+                    .OfType<TextBlock>()
+                    .Where(text => text.Classes.Contains("dim") || text.Classes.Contains("faint"))];
+
+            Assert.NotEmpty(Quiet(rows[0]));
+
+            list.SelectedItem = rows[0].DataContext;
+            window.UpdateLayout();
+
+            Assert.All(Quiet(rows[0]), text => Assert.Same(full, text.Foreground));
+            Assert.All(Quiet(rows[1]), text => Assert.NotSame(full, text.Foreground));
+
+            // And the one that loses the selection goes back to being quiet.
+            list.SelectedItem = rows[1].DataContext;
+            window.UpdateLayout();
+
+            Assert.All(Quiet(rows[0]), text => Assert.NotSame(full, text.Foreground));
+            Assert.All(Quiet(rows[1]), text => Assert.Same(full, text.Foreground));
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- creating
 
     [Fact]

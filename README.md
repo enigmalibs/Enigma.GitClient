@@ -24,7 +24,8 @@ Two things matter more than everything else in this app:
   click or drag it to go there
 - Branch management — create, rename, delete, set upstream, checkout
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
-  drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse
+  drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
+  the list scrolls while you hold a branch near its edge
 - Tag management — create (lightweight or annotated) and delete
 - Checkout of anything in the graph from a row's own menu, including a detached commit
 - Create, clone and open repositories, with a recent-repositories list

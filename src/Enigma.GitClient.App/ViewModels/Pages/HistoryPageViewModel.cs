@@ -136,7 +136,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _infoBar = infoBar;
         _logger = logger;
 
-        CloseDiffDialogCommand = new RelayCommand(() => IsDiffDialogOpen = false);
+        CloseDiffViewCommand = new RelayCommand(() => IsDiffViewOpen = false);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         RefreshCommand = new AsyncRelayCommand(ReloadAsync, () => IsRepositoryOpen && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
@@ -263,11 +263,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
                 // Selecting a line selects it and nothing more: the diffs are asked for, by a
                 // double-click or by the row's menu. Losing the selection — what a reload after a
-                // checkout does — still puts them away, because a dialog describing a commit
-                // nobody has selected is describing nothing.
+                // checkout does — still puts them away, because a page describing a commit nobody
+                // has selected is describing nothing.
                 if (value is null)
                 {
-                    IsDiffDialogOpen = false;
+                    IsDiffViewOpen = false;
                 }
 
                 _ = LoadChangedFilesAsync();
@@ -281,17 +281,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public bool HasSelection => SelectedRow is not null;
 
     /// <summary>
-    /// Gets or sets a value indicating whether the dialog showing what the selected commit changed
-    /// is on screen.
+    /// Gets or sets a value indicating whether what the selected commit changed has the page.
     /// </summary>
     /// <remarks>
-    /// The page's own statement, not the dialog's: the view opens and closes the control from this,
-    /// and writes the reader's own dismissal — the cross, the Close button, Escape, the scrim —
-    /// back into it. Closing deliberately leaves <see cref="SelectedRow"/> alone, because the
-    /// selection is also what "create a branch here" starts from and what the row highlight shows.
-    /// Nothing but an explicit request opens it: a double-click on a row, or that row's menu.
+    /// The page's own statement: the view shows the diffs over the whole of itself while this is
+    /// set, and every way out — the back button, Escape — clears it. Closing deliberately leaves
+    /// <see cref="SelectedRow"/> alone, because the selection is also what "create a branch here"
+    /// starts from and what the row highlight shows. Nothing but an explicit request opens it: a
+    /// double-click on a row, or that row's menu.
     /// </remarks>
-    public bool IsDiffDialogOpen
+    public bool IsDiffViewOpen
     {
         get;
         set => SetProperty(ref field, value);
@@ -489,8 +488,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
 
-    /// <summary>Gets the command the dialog's cross runs.</summary>
-    public RelayCommand CloseDiffDialogCommand { get; }
+    /// <summary>Gets the command that puts the diffs away and brings the graph back.</summary>
+    public RelayCommand CloseDiffViewCommand { get; }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
@@ -890,7 +889,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             SelectedRow = row;
         }
 
-        IsDiffDialogOpen = true;
+        IsDiffViewOpen = true;
     }
 
     private async Task OnMergeBranchAsync(CommitRowViewModel? row)

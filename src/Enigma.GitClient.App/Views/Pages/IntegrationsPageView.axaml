@@ -13,19 +13,17 @@
 
         <ei:Icon Grid.Column="0"
                  Kind="{Binding Icon}"
-                 Size="18"
-                 VerticalAlignment="Center"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="row dim"
+                 VerticalAlignment="Center" />
 
         <StackPanel Grid.Column="1" VerticalAlignment="Center">
           <TextBlock Text="{Binding DisplayName}"
                      TextTrimming="CharacterEllipsis"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
-          <TextBlock Classes="dim"
+          <TextBlock Classes="faint"
                      Text="{Binding Host}"
                      FontSize="11"
-                     TextTrimming="CharacterEllipsis"
-                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                     TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <Button Grid.Column="2"
@@ -34,7 +32,7 @@
                 CommandParameter="{Binding}"
                 ToolTip.Tip="Disconnect this account and delete its token"
                 AutomationProperties.Name="Disconnect this account">
-          <ei:Icon Kind="Trash" Size="14" />
+          <ei:Icon Kind="Trash" Classes="row" />
         </Button>
       </Grid>
     </DataTemplate>
@@ -44,12 +42,11 @@
 
         <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Classes="dim"
+            <TextBlock Classes="faint"
                        Text="{Binding Owner}"
                        IsVisible="{Binding HasOwner}"
                        VerticalAlignment="Center"
-                       FontSize="12"
-                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                       FontSize="12" />
             <TextBlock Text="{Binding Name}"
                        VerticalAlignment="Center"
                        FontWeight="SemiBold"
@@ -60,27 +57,25 @@
                     IsVisible="{Binding IsPrivate}">
               <TextBlock Text="private"
                          FontSize="11"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                         Classes="dim" />
             </Border>
           </StackPanel>
 
-          <TextBlock Classes="dim"
+          <TextBlock Classes="faint"
                      Text="{Binding Description}"
                      IsVisible="{Binding HasDescription}"
                      FontSize="11"
                      MaxWidth="560"
                      HorizontalAlignment="Left"
-                     TextTrimming="CharacterEllipsis"
-                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                     TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <TextBlock Grid.Column="1"
-                   Classes="dim"
+                   Classes="faint"
                    Text="{Binding LastPushed}"
                    IsVisible="{Binding HasLastPushed}"
                    VerticalAlignment="Center"
-                   FontSize="11"
-                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                   FontSize="11" />
 
         <Button Grid.Column="2"
                 Classes="toolbar rowaction"
@@ -88,7 +83,7 @@
                 CommandParameter="{Binding}"
                 ToolTip.Tip="Open this repository on its host"
                 AutomationProperties.Name="Open on the host">
-          <ei:Icon Kind="ArrowSquareOut" Size="14" />
+          <ei:Icon Kind="ArrowSquareOut" Classes="row" />
         </Button>
 
         <Button Grid.Column="3"
@@ -104,12 +99,6 @@
 
   </UserControl.Resources>
 
-  <UserControl.Styles>
-    <Style Selector="ListBoxItem:selected TextBlock.dim">
-      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
-    </Style>
-  </UserControl.Styles>
-
   <DockPanel>
 
     <Border DockPanel.Dock="Top"
@@ -120,7 +109,7 @@
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <ei:Icon Kind="GlobeSimple" Size="18" VerticalAlignment="Center"
+          <ei:Icon Kind="GlobeSimple" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
                      VerticalAlignment="Center"
@@ -135,7 +124,7 @@
                 ToolTip.Tip="Connect an account with a personal access token"
                 AutomationProperties.Name="Connect an account">
           <StackPanel Orientation="Horizontal" Spacing="6">
-            <ei:Icon Kind="Plus" Size="14" VerticalAlignment="Center" />
+            <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
             <TextBlock Text="Connect an account" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
@@ -213,7 +202,7 @@
                       Command="{Binding RefreshCommand}"
                       ToolTip.Tip="Re-read this account's repositories"
                       AutomationProperties.Name="Refresh">
-                <ei:Icon Kind="ArrowsClockwise" Size="14" />
+                <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
               </Button>
             </Grid>
           </Border>

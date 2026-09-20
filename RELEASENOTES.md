@@ -11,10 +11,10 @@ diff.
   repository with a hundred thousand commits scrolls like a list of ten.
 - Author, timestamp and the 7-character short hash on every row, with the full date in the tooltip.
 - The uncommitted changes sit at the top of the graph and lead to the working directory.
-- Double-click a line — or pick "Show what it changed" from its menu — to open what it changed in a
-  dialog over the graph: the changed files and the diff, almost as large as the window. It closes
-  from the cross at its top right, the Close button at its bottom, or Escape, leaving the line
-  selected.
+- Double-click a line — or pick "Show what it changed" from its menu — and what it changed takes the
+  whole page: the changed files on the left, the diff on the right, under a header naming the
+  commit. The back button at its top left — or Escape, which works the moment it opens — returns to
+  the graph, exactly where it was, with the line still selected.
 - Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
   detached.
 - The branches sit in a column of their own beside the graph, aligned on every line.
@@ -49,7 +49,9 @@ diff.
   selection while the page refreshes underneath.
 - Drag one branch onto another to merge them. The drop opens a menu naming both ends: merge, merge
   fast-forward only, or merge the other way round if that is what you meant. The target is checked
-  out first when it is not the branch you are on, and dismissing the menu does nothing.
+  out first when it is not the branch you are on, and dismissing the menu does nothing. Hold the
+  dragged branch near the top or the bottom of the list and it scrolls, so a branch further down is
+  still a branch you can drop on.
 - Tags: create (lightweight or annotated) and delete.
 - Working directory: status, stage and unstage by file or by directory, discard, and commit with a
   subject/body guide.

@@ -6,19 +6,6 @@
              x:Class="Enigma.GitClient.App.Views.Panels.ChangedFilesPanelView"
              x:DataType="vm:ChangedFilesPanelViewModel">
 
-  <UserControl.Styles>
-    <!-- The dimmed columns sit on the selection's own colour once a row is picked, where a tertiary
-         grey stops being readable. The selected row is the one being read, so it gets the full
-         foreground. -->
-    <Style Selector="TreeViewItem:selected TextBlock.dim">
-      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
-    </Style>
-
-    <Style Selector="ListBoxItem:selected TextBlock.dim">
-      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
-    </Style>
-  </UserControl.Styles>
-
   <UserControl.Resources>
     <!-- One template, used by both shapes: the list and the tree must never disagree about what a
          row looks like or what is selected. -->
@@ -80,10 +67,9 @@
 
         <ei:Icon Grid.Column="0"
                  Kind="Folder"
-                 Size="14"
+                 Classes="row dim"
                  VerticalAlignment="Center"
-                 IsVisible="{Binding IsDirectory}"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 IsVisible="{Binding IsDirectory}" />
 
         <TextBlock Grid.Column="1"
                    Text="{Binding Label}"
@@ -94,15 +80,14 @@
                    Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
         <TextBlock Grid.Column="2"
-                   Classes="dim"
+                   Classes="faint"
                    Text="{Binding RenameLabel}"
                    IsVisible="{Binding IsRenamed}"
                    ToolTip.Tip="{Binding RenameSource}"
                    VerticalAlignment="Center"
                    FontSize="11"
                    MaxWidth="150"
-                   TextTrimming="CharacterEllipsis"
-                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                   TextTrimming="CharacterEllipsis" />
 
         <Button Grid.Column="3"
                 Classes="toolbar rowaction"
@@ -111,24 +96,22 @@
                 CommandParameter="{Binding}"
                 ToolTip.Tip="{Binding Actions.PrimaryLabel}"
                 AutomationProperties.Name="{Binding Actions.PrimaryLabel}">
-          <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Size="13" />
+          <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Classes="row" />
         </Button>
 
         <TextBlock Grid.Column="4"
-                   Classes="dim"
+                   Classes="faint"
                    Text="{Binding LineCounts}"
                    VerticalAlignment="Center"
                    FontSize="11"
-                   IsVisible="{Binding !IsDirectory}"
-                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                   IsVisible="{Binding !IsDirectory}" />
 
         <TextBlock Grid.Column="4"
-                   Classes="dim"
+                   Classes="faint"
                    Text="{Binding DirectorySummary}"
                    VerticalAlignment="Center"
                    FontSize="11"
-                   IsVisible="{Binding IsDirectory}"
-                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                   IsVisible="{Binding IsDirectory}" />
 
       </Grid>
     </DataTemplate>
@@ -153,14 +136,14 @@
                         Command="{Binding ShowAsListCommand}"
                         ToolTip.Tip="Show the files as a flat list"
                         AutomationProperties.Name="Show the files as a flat list">
-            <ei:Icon Kind="ListBullets" Size="14" />
+            <ei:Icon Kind="ListBullets" Classes="toolbar" />
           </ToggleButton>
           <ToggleButton Classes="segment"
                         IsChecked="{Binding IsTreeMode, Mode=OneWay}"
                         Command="{Binding ShowAsTreeCommand}"
                         ToolTip.Tip="Show the files as a tree"
                         AutomationProperties.Name="Show the files as a tree">
-            <ei:Icon Kind="TreeStructure" Size="14" />
+            <ei:Icon Kind="TreeStructure" Classes="toolbar" />
           </ToggleButton>
         </StackPanel>
       </Grid>

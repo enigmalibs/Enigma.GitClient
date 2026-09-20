@@ -1,20 +1,53 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ei="https://github.com/josueclement/Enigma.Icons"
         xmlns:diff="using:Enigma.GitClient.App.Controls.Diff">
 
   <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
        Enigma* brushes so they follow a theme switch. -->
 
   <!--
+    The icon scale. An icon states the role it plays and takes its size from that role, so the
+    application has one scale rather than a number per icon — and so making every toolbar a little
+    easier to hit is one edit here instead of a hundred in the views.
+
+      header   a title's icon, beside the name of a page or of the open repository
+      toolbar  an icon-only button, or a segmented toggle, on a toolbar strip
+      row      an icon on a line: a list row's leading glyph, its own actions, a banner
+      pill     an icon inside a badge, a counter or a group heading
+
+    An icon that belongs to a control template (RefBadge, EmptyState) is that control's business
+    and keeps its own size.
+  -->
+  <Style Selector="ei|Icon.header">
+    <Setter Property="Size" Value="20" />
+  </Style>
+
+  <Style Selector="ei|Icon.toolbar">
+    <Setter Property="Size" Value="18" />
+  </Style>
+
+  <Style Selector="ei|Icon.row">
+    <Setter Property="Size" Value="16" />
+  </Style>
+
+  <Style Selector="ei|Icon.pill">
+    <Setter Property="Size" Value="12" />
+  </Style>
+
+  <!--
     Toolbar buttons: icon-only actions that sit on a surface strip. FluentTheme's default button
     paints a filled plate in every state, which reads as a box floating on the strip; a toolbar
     button should be invisible until it is hovered.
+
+    The padding is what makes the hovered plate a square around the glyph rather than a bar: it is
+    stated against the toolbar icon size above, so the two move together.
   -->
   <Style Selector="Button.toolbar">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Padding" Value="7,6" />
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
 
@@ -38,6 +71,50 @@
 
   <Style Selector="Button.toolbar:disabled">
     <Setter Property="Opacity" Value="0.35" />
+  </Style>
+
+  <!--
+    Dimmed text, and the one place it stops being dim.
+
+    A line of a list carries one thing to read and several to glance at — an author, a date, a short
+    hash, an upstream, a counter — and those are drawn in the two quieter foregrounds. On the row
+    the reader has selected, that grey sits on the selection's own colour and stops being readable,
+    so a selected container raises both roles to the full foreground: the line being read is the
+    line that reads.
+
+    Stated as classes rather than as a Foreground per element **because a local value outranks every
+    style setter in Avalonia**: a TextBlock that names its own brush in markup can never be
+    restyled, which is exactly why two views carried a `:selected` rule of their own that had never
+    once fired.
+  -->
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="ei|Icon.dim">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="ei|Icon.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected TextBlock.dim,
+                   ListBoxItem:selected TextBlock.faint,
+                   TreeViewItem:selected TextBlock.dim,
+                   TreeViewItem:selected TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected ei|Icon.dim,
+                   ListBoxItem:selected ei|Icon.faint,
+                   TreeViewItem:selected ei|Icon.dim,
+                   TreeViewItem:selected ei|Icon.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
   <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
@@ -90,7 +167,7 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="Padding" Value="6,5" />
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
 
@@ -112,12 +189,23 @@
   </Style>
 
   <!--
-    A history row the search found. A wash rather than a border: the row already carries a graph, a
-    badge strip and four columns of text, and a ring around all of that reads as a second selection.
-    Quiet enough that the selected row is still obviously the selected one.
+    A history row, and a history row the search found.
+
+    The transparent background is the row's hit area: a Grid with no brush lets a pointer through
+    wherever a child is not, and the row's menu opens from anywhere on the line. It is stated here
+    rather than in the template because the wash below has to be able to beat it — a local value in
+    markup outranks every style setter, which is precisely why this wash never once appeared.
+
+    A wash rather than a border: the row already carries a graph, a badge strip and four columns of
+    text, and a ring around all of that reads as a second selection. Quiet enough that the selected
+    row is still obviously the selected one.
   -->
 
-  <Style Selector="Grid.match">
+  <Style Selector="Grid.commitrow">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Grid.commitrow.match">
     <Setter Property="Background" Value="{DynamicResource SearchMatchBrush}" />
   </Style>
 
