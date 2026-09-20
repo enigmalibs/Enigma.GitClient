@@ -1,6 +1,6 @@
 # FEATURE-0FBE — Tags get their own page
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-refs-tags-and-dragging
@@ -92,7 +92,7 @@ laid out like the branches page. The branches page is then only about branches.
 ## PHASE02 — The branches page is only branches
 
 **Branch:** `feature/feature-0fbe-phase02-branches-only`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0FBE-PHASE02.md`
 
 ### Steps
 

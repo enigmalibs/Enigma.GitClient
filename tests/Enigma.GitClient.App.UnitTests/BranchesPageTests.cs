@@ -354,32 +354,6 @@ public sealed class BranchesPageTests
     }
 
     [Fact]
-    public void Selection_OfATagIsItsOwn()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildRepositoryAsync(services);
-
-            await GitAsync(repository, "tag", "v1.0.0");
-            await GitAsync(repository, "tag", "v1.1.0");
-
-            BranchesPageViewModel page = await OpenAsync(services, repository);
-            page.ShowTags = true;
-
-            page.SelectedTag = page.Tags.Single(tag => tag.Name == "v1.0.0");
-
-            await page.RefreshAsync();
-
-            Assert.NotNull(page.SelectedTag);
-            Assert.Equal("v1.0.0", page.SelectedTag!.Name);
-
-            // The two lists are alternatives, so selecting a tag says nothing about the branches.
-            Assert.Null(page.SelectedBranch);
-        });
-    }
-
-    [Fact]
     public void BranchList_IsAListBoxWhoseSelectionFollowsThePage()
     {
         _fixture.RunAsync(async () =>
