@@ -1847,6 +1847,170 @@ public sealed class DiffViewerTests
         });
     }
 
+    // ---------------------------------------------------------------- where a file opens
+
+    /// <summary>
+    /// A patch whose only change is in the middle of the file, which is the case a scroll position
+    /// can get wrong in both directions.
+    /// </summary>
+    private static string BuildPatchChangingLine(int lines, int changed)
+    {
+        System.Text.StringBuilder builder = new();
+
+        builder.Append("diff --git a/src/middle.txt b/src/middle.txt\n");
+        builder.Append("--- a/src/middle.txt\n");
+        builder.Append("+++ b/src/middle.txt\n");
+        builder.Append(System.Globalization.CultureInfo.InvariantCulture, $"@@ -1,{lines} +1,{lines} @@\n");
+
+        for (int index = 0; index < lines; index++)
+        {
+            string number = index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            builder.Append(index == changed ? $"+line {number} changed\n" : $" line {number}\n");
+        }
+
+        return builder.ToString();
+    }
+
+    [Fact]
+    public void Viewer_SaysWhereEachRenderingsFirstChangeIs()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildPatchChangingLine(200, 120)));
+
+            // The hunk band is row zero and every context line before the change follows it, so the
+            // first run of the map is the change itself, well down the file.
+            Assert.True(
+                harness.Viewer.UnifiedFirstChangeRow > 100,
+                $"the unified first change is row {harness.Viewer.UnifiedFirstChangeRow}");
+
+            Assert.True(
+                harness.Viewer.SideBySideFirstChangeRow > 100,
+                $"the side-by-side first change is row {harness.Viewer.SideBySideFirstChangeRow}");
+
+            // Each rendering answers for its own rows.
+            Assert.True(harness.Viewer.UnifiedFirstChangeRow < harness.Viewer.UnifiedRows.Count);
+            Assert.True(harness.Viewer.SideBySideFirstChangeRow < harness.Viewer.SideBySideRows.Count);
+        });
+    }
+
+    [Fact]
+    public void Viewer_FirstChangeIsTheTopWhenThePatchChangesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            // A rename with no content change: rows, but no run to aim at.
+            Harness harness = await ShownAsync(new FilePatch(
+                "src/old.txt",
+                "src/new.txt",
+                FileChangeKind.Renamed,
+                [],
+                similarityIndex: 100));
+
+            Assert.Equal(0, harness.Viewer.UnifiedFirstChangeRow);
+            Assert.Equal(0, harness.Viewer.SideBySideFirstChangeRow);
+        });
+    }
+
+    [Fact]
+    public void Viewer_FirstChangeIsTheTopWhenTheChangeIsTheFirstLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildPatchChangingLine(40, 0)));
+
+            // Row zero is the hunk band and row one the change itself, so the view — which keeps two
+            // rows of context above it — opens this file at the top.
+            Assert.True(harness.Viewer.UnifiedFirstChangeRow <= 2);
+            Assert.True(harness.Viewer.SideBySideFirstChangeRow <= 2);
+        });
+    }
+
+    [Fact]
+    public void Viewer_SaysSoEveryTimeAPatchReachesTheRows()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildLargePatch(40)));
+
+            int announced = 0;
+            harness.Viewer.PatchChanged += (_, _) => announced++;
+
+            await harness.Viewer.ReloadAsync();
+            Assert.Equal(1, announced);
+
+            harness.Viewer.Clear();
+            Assert.Equal(2, announced);
+        });
+    }
+
+    [Fact]
+    public void Viewer_OpensAFileAtItsFirstChange()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildPatchChangingLine(300, 200)));
+
+            (Window window, _, DiffMinimap map, ScrollViewer scroll) = ShowScrollable(harness, sideBySide: true);
+
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // Where the change is, in the extent the list reports now: a virtualising panel
+            // re-estimates its extent as rows are realised, so the assertion is about what is on
+            // screen rather than about the number the offset was computed from.
+            double rowHeight = scroll.Extent.Height / harness.Viewer.SideBySideRows.Count;
+            double change = harness.Viewer.SideBySideFirstChangeRow * rowHeight;
+
+            Assert.True(scroll.Offset.Y > 0, "the file opened at the top, not at its change");
+
+            // The change is on screen, and near the top of it rather than merely somewhere in it.
+            Assert.InRange(change, scroll.Offset.Y, scroll.Offset.Y + scroll.Viewport.Height);
+            Assert.True(
+                change - scroll.Offset.Y < scroll.Viewport.Height / 2,
+                $"the change sits {change - scroll.Offset.Y} into a {scroll.Viewport.Height} viewport");
+
+            // And the map agrees with where the patch actually is.
+            Assert.True(map.ViewportStart > 0);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Viewer_OpensTheNextFileAtItsOwnChangeRatherThanTheLastOffset()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(Parse(BuildPatchChangingLine(300, 200)));
+
+            (Window window, _, _, ScrollViewer scroll) = ShowScrollable(harness, sideBySide: true);
+
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            double deepInTheFirstFile = scroll.Offset.Y;
+            Assert.True(deepInTheFirstFile > 0);
+
+            // The next file's change is near its top, so the offset the last one left would be far
+            // past it — which is exactly the "a bit random" the reader saw.
+            harness.Diffs.Patch = Parse(BuildPatchChangingLine(300, 5));
+            await harness.Viewer.ReloadAsync();
+
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(
+                scroll.Offset.Y < deepInTheFirstFile / 4,
+                $"the second file opened at {scroll.Offset.Y}, near where the first was left ({deepInTheFirstFile})");
+
+            window.Close();
+        });
+    }
+
     [Fact]
     public void Minimap_IsWideEnoughToAimAt()
     {
