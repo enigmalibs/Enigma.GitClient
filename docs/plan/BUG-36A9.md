@@ -1,6 +1,6 @@
 # BUG-36A9 — A found row cannot be hovered
 
-**Status:** TODO
+**Status:** DONE
 **Type:** BUG
 **Branch:** `bugfix/bug-36a9-match-hover-and-selection`
 **Run:** feature/2026-09-21-refs-tags-and-dragging

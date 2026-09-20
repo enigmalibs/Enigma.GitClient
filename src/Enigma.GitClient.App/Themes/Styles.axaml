@@ -210,6 +210,28 @@
   </Style>
 
   <!--
+    And the same row hovered, and selected.
+
+    The wash is the row's, not the container's, so it covers the plate the ListBoxItem paints for
+    :pointerover and for :selected — a found row that could not be seen to be hovered and could not
+    be seen to be selected. The row therefore answers for all three states itself, in the same hue
+    carried further each time, so a found row stays recognisably found while the pointer is on it
+    and while it is the row being acted on. A row the search did not find is transparent and its
+    container goes on painting those states, which is why only these two selectors are needed.
+
+    Declared after the wash on purpose: style setters are taken in order, so these are the ones that
+    win when a row is both found and hovered or selected.
+  -->
+
+  <Style Selector="ListBoxItem:pointerover Grid.commitrow.match">
+    <Setter Property="Background" Value="{DynamicResource SearchMatchHoverBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected Grid.commitrow.match">
+    <Setter Property="Background" Value="{DynamicResource SearchMatchSelectedBrush}" />
+  </Style>
+
+  <!--
     The history list's column header. The title is quiet — it names the column and then gets out of
     the way of the commits — and the grip is a hit area rather than a control: what the reader sees
     at a column boundary is the one-pixel rule inside it, which brightens under the pointer to say

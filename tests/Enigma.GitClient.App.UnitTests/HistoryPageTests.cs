@@ -533,6 +533,118 @@ public sealed class HistoryPageTests
         });
     }
 
+    [Fact]
+    public void Search_KeepsAFoundRowHoverableAndSelectable()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Application application = Application.Current!;
+
+            static Color Resource(string key)
+            {
+                Application application = Application.Current!;
+                Assert.True(
+                    application.TryFindResource(key, application.ActualThemeVariant, out object? brush),
+                    $"the theme has no {key}");
+
+                return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+            }
+
+            Color found = Resource("SearchMatchBrush");
+            Color hovered = Resource("SearchMatchHoverBrush");
+            Color selected = Resource("SearchMatchSelectedBrush");
+
+            // Three states a reader has to be able to tell apart.
+            Assert.NotEqual(found, hovered);
+            Assert.NotEqual(found, selected);
+            Assert.NotEqual(hovered, selected);
+
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            Grid match = RowGrids(workspace).First(row => ((CommitRowViewModel)row.DataContext!).IsSearchMatch);
+            Grid miss = RowGrids(workspace).First(row => !((CommitRowViewModel)row.DataContext!).IsSearchMatch);
+
+            Assert.Equal(found, Painted(match));
+            Assert.Equal(Colors.Transparent, Painted(miss));
+
+            // Hovered. The pseudo-class rather than a synthetic pointer, because it is the state the
+            // style selects on and the one the branches page already sets by hand after a drag.
+            ListBoxItem Container(Grid row) => list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => ReferenceEquals(container.DataContext, row.DataContext));
+
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", true);
+            ((IPseudoClasses)Container(miss).Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            Assert.Equal(hovered, Painted(match));
+
+            // A row the search did not find is still transparent under the pointer: its container
+            // goes on painting the hover, which is what every other list in the application does.
+            Assert.Equal(Colors.Transparent, Painted(miss));
+
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", false);
+            ((IPseudoClasses)Container(miss).Classes).Set(":pointerover", false);
+            window.UpdateLayout();
+
+            Assert.Equal(found, Painted(match));
+
+            // Selected.
+            model.SelectedRow = (CommitRowViewModel)match.DataContext!;
+            window.UpdateLayout();
+
+            Assert.Equal(selected, Painted(match));
+            Assert.Equal(Colors.Transparent, Painted(miss));
+
+            // And a found row that is both selected and hovered still says "selected", which is the
+            // state the reader is acting on.
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            Assert.Equal(selected, Painted(match));
+
+            // Clearing the search puts every row back to the container's own states.
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", false);
+            model.ClearSearchCommand.Execute(null);
+            window.UpdateLayout();
+
+            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Search_HasAllThreeWashesInBothThemes()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+
+            foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+            {
+                foreach (string key in (string[])["SearchMatchBrush", "SearchMatchHoverBrush", "SearchMatchSelectedBrush"])
+                {
+                    Assert.True(
+                        application.TryFindResource(key, variant, out object? brush),
+                        $"the {variant} theme has no {key}");
+
+                    Assert.IsAssignableFrom<ISolidColorBrush>(brush);
+                }
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- filters
 
     [Fact]
