@@ -93,6 +93,7 @@ public sealed class CompositionRootTests
     [InlineData(typeof(HistoryPageViewModel))]
     [InlineData(typeof(ChangesPageViewModel))]
     [InlineData(typeof(BranchesPageViewModel))]
+    [InlineData(typeof(TagsPageViewModel))]
     [InlineData(typeof(RemotesPageViewModel))]
     [InlineData(typeof(IntegrationsPageViewModel))]
     [InlineData(typeof(SettingsPageViewModel))]
@@ -138,6 +139,7 @@ public sealed class CompositionRootTests
             provider.GetRequiredService<HistoryPageViewModel>(),
             provider.GetRequiredService<ChangesPageViewModel>(),
             provider.GetRequiredService<BranchesPageViewModel>(),
+            provider.GetRequiredService<TagsPageViewModel>(),
             provider.GetRequiredService<RemotesPageViewModel>(),
             provider.GetRequiredService<IntegrationsPageViewModel>(),
             provider.GetRequiredService<SettingsPageViewModel>(),
