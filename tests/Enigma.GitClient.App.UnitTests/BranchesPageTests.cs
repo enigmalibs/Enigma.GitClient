@@ -592,6 +592,58 @@ public sealed class BranchesPageTests
         });
     }
 
+    [Fact]
+    public void ASelectedBranchRow_ReadsInFull()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem[] rows = [.. list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .Where(container => container.DataContext is BranchRowViewModel)];
+
+            Assert.True(rows.Length >= 2, "the branches page realised fewer than two rows");
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+
+            // The tip's subject, its author and its date are the quiet columns of a branch row.
+            static TextBlock[] Quiet(ListBoxItem row) =>
+                [.. row.GetVisualDescendants()
+                    .OfType<TextBlock>()
+                    .Where(text => text.Classes.Contains("dim") || text.Classes.Contains("faint"))];
+
+            Assert.NotEmpty(Quiet(rows[0]));
+
+            list.SelectedItem = rows[0].DataContext;
+            window.UpdateLayout();
+
+            Assert.All(Quiet(rows[0]), text => Assert.Same(full, text.Foreground));
+            Assert.All(Quiet(rows[1]), text => Assert.NotSame(full, text.Foreground));
+
+            // And the one that loses the selection goes back to being quiet.
+            list.SelectedItem = rows[1].DataContext;
+            window.UpdateLayout();
+
+            Assert.All(Quiet(rows[0]), text => Assert.NotSame(full, text.Foreground));
+            Assert.All(Quiet(rows[1]), text => Assert.Same(full, text.Foreground));
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- creating
 
     [Fact]

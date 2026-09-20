@@ -73,6 +73,50 @@
     <Setter Property="Opacity" Value="0.35" />
   </Style>
 
+  <!--
+    Dimmed text, and the one place it stops being dim.
+
+    A line of a list carries one thing to read and several to glance at — an author, a date, a short
+    hash, an upstream, a counter — and those are drawn in the two quieter foregrounds. On the row
+    the reader has selected, that grey sits on the selection's own colour and stops being readable,
+    so a selected container raises both roles to the full foreground: the line being read is the
+    line that reads.
+
+    Stated as classes rather than as a Foreground per element **because a local value outranks every
+    style setter in Avalonia**: a TextBlock that names its own brush in markup can never be
+    restyled, which is exactly why two views carried a `:selected` rule of their own that had never
+    once fired.
+  -->
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="ei|Icon.dim">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="ei|Icon.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected TextBlock.dim,
+                   ListBoxItem:selected TextBlock.faint,
+                   TreeViewItem:selected TextBlock.dim,
+                   TreeViewItem:selected TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected ei|Icon.dim,
+                   ListBoxItem:selected ei|Icon.faint,
+                   TreeViewItem:selected ei|Icon.dim,
+                   TreeViewItem:selected ei|Icon.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
   <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
   <Style Selector="Border.pill">
     <Setter Property="CornerRadius" Value="4" />

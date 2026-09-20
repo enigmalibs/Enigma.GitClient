@@ -1,6 +1,6 @@
 # FEATURE-0DB4 — Bigger icons, readable selected rows
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -73,7 +73,7 @@ readable when the row it sits on is selected.
 ## PHASE02 — Readable text on a selected row
 
 **Branch:** `feature/feature-0db4-phase02-selected-row-text`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0DB4-PHASE02.md`
 
 ### Steps
 

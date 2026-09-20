@@ -70,7 +70,7 @@
                          Size="20"
                          Margin="0,0,12,0"
                          VerticalAlignment="Center"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                         Classes="dim" />
 
                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="8">
@@ -87,7 +87,7 @@
                   <TextBlock Text="{Binding Path}"
                              FontSize="12"
                              TextTrimming="CharacterEllipsis"
-                             Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+                             Classes="faint" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
