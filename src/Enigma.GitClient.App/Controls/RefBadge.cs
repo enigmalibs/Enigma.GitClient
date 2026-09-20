@@ -29,12 +29,6 @@ public sealed class RefBadge : TemplatedControl
     public static readonly StyledProperty<bool> IsCurrentProperty =
         AvaloniaProperty.Register<RefBadge, bool>(nameof(IsCurrent));
 
-    /// <summary>
-    /// Defines the <see cref="MaximumTextWidth"/> property.
-    /// </summary>
-    public static readonly StyledProperty<double> MaximumTextWidthProperty =
-        AvaloniaProperty.Register<RefBadge, double>(nameof(MaximumTextWidth), 180);
-
     static RefBadge()
     {
         KindProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateClasses());
@@ -71,16 +65,6 @@ public sealed class RefBadge : TemplatedControl
     {
         get => GetValue(IsCurrentProperty);
         set => SetValue(IsCurrentProperty, value);
-    }
-
-    /// <summary>
-    /// Gets or sets how wide the label may grow before it is ellipsised. A branch name can be
-    /// arbitrarily long, and one of them must not push the subject off the row.
-    /// </summary>
-    public double MaximumTextWidth
-    {
-        get => GetValue(MaximumTextWidthProperty);
-        set => SetValue(MaximumTextWidthProperty, value);
     }
 
     /// <summary>
