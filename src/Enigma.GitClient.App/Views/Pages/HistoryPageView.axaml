@@ -375,6 +375,7 @@
     -->
     <Border Name="DiffPage"
             IsVisible="{Binding IsDiffViewOpen}"
+            Focusable="True"
             Background="{DynamicResource EnigmaBackgroundBrush}">
       <DockPanel Name="DiffPageBody">
 

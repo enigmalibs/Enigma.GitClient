@@ -13,8 +13,8 @@ diff.
 - The uncommitted changes sit at the top of the graph and lead to the working directory.
 - Double-click a line — or pick "Show what it changed" from its menu — and what it changed takes the
   whole page: the changed files on the left, the diff on the right, under a header naming the
-  commit. The back button at its top left returns to the graph, exactly where it was, with the line
-  still selected.
+  commit. The back button at its top left — or Escape, which works the moment it opens — returns to
+  the graph, exactly where it was, with the line still selected.
 - Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
   detached.
 - The branches sit in a column of their own beside the graph, aligned on every line.

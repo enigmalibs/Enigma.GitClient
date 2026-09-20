@@ -1,9 +1,12 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.GitClient.App.ViewModels.Pages;
 
@@ -14,6 +17,7 @@ namespace Enigma.GitClient.App.Views.Pages;
 /// </summary>
 public partial class HistoryPageView : UserControl
 {
+    private HistoryPageViewModel? _page;
     private ScrollViewer? _listScroll;
 
     /// <summary>
@@ -22,6 +26,11 @@ public partial class HistoryPageView : UserControl
     public HistoryPageView()
     {
         InitializeComponent();
+
+        // Tunnelling, and on the page rather than on the panel: Escape has to leave the diffs
+        // whatever inside them has the key — the file filter box, the patch, a list — and before
+        // any of them can handle it first.
+        AddHandler(KeyDownEvent, OnPageKeyDown, RoutingStrategies.Tunnel);
 
         Resizes(RefsGrip, HistoryColumn.Refs);
         Resizes(AuthorGrip, HistoryColumn.Author);
@@ -88,15 +97,88 @@ public partial class HistoryPageView : UserControl
     }
 
     /// <summary>
-    /// Follows the page, which is what the columns are measured against.
+    /// Follows the page: the columns are measured against it, and the diffs opening is what moves
+    /// the focus.
     /// </summary>
     /// <param name="e">The event.</param>
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
 
+        if (_page is not null)
+        {
+            _page.PropertyChanged -= OnPagePropertyChanged;
+        }
+
+        _page = DataContext as HistoryPageViewModel;
+
+        if (_page is not null)
+        {
+            _page.PropertyChanged += OnPagePropertyChanged;
+        }
+
         // Another page's columns know nothing of this list's width.
         ReportViewport();
+    }
+
+    // ---------------------------------------------------------------- leaving the diffs
+
+    private void OnPagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(HistoryPageViewModel.IsDiffViewOpen) or null)
+        {
+            MoveFocus(_page?.IsDiffViewOpen ?? false);
+        }
+    }
+
+    /// <summary>
+    /// Puts the focus where the keys should go: into the diffs while they are up, and back on the
+    /// graph when they are not.
+    /// </summary>
+    /// <param name="isOpen">Whether the diffs are on screen.</param>
+    /// <remarks>
+    /// This is what makes Escape work on the first press. A key event is routed to whatever has
+    /// focus; with the focus still on the list — or nowhere at all, which is where a freshly shown
+    /// window leaves it — the route never passes through this page, and the key reached nothing
+    /// until the reader happened to click inside the diffs first.
+    ///
+    /// Posted rather than called: the panel is collapsed until the layout pass that follows this
+    /// notification, and a control that is not visible cannot take the focus.
+    /// </remarks>
+    private void MoveFocus(bool isOpen)
+        => Dispatcher.UIThread.Post(() =>
+        {
+            if (isOpen && DiffPage.IsVisible)
+            {
+                DiffPage.Focus();
+                return;
+            }
+
+            if (!isOpen && !DiffPage.IsVisible && CommitList.IsVisible)
+            {
+                CommitList.Focus();
+            }
+        });
+
+    /// <summary>
+    /// Leaves the diffs on Escape.
+    /// </summary>
+    /// <param name="sender">The page.</param>
+    /// <param name="e">The key.</param>
+    /// <remarks>
+    /// Handled here so that nothing below can claim the key first, and only while the diffs are on
+    /// screen: Escape on the graph itself belongs to whatever the reader is using — a context menu,
+    /// a tooltip, the shell.
+    /// </remarks>
+    private void OnPageKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || _page is not { IsDiffViewOpen: true } page)
+        {
+            return;
+        }
+
+        page.IsDiffViewOpen = false;
+        e.Handled = true;
     }
 
     /// <summary>
