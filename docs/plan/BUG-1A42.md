@@ -1,6 +1,6 @@
 # BUG-1A42 — The drag cursor still says no
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-refs-tags-and-dragging
@@ -64,7 +64,7 @@ the page answers. What this run found, by reading `Avalonia.X11` 12.1.1 and by d
 ## PHASE01 — A drag that offers something
 
 **Branch:** `bugfix/bug-1a42-phase01-drag-payload`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-1A42-PHASE01.md`
 
 ### Steps
 

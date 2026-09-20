@@ -157,6 +157,40 @@ public sealed record BranchDrop(BranchRowViewModel Source, BranchRowViewModel Ta
     public static readonly DataFormat<BranchRowViewModel> DragFormat =
         DataFormat.CreateInProcessFormat<BranchRowViewModel>("enigma-gitclient/branch-row");
 
+    /// <summary>
+    /// Builds what a dragged row carries.
+    /// </summary>
+    /// <param name="row">The branch being dragged.</param>
+    /// <returns>The transfer to start the drag session with.</returns>
+    /// <remarks>
+    /// <para>
+    /// Two items, and the second one is not decoration. Avalonia does not publish an in-process
+    /// format to the platform — on X11, <c>DataFormatHelper.ToAtoms</c> skips every in-process
+    /// format, so a drag carrying only <see cref="DragFormat"/> takes ownership of the drag
+    /// selection while advertising <em>no type at all</em>. A desktop that bridges that drag onward
+    /// then has nothing it can offer anyone, nothing can accept it, and the pointer draws the
+    /// refusal for the whole gesture — while Avalonia goes on delivering the drag in process, which
+    /// is why the drop worked perfectly well the entire time it looked impossible.
+    /// </para>
+    /// <para>
+    /// The branch's full name as text is the honest thing to advertise: it is what this drag is
+    /// about, it costs one string, and it makes the gesture mean something outside the window too —
+    /// drop a branch on a terminal or an editor and its name is typed. What the drop itself reads is
+    /// still the in-process row, because a name alone would not say whether the branch is remote or
+    /// checked out.
+    /// </para>
+    /// </remarks>
+    public static DataTransfer TransferFor(BranchRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        DataTransfer transfer = new();
+        transfer.Add(DataTransferItem.Create(DragFormat, row));
+        transfer.Add(DataTransferItem.Create(DataFormat.Text, row.FullName));
+
+        return transfer;
+    }
+
     /// <summary>Gets what this pair asks the operations service to do.</summary>
     public BranchDropRequest Request => new(
         Source.FullName,

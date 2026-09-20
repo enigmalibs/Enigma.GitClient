@@ -214,10 +214,7 @@ public partial class BranchesPageView : UserControl
 
         _pending = null;
 
-        DataTransfer data = new();
-        data.Add(DataTransferItem.Create(BranchDrop.DragFormat, pending.Row));
-
-        _ = DragAsync(pending.Trigger, data);
+        _ = DragAsync(pending.Trigger, BranchDrop.TransferFor(pending.Row));
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e) => _pending = null;
