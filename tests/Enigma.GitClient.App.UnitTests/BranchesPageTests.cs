@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -699,6 +700,65 @@ public sealed class BranchesPageTests
             // And while either of those is under the pointer, the cursor still says the drag is
             // running rather than that it is impossible.
             Assert.Equal(DragDropEffects.Move, BranchDragGesture.EffectFor(carriesBranch: true, isOverTheList: true));
+        });
+    }
+
+    [Theory]
+    [InlineData(100, 100, false)]      // well inside: the drag is crossing one row's children
+    [InlineData(0, 0, false)]          // the very corner still counts as inside
+    [InlineData(400, 300, false)]      // and so does the far edge
+    [InlineData(-1, 100, true)]        // off to the left
+    [InlineData(100, -1, true)]        // above the list, over the toolbar
+    [InlineData(401, 100, true)]       // past its right edge
+    [InlineData(100, 301, true)]       // below it
+    public void ALeaveOnlyCountsWhenThePointerHasLeftTheList(double x, double y, bool leaving)
+        => Assert.Equal(leaving, BranchDragGesture.IsLeavingTheList(new Point(x, y), new Size(400, 300)));
+
+    [Fact]
+    public void ThePageAnswersDragEnterAsWellAsDragOver()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            // Avalonia raises "enter" rather than "over" whenever the deepest element under the
+            // pointer changed since the last move, which crossing a list of rows it usually has.
+            // A page that answers only "over" says nothing for most of a drag.
+            DataTransfer data = BranchDrop.TransferFor(Row(page, "merged"));
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem target = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => container.DataContext is BranchRowViewModel { FullName: "unmerged" });
+
+            foreach (RoutedEvent<DragEventArgs> kind in (RoutedEvent<DragEventArgs>[])[DragDrop.DragEnterEvent, DragDrop.DragOverEvent])
+            {
+                DragEventArgs args = new(kind, data, target, new Point(4, 4), KeyModifiers.None)
+                {
+                    RoutedEvent = kind,
+                    DragEffects = DragDropEffects.None,
+                };
+
+                target.RaiseEvent(args);
+
+                Assert.True(args.Handled, $"the page did not handle {kind.Name}");
+                Assert.Equal(DragDropEffects.Move, args.DragEffects);
+            }
+
+            // And the row the pointer is over is the one that carries the drop mark, from either.
+            Assert.Contains("droptarget", target.Classes);
+
+            window.Close();
         });
     }
 
