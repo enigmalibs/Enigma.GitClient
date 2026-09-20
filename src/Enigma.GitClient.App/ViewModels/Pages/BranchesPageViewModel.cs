@@ -135,64 +135,6 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 }
 
 /// <summary>
-/// One tag, as the page shows it.
-/// </summary>
-public sealed class TagRowViewModel : ViewModelBase
-{
-    private readonly BranchesPageViewModel _owner;
-
-    /// <summary>
-    /// Initialises a new instance.
-    /// </summary>
-    /// <param name="owner">The page the row belongs to.</param>
-    /// <param name="tag">The tag it stands for.</param>
-    public TagRowViewModel(BranchesPageViewModel owner, GitTag tag)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        ArgumentNullException.ThrowIfNull(tag);
-
-        _owner = owner;
-        Tag = tag;
-    }
-
-    /// <summary>Gets the tag this row stands for.</summary>
-    public GitTag Tag { get; }
-
-    /// <summary>Gets the tag's name.</summary>
-    public string Name => Tag.ShortName;
-
-    /// <summary>Gets whether the tag is annotated or a plain pointer.</summary>
-    public string Kind => Tag.IsAnnotated ? "annotated" : "lightweight";
-
-    /// <summary>Gets the tag's message, empty for a lightweight tag.</summary>
-    public string Message => Tag.Message;
-
-    /// <summary>Gets a value indicating whether there is a message to show.</summary>
-    public bool HasMessage => Message.Length > 0;
-
-    /// <summary>Gets who created the tag, empty for a lightweight tag.</summary>
-    public string Tagger => Tag.Tagger?.Name ?? string.Empty;
-
-    /// <summary>Gets a value indicating whether there is a tagger to show.</summary>
-    public bool HasTagger => Tagger.Length > 0;
-
-    /// <summary>Gets how long ago the tag's commit was written.</summary>
-    public string Date => RelativeTime.Format(Tag.TargetDate);
-
-    /// <summary>Gets the tagged commit's short hash.</summary>
-    public string ShortSha => Tag.TargetSha.Length >= 7 ? Tag.TargetSha[..7] : Tag.TargetSha;
-
-    /// <summary>Gets the command that checks the tag out, detaching HEAD.</summary>
-    public AsyncRelayCommand<TagRowViewModel> CheckoutCommand => _owner.CheckoutTagCommand;
-
-    /// <summary>Gets the command that deletes the tag.</summary>
-    public AsyncRelayCommand<TagRowViewModel> DeleteCommand => _owner.DeleteTagCommand;
-
-    /// <inheritdoc />
-    public override string ToString() => Name;
-}
-
-/// <summary>
 /// One branch row dropped onto another.
 /// </summary>
 /// <param name="Source">The row that was dragged — the branch whose work is brought over.</param>
@@ -600,7 +542,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         {
             if (Matches(tag.ShortName))
             {
-                Tags.Add(new TagRowViewModel(this, tag));
+                Tags.Add(new TagRowViewModel(tag, CheckoutTagCommand, DeleteTagCommand));
             }
         }
 
