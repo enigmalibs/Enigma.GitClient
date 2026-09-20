@@ -1099,6 +1099,86 @@ public sealed class HistoryPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the badges say the whole name
+
+    [Fact]
+    public void Badge_MeasuresItsWholeLabelHoweverLongItIs()
+    {
+        // A badge used to stop measuring at 180 points, which is the measurement side of the
+        // ellipsis the template used to draw. Two names that differ only past that point must now
+        // measure differently, or the column they seed cannot grow to hold them.
+        string shorter = new('x', 200);
+        string longer = new('x', 400);
+
+        double shorterBadge = RefBadgeMetrics.MeasureBadge(shorter);
+        double longerBadge = RefBadgeMetrics.MeasureBadge(longer);
+
+        Assert.True(
+            longerBadge > shorterBadge,
+            $"a 400-character name measured {longerBadge}, no more than a 200-character one at {shorterBadge}");
+
+        // And the chrome is still counted around the label, whatever the label is.
+        double chrome = (RefBadgeMetrics.HorizontalPadding * 2) + RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing;
+
+        Assert.Equal(chrome, RefBadgeMetrics.MeasureBadge(string.Empty));
+        Assert.Equal(chrome, RefBadgeMetrics.MeasureBadge(null));
+    }
+
+    [Fact]
+    public void Badge_DrawsItsNameWithoutTrimmingIt()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = new string('x', 300) };
+
+            Window window = new() { Content = badge, Width = 1100, Height = 120 };
+            window.Show();
+            window.UpdateLayout();
+
+            TextBlock label = badge.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Text == badge.Text);
+
+            // No ellipsis, and nothing bounding the label: how much of a name fits is the reader's
+            // decision, taken with the Refs column's grip.
+            Assert.Equal(TextTrimming.None, label.TextTrimming);
+            Assert.True(double.IsPositiveInfinity(label.MaxWidth), $"the label was bounded at {label.MaxWidth}");
+
+            // The full name is still reachable where the strip clips it.
+            Assert.Equal(badge.Text, ToolTip.GetTip(badge.GetVisualDescendants().OfType<Border>().First()));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void RefColumn_StillSeedsItselfAndStillStopsAtItsMaximum()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            // The measurement is offered to the layout, and the layout takes it while the reader
+            // has not claimed the column.
+            Assert.True(page.RefColumnWidth > 0);
+            Assert.False(page.Columns.IsRefsWidthOwnedByReader);
+            Assert.Equal(page.RefColumnWidth, page.Columns.RefsWidth);
+
+            // An untrimmed badge measures its whole name, but the column it seeds is still capped:
+            // one absurd branch name does not take the subject's room on first paint.
+            await GitAsync(repository, "branch", new string('x', 200), "main");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+            await page.ReloadAsync();
+
+            Assert.Equal(HistoryPageViewModel.MaximumRefColumnWidth, page.RefColumnWidth);
+        });
+    }
+
     // ---------------------------------------------------------------- the badges are not dragged
 
     [Fact]

@@ -83,6 +83,12 @@
     </Setter>
   </ControlTheme>
 
+  <!--
+    A ref badge draws its name whole. It used to ellipsise past a fixed width, which is a decision
+    the badge is in no position to take: the Refs column is the reader's — it has a grip of its own —
+    so how much of a name fits is theirs to choose. A badge wider than the column is clipped by the
+    strip that holds it, and its tooltip still names it in full.
+  -->
   <ControlTheme x:Key="{x:Type controls:RefBadge}" TargetType="controls:RefBadge">
     <Setter Property="VerticalAlignment" Value="Center" />
     <!-- A pill hugs its content. Without this it stretches to fill whatever it is placed in, which
@@ -107,8 +113,6 @@
             <TextBlock Text="{TemplateBinding Text}"
                        VerticalAlignment="Center"
                        FontSize="11"
-                       MaxWidth="{TemplateBinding MaximumTextWidth}"
-                       TextTrimming="CharacterEllipsis"
                        Foreground="{TemplateBinding Foreground}" />
           </StackPanel>
         </Border>

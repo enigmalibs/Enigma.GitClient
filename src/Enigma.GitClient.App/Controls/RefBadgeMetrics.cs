@@ -25,6 +25,13 @@ namespace Enigma.GitClient.App.Controls;
 /// only changes when the template does.
 /// </para>
 /// <para>
+/// Nothing here caps a label. A badge draws its name whole and the strip that holds it clips,
+/// because how much of a name fits is the reader's decision: the Refs column has a grip of its own,
+/// and this measurement is only what the column is <em>seeded</em> with —
+/// <c>HistoryPageViewModel.MaximumRefColumnWidth</c> is what keeps one absurd name off the subject
+/// until they drag it.
+/// </para>
+/// <para>
 /// Measured through <see cref="FormattedText"/> and cached per string, like
 /// <c>Diff.DiffTypography</c> — and like it, a face the font manager cannot realise falls back to
 /// an estimate instead of throwing, so a ViewModel built before there is an Avalonia platform (a
@@ -47,12 +54,6 @@ public static class RefBadgeMetrics
 
     /// <summary>The gap between two badges on the same row.</summary>
     public const double BadgeSpacing = 4;
-
-    /// <summary>
-    /// The widest a single badge's label may be drawn before it is ellipsised, which is
-    /// <see cref="RefBadge.MaximumTextWidth"/>'s default.
-    /// </summary>
-    public const double MaximumLabelWidth = 180;
 
     /// <summary>
     /// What a character is taken to be worth when the face cannot be measured at all.
@@ -92,7 +93,7 @@ public static class RefBadgeMetrics
         => (HorizontalPadding * 2)
             + IconSize
             + IconSpacing
-            + Math.Min(MaximumLabelWidth, MeasureLabel(label ?? string.Empty));
+            + MeasureLabel(label ?? string.Empty);
 
     private static double MeasureLabel(string label)
     {

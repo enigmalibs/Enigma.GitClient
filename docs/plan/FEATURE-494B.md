@@ -1,6 +1,6 @@
 # FEATURE-494B — History refs: full names, bigger badges
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-refs-tags-and-dragging
@@ -47,7 +47,7 @@ with room around them.
 ## PHASE01 — Branch names in full, never trimmed
 
 **Branch:** `feature/feature-494b-phase01-untrimmed-badges`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-494B-PHASE01.md`
 
 ### Steps
 

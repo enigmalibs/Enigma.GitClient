@@ -553,23 +553,28 @@ public sealed class CommitGraphCellTests
     }
 
     [Fact]
-    public void RefBadge_EllipsisesAVeryLongName()
+    public void RefBadge_GrowsWithItsNameRatherThanEllipsisingIt()
     {
         _fixture.Run(() =>
         {
-            RefBadge badge = new()
-            {
-                Kind = GitRefKind.LocalBranch,
-                Text = new string('x', 300),
-                MaximumTextWidth = 120,
-            };
+            // The badge used to stop at a width of its own and draw three dots. It no longer does:
+            // the Refs column is the reader's to size, and the strip that holds the badge is what
+            // clips it.
+            RefBadge shorter = new() { Kind = GitRefKind.LocalBranch, Text = new string('x', 10) };
+            RefBadge longer = new() { Kind = GitRefKind.LocalBranch, Text = new string('x', 300) };
 
-            Window window = new() { Content = badge, Width = 600, Height = 60 };
-            window.Measure(new Size(600, 60));
-            window.Arrange(new Rect(0, 0, 600, 60));
+            StackPanel stack = new() { Orientation = Orientation.Vertical };
+            stack.Children.Add(shorter);
+            stack.Children.Add(longer);
+
+            Window window = new() { Content = stack, Width = 4000, Height = 120 };
+            window.Measure(new Size(4000, 120));
+            window.Arrange(new Rect(0, 0, 4000, 120));
             window.UpdateLayout();
 
-            Assert.True(badge.Bounds.Width < 200, $"the badge grew to {badge.Bounds.Width}");
+            Assert.True(
+                longer.Bounds.Width > shorter.Bounds.Width * 5,
+                $"a 300-character name was {longer.Bounds.Width} wide against {shorter.Bounds.Width} for ten");
         });
     }
 }
