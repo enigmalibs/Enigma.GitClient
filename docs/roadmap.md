@@ -96,7 +96,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-494B | History refs: full names, bigger badges | DONE   | docs/plan/FEATURE-494B.md |
 | - PHASE01    | Branch names in full, never trimmed     | DONE   | (in FEATURE-494B.md)      |
 | - PHASE02    | A roomier badge, a size bigger          | DONE   | (in FEATURE-494B.md)      |
-| BUG-36A9     | A found row cannot be hovered           | TODO   | docs/plan/BUG-36A9.md     |
+| BUG-36A9     | A found row cannot be hovered           | DONE   | docs/plan/BUG-36A9.md     |
 | FEATURE-0FBE | Tags get their own page                 | TODO   | docs/plan/FEATURE-0FBE.md |
 | - PHASE01    | The tags page and its rail item         | TODO   | (in FEATURE-0FBE.md)      |
 | - PHASE02    | The branches page is only branches      | TODO   | (in FEATURE-0FBE.md)      |

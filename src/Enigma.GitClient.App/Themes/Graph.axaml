@@ -85,8 +85,14 @@
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
 
       <!-- A history row the search found. A wash the eye can pick out of a long list while the
-           selected row stays the obviously selected one, so it is well short of the selection. -->
+           selected row stays the obviously selected one, so it is well short of the selection.
+           Three of them, because the wash sits on the row and therefore covers the container's own
+           hover and selection plates: a found row has to answer for all three states itself. Each
+           is the same hue carried further, so a found row stays recognisably found under the
+           pointer and while it is the row being acted on. -->
       <Color x:Key="SearchMatchColor">#3A3517</Color>
+      <Color x:Key="SearchMatchHoverColor">#4C4520</Color>
+      <Color x:Key="SearchMatchSelectedColor">#635A29</Color>
 
       <!-- The diff's minimap. Its strip is the gutter's colour and its marks are the gutter's own
            added and removed ones, so the map and the patch cannot disagree about what green means;
@@ -155,6 +161,8 @@
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
 
       <Color x:Key="SearchMatchColor">#FBF0C2</Color>
+      <Color x:Key="SearchMatchHoverColor">#F3E3A0</Color>
+      <Color x:Key="SearchMatchSelectedColor">#E8D178</Color>
 
       <Color x:Key="DiffMinimapViewportColor">#22000000</Color>
       <Color x:Key="DiffMinimapViewportBorderColor">#55000000</Color>
@@ -215,6 +223,8 @@
   <SolidColorBrush x:Key="ConflictPendingForegroundBrush" Color="{DynamicResource ConflictPendingForegroundColor}" />
 
   <SolidColorBrush x:Key="SearchMatchBrush" Color="{DynamicResource SearchMatchColor}" />
+  <SolidColorBrush x:Key="SearchMatchHoverBrush" Color="{DynamicResource SearchMatchHoverColor}" />
+  <SolidColorBrush x:Key="SearchMatchSelectedBrush" Color="{DynamicResource SearchMatchSelectedColor}" />
 
   <SolidColorBrush x:Key="DiffMinimapViewportBrush" Color="{DynamicResource DiffMinimapViewportColor}" />
   <SolidColorBrush x:Key="DiffMinimapViewportBorderBrush" Color="{DynamicResource DiffMinimapViewportBorderColor}" />
