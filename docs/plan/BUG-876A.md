@@ -68,7 +68,7 @@ something is held over it.
 ## PHASE02 — The drag cursor says yes
 
 **Branch:** `bugfix/bug-876a-phase02-drag-cursor`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-876A-PHASE02.md`
 
 ### Steps
 

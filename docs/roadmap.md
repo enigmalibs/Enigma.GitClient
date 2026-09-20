@@ -91,5 +91,5 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Opening at the first change           | DONE        | (in FEATURE-B14C.md)      |
 | BUG-876A     | Branch rows: selection and dragging   | IN PROGRESS | docs/plan/BUG-876A.md     |
 | - PHASE01    | Deselected rows go back to normal     | DONE        | (in BUG-876A.md)          |
-| - PHASE02    | The drag cursor says yes              | TODO        | (in BUG-876A.md)          |
+| - PHASE02    | The drag cursor says yes              | DONE        | (in BUG-876A.md)          |
 | - PHASE03    | The list scrolls while dragging       | TODO        | (in BUG-876A.md)          |

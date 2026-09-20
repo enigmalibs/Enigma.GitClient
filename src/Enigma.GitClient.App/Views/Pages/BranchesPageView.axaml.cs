@@ -44,6 +44,22 @@ internal static class BranchDragGesture
 
         return (x * x) + (y * y) >= Threshold * Threshold;
     }
+
+    /// <summary>
+    /// What the pointer should say while a drag is over the page.
+    /// </summary>
+    /// <param name="carriesBranch">Whether what is being dragged is one of this list's branches.</param>
+    /// <param name="isOverTheList">Whether the pointer is over the branches list.</param>
+    /// <returns>The effect to report, which is what the platform draws as a cursor.</returns>
+    /// <remarks>
+    /// The question the cursor answers is "is this gesture under way here", not "would this exact
+    /// pair merge": a branch dragged over its own row, or over a group heading, is still a drag in
+    /// progress, and <see cref="DragDropEffects.None"/> there drew the "impossible" pointer over
+    /// most of the journey. Where a drop would actually land is said by the ring on the row, which
+    /// the policy still decides — and a drop the policy refuses still does nothing.
+    /// </remarks>
+    public static DragDropEffects EffectFor(bool carriesBranch, bool isOverTheList)
+        => carriesBranch && isOverTheList ? DragDropEffects.Move : DragDropEffects.None;
 }
 
 /// <summary>
@@ -190,11 +206,23 @@ public partial class BranchesPageView : UserControl
     {
         ListBoxItem? container = RowAt(e.Source);
 
-        e.DragEffects = DropFor(e, container) is not null ? DragDropEffects.Move : DragDropEffects.None;
+        // Two different questions, deliberately: the cursor says whether the gesture is under way
+        // here, and the ring says where it would land.
+        e.DragEffects = BranchDragGesture.EffectFor(
+            e.DataTransfer.TryGetValue(BranchDrop.DragFormat) is not null,
+            IsOverTheList(e.Source));
+
         e.Handled = true;
 
-        Highlight(e.DragEffects == DragDropEffects.Move ? container : null);
+        Highlight(DropFor(e, container) is not null ? container : null);
     }
+
+    /// <summary>
+    /// Whether an event landed inside the branches list.
+    /// </summary>
+    private bool IsOverTheList(object? source)
+        => source is Visual visual
+            && visual.GetSelfAndVisualAncestors().Any(ancestor => ReferenceEquals(ancestor, BranchList));
 
     private void OnDragLeave(object? sender, DragEventArgs e) => Highlight(null);
 

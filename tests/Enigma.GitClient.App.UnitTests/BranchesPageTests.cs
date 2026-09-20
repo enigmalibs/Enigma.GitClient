@@ -593,6 +593,34 @@ public sealed class BranchesPageTests
     }
 
     [Theory]
+    [InlineData(true, true, DragDropEffects.Move)]     // a branch, over the list: the gesture is under way
+    [InlineData(true, false, DragDropEffects.None)]    // a branch, somewhere else on the page
+    [InlineData(false, true, DragDropEffects.None)]    // something else, over the list
+    [InlineData(false, false, DragDropEffects.None)]
+    public void TheDragCursorAnswersWhetherTheGestureIsUnderWay(bool carriesBranch, bool overTheList, DragDropEffects expected)
+        => Assert.Equal(expected, BranchDragGesture.EffectFor(carriesBranch, overTheList));
+
+    [Fact]
+    public void TheDragCursorSaysYesEvenWhereTheDropWouldNot()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            // The pairs the policy refuses — a branch on itself, anything onto a remote — are still
+            // refused: the ring and the menu are the policy's, and only the cursor changed.
+            Assert.False(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "main"), Row(page, "main"))));
+            Assert.False(BranchesPageViewModel.CanDrop(
+                new BranchDrop(Row(page, "main"), Row(page, "origin/published"))));
+
+            // And while either of those is under the pointer, the cursor still says the drag is
+            // running rather than that it is impossible.
+            Assert.Equal(DragDropEffects.Move, BranchDragGesture.EffectFor(carriesBranch: true, isOverTheList: true));
+        });
+    }
+
+    [Theory]
     [InlineData(0, 0, false)]          // a press and a release in the same place is a click
     [InlineData(1, 1, false)]          // and so is a shaky hand
     [InlineData(4, 0, true)]           // a deliberate move sideways
