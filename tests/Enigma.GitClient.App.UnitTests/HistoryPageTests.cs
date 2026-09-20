@@ -15,11 +15,13 @@ using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Media;
 using Enigma.GitClient.App.Controls;
+using Enigma.Icons.Avalonia;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -1177,6 +1179,84 @@ public sealed class HistoryPageTests
 
             Assert.Equal(HistoryPageViewModel.MaximumRefColumnWidth, page.RefColumnWidth);
         });
+    }
+
+    [Fact]
+    public void BadgeMetrics_AgreeWithWhatTheTemplateDraws()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+
+            Window window = new() { Content = badge, Width = 400, Height = 120 };
+            window.Show();
+            window.UpdateLayout();
+
+            // The metrics are constants rather than bindings, because a per-badge binding to a
+            // theme resource would measure thousands of rows through the resource system. This is
+            // what keeps them honest: every one of them is read back off a realised badge.
+            Border pill = badge.GetVisualDescendants().OfType<Border>().First();
+            StackPanel content = pill.GetVisualDescendants().OfType<StackPanel>().First();
+            TextBlock label = content.GetVisualDescendants().OfType<TextBlock>().First();
+
+            Assert.Equal(RefBadgeMetrics.FontSize, label.FontSize);
+            Assert.Equal(RefBadgeMetrics.IconSpacing, content.Spacing);
+            Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Left + pill.BorderThickness.Left);
+            Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Right + pill.BorderThickness.Right);
+
+            Icon icon = content.GetVisualDescendants().OfType<Icon>().First();
+            Assert.Equal(RefBadgeMetrics.IconSize, icon.Size);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Badge_IsRoomierAndStillFitsAHistoryRow()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+
+            Window window = new() { Content = badge, Width = 400, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            Border pill = badge.GetVisualDescendants().OfType<Border>().First();
+            StackPanel content = pill.GetVisualDescendants().OfType<StackPanel>().First();
+
+            // Room on every side, not only beside the text.
+            Assert.True(pill.Padding.Top > 0 && pill.Padding.Bottom > 0, "the badge has no vertical padding");
+
+            Assert.True(
+                pill.Bounds.Width > content.Bounds.Width,
+                "the badge is no wider than the content it wraps");
+
+            // And it still sits inside a history row at its default height.
+            Assert.True(
+                badge.Bounds.Height <= AppSettings.Defaults.GraphRowHeight,
+                $"a badge is {badge.Bounds.Height} tall, more than a {AppSettings.Defaults.GraphRowHeight} px row");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void RefColumn_WidensForTheBiggerBadge()
+    {
+        // The same reference measured with the template's own numbers: a badge is the chrome the
+        // template draws plus its label, and both grew.
+        double chrome = (RefBadgeMetrics.HorizontalPadding * 2) + RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing;
+
+        Assert.Equal(34, chrome);
+        Assert.True(RefBadgeMetrics.MeasureBadge("main") > chrome);
+
+        // Two badges on a row are still separated by the strip's own spacing.
+        RefBadgeItem[] two = [new(GitRefKind.LocalBranch, "main", true), new(GitRefKind.Tag, "v1.0.0", false)];
+
+        Assert.Equal(
+            RefBadgeMetrics.MeasureBadge("main") + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
+            RefBadgeMetrics.Measure(two));
     }
 
     // ---------------------------------------------------------------- the badges are not dragged

@@ -99,20 +99,22 @@
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="Template">
       <ControlTemplate>
+        <!-- The numbers here are mirrored by Controls/RefBadgeMetrics, which is what measures the
+             Refs column; a test reads them back off a realised badge so the two cannot drift. -->
         <Border Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="1"
-                CornerRadius="3"
-                Padding="4,0"
+                CornerRadius="4"
+                Padding="7,2"
                 ToolTip.Tip="{TemplateBinding Text}">
-          <StackPanel Orientation="Horizontal" Spacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="5">
             <ei:Icon Kind="{TemplateBinding IconKind}"
-                     Size="11"
+                     Size="13"
                      VerticalAlignment="Center"
                      Foreground="{TemplateBinding Foreground}" />
             <TextBlock Text="{TemplateBinding Text}"
                        VerticalAlignment="Center"
-                       FontSize="11"
+                       FontSize="13"
                        Foreground="{TemplateBinding Foreground}" />
           </StackPanel>
         </Border>

@@ -1,6 +1,6 @@
 # FEATURE-494B — History refs: full names, bigger badges
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-refs-tags-and-dragging
@@ -72,7 +72,7 @@ with room around them.
 ## PHASE02 — A roomier badge, a size bigger
 
 **Branch:** `feature/feature-494b-phase02-bigger-badges`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-494B-PHASE02.md`
 
 ### Steps
 
