@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.Icons.Avalonia;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -122,6 +123,128 @@ public sealed class ShellRenderTests
             Assert.True(page.IsMeasureValid);
             Assert.True(page.Bounds.Width > 0);
             Assert.True(page.Bounds.Height > 0);
+        });
+    }
+
+    // ---------------------------------------------------------------- the icon scale
+
+    /// <summary>
+    /// The size an icon of each role is drawn at. The test is the scale: a role whose number moves
+    /// here is a deliberate change to how the whole application looks, not a detail of one view.
+    /// </summary>
+    private static readonly (string Role, double Size)[] Scale =
+    [
+        ("header", 20),
+        ("toolbar", 18),
+        ("row", 16),
+        ("pill", 12),
+    ];
+
+    /// <summary>
+    /// The same scale, as a theory's cases.
+    /// </summary>
+    public static TheoryData<string, double> IconRoles
+    {
+        get
+        {
+            TheoryData<string, double> roles = [];
+
+            foreach ((string role, double size) in Scale)
+            {
+                roles.Add(role, size);
+            }
+
+            return roles;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(IconRoles))]
+    public void IconScale_GivesEachRoleItsOwnSize(string role, double size)
+    {
+        _fixture.Run(() =>
+        {
+            Icon icon = new() { Kind = Enigma.Icons.Phosphor.PhosphorIcon.Gear, Classes = { role } };
+            Window window = new() { Content = icon, Width = 100, Height = 100 };
+
+            Layout(window, 100, 100);
+
+            Assert.Equal(size, icon.Size);
+        });
+    }
+
+    [Fact]
+    public void AToolbarIconIsBiggerThanARowIconAndBothBeatABadge()
+    {
+        _fixture.Run(() =>
+        {
+            double Size(string role)
+            {
+                Icon icon = new() { Classes = { role } };
+                Window window = new() { Content = icon, Width = 100, Height = 100 };
+                Layout(window, 100, 100);
+                return icon.Size;
+            }
+
+            Assert.True(Size("header") > Size("toolbar"));
+            Assert.True(Size("toolbar") > Size("row"));
+            Assert.True(Size("row") > Size("pill"));
+        });
+    }
+
+    [Theory]
+    [InlineData(typeof(HistoryPageView))]
+    [InlineData(typeof(ChangesPageView))]
+    [InlineData(typeof(BranchesPageView))]
+    [InlineData(typeof(RemotesPageView))]
+    [InlineData(typeof(IntegrationsPageView))]
+    [InlineData(typeof(SettingsPageView))]
+    public void EveryPage_SizesItsToolbarIconsFromTheScale(Type pageType)
+    {
+        _fixture.Run(() =>
+        {
+            Control page = (Control)Activator.CreateInstance(pageType)!;
+            Window window = new() { Content = page };
+
+            Layout(window);
+
+            Icon[] icons = [.. page.GetVisualDescendants().OfType<Icon>()];
+
+            // Every icon that claims a role is drawn at that role's size — the style reached it,
+            // and no local Size in the markup outranked it.
+            foreach (Icon icon in icons)
+            {
+                foreach ((string role, double size) in Scale)
+                {
+                    if (icon.Classes.Contains(role))
+                    {
+                        Assert.Equal(size, icon.Size);
+                    }
+                }
+            }
+
+            // And the page says what it is with a title icon of the header size.
+            Assert.Contains(icons, icon => icon.Classes.Contains("header") && icon.Size == 20);
+        });
+    }
+
+    [Fact]
+    public void AToolbarButtonsIconIsTheToolbarSize()
+    {
+        _fixture.Run(() =>
+        {
+            BranchesPageView page = new();
+            Window window = new() { Content = page };
+
+            Layout(window);
+
+            // The refresh, the segmented toggles and "New branch" all sit on the page's strip.
+            Icon[] toolbar = [.. page.GetVisualDescendants()
+                .OfType<Icon>()
+                .Where(icon => icon.Classes.Contains("toolbar"))];
+
+            Assert.True(toolbar.Length >= 4, $"the branches toolbar drew {toolbar.Length} icons");
+            Assert.All(toolbar, icon => Assert.Equal(18, icon.Size));
         });
     }
 }

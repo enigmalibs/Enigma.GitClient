@@ -1,6 +1,6 @@
 # FEATURE-0DB4 — Bigger icons, readable selected rows
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -39,7 +39,7 @@ readable when the row it sits on is selected.
 ## PHASE01 — One icon scale for the whole app
 
 **Branch:** `feature/feature-0db4-phase01-icon-scale`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0DB4-PHASE01.md`
 
 ### Steps
 

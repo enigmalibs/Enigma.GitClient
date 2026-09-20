@@ -201,7 +201,7 @@
 
         <ei:Icon Grid.Column="0"
                  Kind="{Binding Icon}"
-                 Size="15"
+                 Classes="row"
                  VerticalAlignment="Center"
                  Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
@@ -260,7 +260,7 @@
                         IsChecked="{Binding ShowBase, Mode=TwoWay}"
                         ToolTip.Tip="Show what both sides started from"
                         AutomationProperties.Name="Show the original">
-            <ei:Icon Kind="Columns" Size="14" />
+            <ei:Icon Kind="Columns" Classes="toolbar" />
           </ToggleButton>
 
           <Button Classes="toolbar"

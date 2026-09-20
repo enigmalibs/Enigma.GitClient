@@ -168,7 +168,7 @@
                         Command="{Binding ShowUnifiedCommand}"
                         ToolTip.Tip="Unified"
                         AutomationProperties.Name="Unified">
-            <ei:Icon Kind="Rows" Size="14" />
+            <ei:Icon Kind="Rows" Classes="toolbar" />
           </ToggleButton>
 
           <ToggleButton Classes="segment"
@@ -176,7 +176,7 @@
                         Command="{Binding ShowSideBySideCommand}"
                         ToolTip.Tip="Side by side"
                         AutomationProperties.Name="Side by side">
-            <ei:Icon Kind="Columns" Size="14" />
+            <ei:Icon Kind="Columns" Classes="toolbar" />
           </ToggleButton>
 
           <Border Width="1"
@@ -187,21 +187,21 @@
                         IsChecked="{Binding Render.ShowWhitespace, Mode=TwoWay}"
                         ToolTip.Tip="Show spaces and tabs"
                         AutomationProperties.Name="Show spaces and tabs">
-            <ei:Icon Kind="DotsSixVertical" Size="14" />
+            <ei:Icon Kind="DotsSixVertical" Classes="toolbar" />
           </ToggleButton>
 
           <ToggleButton Classes="segment"
                         IsChecked="{Binding Render.WrapLines, Mode=TwoWay}"
                         ToolTip.Tip="Wrap long lines"
                         AutomationProperties.Name="Wrap long lines">
-            <ei:Icon Kind="TextAlignLeft" Size="14" />
+            <ei:Icon Kind="TextAlignLeft" Classes="toolbar" />
           </ToggleButton>
 
           <ToggleButton Classes="segment"
                         IsChecked="{Binding IgnoreAllWhitespace, Mode=TwoWay}"
                         ToolTip.Tip="Ignore whitespace changes"
                         AutomationProperties.Name="Ignore whitespace changes">
-            <ei:Icon Kind="Eraser" Size="14" />
+            <ei:Icon Kind="Eraser" Classes="toolbar" />
           </ToggleButton>
 
           <Border Width="1"
@@ -212,14 +212,14 @@
                   Command="{Binding ExpandContextCommand}"
                   ToolTip.Tip="Show more surrounding lines"
                   AutomationProperties.Name="Show more surrounding lines">
-            <ei:Icon Kind="ArrowsOutLineVertical" Size="14" />
+            <ei:Icon Kind="ArrowsOutLineVertical" Classes="toolbar" />
           </Button>
 
           <Button Classes="toolbar"
                   Command="{Binding CopyPatchCommand}"
                   ToolTip.Tip="Copy the whole patch"
                   AutomationProperties.Name="Copy the whole patch">
-            <ei:Icon Kind="Copy" Size="14" />
+            <ei:Icon Kind="Copy" Classes="toolbar" />
           </Button>
         </StackPanel>
       </Grid>

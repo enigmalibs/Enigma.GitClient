@@ -44,7 +44,7 @@
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-          <ei:Icon Kind="Gear" Size="18" VerticalAlignment="Center"
+          <ei:Icon Kind="Gear" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
                      VerticalAlignment="Center"

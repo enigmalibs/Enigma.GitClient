@@ -25,7 +25,7 @@
         <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <ei:Icon Kind="GitCommit" Size="16" VerticalAlignment="Center"
+            <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
                      Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             <TextBlock Text="History"
                        VerticalAlignment="Center"
@@ -73,7 +73,7 @@
                     Command="{Binding ClearSearchCommand}"
                     ToolTip.Tip="Clear the search"
                     AutomationProperties.Name="Clear the search">
-              <ei:Icon Kind="X" Size="14" />
+              <ei:Icon Kind="X" Classes="toolbar" />
             </Button>
           </Grid>
 
@@ -82,7 +82,7 @@
                   Command="{Binding RefreshCommand}"
                   ToolTip.Tip="Re-read the history"
                   AutomationProperties.Name="Re-read the history">
-            <ei:Icon Kind="ArrowsClockwise" Size="16" />
+            <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
           </Button>
         </Grid>
       </Border>
@@ -419,7 +419,7 @@
                     Command="{Binding CloseDiffDialogCommand}"
                     ToolTip.Tip="Close"
                     AutomationProperties.Name="Close">
-              <ei:Icon Kind="X" Size="14" />
+              <ei:Icon Kind="X" Classes="toolbar" />
             </Button>
           </Grid>
         </Border>
