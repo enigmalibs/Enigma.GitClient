@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.ViewModels.Panels;
 
@@ -25,9 +26,17 @@ public partial class DiffViewerView : UserControl
     private const double WheelColumns = 3;
 
     /// <summary>
+    /// How many rows are kept above the first change when a file opens. Enough that the change is
+    /// not on the very first pixel, little enough that it is still where the eye lands.
+    /// </summary>
+    private const int ContextRows = 2;
+
+    /// <summary>
     /// The scroll each map drives, once its list has a template to find one in.
     /// </summary>
     private readonly Dictionary<DiffMinimap, ScrollViewer> _scrolls = [];
+
+    private DiffViewerViewModel? _viewer;
 
     /// <summary>
     /// Initialises a new instance.
@@ -138,7 +147,94 @@ public partial class DiffViewerView : UserControl
     {
         base.OnDataContextChanged(e);
 
+        if (_viewer is not null)
+        {
+            _viewer.PatchChanged -= OnPatchChanged;
+        }
+
+        _viewer = DataContext as DiffViewerViewModel;
+
+        if (_viewer is not null)
+        {
+            _viewer.PatchChanged += OnPatchChanged;
+        }
+
         ReportViewports();
+        ShowFirstChange();
+    }
+
+    // ---------------------------------------------------------------- where a file opens
+
+    private void OnPatchChanged(object? sender, EventArgs e) => ShowFirstChange();
+
+    /// <summary>
+    /// Puts both renderings where their first change is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A list keeps the offset it had, so without this a newly opened file starts wherever the last
+    /// one was left — a third of the way down a long patch is a plausible-looking place to land in
+    /// a short one, which is what made the position look random.
+    /// </para>
+    /// <para>
+    /// Posted, and laid out first: the rows have only just been added, and the extent this divides
+    /// is measured from realised ones. Both renderings are moved, not only the one on screen, so
+    /// switching between them after the file opens does not land somewhere else.
+    /// </para>
+    /// </remarks>
+    private void ShowFirstChange()
+        => Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (DataContext is not DiffViewerViewModel viewer)
+                {
+                    return;
+                }
+
+                Align(UnifiedMinimap, viewer.UnifiedFirstChangeRow, viewer.UnifiedRows.Count);
+                Align(SideBySideMinimap, viewer.SideBySideFirstChangeRow, viewer.SideBySideRows.Count);
+            },
+            DispatcherPriority.Background);
+
+    /// <summary>
+    /// Scrolls one rendering to the row its first change begins at.
+    /// </summary>
+    /// <param name="map">The rendering's map, which is what its scroll is known by.</param>
+    /// <param name="firstChangeRow">The row that change begins at.</param>
+    /// <param name="rowCount">How many rows the rendering has.</param>
+    private void Align(DiffMinimap map, int firstChangeRow, int rowCount)
+    {
+        if (!_scrolls.TryGetValue(map, out ScrollViewer? scroll))
+        {
+            return;
+        }
+
+        scroll.UpdateLayout();
+
+        if (rowCount <= 0)
+        {
+            scroll.Offset = new Vector(scroll.Offset.X, 0);
+            return;
+        }
+
+        double start = (double)Math.Max(0, firstChangeRow - ContextRows) / rowCount;
+
+        // More than once, because the extent a virtualising panel reports is an estimate made from
+        // the rows it has realised: the first move is what realises the rows around the change, and
+        // the next is measured against them. Two passes settle it; the third is the guard, and it
+        // stops as soon as a pass moves the view by less than a row.
+        for (int pass = 0; pass < 3; pass++)
+        {
+            double before = scroll.Offset.Y;
+
+            ScrollTo(scroll, start);
+            scroll.UpdateLayout();
+
+            if (Math.Abs(scroll.Offset.Y - before) < 1)
+            {
+                return;
+            }
+        }
     }
 
     private void OnTypographyChanged(object? sender, EventArgs e) => ReportViewports();
