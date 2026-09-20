@@ -1,6 +1,6 @@
 # BUG-3BAE — Search matches are not highlighted
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-3BAE.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-3bae-search-highlight`
 **Run:** feature/2026-09-20-ui-polish-diff-page

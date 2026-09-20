@@ -487,6 +487,51 @@ public sealed class HistoryPageTests
         });
     }
 
+    [Fact]
+    public void Search_WashesTheRowsItFound()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("SearchMatchBrush", application.ActualThemeVariant, out object? brush));
+
+            Color found = Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+
+            // A row is always painted with something: that is what makes the whole line a hit
+            // target for its own menu, washed or not.
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            Assert.All(RowGrids(workspace), row => Assert.NotEqual(found, Painted(row)));
+            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            List<Grid> washed = [.. RowGrids(workspace).Where(row => Painted(row) == found)];
+
+            Assert.NotEmpty(washed);
+            Assert.Equal(model.Rows.Count(row => row.IsSearchMatch), washed.Count);
+
+            foreach (Grid row in RowGrids(workspace))
+            {
+                Assert.Equal(
+                    ((CommitRowViewModel)row.DataContext!).IsSearchMatch,
+                    Painted(row) == found);
+            }
+
+            model.ClearSearchCommand.Execute(null);
+            window.UpdateLayout();
+
+            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- filters
 
     [Fact]

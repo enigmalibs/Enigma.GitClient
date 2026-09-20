@@ -189,12 +189,23 @@
   </Style>
 
   <!--
-    A history row the search found. A wash rather than a border: the row already carries a graph, a
-    badge strip and four columns of text, and a ring around all of that reads as a second selection.
-    Quiet enough that the selected row is still obviously the selected one.
+    A history row, and a history row the search found.
+
+    The transparent background is the row's hit area: a Grid with no brush lets a pointer through
+    wherever a child is not, and the row's menu opens from anywhere on the line. It is stated here
+    rather than in the template because the wash below has to be able to beat it — a local value in
+    markup outranks every style setter, which is precisely why this wash never once appeared.
+
+    A wash rather than a border: the row already carries a graph, a badge strip and four columns of
+    text, and a ring around all of that reads as a second selection. Quiet enough that the selected
+    row is still obviously the selected one.
   -->
 
-  <Style Selector="Grid.match">
+  <Style Selector="Grid.commitrow">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Grid.commitrow.match">
     <Setter Property="Background" Value="{DynamicResource SearchMatchBrush}" />
   </Style>
 
