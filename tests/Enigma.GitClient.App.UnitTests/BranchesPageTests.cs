@@ -593,6 +593,50 @@ public sealed class BranchesPageTests
     }
 
     [Theory]
+    [InlineData(150, 0)]        // the middle of the list: nothing to do
+    [InlineData(100, 0)]
+    [InlineData(200, 0)]
+    [InlineData(4, -1)]         // near the top: towards the top
+    [InlineData(-20, -1)]       // and past it, which a fast pointer reaches
+    [InlineData(296, 1)]        // near the bottom: towards the bottom
+    [InlineData(400, 1)]
+    public void ADragNearAnEdgeScrollsTheList(double y, int direction)
+    {
+        double scroll = BranchDragGesture.ScrollFor(y, viewportHeight: 300);
+
+        Assert.Equal(direction, Math.Sign(scroll));
+        Assert.True(Math.Abs(scroll) <= BranchDragGesture.ScrollStep);
+    }
+
+    [Fact]
+    public void ADragScrollsFasterTheDeeperIntoTheEdgeItIs()
+    {
+        // Deeper into the band is faster, and the very edge is the whole step.
+        double edge = Math.Abs(BranchDragGesture.ScrollFor(0, 300));
+        double inside = Math.Abs(BranchDragGesture.ScrollFor(BranchDragGesture.ScrollBand - 2, 300));
+
+        Assert.True(edge > inside, $"the edge scrolls by {edge} and the band's inside by {inside}");
+        Assert.Equal(BranchDragGesture.ScrollStep, edge, 3);
+
+        // It never falls to nothing inside the band: a list that stops scrolling short of its end
+        // is a list whose last row cannot be dropped on.
+        Assert.True(inside > 0);
+
+        // And a list with no viewport scrolls by nothing rather than by NaN.
+        Assert.Equal(0, BranchDragGesture.ScrollFor(10, 0));
+    }
+
+    [Fact]
+    public void TheScrollBandNeverSwallowsAShortList()
+    {
+        // A third of the viewport at most, so a list two rows tall still has a middle.
+        Assert.Equal(0, BranchDragGesture.ScrollFor(30, 60));
+
+        Assert.True(BranchDragGesture.ScrollFor(2, 60) < 0);
+        Assert.True(BranchDragGesture.ScrollFor(58, 60) > 0);
+    }
+
+    [Theory]
     [InlineData(true, true, DragDropEffects.Move)]     // a branch, over the list: the gesture is under way
     [InlineData(true, false, DragDropEffects.None)]    // a branch, somewhere else on the page
     [InlineData(false, true, DragDropEffects.None)]    // something else, over the list

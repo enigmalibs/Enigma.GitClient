@@ -49,7 +49,9 @@ diff.
   selection while the page refreshes underneath.
 - Drag one branch onto another to merge them. The drop opens a menu naming both ends: merge, merge
   fast-forward only, or merge the other way round if that is what you meant. The target is checked
-  out first when it is not the branch you are on, and dismissing the menu does nothing.
+  out first when it is not the branch you are on, and dismissing the menu does nothing. Hold the
+  dragged branch near the top or the bottom of the list and it scrolls, so a branch further down is
+  still a branch you can drop on.
 - Tags: create (lightweight or annotated) and delete.
 - Working directory: status, stage and unstage by file or by directory, discard, and commit with a
   subject/body guide.
