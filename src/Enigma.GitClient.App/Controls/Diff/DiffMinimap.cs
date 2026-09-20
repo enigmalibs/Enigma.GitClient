@@ -118,13 +118,28 @@ public sealed class DiffMinimap : Control
         AvaloniaProperty.Register<DiffMinimap, IBrush?>(nameof(ViewportBorderBrush));
 
     /// <summary>
-    /// The least a run may be drawn at. A one-line change in a four-thousand-line file is a
-    /// fraction of a pixel, and a mark nobody can see is a mark that is not there.
+    /// The least a run may ever be drawn at, whatever the strip's width. A one-line change in a
+    /// four-thousand-line file is a fraction of a pixel, and a mark nobody can see is a mark that
+    /// is not there.
     /// </summary>
-    private const double MinimumMarkHeight = 2;
+    private const double SmallestMarkHeight = 2;
 
-    /// <summary>The space kept clear on each side of the marks.</summary>
-    private const double SidePadding = 2;
+    /// <summary>
+    /// How much of the strip's width is kept clear on each side of the marks, and what the least a
+    /// run may be drawn at is measured against.
+    /// </summary>
+    /// <remarks>
+    /// Proportions rather than constants: the strip is wide enough to aim at with a trackpad, and a
+    /// two-pixel inset with two-pixel marks — which is what a fourteen-pixel strip wanted — reads
+    /// as three hairlines lost in a gutter once the gutter is thirty-six pixels across.
+    /// </remarks>
+    private const double SideInset = 0.1;
+
+    /// <summary>How tall a mark may be at its smallest, as a fraction of the strip's width.</summary>
+    private const double MarkHeightOfWidth = 1.0 / 12;
+
+    /// <summary>How thick the window's outline is, as a fraction of the strip's width.</summary>
+    private const double OutlineOfWidth = 1.0 / 18;
 
     static DiffMinimap()
     {
@@ -321,7 +336,9 @@ public sealed class DiffMinimap : Control
             return;
         }
 
-        double width = Math.Max(1, bounds.Width - (SidePadding * 2));
+        double inset = bounds.Width * SideInset;
+        double width = Math.Max(1, bounds.Width - (inset * 2));
+        double smallest = Math.Max(SmallestMarkHeight, bounds.Width * MarkHeightOfWidth);
 
         foreach (DiffChangeMark mark in marks)
         {
@@ -339,12 +356,12 @@ public sealed class DiffMinimap : Control
             }
 
             double top = bounds.Height * ((double)mark.FirstRow / RowCount);
-            double height = Math.Max(MinimumMarkHeight, bounds.Height * ((double)mark.RowCount / RowCount));
+            double height = Math.Max(smallest, bounds.Height * ((double)mark.RowCount / RowCount));
 
             // A run at the very end must not be drawn past the bottom by its own minimum height.
             top = Math.Min(top, Math.Max(0, bounds.Height - height));
 
-            context.FillRectangle(brush, new Rect(SidePadding, top, width, height));
+            context.FillRectangle(brush, new Rect(inset, top, width, height));
         }
     }
 
@@ -360,7 +377,9 @@ public sealed class DiffMinimap : Control
         }
 
         double top = bounds.Height * start;
-        double height = Math.Max(MinimumMarkHeight, bounds.Height * (end - start));
+        double height = Math.Max(
+            Math.Max(SmallestMarkHeight, bounds.Width * MarkHeightOfWidth),
+            bounds.Height * (end - start));
 
         top = Math.Min(top, Math.Max(0, bounds.Height - height));
 
@@ -373,7 +392,11 @@ public sealed class DiffMinimap : Control
 
         if (ViewportBorderBrush is { } border)
         {
-            context.DrawRectangle(null, new Pen(border, 1), window.Deflate(0.5));
+            // The outline grows with the strip too: one pixel around a thirty-six-pixel window is
+            // the wash's edge rather than a frame around where the reader is.
+            double thickness = Math.Max(1, bounds.Width * OutlineOfWidth);
+
+            context.DrawRectangle(null, new Pen(border, thickness), window.Deflate(thickness / 2));
         }
     }
 }

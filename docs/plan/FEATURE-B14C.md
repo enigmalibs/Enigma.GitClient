@@ -1,6 +1,6 @@
 # FEATURE-B14C — A wider minimap that finds the change
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -37,7 +37,7 @@ where its first change is rather than wherever the last file was scrolled to.
 ## PHASE01 — A minimap wide enough to grab
 
 **Branch:** `feature/feature-b14c-phase01-wider-minimap`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-B14C-PHASE01.md`
 
 ### Steps
 
