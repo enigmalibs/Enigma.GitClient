@@ -1,6 +1,6 @@
 # FEATURE-F04E — Diffs take the whole page
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-20-ui-polish-diff-page
@@ -79,7 +79,7 @@ leave it the moment it opens.
 ## PHASE02 — Escape leaves the diff at once
 
 **Branch:** `feature/feature-f04e-phase02-escape-closes-diff`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-F04E-PHASE02.md`
 
 ### Steps
 

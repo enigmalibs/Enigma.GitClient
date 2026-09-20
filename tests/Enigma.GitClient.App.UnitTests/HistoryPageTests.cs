@@ -1436,6 +1436,120 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void DiffView_TakesTheFocusWhenItOpens()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.Activate.Execute(model.Rows[0]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // Nothing was clicked: the page moved the focus itself, which is what makes the first
+            // Escape work.
+            Assert.True(diffPage.IsFocused, "the diff view did not take the focus when it opened");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_LeavesTheDiffViewWithoutAClickFirst()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.RowCommands.Activate.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(diffPage.IsVisible);
+
+            // Straight to the key, with nothing clicked in between.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
+
+            // Every other way out keeps the selection, and so does this one.
+            Assert.Same(row, model.SelectedRow);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_ClosesTheDiffViewFromInsideItsOwnPanes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.Activate.Execute(model.Rows[0]);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // The file filter is the control most likely to have the focus, and a TextBox is
+            // exactly the kind of control that swallows a key it is offered.
+            TextBox filter = diffPage.GetVisualDescendants().OfType<TextBox>().First();
+            filter.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(filter.IsFocused);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(model.IsDiffViewOpen);
+            Assert.False(diffPage.IsVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_DoesNothingOnTheGraphItself()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows[0];
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.False(diffPage.IsVisible);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // Nothing opened, nothing closed, and the selection is where the reader left it.
+            Assert.False(model.IsDiffViewOpen);
+            Assert.Same(model.Rows[0], model.SelectedRow);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void DiffView_LetsEachPaneScrollItself()
     {
         _fixture.RunAsync(async () =>
