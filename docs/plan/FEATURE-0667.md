@@ -1,6 +1,6 @@
 # FEATURE-0667 — Branch rows say where they stand
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-icons-tracking-dragging
@@ -49,7 +49,7 @@ commits ahead and behind — and whether it is on a remote at all.
 ## PHASE01 — What a local branch knows of its remote
 
 **Branch:** `feature/feature-0667-phase01-tracking`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0667-PHASE01.md`
 
 ### Steps
 
