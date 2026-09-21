@@ -117,22 +117,63 @@
                        Classes="dim" />
           </StackPanel>
 
+          <!--
+            Where this branch stands with its remote, for a local branch: what there is to push, what
+            there is to pull, and whether it is up there at all. Arrows from the icon set rather than
+            the ↑ and ↓ characters, so they follow the theme and the icon scale instead of whatever the
+            text font happens to carry — and every badge names itself in a tooltip, because an arrow
+            and a number beside a branch is only obvious once you already know what it means.
+
+            A counter appears only when it has something to say; the cloud is what is there on every
+            local row, so "nothing to push, nothing to pull" reads as the quiet row it is.
+          -->
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-            <Border Classes="pill" IsVisible="{Binding IsAhead}">
-              <StackPanel Orientation="Horizontal" Spacing="2">
-                <TextBlock Classes="dim" Text="↑" FontSize="10" />
-                <TextBlock Classes="dim" Text="{Binding Ahead}" FontSize="10" />
+            <Border Classes="pill"
+                    IsVisible="{Binding IsAhead}"
+                    ToolTip.Tip="{Binding AheadTip}"
+                    AutomationProperties.Name="{Binding AheadTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="ArrowUp" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="{Binding Ahead}" FontSize="10" VerticalAlignment="Center" />
               </StackPanel>
             </Border>
-            <Border Classes="pill" IsVisible="{Binding IsBehind}">
-              <StackPanel Orientation="Horizontal" Spacing="2">
-                <TextBlock Classes="dim" Text="↓" FontSize="10" />
-                <TextBlock Classes="dim" Text="{Binding Behind}" FontSize="10" />
+
+            <Border Classes="pill"
+                    IsVisible="{Binding IsBehind}"
+                    ToolTip.Tip="{Binding BehindTip}"
+                    AutomationProperties.Name="{Binding BehindTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="ArrowDown" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="{Binding Behind}" FontSize="10" VerticalAlignment="Center" />
               </StackPanel>
             </Border>
-            <Border Classes="pill" IsVisible="{Binding IsUpstreamGone}">
-              <TextBlock Classes="dim" Text="upstream gone" FontSize="10" />
+
+            <Border Classes="pill"
+                    IsVisible="{Binding IsUpstreamGone}"
+                    ToolTip.Tip="{Binding RemoteStateTip}"
+                    AutomationProperties.Name="{Binding RemoteStateTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="CloudWarning" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="upstream gone" FontSize="10" VerticalAlignment="Center" />
+              </StackPanel>
             </Border>
+
+            <Border Classes="pill"
+                    IsVisible="{Binding IsLocalOnly}"
+                    ToolTip.Tip="{Binding RemoteStateTip}"
+                    AutomationProperties.Name="{Binding RemoteStateTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="CloudSlash" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="local only" FontSize="10" VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <ei:Icon Kind="CloudCheck"
+                     Classes="row dim"
+                     IsVisible="{Binding IsPublished}"
+                     VerticalAlignment="Center"
+                     ToolTip.Tip="{Binding RemoteStateTip}"
+                     AutomationProperties.Name="{Binding RemoteStateTip}" />
           </StackPanel>
 
           <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">

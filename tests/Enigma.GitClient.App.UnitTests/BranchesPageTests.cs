@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -22,6 +23,7 @@ using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.Icons.Avalonia;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -1067,6 +1069,110 @@ public sealed class BranchesPageTests
         });
     }
 
+    [Fact]
+    public void ABranchRow_DrawsWhereItStandsWithItsRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 560 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            // Only what the row actually draws: a hidden badge is still in the tree.
+            PhosphorIcon[] Badges(string branch) =>
+                [.. Row(list, branch)
+                    .GetVisualDescendants()
+                    .OfType<Icon>()
+                    .Where(icon => icon.IsEffectivelyVisible)
+                    .Select(icon => icon.Kind)];
+
+            // Drifted both ways: one arrow each, and the cloud that says it is up there.
+            Assert.Contains(PhosphorIcon.ArrowUp, Badges("tracked"));
+            Assert.Contains(PhosphorIcon.ArrowDown, Badges("tracked"));
+            Assert.Contains(PhosphorIcon.CloudCheck, Badges("tracked"));
+
+            // Level with its remote: the cloud alone, and no counter with nothing to count.
+            Assert.Contains(PhosphorIcon.CloudCheck, Badges("main"));
+            Assert.DoesNotContain(PhosphorIcon.ArrowUp, Badges("main"));
+            Assert.DoesNotContain(PhosphorIcon.ArrowDown, Badges("main"));
+
+            // On no remote, and pointing at an upstream that is gone: two different things to say.
+            Assert.Contains(PhosphorIcon.CloudSlash, Badges("merged"));
+            Assert.DoesNotContain(PhosphorIcon.CloudCheck, Badges("merged"));
+            Assert.Contains(PhosphorIcon.CloudWarning, Badges("doomed"));
+            Assert.DoesNotContain(PhosphorIcon.CloudSlash, Badges("doomed"));
+
+            // A remote-tracking row is the remote: none of this is about it.
+            PhosphorIcon[] remote = Badges("origin/published");
+
+            Assert.DoesNotContain(PhosphorIcon.ArrowUp, remote);
+            Assert.DoesNotContain(PhosphorIcon.ArrowDown, remote);
+            Assert.DoesNotContain(PhosphorIcon.CloudCheck, remote);
+            Assert.DoesNotContain(PhosphorIcon.CloudSlash, remote);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ABranchRow_ShowsTheCountBesideTheArrowAndNamesIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 560 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem tracked = Row(list, "tracked");
+
+            // The number is drawn beside the arrow, not only held in the ViewModel.
+            string[] texts = [.. tracked.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible)
+                .Select(text => text.Text ?? string.Empty)];
+
+            Assert.Equal(2, texts.Count(text => text == "1"));
+
+            // And every badge says what it means, to a pointer and to a screen reader alike.
+            Border[] badges = [.. tracked.GetVisualDescendants()
+                .OfType<Border>()
+                .Where(border => border.Classes.Contains("pill") && border.IsEffectivelyVisible)];
+
+            Assert.NotEmpty(badges);
+            Assert.All(badges, badge =>
+            {
+                Assert.NotNull(ToolTip.GetTip(badge));
+                Assert.False(string.IsNullOrEmpty(AutomationProperties.GetName(badge)));
+            });
+
+            Icon cloud = tracked.GetVisualDescendants()
+                .OfType<Icon>()
+                .First(icon => icon.Kind == PhosphorIcon.CloudCheck);
+
+            Assert.Equal("On the remote as \"origin/tracked\"", AutomationProperties.GetName(cloud));
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- creating
 
     [Fact]
@@ -1542,6 +1648,11 @@ public sealed class BranchesPageTests
     }
 
     // ---------------------------------------------------------------- helpers
+
+    private static ListBoxItem Row(ListBox list, string branch)
+        => list.GetRealizedContainers()
+            .OfType<ListBoxItem>()
+            .First(container => container.DataContext is BranchRowViewModel row && row.FullName == branch);
 
     private static BranchRowViewModel Row(BranchesPageViewModel page, string name)
         => page.Groups.SelectMany(group => group.Rows).Single(row => row.FullName == name);
