@@ -1,6 +1,6 @@
 # BUG-39D9 — Progress reports arrive late, and unordered
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-39D9.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-39d9-sync-progress`
 **Run:** feature/2026-09-21-icons-tracking-dragging

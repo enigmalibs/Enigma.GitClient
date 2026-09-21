@@ -297,20 +297,7 @@ public sealed class SyncService : ISyncService
 
         GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments);
 
-        Progress<string>? chunks = null;
-
-        if (progress is not null)
-        {
-            // git rewrites its progress line with carriage returns, so each chunk is one state of
-            // that line rather than a new message.
-            chunks = new Progress<string>(chunk =>
-            {
-                if (SyncProgressParser.Parse(chunk) is { } parsed)
-                {
-                    progress.Report(parsed);
-                }
-            });
-        }
+        ParsedChunks? chunks = progress is null ? null : new ParsedChunks(progress);
 
         GitResult result = await _runner
             .RunStreamingAsync(command, chunks, throwOnError: false, cancellationToken)
@@ -319,6 +306,40 @@ public sealed class SyncService : ISyncService
         if (!result.IsSuccess)
         {
             throw new SyncException(SyncErrorMapper.Map(result.StandardError, result.StandardOutput));
+        }
+    }
+
+    /// <summary>
+    /// Turns the chunks git writes into progress reports for the caller.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// git rewrites its progress line with carriage returns, so each chunk is one state of that line
+    /// rather than a new message.
+    /// </para>
+    /// <para>
+    /// Deliberately a plain <see cref="IProgress{T}"/> and not a <see cref="Progress{T}"/>. A
+    /// <c>Progress&lt;T&gt;</c> does not run its callback where <c>Report</c> was called: it posts to
+    /// the synchronisation context captured when it was <em>constructed</em>, and queues to the thread
+    /// pool when there is none. The reader reports from a thread-pool thread, so wrapping it here sent
+    /// every chunk through a queue — reports could arrive after the transfer had finished, and two of
+    /// them could arrive the wrong way round, which for a progress line means an overlay going
+    /// backwards. Marshalling belongs to the caller, which has its own <c>Progress&lt;T&gt;</c> built
+    /// where its updates must land; this only has to translate a chunk and pass it on.
+    /// </para>
+    /// </remarks>
+    private sealed class ParsedChunks : IProgress<string>
+    {
+        private readonly IProgress<SyncProgress> _target;
+
+        public ParsedChunks(IProgress<SyncProgress> target) => _target = target;
+
+        public void Report(string value)
+        {
+            if (SyncProgressParser.Parse(value) is { } parsed)
+            {
+                _target.Report(parsed);
+            }
         }
     }
 }
