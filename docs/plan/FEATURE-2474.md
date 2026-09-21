@@ -1,6 +1,6 @@
 # FEATURE-2474 — Row action icons stay readable
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2474.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-2474-row-action-icons`
 **Run:** feature/2026-09-21-icons-tracking-dragging

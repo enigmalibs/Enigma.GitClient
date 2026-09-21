@@ -324,6 +324,74 @@ public sealed class ShellRenderTests
     }
 
     [Fact]
+    public void ARowsActionIcon_IsReadableSelectedOrNot()
+    {
+        _fixture.Run(() =>
+        {
+            // The pair every row action in the application is made of: a toolbar button holding a
+            // row-sized icon. The button lends its content the secondary grey and the icon inherits
+            // it, which on a selection plate is grey on grey — the action nobody could see.
+            ListBox list = new()
+            {
+                ItemsSource = new[] { "first", "second" },
+                ItemTemplate = new FuncDataTemplate<string>(
+                    (_, _) => new Button
+                    {
+                        Classes = { "toolbar" },
+                        Content = new Icon { Kind = Enigma.Icons.Phosphor.PhosphorIcon.Trash, Classes = { "row" } },
+                    },
+                    supportsRecycling: true),
+            };
+
+            Window window = new() { Content = list, Width = 300, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            list.SelectedIndex = 0;
+            window.UpdateLayout();
+
+            Icon Action(int index) => list.ContainerFromIndex(index)!
+                .GetVisualDescendants()
+                .OfType<Icon>()
+                .First();
+
+            // The selected row and every other one: an action is always at full strength.
+            Assert.Same(Brush("EnigmaForegroundBrush"), Action(0).Foreground);
+            Assert.Same(Brush("EnigmaForegroundBrush"), Action(1).Foreground);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ARowsLeadingGlyph_StaysQuietWhileItsActionsDoNot()
+    {
+        _fixture.Run(() =>
+        {
+            // The glyph that says what the row is keeps its `dim` class and its quiet brush: it is
+            // decoration, not a thing to press. Only the action beside it is raised.
+            Icon glyph = new() { Kind = Enigma.Icons.Phosphor.PhosphorIcon.GitBranch, Classes = { "row", "dim" } };
+            Icon action = new() { Kind = Enigma.Icons.Phosphor.PhosphorIcon.Trash, Classes = { "row" } };
+
+            StackPanel row = new()
+            {
+                Children =
+                {
+                    glyph,
+                    new Button { Classes = { "toolbar" }, Content = action },
+                },
+            };
+
+            Window window = new() { Content = row, Width = 300, Height = 100 };
+
+            Layout(window, 300, 100);
+
+            Assert.Same(Brush("EnigmaForegroundSecondaryBrush"), glyph.Foreground);
+            Assert.Same(Brush("EnigmaForegroundBrush"), action.Foreground);
+        });
+    }
+
+    [Fact]
     public void DimmedTextInATree_ReadsInFullOnTheSelectedNode()
     {
         _fixture.Run(() =>
