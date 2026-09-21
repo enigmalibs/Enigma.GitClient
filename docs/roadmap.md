@@ -103,7 +103,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-1A42     | The drag cursor still says no           | DONE   | docs/plan/BUG-1A42.md     |
 | - PHASE01    | A drag that offers something            | DONE   | (in BUG-1A42.md)          |
 | - PHASE02    | Every drag event gets an answer         | DONE   | (in BUG-1A42.md)          |
-| FEATURE-2474 | Row action icons stay readable          | TODO   | docs/plan/FEATURE-2474.md |
+| FEATURE-2474 | Row action icons stay readable          | DONE   | docs/plan/FEATURE-2474.md |
 | FEATURE-0667 | Branch rows say where they stand        | TODO   | docs/plan/FEATURE-0667.md |
 | - PHASE01    | What a local branch knows of its remote | TODO   | (in FEATURE-0667.md)      |
 | - PHASE02    | Arrows, counts and a remote state       | TODO   | (in FEATURE-0667.md)      |

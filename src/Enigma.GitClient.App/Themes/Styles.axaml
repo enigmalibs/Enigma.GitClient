@@ -117,6 +117,25 @@
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
+  <!--
+    And a row's own actions, which are the case neither of those rules covers.
+
+    An icon-only action on a line is a `Button.toolbar` holding an `ei:Icon.row` — that pair is a row
+    action everywhere in the application, and a header's button holds an `Icon.toolbar` instead, so the
+    two are told apart without a class nobody would remember to write. The button lends its content the
+    secondary grey, and the icon, stating no foreground of its own, *inherits* it: on the plate a
+    selected row paints, grey on grey, which is the action nobody could see. An inherited value is
+    beaten by a style setter on the element itself, so one rule here settles every state — and it is
+    the full foreground rather than a brighter grey, because an action legible only while its row is
+    hovered or selected is an action nobody finds.
+
+    The leading glyph of a row keeps its `dim` class and stays quiet: it repeats what the row is, it is
+    not a thing to press.
+  -->
+  <Style Selector="Button.toolbar ei|Icon.row">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
   <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
   <Style Selector="Border.pill">
     <Setter Property="CornerRadius" Value="4" />

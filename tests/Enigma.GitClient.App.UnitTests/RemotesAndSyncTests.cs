@@ -19,6 +19,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.Icons.Avalonia;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -446,6 +447,53 @@ public sealed class RemotesAndSyncTests
             window.UpdateLayout();
 
             Assert.Same(page.SelectedRemote, list.SelectedItem);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ARemoteRowsActions_AreVisibleSelectedOrNot()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+
+            RemotesPageView view = services.Get<RemotesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 400 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("RemoteList")
+                ?? throw new InvalidOperationException("The remotes page has no remote list.");
+
+            ListBoxItem row = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => container.DataContext is RemoteRowViewModel);
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+
+            // Fetch, edit and remove: the icons of the buttons at the end of the line.
+            Icon[] Actions() =>
+                [.. row.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Where(button => button.Classes.Contains("toolbar"))
+                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
+
+            Assert.True(Actions().Length >= 3, "a remote row drew fewer than three actions");
+            Assert.All(Actions(), icon => Assert.Same(full, icon.Foreground));
+
+            // And the selection plate does not swallow them.
+            list.SelectedItem = row.DataContext;
+            window.UpdateLayout();
+
+            Assert.All(Actions(), icon => Assert.Same(full, icon.Foreground));
 
             window.Close();
         });

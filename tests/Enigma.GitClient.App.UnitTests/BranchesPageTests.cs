@@ -21,6 +21,7 @@ using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.Icons.Avalonia;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -833,6 +834,53 @@ public sealed class BranchesPageTests
 
             Assert.All(Quiet(rows[0]), text => Assert.NotSame(full, text.Foreground));
             Assert.All(Quiet(rows[1]), text => Assert.Same(full, text.Foreground));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ABranchRowsActions_AreVisibleOnEveryRow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem[] rows = [.. list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .Where(container => container.DataContext is BranchRowViewModel)];
+
+            Assert.True(rows.Length >= 2, "the branches page realised fewer than two rows");
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+
+            // Check out and delete: the icons of the buttons at the end of the line.
+            static Icon[] Actions(ListBoxItem row) =>
+                [.. row.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Where(button => button.Classes.Contains("toolbar"))
+                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
+
+            Assert.True(Actions(rows[0]).Length >= 2, "a branch row drew fewer than two actions");
+
+            list.SelectedItem = rows[0].DataContext;
+            window.UpdateLayout();
+
+            // The selected row and the rest of them: an action is legible wherever it is.
+            Assert.All(Actions(rows[0]), icon => Assert.Same(full, icon.Foreground));
+            Assert.All(Actions(rows[1]), icon => Assert.Same(full, icon.Foreground));
 
             window.Close();
         });
