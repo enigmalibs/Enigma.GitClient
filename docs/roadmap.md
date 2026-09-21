@@ -110,3 +110,4 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-11A4     | A drag the compositor cannot refuse     | DONE   | docs/plan/BUG-11A4.md     |
 | - PHASE01    | A drag the page runs itself             | DONE   | (in BUG-11A4.md)          |
 | - PHASE02    | A pointer that says yes, and a way out  | DONE   | (in BUG-11A4.md)          |
+| BUG-39D9     | Progress reports arrive late, unordered | TODO   | docs/plan/BUG-39D9.md     |
