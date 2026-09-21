@@ -18,11 +18,18 @@ namespace Enigma.GitClient.App.Controls;
 /// its label in the badge's own face plus the chrome the control template draws around it.
 /// </para>
 /// <para>
-/// The constants below mirror <c>Themes/Controls.axaml</c>'s <see cref="RefBadge"/> template: a
-/// 5 px horizontal padding on each side, an 11 px icon, and a 4 px gap between the icon and the
-/// label. They are checked by a test rather than bound, because a per-badge binding to a theme
-/// resource would measure thousands of rows through the resource system to answer one number that
-/// only changes when the template does.
+/// The constants below mirror <c>Themes/Controls.axaml</c>'s <see cref="RefBadge"/> template: an
+/// 8 px horizontal padding on each side — 7 of padding and the 1 px border — a 13 px icon, and a
+/// 5 px gap between the icon and the label. They are checked by a test rather than bound, because a
+/// per-badge binding to a theme resource would measure thousands of rows through the resource
+/// system to answer one number that only changes when the template does.
+/// </para>
+/// <para>
+/// Nothing here caps a label. A badge draws its name whole and the strip that holds it clips,
+/// because how much of a name fits is the reader's decision: the Refs column has a grip of its own,
+/// and this measurement is only what the column is <em>seeded</em> with —
+/// <c>HistoryPageViewModel.MaximumRefColumnWidth</c> is what keeps one absurd name off the subject
+/// until they drag it.
 /// </para>
 /// <para>
 /// Measured through <see cref="FormattedText"/> and cached per string, like
@@ -34,25 +41,19 @@ namespace Enigma.GitClient.App.Controls;
 public static class RefBadgeMetrics
 {
     /// <summary>The label's font size, as the badge template draws it.</summary>
-    public const double FontSize = 11;
+    public const double FontSize = 13;
 
     /// <summary>The icon's size, as the badge template draws it.</summary>
-    public const double IconSize = 11;
+    public const double IconSize = 13;
 
     /// <summary>The gap between the icon and the label inside a badge.</summary>
-    public const double IconSpacing = 4;
+    public const double IconSpacing = 5;
 
-    /// <summary>The padding on each side of a badge's content.</summary>
-    public const double HorizontalPadding = 5;
+    /// <summary>The padding on each side of a badge's content, the 1 px border included.</summary>
+    public const double HorizontalPadding = 8;
 
     /// <summary>The gap between two badges on the same row.</summary>
     public const double BadgeSpacing = 4;
-
-    /// <summary>
-    /// The widest a single badge's label may be drawn before it is ellipsised, which is
-    /// <see cref="RefBadge.MaximumTextWidth"/>'s default.
-    /// </summary>
-    public const double MaximumLabelWidth = 180;
 
     /// <summary>
     /// What a character is taken to be worth when the face cannot be measured at all.
@@ -92,7 +93,7 @@ public static class RefBadgeMetrics
         => (HorizontalPadding * 2)
             + IconSize
             + IconSpacing
-            + Math.Min(MaximumLabelWidth, MeasureLabel(label ?? string.Empty));
+            + MeasureLabel(label ?? string.Empty);
 
     private static double MeasureLabel(string label)
     {

@@ -63,6 +63,24 @@ internal static class BranchDragGesture
         => carriesBranch && isOverTheList ? DragDropEffects.Move : DragDropEffects.None;
 
     /// <summary>
+    /// Whether a drag-leave is one that really ends the gesture over the list.
+    /// </summary>
+    /// <param name="pointer">Where the pointer is, in the list's own coordinates.</param>
+    /// <param name="listSize">How big the list is.</param>
+    /// <returns><see langword="true"/> when the drop mark and the scrolling should be taken down.</returns>
+    /// <remarks>
+    /// Avalonia raises a leave on the element the pointer is <em>leaving</em> and an enter on the one
+    /// it is arriving at, and an element here is the deepest one under the pointer — a text block, an
+    /// icon, a border. Crossing a list of rows therefore raises a leave every few pixels, and the
+    /// event itself cannot tell those apart from the real thing: its source is the element being
+    /// left, which is inside the list either way. The pointer can. A leave with the pointer still
+    /// inside the list is the drag moving between two parts of the same row; a leave with the pointer
+    /// outside it — over the toolbar, or off the window altogether — is the gesture going away.
+    /// </remarks>
+    public static bool IsLeavingTheList(Point pointer, Size listSize)
+        => !new Rect(listSize).Contains(pointer);
+
+    /// <summary>
     /// How near an edge the pointer has to be for the list to scroll towards it, in pixels.
     /// </summary>
     public const double ScrollBand = 32;
@@ -115,7 +133,7 @@ internal static class BranchDragGesture
 }
 
 /// <summary>
-/// The branches and tags page.
+/// The branches page.
 /// </summary>
 /// <remarks>
 /// The code behind this view exists for one gesture: dragging one branch onto another. A drag is a
@@ -146,6 +164,11 @@ public partial class BranchesPageView : UserControl
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerCaptureLostEvent, OnPointerCaptureLost, RoutingStrategies.Tunnel);
 
+        // Enter as well as over: Avalonia picks between the two by whether the deepest element
+        // under the pointer changed since the last move, which over a list of rows it usually has.
+        // Handling only "over" left most of the journey unanswered — no effect stated, no drop mark,
+        // no scrolling.
+        AddHandler(DragDrop.DragEnterEvent, OnDragOver);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -214,10 +237,7 @@ public partial class BranchesPageView : UserControl
 
         _pending = null;
 
-        DataTransfer data = new();
-        data.Add(DataTransferItem.Create(BranchDrop.DragFormat, pending.Row));
-
-        _ = DragAsync(pending.Trigger, data);
+        _ = DragAsync(pending.Trigger, BranchDrop.TransferFor(pending.Row));
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e) => _pending = null;
@@ -255,12 +275,9 @@ public partial class BranchesPageView : UserControl
     /// </remarks>
     private void ForgetHover()
     {
-        foreach (ListBox list in new[] { BranchList, TagList })
+        foreach (ListBoxItem container in BranchList.GetRealizedContainers().OfType<ListBoxItem>())
         {
-            foreach (ListBoxItem container in list.GetRealizedContainers().OfType<ListBoxItem>())
-            {
-                ((IPseudoClasses)container.Classes).Set(":pointerover", false);
-            }
+            ((IPseudoClasses)container.Classes).Set(":pointerover", false);
         }
     }
 
@@ -348,8 +365,21 @@ public partial class BranchesPageView : UserControl
         => source is Visual visual
             && visual.GetSelfAndVisualAncestors().Any(ancestor => ReferenceEquals(ancestor, BranchList));
 
+    /// <summary>
+    /// Takes the drop mark and the scrolling down, but only when the drag has really left the list.
+    /// </summary>
+    /// <remarks>
+    /// A leave is raised on every element the pointer crosses, and the rows of this list are made of
+    /// several. Acting on all of them made the ring flicker and the auto-scroll stop every few
+    /// pixels of a drag that had not gone anywhere.
+    /// </remarks>
     private void OnDragLeave(object? sender, DragEventArgs e)
     {
+        if (!BranchDragGesture.IsLeavingTheList(e.GetPosition(BranchList), BranchList.Bounds.Size))
+        {
+            return;
+        }
+
         Highlight(null);
         StopScrolling();
     }

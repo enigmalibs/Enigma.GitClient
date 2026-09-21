@@ -83,6 +83,12 @@
     </Setter>
   </ControlTheme>
 
+  <!--
+    A ref badge draws its name whole. It used to ellipsise past a fixed width, which is a decision
+    the badge is in no position to take: the Refs column is the reader's — it has a grip of its own —
+    so how much of a name fits is theirs to choose. A badge wider than the column is clipped by the
+    strip that holds it, and its tooltip still names it in full.
+  -->
   <ControlTheme x:Key="{x:Type controls:RefBadge}" TargetType="controls:RefBadge">
     <Setter Property="VerticalAlignment" Value="Center" />
     <!-- A pill hugs its content. Without this it stretches to fill whatever it is placed in, which
@@ -93,22 +99,22 @@
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="Template">
       <ControlTemplate>
+        <!-- The numbers here are mirrored by Controls/RefBadgeMetrics, which is what measures the
+             Refs column; a test reads them back off a realised badge so the two cannot drift. -->
         <Border Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="1"
-                CornerRadius="3"
-                Padding="4,0"
+                CornerRadius="4"
+                Padding="7,2"
                 ToolTip.Tip="{TemplateBinding Text}">
-          <StackPanel Orientation="Horizontal" Spacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="5">
             <ei:Icon Kind="{TemplateBinding IconKind}"
-                     Size="11"
+                     Size="13"
                      VerticalAlignment="Center"
                      Foreground="{TemplateBinding Foreground}" />
             <TextBlock Text="{TemplateBinding Text}"
                        VerticalAlignment="Center"
-                       FontSize="11"
-                       MaxWidth="{TemplateBinding MaximumTextWidth}"
-                       TextTrimming="CharacterEllipsis"
+                       FontSize="13"
                        Foreground="{TemplateBinding Foreground}" />
           </StackPanel>
         </Border>

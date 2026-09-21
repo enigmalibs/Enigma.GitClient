@@ -15,11 +15,13 @@ using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Media;
 using Enigma.GitClient.App.Controls;
+using Enigma.Icons.Avalonia;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -528,6 +530,118 @@ public sealed class HistoryPageTests
             Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             window.Close();
+        });
+    }
+
+    [Fact]
+    public void Search_KeepsAFoundRowHoverableAndSelectable()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Application application = Application.Current!;
+
+            static Color Resource(string key)
+            {
+                Application application = Application.Current!;
+                Assert.True(
+                    application.TryFindResource(key, application.ActualThemeVariant, out object? brush),
+                    $"the theme has no {key}");
+
+                return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+            }
+
+            Color found = Resource("SearchMatchBrush");
+            Color hovered = Resource("SearchMatchHoverBrush");
+            Color selected = Resource("SearchMatchSelectedBrush");
+
+            // Three states a reader has to be able to tell apart.
+            Assert.NotEqual(found, hovered);
+            Assert.NotEqual(found, selected);
+            Assert.NotEqual(hovered, selected);
+
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            Grid match = RowGrids(workspace).First(row => ((CommitRowViewModel)row.DataContext!).IsSearchMatch);
+            Grid miss = RowGrids(workspace).First(row => !((CommitRowViewModel)row.DataContext!).IsSearchMatch);
+
+            Assert.Equal(found, Painted(match));
+            Assert.Equal(Colors.Transparent, Painted(miss));
+
+            // Hovered. The pseudo-class rather than a synthetic pointer, because it is the state the
+            // style selects on and the one the branches page already sets by hand after a drag.
+            ListBoxItem Container(Grid row) => list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(container => ReferenceEquals(container.DataContext, row.DataContext));
+
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", true);
+            ((IPseudoClasses)Container(miss).Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            Assert.Equal(hovered, Painted(match));
+
+            // A row the search did not find is still transparent under the pointer: its container
+            // goes on painting the hover, which is what every other list in the application does.
+            Assert.Equal(Colors.Transparent, Painted(miss));
+
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", false);
+            ((IPseudoClasses)Container(miss).Classes).Set(":pointerover", false);
+            window.UpdateLayout();
+
+            Assert.Equal(found, Painted(match));
+
+            // Selected.
+            model.SelectedRow = (CommitRowViewModel)match.DataContext!;
+            window.UpdateLayout();
+
+            Assert.Equal(selected, Painted(match));
+            Assert.Equal(Colors.Transparent, Painted(miss));
+
+            // And a found row that is both selected and hovered still says "selected", which is the
+            // state the reader is acting on.
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            Assert.Equal(selected, Painted(match));
+
+            // Clearing the search puts every row back to the container's own states.
+            ((IPseudoClasses)Container(match).Classes).Set(":pointerover", false);
+            model.ClearSearchCommand.Execute(null);
+            window.UpdateLayout();
+
+            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Search_HasAllThreeWashesInBothThemes()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+
+            foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+            {
+                foreach (string key in (string[])["SearchMatchBrush", "SearchMatchHoverBrush", "SearchMatchSelectedBrush"])
+                {
+                    Assert.True(
+                        application.TryFindResource(key, variant, out object? brush),
+                        $"the {variant} theme has no {key}");
+
+                    Assert.IsAssignableFrom<ISolidColorBrush>(brush);
+                }
+            }
         });
     }
 
@@ -1097,6 +1211,164 @@ public sealed class HistoryPageTests
 
             window.Close();
         });
+    }
+
+    // ---------------------------------------------------------------- the badges say the whole name
+
+    [Fact]
+    public void Badge_MeasuresItsWholeLabelHoweverLongItIs()
+    {
+        // A badge used to stop measuring at 180 points, which is the measurement side of the
+        // ellipsis the template used to draw. Two names that differ only past that point must now
+        // measure differently, or the column they seed cannot grow to hold them.
+        string shorter = new('x', 200);
+        string longer = new('x', 400);
+
+        double shorterBadge = RefBadgeMetrics.MeasureBadge(shorter);
+        double longerBadge = RefBadgeMetrics.MeasureBadge(longer);
+
+        Assert.True(
+            longerBadge > shorterBadge,
+            $"a 400-character name measured {longerBadge}, no more than a 200-character one at {shorterBadge}");
+
+        // And the chrome is still counted around the label, whatever the label is.
+        double chrome = (RefBadgeMetrics.HorizontalPadding * 2) + RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing;
+
+        Assert.Equal(chrome, RefBadgeMetrics.MeasureBadge(string.Empty));
+        Assert.Equal(chrome, RefBadgeMetrics.MeasureBadge(null));
+    }
+
+    [Fact]
+    public void Badge_DrawsItsNameWithoutTrimmingIt()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = new string('x', 300) };
+
+            Window window = new() { Content = badge, Width = 1100, Height = 120 };
+            window.Show();
+            window.UpdateLayout();
+
+            TextBlock label = badge.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Text == badge.Text);
+
+            // No ellipsis, and nothing bounding the label: how much of a name fits is the reader's
+            // decision, taken with the Refs column's grip.
+            Assert.Equal(TextTrimming.None, label.TextTrimming);
+            Assert.True(double.IsPositiveInfinity(label.MaxWidth), $"the label was bounded at {label.MaxWidth}");
+
+            // The full name is still reachable where the strip clips it.
+            Assert.Equal(badge.Text, ToolTip.GetTip(badge.GetVisualDescendants().OfType<Border>().First()));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void RefColumn_StillSeedsItselfAndStillStopsAtItsMaximum()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            // The measurement is offered to the layout, and the layout takes it while the reader
+            // has not claimed the column.
+            Assert.True(page.RefColumnWidth > 0);
+            Assert.False(page.Columns.IsRefsWidthOwnedByReader);
+            Assert.Equal(page.RefColumnWidth, page.Columns.RefsWidth);
+
+            // An untrimmed badge measures its whole name, but the column it seeds is still capped:
+            // one absurd branch name does not take the subject's room on first paint.
+            await GitAsync(repository, "branch", new string('x', 200), "main");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+            await page.ReloadAsync();
+
+            Assert.Equal(HistoryPageViewModel.MaximumRefColumnWidth, page.RefColumnWidth);
+        });
+    }
+
+    [Fact]
+    public void BadgeMetrics_AgreeWithWhatTheTemplateDraws()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+
+            Window window = new() { Content = badge, Width = 400, Height = 120 };
+            window.Show();
+            window.UpdateLayout();
+
+            // The metrics are constants rather than bindings, because a per-badge binding to a
+            // theme resource would measure thousands of rows through the resource system. This is
+            // what keeps them honest: every one of them is read back off a realised badge.
+            Border pill = badge.GetVisualDescendants().OfType<Border>().First();
+            StackPanel content = pill.GetVisualDescendants().OfType<StackPanel>().First();
+            TextBlock label = content.GetVisualDescendants().OfType<TextBlock>().First();
+
+            Assert.Equal(RefBadgeMetrics.FontSize, label.FontSize);
+            Assert.Equal(RefBadgeMetrics.IconSpacing, content.Spacing);
+            Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Left + pill.BorderThickness.Left);
+            Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Right + pill.BorderThickness.Right);
+
+            Icon icon = content.GetVisualDescendants().OfType<Icon>().First();
+            Assert.Equal(RefBadgeMetrics.IconSize, icon.Size);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Badge_IsRoomierAndStillFitsAHistoryRow()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+
+            Window window = new() { Content = badge, Width = 400, Height = 200 };
+            window.Show();
+            window.UpdateLayout();
+
+            Border pill = badge.GetVisualDescendants().OfType<Border>().First();
+            StackPanel content = pill.GetVisualDescendants().OfType<StackPanel>().First();
+
+            // Room on every side, not only beside the text.
+            Assert.True(pill.Padding.Top > 0 && pill.Padding.Bottom > 0, "the badge has no vertical padding");
+
+            Assert.True(
+                pill.Bounds.Width > content.Bounds.Width,
+                "the badge is no wider than the content it wraps");
+
+            // And it still sits inside a history row at its default height.
+            Assert.True(
+                badge.Bounds.Height <= AppSettings.Defaults.GraphRowHeight,
+                $"a badge is {badge.Bounds.Height} tall, more than a {AppSettings.Defaults.GraphRowHeight} px row");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void RefColumn_WidensForTheBiggerBadge()
+    {
+        // The same reference measured with the template's own numbers: a badge is the chrome the
+        // template draws plus its label, and both grew.
+        double chrome = (RefBadgeMetrics.HorizontalPadding * 2) + RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing;
+
+        Assert.Equal(34, chrome);
+        Assert.True(RefBadgeMetrics.MeasureBadge("main") > chrome);
+
+        // Two badges on a row are still separated by the strip's own spacing.
+        RefBadgeItem[] two = [new(GitRefKind.LocalBranch, "main", true), new(GitRefKind.Tag, "v1.0.0", false)];
+
+        Assert.Equal(
+            RefBadgeMetrics.MeasureBadge("main") + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
+            RefBadgeMetrics.Measure(two));
     }
 
     // ---------------------------------------------------------------- the badges are not dragged

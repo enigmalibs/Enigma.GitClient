@@ -24,7 +24,8 @@ namespace Enigma.GitClient.App.UnitTests;
 
 /// <summary>
 /// Drives tag management and "check out anything": the dialogs, the detached-HEAD warning, and the
-/// three answers to "you have uncommitted changes".
+/// three answers to "you have uncommitted changes". What the tags page itself lists, filters and
+/// selects is <c>TagsPageTests</c>; this is about the questions the operations ask before they act.
 /// </summary>
 /// <remarks>
 /// Each of these paths can throw work away, so what is asserted is mostly what the client asked
@@ -105,74 +106,14 @@ public sealed class TagsAndCheckoutTests
         return page;
     }
 
-    // ---------------------------------------------------------------- the tag list
-
-    [Fact]
-    public void Page_ListsEveryTagWithItsKind()
+    private static async Task<TagsPageViewModel> OpenTagsAsync(TestServices services, RepositoryHandle repository)
     {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+        await services.Get<IRepositoryContext>().OpenAsync(repository);
 
-            page.ShowTags = true;
+        TagsPageViewModel page = services.Get<TagsPageViewModel>();
+        await page.OnAppearingAsync();
 
-            Assert.Equal(2, page.Tags.Count);
-
-            TagRowViewModel lightweight = page.Tags.Single(tag => tag.Name == "v0.1.0");
-            TagRowViewModel annotated = page.Tags.Single(tag => tag.Name == "v1.0.0");
-
-            Assert.Equal("lightweight", lightweight.Kind);
-            Assert.False(lightweight.HasMessage);
-            Assert.False(lightweight.HasTagger);
-
-            Assert.Equal("annotated", annotated.Kind);
-            Assert.Equal("First release", annotated.Message);
-            Assert.Equal("Ada Lovelace", annotated.Tagger);
-            Assert.Equal(7, annotated.ShortSha.Length);
-        });
-    }
-
-    [Fact]
-    public void Page_SwitchesBetweenBranchesAndTags()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-
-            Assert.True(page.ShowBranches);
-            Assert.False(page.ShowTags);
-
-            page.ShowTagsCommand.Execute(null);
-
-            Assert.True(page.ShowTags);
-            Assert.False(page.ShowBranches);
-
-            page.ShowBranchesCommand.Execute(null);
-
-            Assert.True(page.ShowBranches);
-        });
-    }
-
-    [Fact]
-    public void Page_FiltersTagsToo()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-
-            page.ShowTags = true;
-            page.SearchText = "v1";
-
-            Assert.Equal("v1.0.0", Assert.Single(page.Tags).Name);
-
-            page.SearchText = "nothing";
-
-            Assert.True(page.IsEmpty);
-            Assert.Contains("No tag matches", page.EmptyMessage, StringComparison.Ordinal);
-        });
+        return page;
     }
 
     // ---------------------------------------------------------------- creating tags
@@ -183,38 +124,16 @@ public sealed class TagsAndCheckoutTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
+            TagsPageViewModel page = await OpenTagsAsync(services, await BuildRepositoryAsync(services));
 
             FillTagDialog(services, "v2.0.0", message: string.Empty);
             services.Dialogs.Result = DialogResult.Primary;
 
-            await page.CreateTagCommand.ExecuteAsync(null);
+            await page.CreateCommand.ExecuteAsync(null);
 
             TagRowViewModel created = page.Tags.Single(tag => tag.Name == "v2.0.0");
 
             Assert.Equal("lightweight", created.Kind);
-        });
-    }
-
-    [Fact]
-    public void Page_CreatesAnAnnotatedTagWhenAMessageIsWritten()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
-
-            FillTagDialog(services, "v2.0.0", message: "Second release");
-            services.Dialogs.Result = DialogResult.Primary;
-
-            await page.CreateTagCommand.ExecuteAsync(null);
-
-            TagRowViewModel created = page.Tags.Single(tag => tag.Name == "v2.0.0");
-
-            Assert.Equal("annotated", created.Kind);
-            Assert.Equal("Second release", created.Message);
         });
     }
 
@@ -259,12 +178,11 @@ public sealed class TagsAndCheckoutTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
+            TagsPageViewModel page = await OpenTagsAsync(services, await BuildRepositoryAsync(services));
 
             services.Dialogs.Result = DialogResult.Close;
 
-            await page.DeleteTagCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v1.0.0"));
+            await page.DeleteCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v1.0.0"));
 
             string message = Assert.IsType<string>(services.Dialogs.Last!.Content);
 
@@ -277,23 +195,6 @@ public sealed class TagsAndCheckoutTests
         });
     }
 
-    [Fact]
-    public void Page_DeletesATagOnceConfirmed()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
-
-            services.Dialogs.Result = DialogResult.Primary;
-
-            await page.DeleteTagCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v1.0.0"));
-
-            Assert.DoesNotContain(page.Tags, tag => tag.Name == "v1.0.0");
-        });
-    }
-
     // ---------------------------------------------------------------- detaching HEAD
 
     [Fact]
@@ -302,12 +203,11 @@ public sealed class TagsAndCheckoutTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
+            TagsPageViewModel page = await OpenTagsAsync(services, await BuildRepositoryAsync(services));
 
             services.Dialogs.Result = DialogResult.Close;
 
-            await page.CheckoutTagCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v0.1.0"));
+            await page.CheckoutCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v0.1.0"));
 
             string message = Assert.IsType<string>(services.Dialogs.Last!.Content);
 
@@ -325,12 +225,11 @@ public sealed class TagsAndCheckoutTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
+            TagsPageViewModel page = await OpenTagsAsync(services, await BuildRepositoryAsync(services));
 
             services.Dialogs.Result = DialogResult.Primary;
 
-            await page.CheckoutTagCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v0.1.0"));
+            await page.CheckoutCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v0.1.0"));
 
             Assert.True(services.Get<IRepositoryContext>().Head?.IsDetached);
 
@@ -345,8 +244,7 @@ public sealed class TagsAndCheckoutTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-            page.ShowTags = true;
+            TagsPageViewModel page = await OpenTagsAsync(services, await BuildRepositoryAsync(services));
 
             // "Create a branch here…" on the warning, then the branch dialog itself.
             services.Dialogs.Script(DialogResult.Secondary, DialogResult.Primary);
@@ -359,7 +257,7 @@ public sealed class TagsAndCheckoutTests
                 }
             };
 
-            await page.CheckoutTagCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v0.1.0"));
+            await page.CheckoutCommand.ExecuteAsync(page.Tags.Single(tag => tag.Name == "v0.1.0"));
 
             // A branch, not a detached HEAD — which is the entire point of offering it.
             Assert.Equal("release-branch", services.Get<IRepositoryContext>().Head?.BranchName);
@@ -507,8 +405,7 @@ public sealed class TagsAndCheckoutTests
 
             Assert.Equal(row.Sha, chosenTarget);
 
-            BranchesPageViewModel page = await OpenAsync(services, repository);
-            page.ShowTags = true;
+            TagsPageViewModel page = await OpenTagsAsync(services, repository);
 
             Assert.Contains(page.Tags, tag => tag.Name == "from-the-graph");
         });
@@ -632,10 +529,9 @@ public sealed class TagsAndCheckoutTests
             try
             {
                 using TestServices services = TestServices.Build(useRealRefReader: true);
-                BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-                page.ShowTags = true;
+                TagsPageViewModel page = await OpenTagsAsync(services, await BuildRepositoryAsync(services));
 
-                BranchesPageView view = services.Get<BranchesPageView>();
+                TagsPageView view = services.Get<TagsPageView>();
                 view.DataContext = page;
 
                 Window window = new() { Content = view, Width = 1100, Height = 420 };

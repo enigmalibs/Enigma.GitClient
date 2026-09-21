@@ -135,64 +135,6 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 }
 
 /// <summary>
-/// One tag, as the page shows it.
-/// </summary>
-public sealed class TagRowViewModel : ViewModelBase
-{
-    private readonly BranchesPageViewModel _owner;
-
-    /// <summary>
-    /// Initialises a new instance.
-    /// </summary>
-    /// <param name="owner">The page the row belongs to.</param>
-    /// <param name="tag">The tag it stands for.</param>
-    public TagRowViewModel(BranchesPageViewModel owner, GitTag tag)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        ArgumentNullException.ThrowIfNull(tag);
-
-        _owner = owner;
-        Tag = tag;
-    }
-
-    /// <summary>Gets the tag this row stands for.</summary>
-    public GitTag Tag { get; }
-
-    /// <summary>Gets the tag's name.</summary>
-    public string Name => Tag.ShortName;
-
-    /// <summary>Gets whether the tag is annotated or a plain pointer.</summary>
-    public string Kind => Tag.IsAnnotated ? "annotated" : "lightweight";
-
-    /// <summary>Gets the tag's message, empty for a lightweight tag.</summary>
-    public string Message => Tag.Message;
-
-    /// <summary>Gets a value indicating whether there is a message to show.</summary>
-    public bool HasMessage => Message.Length > 0;
-
-    /// <summary>Gets who created the tag, empty for a lightweight tag.</summary>
-    public string Tagger => Tag.Tagger?.Name ?? string.Empty;
-
-    /// <summary>Gets a value indicating whether there is a tagger to show.</summary>
-    public bool HasTagger => Tagger.Length > 0;
-
-    /// <summary>Gets how long ago the tag's commit was written.</summary>
-    public string Date => RelativeTime.Format(Tag.TargetDate);
-
-    /// <summary>Gets the tagged commit's short hash.</summary>
-    public string ShortSha => Tag.TargetSha.Length >= 7 ? Tag.TargetSha[..7] : Tag.TargetSha;
-
-    /// <summary>Gets the command that checks the tag out, detaching HEAD.</summary>
-    public AsyncRelayCommand<TagRowViewModel> CheckoutCommand => _owner.CheckoutTagCommand;
-
-    /// <summary>Gets the command that deletes the tag.</summary>
-    public AsyncRelayCommand<TagRowViewModel> DeleteCommand => _owner.DeleteTagCommand;
-
-    /// <inheritdoc />
-    public override string ToString() => Name;
-}
-
-/// <summary>
 /// One branch row dropped onto another.
 /// </summary>
 /// <param name="Source">The row that was dragged — the branch whose work is brought over.</param>
@@ -214,6 +156,40 @@ public sealed record BranchDrop(BranchRowViewModel Source, BranchRowViewModel Ta
     /// </remarks>
     public static readonly DataFormat<BranchRowViewModel> DragFormat =
         DataFormat.CreateInProcessFormat<BranchRowViewModel>("enigma-gitclient/branch-row");
+
+    /// <summary>
+    /// Builds what a dragged row carries.
+    /// </summary>
+    /// <param name="row">The branch being dragged.</param>
+    /// <returns>The transfer to start the drag session with.</returns>
+    /// <remarks>
+    /// <para>
+    /// Two items, and the second one is not decoration. Avalonia does not publish an in-process
+    /// format to the platform — on X11, <c>DataFormatHelper.ToAtoms</c> skips every in-process
+    /// format, so a drag carrying only <see cref="DragFormat"/> takes ownership of the drag
+    /// selection while advertising <em>no type at all</em>. A desktop that bridges that drag onward
+    /// then has nothing it can offer anyone, nothing can accept it, and the pointer draws the
+    /// refusal for the whole gesture — while Avalonia goes on delivering the drag in process, which
+    /// is why the drop worked perfectly well the entire time it looked impossible.
+    /// </para>
+    /// <para>
+    /// The branch's full name as text is the honest thing to advertise: it is what this drag is
+    /// about, it costs one string, and it makes the gesture mean something outside the window too —
+    /// drop a branch on a terminal or an editor and its name is typed. What the drop itself reads is
+    /// still the in-process row, because a name alone would not say whether the branch is remote or
+    /// checked out.
+    /// </para>
+    /// </remarks>
+    public static DataTransfer TransferFor(BranchRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        DataTransfer transfer = new();
+        transfer.Add(DataTransferItem.Create(DragFormat, row));
+        transfer.Add(DataTransferItem.Create(DataFormat.Text, row.FullName));
+
+        return transfer;
+    }
 
     /// <summary>Gets what this pair asks the operations service to do.</summary>
     public BranchDropRequest Request => new(
@@ -252,14 +228,14 @@ public sealed record BranchGroupViewModel(string Title, bool IsRemote, IReadOnly
 /// ViewModel behind the branches page.
 /// </summary>
 /// <remarks>
-/// The page shows and filters; every write, with its dialog and its confirmation, belongs to
-/// <see cref="IBranchOperations"/>, which the graph's own context menu calls too. Two places
-/// offering the same operation have to ask the same questions.
+/// Branches and nothing else: tags were the other half of this page, behind a switch, and are now
+/// <see cref="TagsPageViewModel"/>. The page shows and filters; every write, with its dialog and its
+/// confirmation, belongs to <see cref="IBranchOperations"/>, which the graph's own context menu
+/// calls too. Two places offering the same operation have to ask the same questions.
 /// </remarks>
 public sealed class BranchesPageViewModel : PageViewModelBase
 {
     private readonly IBranchOperations _operations;
-    private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
     private readonly IBranchDropOperations _dropOperations;
@@ -269,27 +245,23 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="operations">Performs the branch operations, dialogs and all.</param>
-    /// <param name="tagOperations">Performs the tag operations.</param>
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
     /// <param name="mergeOperations">Merges a branch into the current one.</param>
     /// <param name="dropOperations">Carries out one branch dropped onto another.</param>
     public BranchesPageViewModel(
         IRepositoryContext repositoryContext,
         IBranchOperations operations,
-        ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
         IBranchDropOperations dropOperations)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
-        ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
 
         _operations = operations;
-        _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
         _dropOperations = dropOperations;
@@ -310,43 +282,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             drop => OnDropAsync(drop?.Reversed(), FastForwardMode.WhenPossible),
             drop => CanDrop(drop?.Reversed()));
 
-        ShowBranchesCommand = new RelayCommand(() => ShowTags = false);
-        ShowTagsCommand = new RelayCommand(() => ShowTags = true);
-        CreateTagCommand = new AsyncRelayCommand(OnCreateTagAsync, () => IsRepositoryOpen);
-        CheckoutTagCommand = new AsyncRelayCommand<TagRowViewModel>(OnCheckoutTagAsync, row => row is not null);
-        DeleteTagCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteTagAsync, row => row is not null);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
-    public string Title => "Branches and tags";
+    public string Title => "Branches";
 
-    /// <summary>Gets the tags the repository holds.</summary>
-    public ObservableCollection<TagRowViewModel> Tags { get; } = [];
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the tag list is shown instead of the branches.
-    /// </summary>
-    public bool ShowTags
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(ShowBranches));
-                OnPropertyChanged(nameof(SearchPlaceholder));
-                Rebuild();
-            }
-        }
-    }
-
-    /// <summary>Gets a value indicating whether the branch list is shown.</summary>
-    public bool ShowBranches => !ShowTags;
-
-    /// <summary>
-    /// Gets what the filter box says it filters, which follows whichever list is shown.
-    /// </summary>
-    public string SearchPlaceholder => ShowTags ? "Filter tags" : "Filter branches";
+    /// <summary>Gets what the filter box says it filters.</summary>
+    public string SearchPlaceholder => "Filter branches";
 
     /// <summary>Gets the branches, grouped as local and one group per remote.</summary>
     public ObservableCollection<BranchGroupViewModel> Groups { get; } = [];
@@ -382,19 +324,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     public BranchRowViewModel? SelectedBranch => SelectedItem as BranchRowViewModel;
 
     /// <summary>
-    /// Gets or sets the tag the reader has selected.
-    /// </summary>
-    /// <remarks>
-    /// Its own property rather than one selection for the page: the two lists are alternatives, and
-    /// a tag selected while the branches are on screen is not a selection anybody can see.
-    /// </remarks>
-    public TagRowViewModel? SelectedTag
-    {
-        get;
-        set => SetProperty(ref field, value);
-    }
-
-    /// <summary>
     /// Gets or sets a substring the shown branch names must contain.
     /// </summary>
     public string SearchText
@@ -411,19 +340,17 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     } = string.Empty;
 
     /// <summary>Gets a value indicating whether the page has nothing to show.</summary>
-    public bool IsEmpty => ShowTags ? Tags.Count == 0 : Groups.Count == 0;
+    public bool IsEmpty => Groups.Count == 0;
 
     /// <summary>
     /// Gets the sentence shown while the page has nothing to display.
     /// </summary>
     public string EmptyMessage
         => !IsRepositoryOpen
-            ? "Open a repository to manage its branches and tags."
+            ? "Open a repository to manage its branches."
             : SearchText.Trim().Length > 0
-                ? ShowTags ? "No tag matches this search." : "No branch matches this search."
-                : ShowTags
-                    ? "This repository has no tags yet."
-                    : "This repository has no branches yet. The first commit creates one.";
+                ? "No branch matches this search."
+                : "This repository has no branches yet. The first commit creates one.";
 
     /// <summary>Gets the command that re-reads the references.</summary>
     public AsyncRelayCommand RefreshCommand { get; }
@@ -475,21 +402,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     public static bool CanDrop(BranchDrop? drop)
         => drop is not null && BranchDropOperations.CanDrop(drop.Request);
 
-    /// <summary>Gets the command that shows the branch list.</summary>
-    public RelayCommand ShowBranchesCommand { get; }
-
-    /// <summary>Gets the command that shows the tag list.</summary>
-    public RelayCommand ShowTagsCommand { get; }
-
-    /// <summary>Gets the command that opens the create-tag dialog.</summary>
-    public AsyncRelayCommand CreateTagCommand { get; }
-
-    /// <summary>Gets the command that checks a tag out, detaching HEAD.</summary>
-    public AsyncRelayCommand<TagRowViewModel> CheckoutTagCommand { get; }
-
-    /// <summary>Gets the command that deletes a tag.</summary>
-    public AsyncRelayCommand<TagRowViewModel> DeleteTagCommand { get; }
-
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
     {
@@ -518,7 +430,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         RefreshCommand.NotifyCanExecuteChanged();
         CreateBranchCommand.NotifyCanExecuteChanged();
-        CreateTagCommand.NotifyCanExecuteChanged();
         Rebuild();
     }
 
@@ -530,10 +441,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     private void Rebuild()
     {
-        // Captured before the lists are emptied: clearing a list tells its ListBox the selection is
+        // Captured before the list is emptied: clearing a list tells its ListBox the selection is
         // gone, and the ListBox tells this page so. What survives a rebuild is the name.
         string? selectedBranch = SelectedBranch?.FullName;
-        string? selectedTag = SelectedTag?.Name;
 
         Groups.Clear();
         Items.Clear();
@@ -594,43 +504,26 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             }
         }
 
-        Tags.Clear();
-
-        foreach (GitTag tag in refs.Tags)
-        {
-            if (Matches(tag.ShortName))
-            {
-                Tags.Add(new TagRowViewModel(this, tag));
-            }
-        }
-
-        RestoreSelection(selectedBranch, selectedTag);
+        RestoreSelection(selectedBranch);
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
     }
 
     /// <summary>
-    /// Puts the selection back on the rows that stand for what was selected before the rebuild.
+    /// Puts the selection back on the row that stands for what was selected before the rebuild.
     /// </summary>
     /// <param name="branch">The full name of the branch that was selected, if any.</param>
-    /// <param name="tag">The name of the tag that was selected, if any.</param>
     /// <remarks>
     /// By name, because every row is a new object: the page rebuilds on a refresh, on an operation
     /// and on every keystroke in the filter box, and a selection that did not survive that would be
     /// a selection nobody could keep. A row that is gone — deleted, renamed, filtered out — takes
     /// the selection with it.
     /// </remarks>
-    private void RestoreSelection(string? branch, string? tag)
-    {
-        SelectedItem = branch is null
+    private void RestoreSelection(string? branch)
+        => SelectedItem = branch is null
             ? null
             : Items.OfType<BranchRowViewModel>().FirstOrDefault(row => row.FullName == branch);
-
-        SelectedTag = tag is null
-            ? null
-            : Tags.FirstOrDefault(row => row.Name == tag);
-    }
 
     private bool Matches(GitBranch branch) => Matches(branch.ShortName);
 
@@ -688,24 +581,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         if (drop is not null)
         {
             await Run(() => _dropOperations.DropAsync(drop.Request, fastForward)).ConfigureAwait(true);
-        }
-    }
-
-    private Task OnCreateTagAsync() => Run(() => _tagOperations.CreateAsync());
-
-    private async Task OnCheckoutTagAsync(TagRowViewModel? row)
-    {
-        if (row is not null)
-        {
-            await Run(() => _checkoutOperations.CheckoutAsync(row.Name)).ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnDeleteTagAsync(TagRowViewModel? row)
-    {
-        if (row is not null)
-        {
-            await Run(() => _tagOperations.DeleteAsync(row.Name)).ConfigureAwait(true);
         }
     }
 

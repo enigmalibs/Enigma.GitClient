@@ -66,6 +66,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<HistoryPageView>();
             services.AddTransient<ChangesPageView>();
             services.AddTransient<BranchesPageView>();
+            services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
             services.AddTransient<IntegrationsPageView>();
@@ -75,6 +76,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<HistoryPageViewModel>();
             services.AddSingleton<ChangesPageViewModel>();
             services.AddSingleton<BranchesPageViewModel>();
+            services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<IntegrationsPageViewModel>();
