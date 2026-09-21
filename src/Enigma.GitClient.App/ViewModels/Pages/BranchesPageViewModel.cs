@@ -55,13 +55,23 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     /// </summary>
     /// <param name="owner">The page the row belongs to.</param>
     /// <param name="branch">The branch it stands for.</param>
-    public BranchRowViewModel(BranchesPageViewModel owner, GitBranch branch)
+    /// <param name="publishedAs">
+    /// The remote-tracking branch this one is on — <c>origin/main</c> — or <see langword="null"/> when
+    /// the branch is on no remote at all.
+    /// </param>
+    /// <remarks>
+    /// The page works out <paramref name="publishedAs"/>, because a row is in no position to: the
+    /// question is about the other refs in the repository, and the answer is the same for every row, so
+    /// it is resolved once per rebuild rather than scanned for per line.
+    /// </remarks>
+    public BranchRowViewModel(BranchesPageViewModel owner, GitBranch branch, string? publishedAs = null)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(branch);
 
         _owner = owner;
         Branch = branch;
+        PublishedAs = publishedAs;
     }
 
     /// <summary>Gets the branch this row stands for.</summary>
@@ -82,14 +92,40 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     /// <summary>Gets a value indicating whether the branch lives on a remote.</summary>
     public bool IsRemote => Branch.IsRemote;
 
+    /// <summary>Gets a value indicating whether this row stands for a local branch.</summary>
+    public bool IsLocal => !Branch.IsRemote;
+
     /// <summary>Gets the upstream the branch tracks, empty when it tracks none.</summary>
     public string Upstream => Branch.UpstreamShortName ?? string.Empty;
 
     /// <summary>Gets a value indicating whether there is an upstream to show.</summary>
     public bool HasUpstream => Upstream.Length > 0;
 
+    /// <summary>
+    /// Gets the remote-tracking branch this local branch is on, or <see langword="null"/> when it is
+    /// on none.
+    /// </summary>
+    public string? PublishedAs { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether this local branch is on a remote.
+    /// </summary>
+    /// <remarks>
+    /// Being on a remote is not the same as tracking one. A branch pushed with a plain
+    /// <c>git push origin main</c> has no upstream and git reports no tracking for it, and it is
+    /// plainly on origin; what answers the question is whether a remote-tracking ref for it exists,
+    /// which is what <see cref="PublishedAs"/> carries.
+    /// </remarks>
+    public bool IsPublished => IsLocal && PublishedAs is not null && !IsUpstreamGone;
+
+    /// <summary>
+    /// Gets a value indicating whether this local branch is on no remote — the branch that would go
+    /// with the machine.
+    /// </summary>
+    public bool IsLocalOnly => IsLocal && PublishedAs is null && !IsUpstreamGone;
+
     /// <summary>Gets a value indicating whether the upstream the branch names has gone.</summary>
-    public bool IsUpstreamGone => Branch.Tracking.IsUpstreamGone;
+    public bool IsUpstreamGone => IsLocal && Branch.Tracking.IsUpstreamGone;
 
     /// <summary>Gets how many commits the branch is ahead of its upstream.</summary>
     public string Ahead => Branch.Tracking.Ahead.ToString(CultureInfo.CurrentCulture);
@@ -98,10 +134,38 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     public string Behind => Branch.Tracking.Behind.ToString(CultureInfo.CurrentCulture);
 
     /// <summary>Gets a value indicating whether the branch has commits its upstream does not.</summary>
-    public bool IsAhead => Branch.Tracking.Ahead > 0;
+    /// <remarks>
+    /// Local rows only: ahead of what would a remote-tracking branch be? Those rows carried two empty
+    /// counters before this was stated.
+    /// </remarks>
+    public bool IsAhead => IsLocal && Branch.Tracking.Ahead > 0;
 
     /// <summary>Gets a value indicating whether the upstream has commits the branch does not.</summary>
-    public bool IsBehind => Branch.Tracking.Behind > 0;
+    public bool IsBehind => IsLocal && Branch.Tracking.Behind > 0;
+
+    /// <summary>Gets what the ahead counter says when the pointer rests on it.</summary>
+    public string AheadTip => Commits(Branch.Tracking.Ahead, "to push");
+
+    /// <summary>Gets what the behind counter says when the pointer rests on it.</summary>
+    public string BehindTip => Commits(Branch.Tracking.Behind, "to pull");
+
+    /// <summary>
+    /// Gets what the remote badge says when the pointer rests on it.
+    /// </summary>
+    public string RemoteStateTip
+        => IsUpstreamGone
+            ? $"The upstream \"{Upstream}\" no longer exists"
+            : IsPublished
+                ? $"On the remote as \"{PublishedAs}\""
+                : "On no remote — this branch only exists here";
+
+    /// <summary>
+    /// Says how many commits, in words, without "1 commits".
+    /// </summary>
+    private static string Commits(int count, string what)
+        => count == 1
+            ? $"1 commit {what}"
+            : $"{count.ToString(CultureInfo.CurrentCulture)} commits {what}";
 
     /// <summary>Gets the subject of the branch's tip commit.</summary>
     public string TipSubject => Branch.TipSubject;
@@ -450,13 +514,17 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         RefCollection refs = RepositoryContext.Refs;
 
+        // From the whole collection, not from the rows below: the filter box hides branches, it does
+        // not take them off the remote.
+        Dictionary<string, string> published = PublishedBranches(refs);
+
         List<BranchRowViewModel> local = [];
 
         foreach (GitBranch branch in refs.LocalBranches)
         {
             if (Matches(branch))
             {
-                local.Add(new BranchRowViewModel(this, branch));
+                local.Add(new BranchRowViewModel(this, branch, published.GetValueOrDefault(branch.ShortName)));
             }
         }
 
@@ -508,6 +576,59 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
+    }
+
+    /// <summary>
+    /// Works out which remote-tracking branch each local branch is on.
+    /// </summary>
+    /// <param name="refs">Every reference the repository has.</param>
+    /// <returns>The remote-tracking branch's short name, by local branch name.</returns>
+    /// <remarks>
+    /// <para>
+    /// Two ways of being on a remote, and the second is the one an upstream cannot answer. A branch
+    /// that tracks an upstream names it, and that is the answer. A branch pushed with a plain
+    /// <c>git push origin main</c> tracks nothing at all — git reports no upstream and no ahead/behind
+    /// for it — and it is on origin all the same, which the remote-tracking ref of the same name says.
+    /// Reading only the upstream would call that branch local-only every time.
+    /// </para>
+    /// <para>
+    /// A configured upstream still has to exist among the refs: a branch whose upstream git reports as
+    /// <c>[gone]</c> is not on a remote, and neither is one pointing at a remote nobody fetches any
+    /// more. Where several remotes carry the same branch name, the first read wins — the collection is
+    /// ordered, so the answer does not shuffle between refreshes.
+    /// </para>
+    /// </remarks>
+    private static Dictionary<string, string> PublishedBranches(RefCollection refs)
+    {
+        Dictionary<string, string> byBranchName = new(StringComparer.Ordinal);
+        HashSet<string> remoteRefs = new(StringComparer.Ordinal);
+
+        foreach (GitBranch remote in refs.RemoteBranches)
+        {
+            remoteRefs.Add(remote.ShortName);
+            byBranchName.TryAdd(remote.NameWithoutRemote, remote.ShortName);
+        }
+
+        Dictionary<string, string> published = new(StringComparer.Ordinal);
+
+        foreach (GitBranch branch in refs.LocalBranches)
+        {
+            if (branch.Tracking.IsUpstreamGone)
+            {
+                continue;
+            }
+
+            if (branch.UpstreamShortName is { Length: > 0 } upstream && remoteRefs.Contains(upstream))
+            {
+                published[branch.ShortName] = upstream;
+            }
+            else if (byBranchName.TryGetValue(branch.ShortName, out string? sameName))
+            {
+                published[branch.ShortName] = sameName;
+            }
+        }
+
+        return published;
     }
 
     /// <summary>

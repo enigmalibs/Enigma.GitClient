@@ -80,6 +80,45 @@ public sealed class BranchesPageTests
         return repository;
     }
 
+    /// <summary>
+    /// Builds the repository the tracking tests need: a branch that tracks its upstream and has
+    /// drifted both ways, a branch that is on the remote without tracking it, branches that are on no
+    /// remote at all, and one whose upstream has been deleted under it.
+    /// </summary>
+    private static async Task<RepositoryHandle> BuildTrackingWorldAsync(TestServices services)
+    {
+        RepositoryHandle repository = await BuildWithRemoteAsync(services);
+
+        string workspace = Path.Combine(services.ConfigurationRoot, "workspace");
+        string originPath = Path.Combine(workspace, "origin.git");
+
+        // "tracked" tracks origin/tracked, and both ends move: one commit here, one from a second
+        // clone, so git reports it as one ahead and one behind.
+        await GitAsync(repository, "checkout", "-b", "tracked", "main");
+        await GitAsync(repository, "push", "--set-upstream", "origin", "tracked");
+
+        string otherPath = Path.Combine(workspace, "other");
+        await GitInAsync(workspace, "clone", originPath, otherPath);
+        await GitInAsync(otherPath, "checkout", "tracked");
+
+        await File.WriteAllTextAsync(Path.Combine(otherPath, "theirs.txt"), "from elsewhere\n");
+        await GitInAsync(otherPath, "add", "--all");
+        await GitInAsync(otherPath, "commit", "-m", "Work done elsewhere");
+        await GitInAsync(otherPath, "push", "origin", "tracked");
+
+        await CommitAsync(repository, "src/ours.txt", "from here\n", "Work done here");
+
+        // "doomed" names an upstream that is then deleted on the remote, which git reports as [gone].
+        await GitAsync(repository, "checkout", "-b", "doomed", "main");
+        await GitAsync(repository, "push", "--set-upstream", "origin", "doomed");
+        await GitAsync(repository, "push", "origin", "--delete", "doomed");
+
+        await GitAsync(repository, "checkout", "main");
+        await GitAsync(repository, "fetch", "--prune", "origin");
+
+        return repository;
+    }
+
     private static async Task CommitAsync(RepositoryHandle repository, string path, string content, string message)
     {
         string full = Path.Combine(repository.WorkTreePath, path);
@@ -91,11 +130,14 @@ public sealed class BranchesPageTests
     }
 
     private static Task GitAsync(RepositoryHandle repository, params string[] arguments)
+        => GitInAsync(repository.WorkTreePath, arguments);
+
+    private static Task GitInAsync(string workingDirectory, params string[] arguments)
     {
         ProcessStartInfo startInfo = new()
         {
             FileName = "git",
-            WorkingDirectory = repository.WorkTreePath,
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -209,6 +251,145 @@ public sealed class BranchesPageTests
             Assert.True(main.IsAhead);
             Assert.Equal("1", main.Ahead);
             Assert.False(main.IsBehind);
+        });
+    }
+
+    // ---------------------------------------------------------------- where a branch stands
+
+    [Fact]
+    public void ALocalRow_NamesTheRemoteBranchItIsOn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // A branch that tracks its upstream says so through the upstream it names.
+            BranchRowViewModel tracked = Row(page, "tracked");
+
+            Assert.True(tracked.IsPublished);
+            Assert.Equal("origin/tracked", tracked.PublishedAs);
+            Assert.False(tracked.IsLocalOnly);
+
+            // And one pushed with a plain `git push origin main` tracks nothing at all — git reports
+            // no upstream for it — and is on the remote all the same. Reading the upstream alone would
+            // call this branch local-only every time.
+            BranchRowViewModel main = Row(page, "main");
+
+            Assert.False(main.HasUpstream);
+            Assert.True(main.IsPublished);
+            Assert.Equal("origin/main", main.PublishedAs);
+            Assert.Contains("origin/main", main.RemoteStateTip, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void ALocalRow_SaysWhenTheBranchIsOnNoRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // "unmerged" was pushed to origin under another name, so there is no origin/unmerged:
+            // this branch only exists here, which is the state worth saying out loud.
+            foreach (string name in (string[])["merged", "unmerged"])
+            {
+                BranchRowViewModel row = Row(page, name);
+
+                Assert.True(row.IsLocalOnly, name);
+                Assert.False(row.IsPublished, name);
+                Assert.Null(row.PublishedAs);
+                Assert.Contains("no remote", row.RemoteStateTip, StringComparison.OrdinalIgnoreCase);
+            }
+        });
+    }
+
+    [Fact]
+    public void ALocalRow_CountsTheCommitsEachWay()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // One commit made here and one made elsewhere and fetched: the branch has drifted both
+            // ways, and the row can say so without running anything of its own.
+            BranchRowViewModel tracked = Row(page, "tracked");
+
+            Assert.True(tracked.IsAhead);
+            Assert.Equal("1", tracked.Ahead);
+            Assert.True(tracked.IsBehind);
+            Assert.Equal("1", tracked.Behind);
+
+            // The tooltips are for someone who does not already know what an arrow means — and they
+            // count in words, so a single commit is not "1 commits".
+            Assert.Equal("1 commit to push", tracked.AheadTip);
+            Assert.Equal("1 commit to pull", tracked.BehindTip);
+
+            // A branch level with its remote shows no counter at all.
+            BranchRowViewModel main = Row(page, "main");
+
+            Assert.False(main.IsAhead);
+            Assert.False(main.IsBehind);
+        });
+    }
+
+    [Fact]
+    public void ALocalRow_SaysWhenItsUpstreamHasGone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // The upstream was deleted on the remote. That is neither "on a remote" nor the ordinary
+            // "never pushed": it is a branch pointing at something that is not there any more.
+            BranchRowViewModel doomed = Row(page, "doomed");
+
+            Assert.True(doomed.IsUpstreamGone);
+            Assert.False(doomed.IsPublished);
+            Assert.False(doomed.IsLocalOnly);
+            Assert.Contains("origin/doomed", doomed.RemoteStateTip, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void ARemoteRow_TracksNothingOfItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // A remote-tracking branch *is* the remote: ahead of what? Those rows used to draw two
+            // counters that were always empty.
+            BranchRowViewModel remote = Row(page, "origin/published");
+
+            Assert.False(remote.IsLocal);
+            Assert.False(remote.IsAhead);
+            Assert.False(remote.IsBehind);
+            Assert.False(remote.IsPublished);
+            Assert.False(remote.IsLocalOnly);
+            Assert.False(remote.IsUpstreamGone);
+        });
+    }
+
+    [Fact]
+    public void Filtering_DoesNotTakeABranchOffItsRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // The lookup is built from the whole ref collection, not from the rows that survived the
+            // filter: typing in the box hides branches, it does not unpublish them.
+            page.SearchText = "track";
+
+            Assert.Equal(["origin/tracked", "tracked"], NamesOf(page).Order());
+            Assert.True(Row(page, "tracked").IsPublished);
+            Assert.Equal("origin/tracked", Row(page, "tracked").PublishedAs);
         });
     }
 
