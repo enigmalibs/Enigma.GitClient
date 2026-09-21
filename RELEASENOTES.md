@@ -45,13 +45,16 @@ diff.
 
 - Branches: create, rename, delete, set an upstream, check out — including anything in the graph,
   with a plain warning before HEAD is detached.
+- Every local branch row says where it stands with its remote: an up arrow with the number of
+  commits to push, a down arrow with the number to pull, and a badge saying whether the branch is
+  on a remote, is on none, or names an upstream that has been deleted.
 - The branches, tags and remotes lists select a row, with the pointer or the keyboard, and keep the
   selection while the page refreshes underneath.
 - Drag one branch onto another to merge them. The drop opens a menu naming both ends: merge, merge
   fast-forward only, or merge the other way round if that is what you meant. The target is checked
   out first when it is not the branch you are on, and dismissing the menu does nothing. Hold the
   dragged branch near the top or the bottom of the list and it scrolls, so a branch further down is
-  still a branch you can drop on.
+  still a branch you can drop on, and Escape calls the whole thing off.
 - Tags: create (lightweight or annotated) and delete.
 - Working directory: status, stage and unstage by file or by directory, discard, and commit with a
   subject/body guide.

@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -13,12 +12,12 @@ using Enigma.GitClient.App.ViewModels.Pages;
 namespace Enigma.GitClient.App.Views.Pages;
 
 /// <summary>
-/// When a press on a row has become a drag.
+/// When a press on a row has become a drag, and what the page does while one is under way.
 /// </summary>
 /// <remarks>
-/// A decision about a pointer and nothing else, which is why it lives here rather than in the page's
-/// ViewModel — and why it is a function rather than a branch inside an event handler: a platform
-/// drag session cannot be driven in a headless test, but this can.
+/// Decisions about a pointer and nothing else, which is why they live here rather than in the page's
+/// ViewModel — and why they are functions rather than branches inside an event handler: a decision a
+/// test can call is a decision that stays right.
 /// </remarks>
 internal static class BranchDragGesture
 {
@@ -47,38 +46,40 @@ internal static class BranchDragGesture
     }
 
     /// <summary>
-    /// What the pointer should say while a drag is over the page.
-    /// </summary>
-    /// <param name="carriesBranch">Whether what is being dragged is one of this list's branches.</param>
-    /// <param name="isOverTheList">Whether the pointer is over the branches list.</param>
-    /// <returns>The effect to report, which is what the platform draws as a cursor.</returns>
-    /// <remarks>
-    /// The question the cursor answers is "is this gesture under way here", not "would this exact
-    /// pair merge": a branch dragged over its own row, or over a group heading, is still a drag in
-    /// progress, and <see cref="DragDropEffects.None"/> there drew the "impossible" pointer over
-    /// most of the journey. Where a drop would actually land is said by the ring on the row, which
-    /// the policy still decides — and a drop the policy refuses still does nothing.
-    /// </remarks>
-    public static DragDropEffects EffectFor(bool carriesBranch, bool isOverTheList)
-        => carriesBranch && isOverTheList ? DragDropEffects.Move : DragDropEffects.None;
-
-    /// <summary>
-    /// Whether a drag-leave is one that really ends the gesture over the list.
+    /// Whether a point, in the list's own coordinates, is over the list at all.
     /// </summary>
     /// <param name="pointer">Where the pointer is, in the list's own coordinates.</param>
     /// <param name="listSize">How big the list is.</param>
-    /// <returns><see langword="true"/> when the drop mark and the scrolling should be taken down.</returns>
+    /// <returns><see langword="true"/> when the pointer is still over the list.</returns>
     /// <remarks>
-    /// Avalonia raises a leave on the element the pointer is <em>leaving</em> and an enter on the one
-    /// it is arriving at, and an element here is the deepest one under the pointer — a text block, an
-    /// icon, a border. Crossing a list of rows therefore raises a leave every few pixels, and the
-    /// event itself cannot tell those apart from the real thing: its source is the element being
-    /// left, which is inside the list either way. The pointer can. A leave with the pointer still
-    /// inside the list is the drag moving between two parts of the same row; a leave with the pointer
-    /// outside it — over the toolbar, or off the window altogether — is the gesture going away.
+    /// While the list has the pointer captured, every move is reported wherever it happens — over the
+    /// toolbar, over another page, off the window — so the page has to ask this itself. It is what
+    /// decides whether the gesture still has anything to say about where it is.
     /// </remarks>
-    public static bool IsLeavingTheList(Point pointer, Size listSize)
-        => !new Rect(listSize).Contains(pointer);
+    public static bool IsOverTheList(Point pointer, Size listSize) => new Rect(listSize).Contains(pointer);
+
+    /// <summary>
+    /// What the pointer should look like while a branch is being carried.
+    /// </summary>
+    /// <param name="isOverTheList">Whether the pointer is over the branches list.</param>
+    /// <returns>
+    /// The cursor to wear, or <see langword="null"/> to leave the list its own.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// The question the pointer answers is "is this gesture under way here", not "would this exact
+    /// pair merge": a branch over its own row, or over a group heading, is still a drag in progress.
+    /// Where a drop would actually land is said by the ring on the row, and a drop the policy refuses
+    /// still does nothing.
+    /// </para>
+    /// <para>
+    /// <see cref="StandardCursorType.DragMove"/> and never <see cref="StandardCursorType.No"/>: the
+    /// refusal pointer is the bug. Off the list the gesture has nothing to say about where it is, so
+    /// the list keeps its ordinary cursor rather than being told something else.
+    /// </para>
+    /// </remarks>
+    public static StandardCursorType? CursorFor(bool isOverTheList)
+        => isOverTheList ? StandardCursorType.DragMove : null;
 
     /// <summary>
     /// How near an edge the pointer has to be for the list to scroll towards it, in pixels.
@@ -136,16 +137,39 @@ internal static class BranchDragGesture
 /// The branches page.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The code behind this view exists for one gesture: dragging one branch onto another. A drag is a
 /// pointer, a drop target and a menu — three things a binding cannot express — and everything it
 /// decides is asked of the page's ViewModel, which owns the policy and the commands.
+/// </para>
+/// <para>
+/// It is <em>not</em> a platform drag-and-drop session, and that is deliberate. This gesture never
+/// leaves the window: a branch row is dropped on another row of the same list, and what it carries is
+/// the live row object. Avalonia delivers such a drag in process — its X11 source resolves our own
+/// window as an in-process target and never sends an Xdnd message to anyone — while still taking
+/// ownership of the X drag selection, which a compositor bridging that drag onward reads as a drag
+/// nobody has accepted, and paints the refusal pointer for the whole gesture. Two devs tried to change
+/// what this page answers; the pointer is not drawn from anything this page answers. Driven from
+/// pointer events, the gesture keeps everything it had — the drop ring, the auto-scroll, the menu —
+/// the cursor becomes an ordinary cursor, and for the first time the whole thing can be driven by a
+/// test.
+/// </para>
 /// </remarks>
 public partial class BranchesPageView : UserControl
 {
+    /// <summary>
+    /// The pointer worn while a branch is being carried, made once: a cursor is a platform handle,
+    /// not a value, and a drag asks for it on every pointer move.
+    /// </summary>
+    private static readonly Cursor Carrying = new(StandardCursorType.DragMove);
+
     private readonly DispatcherTimer _autoScroll;
 
     private ListBoxItem? _highlighted;
     private PendingDrag? _pending;
+    private BranchRowViewModel? _dragging;
+    private IPointer? _captured;
+    private Cursor? _listCursor;
     private ScrollViewer? _listScroll;
     private double _autoScrollBy;
 
@@ -164,14 +188,9 @@ public partial class BranchesPageView : UserControl
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerCaptureLostEvent, OnPointerCaptureLost, RoutingStrategies.Tunnel);
 
-        // Enter as well as over: Avalonia picks between the two by whether the deepest element
-        // under the pointer changed since the last move, which over a list of rows it usually has.
-        // Handling only "over" left most of the journey unanswered — no effect stated, no drop mark,
-        // no scrolling.
-        AddHandler(DragDrop.DragEnterEvent, OnDragOver);
-        AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
-        AddHandler(DragDrop.DropEvent, OnDrop);
+        // A platform drag session had a way out of its own. An in-house gesture has to bring one, and
+        // Escape is what every desktop means by "stop".
+        AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
 
         // A timer, because the pointer stops reporting while it is held still — and a branch held
         // over the bottom of the list is exactly the gesture that has to keep scrolling.
@@ -180,16 +199,25 @@ public partial class BranchesPageView : UserControl
     }
 
     /// <summary>
+    /// Gets the menu the last drop opened, or <see langword="null"/> when no drop has offered one.
+    /// </summary>
+    /// <remarks>
+    /// The view's own, kept rather than dropped on the floor so that a test can read what a release
+    /// offered without opening a popup and looking inside it.
+    /// </remarks>
+    internal ContextMenu? DropMenu { get; private set; }
+
+    /// <summary>
+    /// Gets a value indicating whether a branch is being dragged right now.
+    /// </summary>
+    internal bool IsDragging => _dragging is not null;
+
+    /// <summary>
     /// Remembers a press on a branch row, which a later move may turn into a drag.
     /// </summary>
     /// <remarks>
-    /// The press itself starts nothing. It used to call <see cref="DragDrop.DoDragDropAsync"/>
-    /// straight away, which opened a platform drag session for what was very often an ordinary
-    /// click — and a drag session takes the pointer, so the row under it never received the exit
-    /// that clears its hover. That is the grey plate a row kept after the selection had moved on,
-    /// and the "no" cursor that flashed on a plain click.
-    ///
-    /// The press is not marked handled, so the list still selects the row under it.
+    /// The press itself starts nothing: a press that never moves is a click, and the list is left to
+    /// select the row under it. The press is not marked handled for exactly that reason.
     /// </remarks>
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -205,20 +233,20 @@ public partial class BranchesPageView : UserControl
             return;
         }
 
-        _pending = new PendingDrag(row, e, e.GetPosition(this));
+        _pending = new PendingDrag(row, e.GetPosition(this));
     }
 
     /// <summary>
-    /// Starts the drag once the pointer has actually moved.
+    /// Starts the drag once the pointer has actually moved, and steers it afterwards.
     /// </summary>
-    /// <remarks>
-    /// The session is still started from the press, because that is what
-    /// <see cref="DragDrop.DoDragDropAsync"/> takes — it is the pointer it tracks, and a pointer
-    /// that is still down is still that one. What moved is <em>when</em> it is started: the press
-    /// alone is a click until the pointer says otherwise.
-    /// </remarks>
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_dragging is not null)
+        {
+            Steer(e);
+            return;
+        }
+
         if (_pending is not { } pending)
         {
             return;
@@ -236,42 +264,136 @@ public partial class BranchesPageView : UserControl
         }
 
         _pending = null;
+        _dragging = pending.Row;
+        _listCursor = BranchList.Cursor;
 
-        _ = DragAsync(pending.Trigger, BranchDrop.TransferFor(pending.Row));
+        // The capture is what makes the rest of the gesture the page's: every move is reported here
+        // afterwards, wherever the pointer goes, and so is the release that ends it.
+        _captured = e.Pointer;
+        _captured.Capture(BranchList);
+
+        Steer(e);
     }
-
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e) => _pending = null;
-
-    private void OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _pending = null;
 
     /// <summary>
-    /// Runs the drag session, and tidies up after it.
+    /// Says where the drag is: the ring on the row it would land on, and the scrolling an edge asks
+    /// for.
     /// </summary>
     /// <remarks>
-    /// The drop is what does the work and the page reports what it did, so nothing here reads the
-    /// result. What the session does leave behind is a hover state on whatever row it took the
-    /// pointer from — the exit never arrived — so the rows are told to forget it when it ends.
+    /// The row is hit-tested rather than read from the event, because the capture has made this view
+    /// the source of every pointer event for the length of the gesture. The pointer is the only thing
+    /// that still knows where it is.
     /// </remarks>
-    private async Task DragAsync(PointerPressedEventArgs trigger, DataTransfer data)
+    private void Steer(PointerEventArgs e)
     {
-        try
+        e.Handled = true;
+
+        ShowTheGesturesCursor(BranchDragGesture.IsOverTheList(e.GetPosition(BranchList), BranchList.Bounds.Size));
+
+        ListBoxItem? container = RowUnder(e);
+
+        Highlight(DropFor(container) is not null ? container : null);
+        FollowTheEdge(e);
+    }
+
+    /// <summary>
+    /// Ends the gesture, and offers what the pair can do when it landed on one.
+    /// </summary>
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _pending = null;
+
+        if (_dragging is null)
         {
-            await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Move);
+            return;
         }
-        finally
+
+        ListBoxItem? container = RowUnder(e);
+        BranchDrop? drop = DropFor(container);
+
+        StopDragging();
+
+        e.Handled = true;
+
+        if (drop is not null && container is not null)
         {
-            ForgetHover();
-            StopScrolling();
+            Offer(drop, container);
         }
     }
+
+    /// <summary>
+    /// A drag whose pointer has been taken away — by another control, by the window losing it — ends
+    /// where it stands, and drops nothing.
+    /// </summary>
+    private void OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _pending = null;
+
+        if (_dragging is null)
+        {
+            return;
+        }
+
+        // The capture is already gone, and whoever took it owns that pointer now: releasing it here
+        // would be taking it away from them.
+        _captured = null;
+
+        StopDragging();
+    }
+
+    /// <summary>
+    /// Escape calls a drag off: nothing is dropped, and the row under the pointer is left alone.
+    /// </summary>
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_dragging is null || e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        StopDragging();
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Takes the gesture down: the row being dragged, the drop ring, the scrolling, the cursor and
+    /// the capture. Every way a drag can end goes through here.
+    /// </summary>
+    private void StopDragging()
+    {
+        _dragging = null;
+
+        Highlight(null);
+        StopScrolling();
+
+        BranchList.Cursor = _listCursor;
+        _listCursor = null;
+
+        IPointer? pointer = _captured;
+        _captured = null;
+        pointer?.Capture(null);
+
+        ForgetHover();
+    }
+
+    /// <summary>
+    /// Puts the gesture's pointer on the list, or gives the list its own back.
+    /// </summary>
+    private void ShowTheGesturesCursor(bool isOverTheList)
+        => BranchList.Cursor = BranchDragGesture.CursorFor(isOverTheList) switch
+        {
+            StandardCursorType.DragMove => Carrying,
+            _ => _listCursor,
+        };
 
     /// <summary>
     /// Takes the hover state off every realised row.
     /// </summary>
     /// <remarks>
-    /// A pseudo-class rather than a property, because the property is the input system's: the
-    /// pointer never left as far as it is concerned, so nothing else is going to clear this. The
-    /// next pointer move puts the state back on the row it is really over.
+    /// A pseudo-class rather than a property, because the property is the input system's: a row that
+    /// was hovered when the capture was taken never received the exit that clears it. The next
+    /// pointer move puts the state back on the row it is really over.
     /// </remarks>
     private void ForgetHover()
     {
@@ -281,28 +403,12 @@ public partial class BranchesPageView : UserControl
         }
     }
 
-    private void OnDragOver(object? sender, DragEventArgs e)
-    {
-        ListBoxItem? container = RowAt(e.Source);
-
-        // Two different questions, deliberately: the cursor says whether the gesture is under way
-        // here, and the ring says where it would land.
-        e.DragEffects = BranchDragGesture.EffectFor(
-            e.DataTransfer.TryGetValue(BranchDrop.DragFormat) is not null,
-            IsOverTheList(e.Source));
-
-        e.Handled = true;
-
-        Highlight(DropFor(e, container) is not null ? container : null);
-        FollowTheEdge(e);
-    }
-
     // ---------------------------------------------------------------- scrolling while dragging
 
     /// <summary>
     /// Starts, steers or stops the scrolling that a drag held near an edge asks for.
     /// </summary>
-    private void FollowTheEdge(DragEventArgs e)
+    private void FollowTheEdge(PointerEventArgs e)
     {
         if (ListScroll() is not { } scroll)
         {
@@ -358,31 +464,7 @@ public partial class BranchesPageView : UserControl
     private ScrollViewer? ListScroll()
         => _listScroll ??= BranchList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
 
-    /// <summary>
-    /// Whether an event landed inside the branches list.
-    /// </summary>
-    private bool IsOverTheList(object? source)
-        => source is Visual visual
-            && visual.GetSelfAndVisualAncestors().Any(ancestor => ReferenceEquals(ancestor, BranchList));
-
-    /// <summary>
-    /// Takes the drop mark and the scrolling down, but only when the drag has really left the list.
-    /// </summary>
-    /// <remarks>
-    /// A leave is raised on every element the pointer crosses, and the rows of this list are made of
-    /// several. Acting on all of them made the ring flicker and the auto-scroll stop every few
-    /// pixels of a drag that had not gone anywhere.
-    /// </remarks>
-    private void OnDragLeave(object? sender, DragEventArgs e)
-    {
-        if (!BranchDragGesture.IsLeavingTheList(e.GetPosition(BranchList), BranchList.Bounds.Size))
-        {
-            return;
-        }
-
-        Highlight(null);
-        StopScrolling();
-    }
+    // ---------------------------------------------------------------- the drop
 
     /// <summary>
     /// Opens the menu of what the dropped pair can do.
@@ -393,21 +475,9 @@ public partial class BranchesPageView : UserControl
     /// mistake to undo. Dismissing it does nothing at all — which is why the menu is the question
     /// and the service is no longer asked to ask one.
     /// </remarks>
-    private void OnDrop(object? sender, DragEventArgs e)
+    private void Offer(BranchDrop drop, Control target)
     {
-        ListBoxItem? container = RowAt(e.Source);
-
-        Highlight(null);
-        StopScrolling();
-
-        if (DropFor(e, container) is not { } drop || container is null)
-        {
-            return;
-        }
-
-        e.Handled = true;
-
-        ContextMenu menu = new()
+        DropMenu = new ContextMenu
         {
             Placement = PlacementMode.Pointer,
             ItemsSource = new object[]
@@ -434,7 +504,7 @@ public partial class BranchesPageView : UserControl
             },
         };
 
-        menu.Open(container);
+        DropMenu.Open(target);
     }
 
     /// <summary>
@@ -443,17 +513,16 @@ public partial class BranchesPageView : UserControl
     private BranchesPageViewModel? Page => DataContext as BranchesPageViewModel;
 
     /// <summary>
-    /// The pair a drag event stands for, or <see langword="null"/> when it is not one the page
+    /// The pair the drag stands for right now, or <see langword="null"/> when it is not one the page
     /// would carry out.
     /// </summary>
     /// <remarks>
-    /// The same question on every pointer move and again on the drop, so it must cost nothing: the
+    /// The same question on every pointer move and again on the release, so it must cost nothing: the
     /// policy it asks is static and side-effect-free.
     /// </remarks>
-    private static BranchDrop? DropFor(DragEventArgs e, ListBoxItem? container)
+    private BranchDrop? DropFor(ListBoxItem? container)
     {
-        if (e.DataTransfer.TryGetValue(BranchDrop.DragFormat) is not { } source
-            || container?.DataContext is not BranchRowViewModel target)
+        if (_dragging is not { } source || container?.DataContext is not BranchRowViewModel target)
         {
             return null;
         }
@@ -461,6 +530,18 @@ public partial class BranchesPageView : UserControl
         BranchDrop drop = new(source, target);
 
         return BranchesPageViewModel.CanDrop(drop) ? drop : null;
+    }
+
+    /// <summary>
+    /// The row the pointer is over, or <see langword="null"/> when it is over none.
+    /// </summary>
+    private ListBoxItem? RowUnder(PointerEventArgs e)
+    {
+        Point point = e.GetPosition(BranchList);
+
+        return BranchDragGesture.IsOverTheList(point, BranchList.Bounds.Size)
+            ? RowAt(BranchList.InputHitTest(point))
+            : null;
     }
 
     /// <summary>
@@ -478,9 +559,8 @@ public partial class BranchesPageView : UserControl
     /// A press on a row that has not moved far enough to be a drag.
     /// </summary>
     /// <param name="Row">The row the press landed on.</param>
-    /// <param name="Trigger">The press itself, which is what starts the platform's drag session.</param>
     /// <param name="Origin">Where it landed, which the threshold is measured from.</param>
-    private sealed record PendingDrag(BranchRowViewModel Row, PointerPressedEventArgs Trigger, Point Origin);
+    private sealed record PendingDrag(BranchRowViewModel Row, Point Origin);
 
     /// <summary>
     /// Says where the drag would land, and takes the mark off whatever carried it last.

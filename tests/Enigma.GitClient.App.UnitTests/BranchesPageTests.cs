@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -21,6 +22,8 @@ using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.Icons.Avalonia;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -79,6 +82,45 @@ public sealed class BranchesPageTests
         return repository;
     }
 
+    /// <summary>
+    /// Builds the repository the tracking tests need: a branch that tracks its upstream and has
+    /// drifted both ways, a branch that is on the remote without tracking it, branches that are on no
+    /// remote at all, and one whose upstream has been deleted under it.
+    /// </summary>
+    private static async Task<RepositoryHandle> BuildTrackingWorldAsync(TestServices services)
+    {
+        RepositoryHandle repository = await BuildWithRemoteAsync(services);
+
+        string workspace = Path.Combine(services.ConfigurationRoot, "workspace");
+        string originPath = Path.Combine(workspace, "origin.git");
+
+        // "tracked" tracks origin/tracked, and both ends move: one commit here, one from a second
+        // clone, so git reports it as one ahead and one behind.
+        await GitAsync(repository, "checkout", "-b", "tracked", "main");
+        await GitAsync(repository, "push", "--set-upstream", "origin", "tracked");
+
+        string otherPath = Path.Combine(workspace, "other");
+        await GitInAsync(workspace, "clone", originPath, otherPath);
+        await GitInAsync(otherPath, "checkout", "tracked");
+
+        await File.WriteAllTextAsync(Path.Combine(otherPath, "theirs.txt"), "from elsewhere\n");
+        await GitInAsync(otherPath, "add", "--all");
+        await GitInAsync(otherPath, "commit", "-m", "Work done elsewhere");
+        await GitInAsync(otherPath, "push", "origin", "tracked");
+
+        await CommitAsync(repository, "src/ours.txt", "from here\n", "Work done here");
+
+        // "doomed" names an upstream that is then deleted on the remote, which git reports as [gone].
+        await GitAsync(repository, "checkout", "-b", "doomed", "main");
+        await GitAsync(repository, "push", "--set-upstream", "origin", "doomed");
+        await GitAsync(repository, "push", "origin", "--delete", "doomed");
+
+        await GitAsync(repository, "checkout", "main");
+        await GitAsync(repository, "fetch", "--prune", "origin");
+
+        return repository;
+    }
+
     private static async Task CommitAsync(RepositoryHandle repository, string path, string content, string message)
     {
         string full = Path.Combine(repository.WorkTreePath, path);
@@ -90,11 +132,14 @@ public sealed class BranchesPageTests
     }
 
     private static Task GitAsync(RepositoryHandle repository, params string[] arguments)
+        => GitInAsync(repository.WorkTreePath, arguments);
+
+    private static Task GitInAsync(string workingDirectory, params string[] arguments)
     {
         ProcessStartInfo startInfo = new()
         {
             FileName = "git",
-            WorkingDirectory = repository.WorkTreePath,
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -208,6 +253,145 @@ public sealed class BranchesPageTests
             Assert.True(main.IsAhead);
             Assert.Equal("1", main.Ahead);
             Assert.False(main.IsBehind);
+        });
+    }
+
+    // ---------------------------------------------------------------- where a branch stands
+
+    [Fact]
+    public void ALocalRow_NamesTheRemoteBranchItIsOn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // A branch that tracks its upstream says so through the upstream it names.
+            BranchRowViewModel tracked = Row(page, "tracked");
+
+            Assert.True(tracked.IsPublished);
+            Assert.Equal("origin/tracked", tracked.PublishedAs);
+            Assert.False(tracked.IsLocalOnly);
+
+            // And one pushed with a plain `git push origin main` tracks nothing at all — git reports
+            // no upstream for it — and is on the remote all the same. Reading the upstream alone would
+            // call this branch local-only every time.
+            BranchRowViewModel main = Row(page, "main");
+
+            Assert.False(main.HasUpstream);
+            Assert.True(main.IsPublished);
+            Assert.Equal("origin/main", main.PublishedAs);
+            Assert.Contains("origin/main", main.RemoteStateTip, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void ALocalRow_SaysWhenTheBranchIsOnNoRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // "unmerged" was pushed to origin under another name, so there is no origin/unmerged:
+            // this branch only exists here, which is the state worth saying out loud.
+            foreach (string name in (string[])["merged", "unmerged"])
+            {
+                BranchRowViewModel row = Row(page, name);
+
+                Assert.True(row.IsLocalOnly, name);
+                Assert.False(row.IsPublished, name);
+                Assert.Null(row.PublishedAs);
+                Assert.Contains("no remote", row.RemoteStateTip, StringComparison.OrdinalIgnoreCase);
+            }
+        });
+    }
+
+    [Fact]
+    public void ALocalRow_CountsTheCommitsEachWay()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // One commit made here and one made elsewhere and fetched: the branch has drifted both
+            // ways, and the row can say so without running anything of its own.
+            BranchRowViewModel tracked = Row(page, "tracked");
+
+            Assert.True(tracked.IsAhead);
+            Assert.Equal("1", tracked.Ahead);
+            Assert.True(tracked.IsBehind);
+            Assert.Equal("1", tracked.Behind);
+
+            // The tooltips are for someone who does not already know what an arrow means — and they
+            // count in words, so a single commit is not "1 commits".
+            Assert.Equal("1 commit to push", tracked.AheadTip);
+            Assert.Equal("1 commit to pull", tracked.BehindTip);
+
+            // A branch level with its remote shows no counter at all.
+            BranchRowViewModel main = Row(page, "main");
+
+            Assert.False(main.IsAhead);
+            Assert.False(main.IsBehind);
+        });
+    }
+
+    [Fact]
+    public void ALocalRow_SaysWhenItsUpstreamHasGone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // The upstream was deleted on the remote. That is neither "on a remote" nor the ordinary
+            // "never pushed": it is a branch pointing at something that is not there any more.
+            BranchRowViewModel doomed = Row(page, "doomed");
+
+            Assert.True(doomed.IsUpstreamGone);
+            Assert.False(doomed.IsPublished);
+            Assert.False(doomed.IsLocalOnly);
+            Assert.Contains("origin/doomed", doomed.RemoteStateTip, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void ARemoteRow_TracksNothingOfItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // A remote-tracking branch *is* the remote: ahead of what? Those rows used to draw two
+            // counters that were always empty.
+            BranchRowViewModel remote = Row(page, "origin/published");
+
+            Assert.False(remote.IsLocal);
+            Assert.False(remote.IsAhead);
+            Assert.False(remote.IsBehind);
+            Assert.False(remote.IsPublished);
+            Assert.False(remote.IsLocalOnly);
+            Assert.False(remote.IsUpstreamGone);
+        });
+    }
+
+    [Fact]
+    public void Filtering_DoesNotTakeABranchOffItsRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            // The lookup is built from the whole ref collection, not from the rows that survived the
+            // filter: typing in the box hides branches, it does not unpublish them.
+            page.SearchText = "track";
+
+            Assert.Equal(["origin/tracked", "tracked"], NamesOf(page).Order());
+            Assert.True(Row(page, "tracked").IsPublished);
+            Assert.Equal("origin/tracked", Row(page, "tracked").PublishedAs);
         });
     }
 
@@ -531,7 +715,7 @@ public sealed class BranchesPageTests
     }
 
     [Fact]
-    public void BranchList_TakesDrops()
+    public void BranchList_MarksTheRowADropWouldLandOnAndTakesNoPlatformDrop()
     {
         _fixture.RunAsync(async () =>
         {
@@ -548,7 +732,9 @@ public sealed class BranchesPageTests
             ListBox list = view.FindControl<ListBox>("BranchList")
                 ?? throw new InvalidOperationException("The branches page has no branch list.");
 
-            Assert.True(DragDrop.GetAllowDrop(list));
+            // The page runs the gesture itself and opens no platform drag session, so it is not a
+            // platform drop target either: that machinery is what drew the refusal pointer.
+            Assert.False(DragDrop.GetAllowDrop(list));
 
             // A row container marked as the drop target wears a ring the selection cannot hide.
             ListBoxItem row = list.GetRealizedContainers()
@@ -611,111 +797,19 @@ public sealed class BranchesPageTests
         Assert.True(BranchDragGesture.ScrollFor(58, 60) > 0);
     }
 
-    [Fact]
-    public void ADraggedBranch_AdvertisesSomethingThePlatformCanOffer()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
-
-            BranchRowViewModel row = Row(page, "merged");
-            DataTransfer transfer = BranchDrop.TransferFor(row);
-
-            // The in-process row is what the drop reads: a name alone would not say whether the
-            // branch is remote or checked out.
-            Assert.Same(row, transfer.TryGetValue(BranchDrop.DragFormat));
-
-            // And the name is what the platform is offered. Avalonia publishes no in-process format
-            // to the platform at all, so a drag carrying only the row advertises no type — which is
-            // a drag nothing can accept, and a pointer that says so for the whole gesture.
-            Assert.Equal("merged", transfer.TryGetValue(DataFormat.Text));
-
-            Assert.Contains(transfer.Formats, format => format.Kind != DataFormatKind.InProcess);
-        });
-    }
-
-    [Fact]
-    public void ADraggedRemoteBranch_CarriesItsFullName()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
-
-            BranchRowViewModel row = Row(page, "origin/published");
-
-            // The row shows "published" and the drag carries "origin/published": the full name is
-            // what every command is given, and it is what a reader dropping it elsewhere wants.
-            Assert.Equal("published", row.Name);
-            Assert.Equal("origin/published", BranchDrop.TransferFor(row).TryGetValue(DataFormat.Text));
-        });
-    }
-
-    [Fact]
-    public void ADraggedBranch_StillResolvesTheSamePair()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
-
-            BranchRowViewModel source = Row(page, "unmerged");
-            BranchRowViewModel target = Row(page, "main");
-
-            // What the drop does with the transfer is unchanged by the second item.
-            BranchRowViewModel carried = Assert.IsType<BranchRowViewModel>(
-                BranchDrop.TransferFor(source).TryGetValue(BranchDrop.DragFormat));
-
-            BranchDrop drop = new(carried, target);
-
-            Assert.True(BranchesPageViewModel.CanDrop(drop));
-            Assert.Equal("unmerged", drop.Request.Source);
-            Assert.Equal("main", drop.Request.Target);
-        });
-    }
-
     [Theory]
-    [InlineData(true, true, DragDropEffects.Move)]     // a branch, over the list: the gesture is under way
-    [InlineData(true, false, DragDropEffects.None)]    // a branch, somewhere else on the page
-    [InlineData(false, true, DragDropEffects.None)]    // something else, over the list
-    [InlineData(false, false, DragDropEffects.None)]
-    public void TheDragCursorAnswersWhetherTheGestureIsUnderWay(bool carriesBranch, bool overTheList, DragDropEffects expected)
-        => Assert.Equal(expected, BranchDragGesture.EffectFor(carriesBranch, overTheList));
+    [InlineData(100, 100, true)]       // well inside the list
+    [InlineData(0, 0, true)]           // the very corner counts as inside
+    [InlineData(400, 300, true)]       // and so does the far edge
+    [InlineData(-1, 100, false)]       // off to the left
+    [InlineData(100, -1, false)]       // above the list, over the toolbar
+    [InlineData(401, 100, false)]      // past its right edge
+    [InlineData(100, 301, false)]      // below it
+    public void ADragKnowsWhetherItIsStillOverTheList(double x, double y, bool over)
+        => Assert.Equal(over, BranchDragGesture.IsOverTheList(new Point(x, y), new Size(400, 300)));
 
     [Fact]
-    public void TheDragCursorSaysYesEvenWhereTheDropWouldNot()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
-
-            // The pairs the policy refuses — a branch on itself, anything onto a remote — are still
-            // refused: the ring and the menu are the policy's, and only the cursor changed.
-            Assert.False(BranchesPageViewModel.CanDrop(new BranchDrop(Row(page, "main"), Row(page, "main"))));
-            Assert.False(BranchesPageViewModel.CanDrop(
-                new BranchDrop(Row(page, "main"), Row(page, "origin/published"))));
-
-            // And while either of those is under the pointer, the cursor still says the drag is
-            // running rather than that it is impossible.
-            Assert.Equal(DragDropEffects.Move, BranchDragGesture.EffectFor(carriesBranch: true, isOverTheList: true));
-        });
-    }
-
-    [Theory]
-    [InlineData(100, 100, false)]      // well inside: the drag is crossing one row's children
-    [InlineData(0, 0, false)]          // the very corner still counts as inside
-    [InlineData(400, 300, false)]      // and so does the far edge
-    [InlineData(-1, 100, true)]        // off to the left
-    [InlineData(100, -1, true)]        // above the list, over the toolbar
-    [InlineData(401, 100, true)]       // past its right edge
-    [InlineData(100, 301, true)]       // below it
-    public void ALeaveOnlyCountsWhenThePointerHasLeftTheList(double x, double y, bool leaving)
-        => Assert.Equal(leaving, BranchDragGesture.IsLeavingTheList(new Point(x, y), new Size(400, 300)));
-
-    [Fact]
-    public void ThePageAnswersDragEnterAsWellAsDragOver()
+    public void ADrag_OffersWhatTheTwoBranchesCanDo()
     {
         _fixture.RunAsync(async () =>
         {
@@ -729,34 +823,286 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            // Avalonia raises "enter" rather than "over" whenever the deepest element under the
-            // pointer changed since the last move, which crossing a list of rows it usually has.
-            // A page that answers only "over" says nothing for most of a drag.
-            DataTransfer data = BranchDrop.TransferFor(Row(page, "merged"));
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            // The whole gesture, through the real input system: press, move, release. The platform
+            // session this replaced could not be driven by a test at all.
+            Drag(window, Row(list, "unmerged"), Row(list, "main"));
+
+            ContextMenu menu = Assert.IsType<ContextMenu>(view.DropMenu);
+
+            string[] headers = [.. menu.ItemsSource!
+                .OfType<MenuItem>()
+                .Select(item => item.Header?.ToString() ?? string.Empty)];
+
+            Assert.Equal(3, headers.Length);
+            Assert.All(headers, header =>
+            {
+                Assert.Contains("unmerged", header, StringComparison.Ordinal);
+                Assert.Contains("main", header, StringComparison.Ordinal);
+            });
+
+            // And the items are the page's commands, with the pair as their parameter.
+            MenuItem merge = menu.ItemsSource!.OfType<MenuItem>().First();
+
+            Assert.Same(page.MergeDropCommand, merge.Command);
+
+            BranchDrop drop = Assert.IsType<BranchDrop>(merge.CommandParameter);
+
+            Assert.Equal("unmerged", drop.Source.FullName);
+            Assert.Equal("main", drop.Target.FullName);
+
+            menu.Close();
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ADrag_MarksTheRowUnderThePointerAndLetsItGoAtTheEnd()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
 
             ListBox list = view.FindControl<ListBox>("BranchList")
                 ?? throw new InvalidOperationException("The branches page has no branch list.");
 
-            ListBoxItem target = list.GetRealizedContainers()
-                .OfType<ListBoxItem>()
-                .First(container => container.DataContext is BranchRowViewModel { FullName: "unmerged" });
+            ListBoxItem source = Row(list, "unmerged");
+            ListBoxItem target = Row(list, "main");
+            ListBoxItem other = Row(list, "merged");
 
-            foreach (RoutedEvent<DragEventArgs> kind in (RoutedEvent<DragEventArgs>[])[DragDrop.DragEnterEvent, DragDrop.DragOverEvent])
-            {
-                DragEventArgs args = new(kind, data, target, new Point(4, 4), KeyModifiers.None)
-                {
-                    RoutedEvent = kind,
-                    DragEffects = DragDropEffects.None,
-                };
+            Point start = Centre(source, window);
 
-                target.RaiseEvent(args);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+            Assert.True(view.IsDragging);
 
-                Assert.True(args.Handled, $"the page did not handle {kind.Name}");
-                Assert.Equal(DragDropEffects.Move, args.DragEffects);
-            }
-
-            // And the row the pointer is over is the one that carries the drop mark, from either.
+            window.MouseMove(Centre(target, window), RawInputModifiers.LeftMouseButton);
             Assert.Contains("droptarget", target.Classes);
+
+            // The mark follows the pointer: one row wears it at a time.
+            window.MouseMove(Centre(other, window), RawInputModifiers.LeftMouseButton);
+            Assert.Contains("droptarget", other.Classes);
+            Assert.DoesNotContain("droptarget", target.Classes);
+
+            window.MouseUp(Centre(other, window), MouseButton.Left);
+
+            Assert.False(view.IsDragging);
+            Assert.DoesNotContain("droptarget", other.Classes);
+
+            view.DropMenu?.Close();
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(true, StandardCursorType.DragMove)]   // over the list: the gesture is under way here
+    [InlineData(false, null)]                          // anywhere else: the list keeps its own
+    public void TheDragPointerSaysTheGestureIsUnderWay(bool overTheList, StandardCursorType? expected)
+    {
+        // Never StandardCursorType.No: the refusal pointer is the bug. Where a drop would land is the
+        // ring's job, not the pointer's.
+        Assert.Equal(expected, BranchDragGesture.CursorFor(overTheList));
+    }
+
+    [Fact]
+    public void ADrag_WearsItsPointerAndGivesTheListItsOwnBack()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Cursor? before = list.Cursor;
+
+            ListBoxItem source = Row(list, "unmerged");
+            Point start = Centre(source, window);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+
+            // Set by the page, on the list, the ordinary way — which is exactly why it works where a
+            // platform drag session's own cursor did not.
+            Assert.NotSame(before, list.Cursor);
+            Assert.NotNull(list.Cursor);
+
+            window.MouseMove(Centre(Row(list, "main"), window), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(Centre(Row(list, "main"), window), MouseButton.Left);
+
+            Assert.Same(before, list.Cursor);
+
+            view.DropMenu?.Close();
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_CallsADragOffAndDropsNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Cursor? before = list.Cursor;
+
+            ListBoxItem target = Row(list, "main");
+            Point start = Centre(Row(list, "unmerged"), window);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(Centre(target, window), RawInputModifiers.LeftMouseButton);
+
+            Assert.True(view.IsDragging);
+            Assert.Contains("droptarget", target.Classes);
+
+            // A platform drag session had a way out of its own; this one brings its own.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+
+            Assert.False(view.IsDragging);
+            Assert.DoesNotContain("droptarget", target.Classes);
+            Assert.Same(before, list.Cursor);
+            Assert.Null(view.DropMenu);
+
+            // And letting go afterwards offers nothing: the gesture is over.
+            window.MouseUp(Centre(target, window), MouseButton.Left);
+
+            Assert.Null(view.DropMenu);
+
+            // A drag that was called off can be started again.
+            Drag(window, Row(list, "merged"), target);
+
+            Assert.NotNull(view.DropMenu);
+
+            view.DropMenu?.Close();
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void AClick_SelectsTheRowAndStartsNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem row = Row(list, "merged");
+            Point point = Centre(row, window);
+
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseMove(new Point(point.X + 1, point.Y), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(point, MouseButton.Left);
+
+            // A pointer that has not travelled the threshold is a click: the row is selected and
+            // nothing is offered.
+            Assert.False(view.IsDragging);
+            Assert.Null(view.DropMenu);
+            Assert.Equal("merged", page.SelectedBranch?.FullName);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ADragReleasedOnNoRow_OffersNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Point start = Centre(Row(list, "unmerged"), window);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+
+            // Up on the page's header, which is not the list: a drag let go of nowhere drops nothing.
+            window.MouseMove(new Point(start.X, 20), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(new Point(start.X, 20), MouseButton.Left);
+
+            Assert.False(view.IsDragging);
+            Assert.Null(view.DropMenu);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ADragOntoARowThePolicyRefuses_MarksNothingAndOffersNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 560 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            // Nothing local writes to a remote-tracking ref: that is a push, and a push is not a
+            // thing to arrive at by dragging. The gesture still runs — the ring is what says no.
+            ListBoxItem target = Row(list, "origin/published");
+
+            Drag(window, Row(list, "main"), target);
+
+            Assert.DoesNotContain("droptarget", target.Classes);
+            Assert.Null(view.DropMenu);
 
             window.Close();
         });
@@ -833,6 +1179,157 @@ public sealed class BranchesPageTests
 
             Assert.All(Quiet(rows[0]), text => Assert.NotSame(full, text.Foreground));
             Assert.All(Quiet(rows[1]), text => Assert.Same(full, text.Foreground));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ABranchRowsActions_AreVisibleOnEveryRow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem[] rows = [.. list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .Where(container => container.DataContext is BranchRowViewModel)];
+
+            Assert.True(rows.Length >= 2, "the branches page realised fewer than two rows");
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+
+            // Check out and delete: the icons of the buttons at the end of the line.
+            static Icon[] Actions(ListBoxItem row) =>
+                [.. row.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Where(button => button.Classes.Contains("toolbar"))
+                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
+
+            Assert.True(Actions(rows[0]).Length >= 2, "a branch row drew fewer than two actions");
+
+            list.SelectedItem = rows[0].DataContext;
+            window.UpdateLayout();
+
+            // The selected row and the rest of them: an action is legible wherever it is.
+            Assert.All(Actions(rows[0]), icon => Assert.Same(full, icon.Foreground));
+            Assert.All(Actions(rows[1]), icon => Assert.Same(full, icon.Foreground));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ABranchRow_DrawsWhereItStandsWithItsRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 560 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            // Only what the row actually draws: a hidden badge is still in the tree.
+            PhosphorIcon[] Badges(string branch) =>
+                [.. Row(list, branch)
+                    .GetVisualDescendants()
+                    .OfType<Icon>()
+                    .Where(icon => icon.IsEffectivelyVisible)
+                    .Select(icon => icon.Kind)];
+
+            // Drifted both ways: one arrow each, and the cloud that says it is up there.
+            Assert.Contains(PhosphorIcon.ArrowUp, Badges("tracked"));
+            Assert.Contains(PhosphorIcon.ArrowDown, Badges("tracked"));
+            Assert.Contains(PhosphorIcon.CloudCheck, Badges("tracked"));
+
+            // Level with its remote: the cloud alone, and no counter with nothing to count.
+            Assert.Contains(PhosphorIcon.CloudCheck, Badges("main"));
+            Assert.DoesNotContain(PhosphorIcon.ArrowUp, Badges("main"));
+            Assert.DoesNotContain(PhosphorIcon.ArrowDown, Badges("main"));
+
+            // On no remote, and pointing at an upstream that is gone: two different things to say.
+            Assert.Contains(PhosphorIcon.CloudSlash, Badges("merged"));
+            Assert.DoesNotContain(PhosphorIcon.CloudCheck, Badges("merged"));
+            Assert.Contains(PhosphorIcon.CloudWarning, Badges("doomed"));
+            Assert.DoesNotContain(PhosphorIcon.CloudSlash, Badges("doomed"));
+
+            // A remote-tracking row is the remote: none of this is about it.
+            PhosphorIcon[] remote = Badges("origin/published");
+
+            Assert.DoesNotContain(PhosphorIcon.ArrowUp, remote);
+            Assert.DoesNotContain(PhosphorIcon.ArrowDown, remote);
+            Assert.DoesNotContain(PhosphorIcon.CloudCheck, remote);
+            Assert.DoesNotContain(PhosphorIcon.CloudSlash, remote);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ABranchRow_ShowsTheCountBesideTheArrowAndNamesIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 560 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            ListBoxItem tracked = Row(list, "tracked");
+
+            // The number is drawn beside the arrow, not only held in the ViewModel.
+            string[] texts = [.. tracked.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible)
+                .Select(text => text.Text ?? string.Empty)];
+
+            Assert.Equal(2, texts.Count(text => text == "1"));
+
+            // And every badge says what it means, to a pointer and to a screen reader alike.
+            Border[] badges = [.. tracked.GetVisualDescendants()
+                .OfType<Border>()
+                .Where(border => border.Classes.Contains("pill") && border.IsEffectivelyVisible)];
+
+            Assert.NotEmpty(badges);
+            Assert.All(badges, badge =>
+            {
+                Assert.NotNull(ToolTip.GetTip(badge));
+                Assert.False(string.IsNullOrEmpty(AutomationProperties.GetName(badge)));
+            });
+
+            Icon cloud = tracked.GetVisualDescendants()
+                .OfType<Icon>()
+                .First(icon => icon.Kind == PhosphorIcon.CloudCheck);
+
+            Assert.Equal("On the remote as \"origin/tracked\"", AutomationProperties.GetName(cloud));
 
             window.Close();
         });
@@ -1313,6 +1810,30 @@ public sealed class BranchesPageTests
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /// <summary>
+    /// Drives the whole gesture through the real input system: press, past the threshold, onto the
+    /// target, release.
+    /// </summary>
+    private static void Drag(Window window, ListBoxItem from, ListBoxItem to)
+    {
+        Point start = Centre(from, window);
+        Point end = Centre(to, window);
+
+        window.MouseDown(start, MouseButton.Left);
+        window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+        window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        window.MouseUp(end, MouseButton.Left);
+    }
+
+    private static Point Centre(Visual target, Visual relativeTo)
+        => target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), relativeTo)
+            ?? throw new InvalidOperationException("The row is not in the same tree as the window.");
+
+    private static ListBoxItem Row(ListBox list, string branch)
+        => list.GetRealizedContainers()
+            .OfType<ListBoxItem>()
+            .First(container => container.DataContext is BranchRowViewModel row && row.FullName == branch);
 
     private static BranchRowViewModel Row(BranchesPageViewModel page, string name)
         => page.Groups.SelectMany(group => group.Rows).Single(row => row.FullName == name);
