@@ -274,7 +274,6 @@
         made unselectable by the container theme below.
       -->
       <ListBox Name="BranchList"
-               DragDrop.AllowDrop="True"
                ItemsSource="{Binding Items}"
                SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                Background="Transparent"

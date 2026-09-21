@@ -1,6 +1,6 @@
 # BUG-11A4 — A drag the compositor cannot refuse
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-icons-tracking-dragging
@@ -73,7 +73,7 @@ implementation rather than inferring it:
 ## PHASE01 — A drag the page runs itself
 
 **Branch:** `bugfix/bug-11a4-phase01-in-app-drag`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-11A4-PHASE01.md`
 
 ### Steps
 
