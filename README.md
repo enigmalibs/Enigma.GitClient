@@ -23,6 +23,8 @@ Two things matter more than everything else in this app:
 - A minimap in place of the diff's vertical scrollbar: where the changes are, where you are, and
   click or drag it to go there
 - Branch management — create, rename, delete, set upstream, checkout
+- Every local branch says where it stands: an arrow and a count for the commits to push and to
+  pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
   drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
   the list scrolls while you hold a branch near its edge

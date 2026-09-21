@@ -45,6 +45,9 @@ diff.
 
 - Branches: create, rename, delete, set an upstream, check out — including anything in the graph,
   with a plain warning before HEAD is detached.
+- Every local branch row says where it stands with its remote: an up arrow with the number of
+  commits to push, a down arrow with the number to pull, and a badge saying whether the branch is
+  on a remote, is on none, or names an upstream that has been deleted.
 - The branches, tags and remotes lists select a row, with the pointer or the keyboard, and keep the
   selection while the page refreshes underneath.
 - Drag one branch onto another to merge them. The drop opens a menu naming both ends: merge, merge
