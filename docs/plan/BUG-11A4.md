@@ -1,6 +1,6 @@
 # BUG-11A4 — A drag the compositor cannot refuse
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-21-icons-tracking-dragging
@@ -111,7 +111,7 @@ implementation rather than inferring it:
 ## PHASE02 — A pointer that says yes, and a way out
 
 **Branch:** `bugfix/bug-11a4-phase02-cursor`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-11A4-PHASE02.md`
 
 ### Steps
 

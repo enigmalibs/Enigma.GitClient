@@ -59,6 +59,29 @@ internal static class BranchDragGesture
     public static bool IsOverTheList(Point pointer, Size listSize) => new Rect(listSize).Contains(pointer);
 
     /// <summary>
+    /// What the pointer should look like while a branch is being carried.
+    /// </summary>
+    /// <param name="isOverTheList">Whether the pointer is over the branches list.</param>
+    /// <returns>
+    /// The cursor to wear, or <see langword="null"/> to leave the list its own.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// The question the pointer answers is "is this gesture under way here", not "would this exact
+    /// pair merge": a branch over its own row, or over a group heading, is still a drag in progress.
+    /// Where a drop would actually land is said by the ring on the row, and a drop the policy refuses
+    /// still does nothing.
+    /// </para>
+    /// <para>
+    /// <see cref="StandardCursorType.DragMove"/> and never <see cref="StandardCursorType.No"/>: the
+    /// refusal pointer is the bug. Off the list the gesture has nothing to say about where it is, so
+    /// the list keeps its ordinary cursor rather than being told something else.
+    /// </para>
+    /// </remarks>
+    public static StandardCursorType? CursorFor(bool isOverTheList)
+        => isOverTheList ? StandardCursorType.DragMove : null;
+
+    /// <summary>
     /// How near an edge the pointer has to be for the list to scroll towards it, in pixels.
     /// </summary>
     public const double ScrollBand = 32;
@@ -134,11 +157,19 @@ internal static class BranchDragGesture
 /// </remarks>
 public partial class BranchesPageView : UserControl
 {
+    /// <summary>
+    /// The pointer worn while a branch is being carried, made once: a cursor is a platform handle,
+    /// not a value, and a drag asks for it on every pointer move.
+    /// </summary>
+    private static readonly Cursor Carrying = new(StandardCursorType.DragMove);
+
     private readonly DispatcherTimer _autoScroll;
 
     private ListBoxItem? _highlighted;
     private PendingDrag? _pending;
     private BranchRowViewModel? _dragging;
+    private IPointer? _captured;
+    private Cursor? _listCursor;
     private ScrollViewer? _listScroll;
     private double _autoScrollBy;
 
@@ -156,6 +187,10 @@ public partial class BranchesPageView : UserControl
         AddHandler(PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerCaptureLostEvent, OnPointerCaptureLost, RoutingStrategies.Tunnel);
+
+        // A platform drag session had a way out of its own. An in-house gesture has to bring one, and
+        // Escape is what every desktop means by "stop".
+        AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
 
         // A timer, because the pointer stops reporting while it is held still — and a branch held
         // over the bottom of the list is exactly the gesture that has to keep scrolling.
@@ -230,10 +265,12 @@ public partial class BranchesPageView : UserControl
 
         _pending = null;
         _dragging = pending.Row;
+        _listCursor = BranchList.Cursor;
 
         // The capture is what makes the rest of the gesture the page's: every move is reported here
         // afterwards, wherever the pointer goes, and so is the release that ends it.
-        e.Pointer.Capture(BranchList);
+        _captured = e.Pointer;
+        _captured.Capture(BranchList);
 
         Steer(e);
     }
@@ -250,6 +287,8 @@ public partial class BranchesPageView : UserControl
     private void Steer(PointerEventArgs e)
     {
         e.Handled = true;
+
+        ShowTheGesturesCursor(BranchDragGesture.IsOverTheList(e.GetPosition(BranchList), BranchList.Bounds.Size));
 
         ListBoxItem? container = RowUnder(e);
 
@@ -272,7 +311,7 @@ public partial class BranchesPageView : UserControl
         ListBoxItem? container = RowUnder(e);
         BranchDrop? drop = DropFor(container);
 
-        StopDragging(e.Pointer);
+        StopDragging();
 
         e.Handled = true;
 
@@ -290,26 +329,63 @@ public partial class BranchesPageView : UserControl
     {
         _pending = null;
 
-        if (_dragging is not null)
+        if (_dragging is null)
         {
-            StopDragging(pointer: null);
+            return;
         }
+
+        // The capture is already gone, and whoever took it owns that pointer now: releasing it here
+        // would be taking it away from them.
+        _captured = null;
+
+        StopDragging();
     }
 
     /// <summary>
-    /// Takes the gesture down: the row being dragged, the drop ring, the scrolling and the capture.
+    /// Escape calls a drag off: nothing is dropped, and the row under the pointer is left alone.
     /// </summary>
-    private void StopDragging(IPointer? pointer)
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_dragging is null || e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        StopDragging();
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Takes the gesture down: the row being dragged, the drop ring, the scrolling, the cursor and
+    /// the capture. Every way a drag can end goes through here.
+    /// </summary>
+    private void StopDragging()
     {
         _dragging = null;
 
         Highlight(null);
         StopScrolling();
 
+        BranchList.Cursor = _listCursor;
+        _listCursor = null;
+
+        IPointer? pointer = _captured;
+        _captured = null;
         pointer?.Capture(null);
 
         ForgetHover();
     }
+
+    /// <summary>
+    /// Puts the gesture's pointer on the list, or gives the list its own back.
+    /// </summary>
+    private void ShowTheGesturesCursor(bool isOverTheList)
+        => BranchList.Cursor = BranchDragGesture.CursorFor(isOverTheList) switch
+        {
+            StandardCursorType.DragMove => Carrying,
+            _ => _listCursor,
+        };
 
     /// <summary>
     /// Takes the hover state off every realised row.
