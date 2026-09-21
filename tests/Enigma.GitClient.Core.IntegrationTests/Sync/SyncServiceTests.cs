@@ -182,14 +182,57 @@ public sealed class SyncServiceTests : IAsyncLifetime
         await other.CommitAllAsync("Work done elsewhere");
         await other.GitAsync("push", "origin", "main");
 
-        List<SyncProgress> reports = [];
-        Progress<SyncProgress> progress = new(reports.Add);
+        // A plain IProgress, not a Progress<T>: this test is about *when* the reports arrive, and a
+        // Progress<T> built here would capture no synchronisation context and queue every callback to
+        // the thread pool — which is exactly the defect that made this test flaky, moved into the
+        // test. The list is locked because the reports arrive on the reader's thread.
+        RecordingProgress progress = new();
 
         await Sync.FetchAsync(_handle, "origin", progress: progress, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Read the instant the fetch completes. This is the assertion the defect broke: the reports
+        // were queued to the thread pool, so at this moment the list was often still empty.
+        SyncProgress[] reports = progress.Reports;
 
         // A local transfer is fast, but git still narrates it; an empty transcript would mean the
         // progress plumbing is not connected at all.
         Assert.NotEmpty(reports);
+
+        // And in the order git wrote them: within a stage a percentage only ever grows, so an overlay
+        // never goes backwards. Queued callbacks have no order at all.
+        foreach (IGrouping<SyncStage, SyncProgress> stage in reports.GroupBy(report => report.Stage))
+        {
+            int[] percentages = [.. stage.Where(report => report.Percent is not null).Select(report => report.Percent!.Value)];
+
+            Assert.Equal([.. percentages.Order()], percentages);
+        }
+    }
+
+    /// <summary>
+    /// Collects progress reports on whatever thread reports them, in order.
+    /// </summary>
+    private sealed class RecordingProgress : IProgress<SyncProgress>
+    {
+        private readonly List<SyncProgress> _reports = [];
+
+        public SyncProgress[] Reports
+        {
+            get
+            {
+                lock (_reports)
+                {
+                    return [.. _reports];
+                }
+            }
+        }
+
+        public void Report(SyncProgress value)
+        {
+            lock (_reports)
+            {
+                _reports.Add(value);
+            }
+        }
     }
 
     [Fact]
