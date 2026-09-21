@@ -904,6 +904,110 @@ public sealed class BranchesPageTests
         });
     }
 
+    [Theory]
+    [InlineData(true, StandardCursorType.DragMove)]   // over the list: the gesture is under way here
+    [InlineData(false, null)]                          // anywhere else: the list keeps its own
+    public void TheDragPointerSaysTheGestureIsUnderWay(bool overTheList, StandardCursorType? expected)
+    {
+        // Never StandardCursorType.No: the refusal pointer is the bug. Where a drop would land is the
+        // ring's job, not the pointer's.
+        Assert.Equal(expected, BranchDragGesture.CursorFor(overTheList));
+    }
+
+    [Fact]
+    public void ADrag_WearsItsPointerAndGivesTheListItsOwnBack()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Cursor? before = list.Cursor;
+
+            ListBoxItem source = Row(list, "unmerged");
+            Point start = Centre(source, window);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+
+            // Set by the page, on the list, the ordinary way — which is exactly why it works where a
+            // platform drag session's own cursor did not.
+            Assert.NotSame(before, list.Cursor);
+            Assert.NotNull(list.Cursor);
+
+            window.MouseMove(Centre(Row(list, "main"), window), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(Centre(Row(list, "main"), window), MouseButton.Left);
+
+            Assert.Same(before, list.Cursor);
+
+            view.DropMenu?.Close();
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_CallsADragOffAndDropsNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            ListBox list = view.FindControl<ListBox>("BranchList")
+                ?? throw new InvalidOperationException("The branches page has no branch list.");
+
+            Cursor? before = list.Cursor;
+
+            ListBoxItem target = Row(list, "main");
+            Point start = Centre(Row(list, "unmerged"), window);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(Centre(target, window), RawInputModifiers.LeftMouseButton);
+
+            Assert.True(view.IsDragging);
+            Assert.Contains("droptarget", target.Classes);
+
+            // A platform drag session had a way out of its own; this one brings its own.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+
+            Assert.False(view.IsDragging);
+            Assert.DoesNotContain("droptarget", target.Classes);
+            Assert.Same(before, list.Cursor);
+            Assert.Null(view.DropMenu);
+
+            // And letting go afterwards offers nothing: the gesture is over.
+            window.MouseUp(Centre(target, window), MouseButton.Left);
+
+            Assert.Null(view.DropMenu);
+
+            // A drag that was called off can be started again.
+            Drag(window, Row(list, "merged"), target);
+
+            Assert.NotNull(view.DropMenu);
+
+            view.DropMenu?.Close();
+            window.Close();
+        });
+    }
+
     [Fact]
     public void AClick_SelectsTheRowAndStartsNothing()
     {
