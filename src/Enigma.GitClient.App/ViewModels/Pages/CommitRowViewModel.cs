@@ -9,17 +9,6 @@ using Enigma.GitClient.Core.Refs;
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
 /// <summary>
-/// One badge on a history row.
-/// </summary>
-/// <param name="Kind">What the reference is, which decides the badge's colour and icon.</param>
-/// <param name="Name">The reference's short name.</param>
-/// <param name="IsCurrent">Whether this is the branch HEAD points at.</param>
-/// <remarks>
-/// Flattened out of <see cref="GitRef"/> on purpose: only <see cref="GitBranch"/> knows whether it
-/// is checked out, and a template bound to the base type cannot see that — which is exactly how the
-/// checked-out branch ends up drawn like any other.
-/// </remarks>
-/// <summary>
 /// The commands a history row's context menu runs.
 /// </summary>
 /// <remarks>
@@ -27,11 +16,8 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// so the row carries the commands and the bindings stay plain.
 /// </remarks>
 /// <param name="CreateBranchHere">Creates a branch starting at the row's commit.</param>
-/// <param name="CheckoutBranch">Checks out the branch pointing at the row's commit.</param>
-/// <param name="DeleteBranch">Deletes the branch pointing at the row's commit.</param>
 /// <param name="CheckoutCommit">Checks out the row's commit itself, detaching HEAD.</param>
 /// <param name="CreateTagHere">Creates a tag at the row's commit.</param>
-/// <param name="MergeBranch">Merges the branch pointing at the row's commit into the current one.</param>
 /// <param name="Activate">
 /// What a double-click does: show what the row changed — or, on the uncommitted-changes row, ask
 /// the shell for the working directory. It no longer checks anything out: moving HEAD is the
@@ -46,18 +32,32 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// What that menu item is called. A function rather than a string, because which host a repository
 /// is on is read after the rows are built, and the menu asks for the label when it opens.
 /// </param>
+/// <param name="Branches">
+/// What each branch on the row offers, from its own badge and from the row's menu. What used to be
+/// here — check out, merge and delete "the" branch of a row — acted on whichever branch came first,
+/// which on a line carrying several was not necessarily the one the reader meant.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
-    AsyncRelayCommand<CommitRowViewModel> CheckoutBranch,
-    AsyncRelayCommand<CommitRowViewModel> DeleteBranch,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
     AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
-    AsyncRelayCommand<CommitRowViewModel> MergeBranch,
     RelayCommand<CommitRowViewModel> Activate,
     RelayCommand<CommitRowViewModel> ShowChanges,
     AsyncRelayCommand<CommitRowViewModel>? OpenOnHost = null,
-    Func<string?>? HostLabel = null);
+    Func<string?>? HostLabel = null,
+    HistoryBranchCommands? Branches = null);
 
+/// <summary>
+/// One badge on a history row.
+/// </summary>
+/// <param name="Kind">What the reference is, which decides the badge's colour and icon.</param>
+/// <param name="Name">The reference's short name.</param>
+/// <param name="IsCurrent">Whether this is the branch HEAD points at.</param>
+/// <remarks>
+/// Flattened out of <see cref="GitRef"/> on purpose: only <see cref="GitBranch"/> knows whether it
+/// is checked out, and a template bound to the base type cannot see that — which is exactly how the
+/// checked-out branch ends up drawn like any other.
+/// </remarks>
 public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 {
     /// <summary>
@@ -85,6 +85,7 @@ public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
 public sealed class CommitRowViewModel : ViewModelBase
 {
     private static readonly IReadOnlyList<RefBadgeItem> NoRefs = [];
+    private static readonly IReadOnlyList<HistoryBranchViewModel> NoBranches = [];
 
     /// <summary>
     /// Initialises a row for a commit.
@@ -115,6 +116,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commit = commit;
         Row = row;
         Refs = Project(refs);
+        (Branches, Badges) = BuildBranches(Refs, commands?.Branches);
         IsHead = isHead;
 
         Subject = commit.Subject;
@@ -132,6 +134,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commands = commands;
         Row = row;
         Refs = NoRefs;
+        Branches = NoBranches;
+        Badges = [];
         IsUncommitted = true;
         Subject = "Uncommitted changes";
         AuthorName = string.Empty;
@@ -176,91 +180,114 @@ public sealed class CommitRowViewModel : ViewModelBase
     public bool CanOpenOnHost => Commit is not null && Commands?.HostLabel?.Invoke() is { Length: > 0 };
 
     /// <summary>
-    /// Gets the branch the row's menu acts on: the local branch pointing here if there is one, the
-    /// remote branch otherwise, empty when no branch points at this commit.
+    /// Gets the branches pointing at this commit, each with what it offers, in badge order.
+    /// </summary>
+    public IReadOnlyList<HistoryBranchViewModel> Branches { get; }
+
+    /// <summary>
+    /// Gets what the badge strip draws: a branch as a <see cref="HistoryBranchViewModel"/>, which
+    /// brings its own menu, and every other reference as a plain <see cref="RefBadgeItem"/>.
     /// </summary>
     /// <remarks>
-    /// A row can carry several branches. The menu names one, which is the case that actually
-    /// happens; the branches page is where every branch is reachable by name.
+    /// Two item types rather than one with an optional menu: a tag badge carrying an empty menu would
+    /// still swallow the right-click that should open the line's.
     /// </remarks>
-    public string BranchName
-    {
-        get
-        {
-            foreach (RefBadgeItem badge in Refs)
-            {
-                if (badge.Kind == GitRefKind.LocalBranch)
-                {
-                    return badge.Name;
-                }
-            }
-
-            foreach (RefBadgeItem badge in Refs)
-            {
-                if (badge.Kind == GitRefKind.RemoteBranch)
-                {
-                    return badge.Name;
-                }
-            }
-
-            return string.Empty;
-        }
-    }
+    public IReadOnlyList<object> Badges { get; }
 
     /// <summary>Gets a value indicating whether a branch points at this commit.</summary>
-    public bool HasBranch => BranchName.Length > 0;
-
-    /// <summary>Gets a value indicating whether the branch the menu acts on lives on a remote.</summary>
-    public bool IsBranchRemote
+    public bool HasBranch
     {
         get
         {
             foreach (RefBadgeItem badge in Refs)
             {
-                if (badge.Kind == GitRefKind.LocalBranch)
+                if (badge.Kind is GitRefKind.LocalBranch or GitRefKind.RemoteBranch)
                 {
-                    return false;
+                    return true;
                 }
             }
 
-            return BranchName.Length > 0;
+            return false;
         }
     }
 
-    /// <summary>Gets the header of the menu item that checks this row's branch out.</summary>
-    public string CheckoutHeader => $"Check out \"{BranchName}\"";
-
-    /// <summary>Gets the header of the menu item that deletes this row's branch.</summary>
-    public string DeleteBranchHeader => $"Delete \"{BranchName}\"…";
-
-    /// <summary>Gets the header of the menu item that merges this row's branch in.</summary>
-    public string MergeHeader => $"Merge \"{BranchName}\" into the current branch";
-
     /// <summary>
-    /// Gets a value indicating whether this row's branch is one the current branch could merge —
-    /// merging a branch into itself means nothing.
+    /// Gets the line's menu, built as it is asked for: the commit's own actions, then — for every
+    /// branch on the line — "set it as the merge source" and, when there is a source, "merge it into
+    /// this one".
     /// </summary>
-    public bool CanMergeBranch => HasBranch && CanCheckoutBranch;
-
-    /// <summary>
-    /// Gets a value indicating whether the row's branch can be checked out — it must not already be
-    /// the one HEAD is on.
-    /// </summary>
-    public bool CanCheckoutBranch
+    /// <remarks>
+    /// Data rather than markup because how many items there are depends on how many branches the line
+    /// carries. Every item is listed even when its command would refuse, so the menu keeps its shape;
+    /// the command's own can-execute greys it out.
+    /// </remarks>
+    public IReadOnlyList<HistoryMenuEntry> MenuEntries
     {
         get
         {
-            foreach (RefBadgeItem badge in Refs)
+            List<HistoryMenuEntry> entries = [];
+
+            if (Commands is not { } commands)
             {
-                if (badge.Kind == GitRefKind.LocalBranch && badge.IsCurrent)
+                return entries;
+            }
+
+            entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this));
+            entries.Add(HistoryMenuEntry.Separator);
+            entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this));
+            entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this));
+            entries.Add(HistoryMenuEntry.Separator);
+            entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this));
+
+            if (Branches.Count > 0 && commands.Branches is { } branchCommands)
+            {
+                entries.Add(HistoryMenuEntry.Separator);
+
+                foreach (HistoryBranchViewModel branch in Branches)
                 {
-                    return false;
+                    if (branch.CanSetAsMergeSource)
+                    {
+                        entries.Add(new HistoryMenuEntry(branch.SetAsMergeSourceHeader, branchCommands.SetAsMergeSource, branch));
+                    }
+                }
+
+                foreach (HistoryBranchViewModel branch in Branches)
+                {
+                    if (branch.CanMergeInto)
+                    {
+                        entries.Add(new HistoryMenuEntry(branch.MergeIntoHeader, branchCommands.MergeInto, branch));
+                    }
                 }
             }
 
-            return HasBranch;
+            if (CanOpenOnHost && commands.OpenOnHost is { } openOnHost)
+            {
+                entries.Add(HistoryMenuEntry.Separator);
+                entries.Add(new HistoryMenuEntry(HostLabel, openOnHost, this));
+            }
+
+            return entries;
         }
     }
+
+    /// <summary>
+    /// Re-announces everything the page's merge source decides: the line's menu, and each branch's.
+    /// </summary>
+    public void NotifyMergeSourceChanged()
+    {
+        foreach (HistoryBranchViewModel branch in Branches)
+        {
+            branch.NotifyMergeSourceChanged();
+        }
+
+        OnPropertyChanged(nameof(MenuEntries));
+    }
+
+    /// <summary>
+    /// Asks the line's menu to be built again, which is what the view does as it opens: the host's
+    /// name, for one, is only known after the rows were built.
+    /// </summary>
+    public void RefreshMenu() => OnPropertyChanged(nameof(MenuEntries));
 
     /// <summary>
     /// Gets a value indicating whether there is anything to show in the badge strip.
@@ -373,6 +400,35 @@ public sealed class CommitRowViewModel : ViewModelBase
                 [new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour)],
                 lane),
             commands);
+
+    private static (IReadOnlyList<HistoryBranchViewModel> Branches, IReadOnlyList<object> Badges) BuildBranches(
+        IReadOnlyList<RefBadgeItem> refs,
+        HistoryBranchCommands? commands)
+    {
+        if (refs.Count == 0)
+        {
+            return (NoBranches, []);
+        }
+
+        List<HistoryBranchViewModel> branches = [];
+        List<object> badges = new(refs.Count);
+
+        foreach (RefBadgeItem badge in refs)
+        {
+            if (commands is not null && badge.Kind is GitRefKind.LocalBranch or GitRefKind.RemoteBranch)
+            {
+                HistoryBranchViewModel branch = new(badge, commands);
+                branches.Add(branch);
+                badges.Add(branch);
+            }
+            else
+            {
+                badges.Add(badge);
+            }
+        }
+
+        return (branches.Count == 0 ? NoBranches : branches, badges);
+    }
 
     private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs)
     {

@@ -42,7 +42,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IBranchOperations _branchOperations;
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
-    private readonly IMergeOperations _mergeOperations;
+    private readonly IBranchDropOperations _dropOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
@@ -76,7 +76,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IBranchOperations branchOperations,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
-        IMergeOperations mergeOperations,
+        IBranchDropOperations dropOperations,
         IHostLinkService links,
         ISettingsService settings,
         DiffViewerViewModel diff,
@@ -92,7 +92,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(branchOperations);
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
-        ArgumentNullException.ThrowIfNull(mergeOperations);
+        ArgumentNullException.ThrowIfNull(dropOperations);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
@@ -108,7 +108,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _branchOperations = branchOperations;
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
-        _mergeOperations = mergeOperations;
+        _dropOperations = dropOperations;
         _links = links;
         _settings = settings;
         _tools = tools;
@@ -116,17 +116,32 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
 
+        ClearMergeSourceCommand = new RelayCommand(() => MergeSource = null, () => MergeSource is not null);
+
+        BranchCommands = new HistoryBranchCommands(
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnCheckoutBranchAsync, branch => branch?.CanCheckout == true),
+            new RelayCommand<HistoryBranchViewModel>(OnSetMergeSource, branch => branch?.CanSetAsMergeSource == true),
+            ClearMergeSourceCommand,
+            new AsyncRelayCommand<HistoryBranchViewModel>(
+                branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.WhenPossible),
+                branch => branch?.CanMergeInto == true),
+            new AsyncRelayCommand<HistoryBranchViewModel>(
+                branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.Only),
+                branch => branch?.CanMergeInto == true),
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnMergeIntoCurrentAsync, branch => branch?.CanMergeIntoCurrent == true),
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnDeleteBranchAsync, branch => branch?.CanDelete == true),
+            () => MergeSource,
+            () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null);
+
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
-            new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutBranchAsync, row => row?.CanCheckoutBranch == true),
-            new AsyncRelayCommand<CommitRowViewModel>(OnDeleteBranchAsync, row => row?.HasBranch == true),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
-            new AsyncRelayCommand<CommitRowViewModel>(OnMergeBranchAsync, row => row?.CanMergeBranch == true),
             new RelayCommand<CommitRowViewModel>(OnActivate, row => row is not null),
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
-            () => _links.HostName);
+            () => _links.HostName,
+            BranchCommands);
 
         Files = new ChangedFilesPanelViewModel(interop, settings)
         {
@@ -319,6 +334,49 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the commands every row's context menu runs.
     /// </summary>
     public HistoryRowCommands RowCommands { get; }
+
+    /// <summary>
+    /// Gets the commands every branch on every row offers, from its badge and from the row's menu.
+    /// </summary>
+    public HistoryBranchCommands BranchCommands { get; }
+
+    /// <summary>
+    /// Gets or sets the branch the next merge takes its work from, or <see langword="null"/> when none
+    /// has been chosen.
+    /// </summary>
+    /// <remarks>
+    /// It stays until it is cleared, replaced, or its branch disappears: a merge does not use it up,
+    /// so one source can be merged into several branches in a row. The toolbar shows it, which is what
+    /// keeps a state that outlives a menu from being a state nobody can see.
+    /// </remarks>
+    public MergeSource? MergeSource
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(HasMergeSource));
+                OnPropertyChanged(nameof(MergeSourceSummary));
+                ClearMergeSourceCommand.NotifyCanExecuteChanged();
+                NotifyBranchCommands();
+
+                foreach (CommitRowViewModel row in Rows)
+                {
+                    row.NotifyMergeSourceChanged();
+                }
+            }
+        }
+    }
+
+    /// <summary>Gets a value indicating whether a merge source is chosen.</summary>
+    public bool HasMergeSource => MergeSource is not null;
+
+    /// <summary>Gets what the toolbar says about the merge source.</summary>
+    public string MergeSourceSummary => MergeSource is { } source ? $"Merge source: {source.Name}" : string.Empty;
+
+    /// <summary>Gets the command that forgets the merge source.</summary>
+    public RelayCommand ClearMergeSourceCommand { get; }
 
     /// <summary>
     /// Raised when the uncommitted-changes row is activated, so the shell can move to the page that
@@ -546,8 +604,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <inheritdoc />
+    protected override void OnRepositoryStateRefreshed() => ForgetAMergeSourceThatIsGone();
+
+    /// <inheritdoc />
     protected override void OnRepositoryChanged()
     {
+        // A branch of the repository that was open is nothing to merge in this one.
+        MergeSource = null;
+
         _ = _links.RefreshAsync();
 
         base.OnRepositoryChanged();
@@ -884,30 +948,121 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnCheckoutBranchAsync(CommitRowViewModel? row)
+    // ---------------------------------------------------------------- a branch's own menu
+
+    private async Task OnCheckoutBranchAsync(HistoryBranchViewModel? branch)
     {
-        if (row is null || !row.HasBranch)
+        if (branch is null)
         {
             return;
         }
 
-        if (await _branchOperations.CheckoutAsync(row.BranchName, row.IsBranchRemote).ConfigureAwait(true))
+        if (await _branchOperations.CheckoutAsync(branch.Name, branch.IsRemote).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }
     }
 
-    private async Task OnDeleteBranchAsync(CommitRowViewModel? row)
+    private async Task OnDeleteBranchAsync(HistoryBranchViewModel? branch)
     {
-        if (row is null || !row.HasBranch)
+        if (branch is null)
         {
             return;
         }
 
-        if (await _branchOperations.DeleteAsync(row.BranchName, row.IsBranchRemote).ConfigureAwait(true))
+        if (await _branchOperations.DeleteAsync(branch.Name, branch.IsRemote).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }
+    }
+
+    private void OnSetMergeSource(HistoryBranchViewModel? branch)
+    {
+        if (branch is not null)
+        {
+            MergeSource = new MergeSource(branch.Name, branch.IsRemote);
+        }
+    }
+
+    /// <summary>
+    /// Merges the merge source into a branch, through the same flow as dropping one branch on another:
+    /// the branch is checked out first when it is not the current one.
+    /// </summary>
+    private async Task OnMergeIntoAsync(HistoryBranchViewModel? branch, Core.Merging.FastForwardMode fastForward)
+    {
+        if (branch?.MergeRequest is not { } request || !BranchDropOperations.CanDrop(request))
+        {
+            return;
+        }
+
+        if (await _dropOperations.DropAsync(request, fastForward).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Merges a branch into the one checked out — the question the row's menu used to be able to ask of
+    /// only one branch per line.
+    /// </summary>
+    private async Task OnMergeIntoCurrentAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch is null || !branch.CanMergeIntoCurrent || BranchCommands.CurrentBranch() is not { } current)
+        {
+            return;
+        }
+
+        BranchDropRequest request = new(branch.Name, branch.IsRemote, current, false, true);
+
+        if (await _dropOperations.DropAsync(request).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Forgets the merge source once its branch is no longer in the repository — deleted, renamed, or
+    /// pruned away by a fetch.
+    /// </summary>
+    private void ForgetAMergeSourceThatIsGone()
+    {
+        if (MergeSource is not { } source)
+        {
+            NotifyBranchCommands();
+            return;
+        }
+
+        RefCollection refs = RepositoryContext.Refs;
+        bool exists = false;
+
+        foreach (GitBranch branch in source.IsRemote ? refs.RemoteBranches : refs.LocalBranches)
+        {
+            if (string.Equals(branch.ShortName, source.Name, StringComparison.Ordinal))
+            {
+                exists = true;
+                break;
+            }
+        }
+
+        if (!exists)
+        {
+            MergeSource = null;
+        }
+
+        NotifyBranchCommands();
+    }
+
+    /// <summary>
+    /// Re-evaluates what every branch command allows: the merge source and HEAD both decide it.
+    /// </summary>
+    private void NotifyBranchCommands()
+    {
+        BranchCommands.Checkout.NotifyCanExecuteChanged();
+        BranchCommands.SetAsMergeSource.NotifyCanExecuteChanged();
+        BranchCommands.MergeInto.NotifyCanExecuteChanged();
+        BranchCommands.FastForwardInto.NotifyCanExecuteChanged();
+        BranchCommands.MergeIntoCurrent.NotifyCanExecuteChanged();
+        BranchCommands.Delete.NotifyCanExecuteChanged();
     }
 
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
@@ -933,21 +1088,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         IsDiffViewOpen = true;
-    }
-
-    private async Task OnMergeBranchAsync(CommitRowViewModel? row)
-    {
-        if (row is null || !row.CanMergeBranch)
-        {
-            return;
-        }
-
-        Core.Merging.MergeOutcome outcome = await _mergeOperations.MergeAsync(row.BranchName).ConfigureAwait(true);
-
-        if (outcome.ChangedAnything)
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
     }
 
     private async Task OnCheckoutCommitAsync(CommitRowViewModel? row)
