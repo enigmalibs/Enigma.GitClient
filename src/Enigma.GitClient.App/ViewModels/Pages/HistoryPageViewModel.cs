@@ -43,6 +43,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IBranchDropOperations _dropOperations;
+    private readonly ISyncOperations _syncOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
@@ -65,6 +66,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
+    /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
+    /// <param name="syncOperations">Pulls and pushes a branch from its badge.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
@@ -77,6 +80,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IBranchDropOperations dropOperations,
+        ISyncOperations syncOperations,
         IHostLinkService links,
         ISettingsService settings,
         DiffViewerViewModel diff,
@@ -93,6 +97,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
+        ArgumentNullException.ThrowIfNull(syncOperations);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
@@ -109,6 +114,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _dropOperations = dropOperations;
+        _syncOperations = syncOperations;
         _links = links;
         _settings = settings;
         _tools = tools;
@@ -130,6 +136,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 branch => branch?.CanMergeInto == true),
             new AsyncRelayCommand<HistoryBranchViewModel>(OnMergeIntoCurrentAsync, branch => branch?.CanMergeIntoCurrent == true),
             new AsyncRelayCommand<HistoryBranchViewModel>(OnDeleteBranchAsync, branch => branch?.CanDelete == true),
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnPullBranchAsync, branch => branch?.CanSynchronise == true),
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnPushBranchAsync, branch => branch?.CanSynchronise == true),
             () => MergeSource,
             () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null);
 
@@ -976,6 +984,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
+    private async Task OnPullBranchAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch is { CanSynchronise: true } && await _syncOperations.PullBranchAsync(branch.Name).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnPushBranchAsync(HistoryBranchViewModel? branch)
+    {
+        // A push moves the remote-tracking branch, which the graph draws too.
+        if (branch is { CanSynchronise: true } && await _syncOperations.PushBranchAsync(branch.Name).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
     private void OnSetMergeSource(HistoryBranchViewModel? branch)
     {
         if (branch is not null)
@@ -1063,6 +1088,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         BranchCommands.FastForwardInto.NotifyCanExecuteChanged();
         BranchCommands.MergeIntoCurrent.NotifyCanExecuteChanged();
         BranchCommands.Delete.NotifyCanExecuteChanged();
+        BranchCommands.Pull.NotifyCanExecuteChanged();
+        BranchCommands.Push.NotifyCanExecuteChanged();
     }
 
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;

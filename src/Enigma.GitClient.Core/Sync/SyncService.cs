@@ -105,6 +105,32 @@ public interface ISyncService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Brings a local branch that is not checked out up to date with a remote branch, by
+    /// fast-forwarding it and nothing else.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="remoteBranch">The branch's name on the remote — <c>main</c>, not <c>origin/main</c>.</param>
+    /// <param name="localBranch">The local branch to move.</param>
+    /// <param name="progress">Receives git's own progress reports.</param>
+    /// <param name="cancellationToken">Cancels the transfer.</param>
+    /// <returns>A task that completes once the branch has moved.</returns>
+    /// <remarks>
+    /// A pull merges into HEAD, so it can only ever update the branch that is checked out. This is
+    /// the other branches' pull: <c>git fetch &lt;remote&gt; &lt;branch&gt;:&lt;local&gt;</c>, which
+    /// git performs only when it is a fast-forward — a branch that has diverged is refused, never
+    /// merged, and HEAD never moves. git also refuses it for the branch that is checked out, which is
+    /// what <see cref="PullAsync"/> is for.
+    /// </remarks>
+    Task FastForwardBranchAsync(
+        RepositoryHandle repository,
+        string remote,
+        string remoteBranch,
+        string localBranch,
+        IProgress<SyncProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Pushes to a remote.
     /// </summary>
     /// <param name="repository">The repository to write from.</param>
@@ -206,6 +232,38 @@ public sealed class SyncService : ISyncService
     }
 
     /// <summary>
+    /// Builds the argument vector that fast-forwards a local branch from a remote one.
+    /// </summary>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="remoteBranch">The branch's name on the remote.</param>
+    /// <param name="localBranch">The local branch to move.</param>
+    /// <returns>The arguments.</returns>
+    /// <remarks>
+    /// Both sides are written as full ref names, so neither can be read as an option, and the refspec
+    /// never starts with <c>+</c> — which would make it a forced update, the one thing this must not be.
+    /// </remarks>
+    public static List<string> BuildFastForwardArguments(string remote, string remoteBranch, string localBranch)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteBranch);
+        ArgumentException.ThrowIfNullOrWhiteSpace(localBranch);
+
+        if (remote.StartsWith('-'))
+        {
+            throw new ArgumentException("A remote's name cannot start with a dash.", nameof(remote));
+        }
+
+        return
+        [
+            "fetch",
+            "--progress",
+            "--no-tags",
+            remote,
+            $"refs/heads/{remoteBranch}:refs/heads/{localBranch}",
+        ];
+    }
+
+    /// <summary>
     /// Builds the argument vector for a push.
     /// </summary>
     /// <param name="request">What to push, and how.</param>
@@ -266,6 +324,16 @@ public sealed class SyncService : ISyncService
         IProgress<SyncProgress>? progress = null,
         CancellationToken cancellationToken = default)
         => RunAsync(repository, BuildPullArguments(remote, branch, strategy), progress, cancellationToken);
+
+    /// <inheritdoc />
+    public Task FastForwardBranchAsync(
+        RepositoryHandle repository,
+        string remote,
+        string remoteBranch,
+        string localBranch,
+        IProgress<SyncProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+        => RunAsync(repository, BuildFastForwardArguments(remote, remoteBranch, localBranch), progress, cancellationToken);
 
     /// <inheritdoc />
     public Task PushAsync(

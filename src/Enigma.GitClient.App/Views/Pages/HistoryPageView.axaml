@@ -376,6 +376,15 @@
                                       IsVisible="{Binding CanMergeIntoCurrent}"
                                       Command="{Binding Commands.MergeIntoCurrent}"
                                       CommandParameter="{Binding}" />
+                            <Separator IsVisible="{Binding CanSynchronise}" />
+                            <MenuItem Header="{Binding PullHeader}"
+                                      IsVisible="{Binding CanSynchronise}"
+                                      Command="{Binding Commands.Pull}"
+                                      CommandParameter="{Binding}" />
+                            <MenuItem Header="{Binding PushHeader}"
+                                      IsVisible="{Binding CanSynchronise}"
+                                      Command="{Binding Commands.Push}"
+                                      CommandParameter="{Binding}" />
                             <Separator />
                             <MenuItem Header="{Binding DeleteHeader}"
                                       Command="{Binding Commands.Delete}"

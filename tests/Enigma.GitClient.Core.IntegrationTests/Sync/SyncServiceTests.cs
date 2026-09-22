@@ -74,6 +74,56 @@ public sealed class SyncServiceTests : IAsyncLifetime
         return new TemporaryRepository(_workspace, path, isBare: false);
     }
 
+    // ---------------------------------------------------------------- a branch that is not checked out
+
+    /// <summary>
+    /// A local <c>feature</c> tracking <c>origin/feature</c>, with <c>main</c> checked out, and a second
+    /// clone that has moved <c>origin/feature</c> one commit on.
+    /// </summary>
+    private async Task<TemporaryRepository> BuildFeatureBehindItsRemoteAsync()
+    {
+        await _local.GitAsync("branch", "feature");
+        await _local.GitAsync("push", "--set-upstream", "origin", "feature");
+
+        TemporaryRepository other = await BuildSecondCloneAsync();
+        await other.GitAsync("checkout", "feature");
+        await other.CommitFileAsync("src/feature.txt", "from elsewhere\n", "Work on the feature elsewhere");
+        await other.GitAsync("push", "origin", "feature");
+
+        return other;
+    }
+
+    [Fact]
+    public async Task FastForwardBranchAsync_MovesABranchThatIsNotCheckedOutAndLeavesHeadAlone()
+    {
+        TemporaryRepository other = await BuildFeatureBehindItsRemoteAsync();
+        string remoteTip = await other.ResolveAsync("feature");
+        string headBefore = await _local.ResolveAsync("HEAD");
+
+        await Sync.FastForwardBranchAsync(_handle, "origin", "feature", "feature", null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(remoteTip, await _local.ResolveAsync("feature"));
+        Assert.Equal(headBefore, await _local.ResolveAsync("HEAD"));
+        Assert.Equal("main", await _local.GitLineAsync("symbolic-ref", "--short", "HEAD"));
+    }
+
+    [Fact]
+    public async Task FastForwardBranchAsync_RefusesABranchThatHasDivergedAndMergesNothing()
+    {
+        await BuildFeatureBehindItsRemoteAsync();
+
+        await _local.GitAsync("checkout", "feature");
+        await _local.CommitFileAsync("src/local.txt", "from here\n", "Work on the feature here");
+        string localTip = await _local.ResolveAsync("feature");
+        await _local.GitAsync("checkout", "main");
+
+        SyncException failure = await Assert.ThrowsAsync<SyncException>(
+            () => Sync.FastForwardBranchAsync(_handle, "origin", "feature", "feature", null, TestContext.Current.CancellationToken));
+
+        Assert.Equal(SyncFailureKind.NonFastForward, failure.Failure.Kind);
+        Assert.Equal(localTip, await _local.ResolveAsync("feature"));
+    }
+
     // ---------------------------------------------------------------- remotes
 
     [Fact]
