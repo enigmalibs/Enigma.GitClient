@@ -1,6 +1,6 @@
 # FEATURE-7514 — Branches, tags and remotes as dialogs
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-22-home-window-merges-refresh
@@ -71,7 +71,7 @@ destination combo box with **Merge**, **Merge fast-forward** and **Clear** butto
 ## PHASE02 — A manual merge section
 
 **Branch:** `feature/feature-7514-phase02-manual-merge`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7514-PHASE02.md`
 
 ### Steps
 
