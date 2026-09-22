@@ -53,6 +53,29 @@ public interface ISyncOperations
     /// <param name="branch">The local branch's name.</param>
     /// <returns><see langword="true"/> when the push finished.</returns>
     Task<bool> PushBranchAsync(string branch);
+
+    /// <summary>
+    /// Fetches from every remote without showing anything: no overlay, no notification, whatever
+    /// happens — the automatic refresh's fetch.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the transfer.</param>
+    /// <returns>What happened; a failure is logged, never reported.</returns>
+    Task<QuietFetchResult> FetchQuietlyAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// What a quiet fetch came to.
+/// </summary>
+public enum QuietFetchResult
+{
+    /// <summary>The fetch ran, and the reference state was re-read after it.</summary>
+    Fetched,
+
+    /// <summary>Another operation held the repository, so nothing ran.</summary>
+    Skipped,
+
+    /// <summary>The fetch ran and failed — offline, no credentials, a remote gone.</summary>
+    Failed,
 }
 
 /// <summary>
@@ -210,6 +233,37 @@ public sealed class SyncOperations : ISyncOperations
                 "Pushed",
                 $"The remote has the commits of \"{branch}\".")
             .ConfigureAwait(true);
+    }
+
+    /// <inheritdoc />
+    public async Task<QuietFetchResult> FetchQuietlyAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            bool ran = await _context
+                .TryRunExclusiveAsync(
+                    (handle, token) => _sync.FetchAsync(handle, null, true, true, null, token),
+                    true,
+                    cancellationToken)
+                .ConfigureAwait(true);
+
+            return ran ? QuietFetchResult.Fetched : QuietFetchResult.Skipped;
+        }
+        catch (OperationCanceledException)
+        {
+            return QuietFetchResult.Skipped;
+        }
+        catch (SyncException exception)
+        {
+            // Debug, not warning: an offline laptop fails this every few seconds.
+            _logger.LogDebug(exception, "The automatic fetch failed: {Kind}", exception.Failure.Kind);
+            return QuietFetchResult.Failed;
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogDebug(exception, "The automatic fetch failed");
+            return QuietFetchResult.Failed;
+        }
     }
 
     /// <summary>

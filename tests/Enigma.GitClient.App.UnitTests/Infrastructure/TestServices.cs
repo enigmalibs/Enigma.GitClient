@@ -95,6 +95,11 @@ public sealed class TestServices : IDisposable
         services.RemoveAll<IInstanceLauncher>();
         services.AddSingleton<IInstanceLauncher, RecordingInstanceLauncher>();
 
+        // A clock that only moves when a test says so: the automatic refresh must not fire in the
+        // middle of a test that is about something else.
+        services.RemoveAll<TimeProvider>();
+        services.AddSingleton<TimeProvider, ManualTimeProvider>();
+
         // The clipboard and the file manager belong to whoever is running the tests.
         services.RemoveAll<ISystemInterop>();
         services.AddSingleton<ISystemInterop, RecordingSystemInterop>();
@@ -128,6 +133,11 @@ public sealed class TestServices : IDisposable
     /// Gets the recording launcher, for asserting which new instance a page asked for.
     /// </summary>
     public RecordingInstanceLauncher Launcher => (RecordingInstanceLauncher)Get<IInstanceLauncher>();
+
+    /// <summary>
+    /// Gets the manual clock the automatic refresh runs on.
+    /// </summary>
+    public ManualTimeProvider Clock => (ManualTimeProvider)Get<TimeProvider>();
 
     /// <summary>
     /// Gets the scripted dialog service, for choosing what a dialog answers.

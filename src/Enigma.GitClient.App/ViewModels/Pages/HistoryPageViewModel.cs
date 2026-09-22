@@ -57,6 +57,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private CommitLogQuery _query = new();
     private CancellationTokenSource? _loadCancellation;
     private bool _hasMore;
+    private bool _refreshPending;
 
     /// <summary>
     /// Initialises a new instance.
@@ -325,7 +326,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public bool IsDiffViewOpen
     {
         get;
-        set => SetProperty(ref field, value);
+        set
+        {
+            if (SetProperty(ref field, value) && !value && _refreshPending)
+            {
+                // What the automatic refresh found while the diffs had the page, drawn now that the
+                // graph is back.
+                _refreshPending = false;
+                _ = ReloadKeepingPlaceAsync();
+            }
+        }
     }
 
     /// <summary>
@@ -584,6 +594,108 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             await ReloadAsync().ConfigureAwait(true);
         }
+    }
+
+    /// <summary>
+    /// Raised just before the rows are replaced by a refresh that keeps the reader's place, so the view
+    /// can remember where its list was scrolled to.
+    /// </summary>
+    public event EventHandler? RowsReplacing;
+
+    /// <summary>
+    /// Raised once those rows are in, so the view can put its list back where it was.
+    /// </summary>
+    public event EventHandler? RowsReplaced;
+
+    /// <summary>
+    /// Brings the history up to date after an automatic refresh — and does nothing at all when there
+    /// is nothing new to draw.
+    /// </summary>
+    /// <param name="referencesMoved">Whether HEAD or any reference moved in that refresh.</param>
+    /// <returns>A task that completes once the history is current.</returns>
+    /// <remarks>
+    /// <para>
+    /// Nothing new is the common case — an automatic refresh runs every few seconds — and redrawing
+    /// then would throw the reader's place away for nothing. Besides the references, the one thing that
+    /// changes what the graph draws is whether there is uncommitted work, which is the row at its top.
+    /// </para>
+    /// <para>
+    /// When something did change, the same number of commits is read again, the selected commit is
+    /// selected again, and the view keeps its scroll offset. While the diffs have the page, the redraw
+    /// waits for them to close: replacing the rows would take away the commit they describe.
+    /// </para>
+    /// </remarks>
+    public async Task RefreshInPlaceAsync(bool referencesMoved)
+    {
+        RepositoryHandle? repository = RepositoryContext.Repository;
+
+        if (repository is null || IsBusy)
+        {
+            return;
+        }
+
+        bool dirty = await IsWorkingTreeDirtyAsync(repository, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+        bool showsUncommitted = Rows.Count > 0 && Rows[0].IsUncommitted;
+
+        if (!referencesMoved && dirty == showsUncommitted)
+        {
+            return;
+        }
+
+        if (IsDiffViewOpen)
+        {
+            _refreshPending = true;
+            return;
+        }
+
+        await ReloadKeepingPlaceAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Reads the history again as far as it had been read, and puts the selection back on the same
+    /// commit.
+    /// </summary>
+    private async Task ReloadKeepingPlaceAsync()
+    {
+        string? selectedSha = SelectedRow?.Sha;
+        bool uncommittedSelected = SelectedRow?.IsUncommitted ?? false;
+
+        int loaded = 0;
+
+        foreach (CommitRowViewModel row in Rows)
+        {
+            if (!row.IsUncommitted)
+            {
+                loaded++;
+            }
+        }
+
+        RowsReplacing?.Invoke(this, EventArgs.Empty);
+
+        // As many commits as were on screen, in one read: "load more" is the reader's, and a refresh
+        // must not quietly undo it.
+        int pageSize = _query.Take;
+        _query = _query with { Take = Math.Max(pageSize, loaded) };
+
+        try
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _query = _query with { Take = pageSize };
+        }
+
+        foreach (CommitRowViewModel row in Rows)
+        {
+            if (uncommittedSelected ? row.IsUncommitted : selectedSha is { Length: > 0 } && row.Sha == selectedSha)
+            {
+                SelectedRow = row;
+                break;
+            }
+        }
+
+        RowsReplaced?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
