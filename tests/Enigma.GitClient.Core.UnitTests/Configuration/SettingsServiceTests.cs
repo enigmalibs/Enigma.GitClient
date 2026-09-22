@@ -126,6 +126,50 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal("/opt/git/bin/git", stored.GitExecutablePath);
     }
 
+    // ---------------------------------------------------------------- the automatic refresh
+
+    [Fact]
+    public void TheAutomaticRefresh_RunsEveryFifteenSecondsByDefault()
+        => Assert.Equal(15, AppSettings.Defaults.AutoRefreshSeconds);
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(-3, 0)]
+    [InlineData(1, 5)]
+    [InlineData(15, 15)]
+    [InlineData(99_999, 3600)]
+    public void TheAutomaticRefresh_IsOffAtZeroAndOtherwiseKeptToASaneInterval(int stored, int expected)
+        => Assert.Equal(expected, (AppSettings.Defaults with { AutoRefreshSeconds = stored }).Normalised().AutoRefreshSeconds);
+
+    [Fact]
+    public async Task AFileWrittenBeforeTheAutomaticRefreshExisted_GetsTheDefault()
+    {
+        System.IO.Directory.CreateDirectory(_root);
+        await System.IO.File.WriteAllTextAsync(
+            File_,
+            $"{{ \"version\": {AppSettings.CurrentVersion.ToString(CultureInfo.InvariantCulture)}, \"theme\": \"Dark\" }}",
+            TestContext.Current.CancellationToken);
+
+        using SettingsService settings = Build();
+        AppSettings loaded = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(ThemePreference.Dark, loaded.Theme);
+        Assert.Equal(15, loaded.AutoRefreshSeconds);
+    }
+
+    [Fact]
+    public async Task TheAutomaticRefresh_SurvivesARestart()
+    {
+        using (SettingsService first = Build())
+        {
+            first.Update(current => current with { AutoRefreshSeconds = 0 });
+            await first.FlushAsync(TestContext.Current.CancellationToken);
+        }
+
+        using SettingsService second = Build();
+        Assert.Equal(0, (await second.LoadAsync(TestContext.Current.CancellationToken)).AutoRefreshSeconds);
+    }
+
     [Fact]
     public async Task TheFileIsReadableByAPersonAndNamesItsVersion()
     {
