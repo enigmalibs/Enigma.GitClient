@@ -21,15 +21,6 @@ public enum ShellPage
     /// <summary>The working directory.</summary>
     Changes,
 
-    /// <summary>Branches.</summary>
-    Branches,
-
-    /// <summary>Tags.</summary>
-    Tags,
-
-    /// <summary>Remotes, synchronisation and stashes.</summary>
-    Remotes,
-
     /// <summary>The conflicts of a merge in progress, which is the only time it exists.</summary>
     Conflicts,
 
@@ -120,9 +111,6 @@ public sealed class ShellNavigation : IShellNavigation
 
         Add(navigation.Items, ShellPage.History, "History", PhosphorIcon.GitCommit, typeof(HistoryPageView), typeof(HistoryPageViewModel));
         Add(navigation.Items, ShellPage.Changes, "Changes", PhosphorIcon.FileText, typeof(ChangesPageView), typeof(ChangesPageViewModel));
-        Add(navigation.Items, ShellPage.Branches, "Branches", PhosphorIcon.GitBranch, typeof(BranchesPageView), typeof(BranchesPageViewModel));
-        Add(navigation.Items, ShellPage.Tags, "Tags", PhosphorIcon.Tag, typeof(TagsPageView), typeof(TagsPageViewModel));
-        Add(navigation.Items, ShellPage.Remotes, "Remotes", PhosphorIcon.CloudArrowUp, typeof(RemotesPageView), typeof(RemotesPageViewModel));
 
         // Built like the others, but held back until a merge conflicts.
         _conflicts = Build(ShellPage.Conflicts, "Conflicts", PhosphorIcon.GitMerge, typeof(ConflictResolutionPageView), typeof(ConflictResolutionPageViewModel));

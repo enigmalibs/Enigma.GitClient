@@ -58,6 +58,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
+            services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
