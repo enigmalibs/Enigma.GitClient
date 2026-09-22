@@ -1,14 +1,12 @@
 using System;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
-using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.DependencyInjection;
 using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.Views;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,13 +66,13 @@ public partial class App : Application
             settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);
             settings.Changed += (_, e) => DiffTypography.Apply(e.Settings);
 
-            MainWindow window = services.GetRequiredService<MainWindow>();
-            window.DataContext = services.GetRequiredService<MainWindowViewModel>();
-
-            RegisterHosts(services, window);
-
-            desktop.MainWindow = window;
+            // The start window, or — for a path on the command line — the repository window. The
+            // last window to close ends the application, which is what lets one window hand over to
+            // the other without the lifetime reading the moment in between as the end.
+            desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
             desktop.Exit += OnExit;
+
+            _ = services.GetRequiredService<IAppWindows>().StartAsync(FirstArgument(desktop.Args));
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -141,20 +139,12 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Hands the window's overlay hosts and storage provider to the services that need them. All
-    /// five run before the window is shown: a service whose host is still unregistered throws the
-    /// moment a page asks it for a dialog, an overlay or a picker.
+    /// The first command-line argument, which is a repository to open straight away.
     /// </summary>
-    /// <param name="services">The container.</param>
-    /// <param name="window">The main window.</param>
-    private static void RegisterHosts(IServiceProvider services, MainWindow window)
-    {
-        services.GetRequiredService<IContentDialogService>().RegisterHost(window.HostDialog);
-        services.GetRequiredService<IOverlayService>().RegisterHost(window.HostOverlay);
-        services.GetRequiredService<IInfoBarService>().RegisterHost(window.HostInfoBar);
-        services.GetRequiredService<IFileDialogService>().SetStorageProvider(window.StorageProvider);
-        services.GetRequiredService<IFolderDialogService>().SetStorageProvider(window.StorageProvider);
-    }
+    /// <param name="args">The command line.</param>
+    /// <returns>The argument, or <see langword="null"/> when there is none.</returns>
+    internal static string? FirstArgument(string[]? args)
+        => args is { Length: > 0 } && args[0].Trim() is { Length: > 0 } first ? first : null;
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {

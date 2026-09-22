@@ -107,12 +107,12 @@ public sealed class MainWindowShellTests
 
             // Guards the cycle that would otherwise build the rail twice: a page ViewModel depends
             // on IShellNavigation, so navigating from that service's constructor resolves it again.
-            Assert.Equal(6, viewModel.Navigation.Items.Count);
+            Assert.Equal(5, viewModel.Navigation.Items.Count);
 
-            // Tags sit directly under Branches: they are the other half of what the branches page
-            // used to be, and the two reference pages belong next to each other.
+            // No Repositories: choosing one is the start window's business. Tags sit directly under
+            // Branches: they are the other half of what the branches page used to be.
             Assert.Equal(
-                ["Repositories", "History", "Changes", "Branches", "Tags", "Remotes"],
+                ["History", "Changes", "Branches", "Tags", "Remotes"],
                 viewModel.Navigation.Items.Select(item => item.Header));
 
             Assert.Equal(
@@ -131,7 +131,7 @@ public sealed class MainWindowShellTests
     }
 
     [Fact]
-    public void Shell_StartsOnTheRepositoriesPage()
+    public void Shell_StartsOnTheHistoryPage()
     {
         _fixture.Run(() =>
         {
@@ -140,8 +140,8 @@ public sealed class MainWindowShellTests
             IShellNavigation shell = provider.GetRequiredService<IShellNavigation>();
             shell.Start();
 
-            Assert.Equal(ShellPage.Repositories, shell.Current);
-            Assert.Equal("Repositories", shell.Service.SelectedItem?.Header);
+            Assert.Equal(ShellPage.History, shell.Current);
+            Assert.Equal("History", shell.Service.SelectedItem?.Header);
         });
     }
 

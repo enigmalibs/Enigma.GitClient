@@ -10,19 +10,17 @@ using Enigma.GitClient.App.ViewModels;
 namespace Enigma.GitClient.App.Views;
 
 /// <summary>
-/// The repository window: the repository strip, the navigation rail, the page area and the three
-/// overlay hosts.
+/// The window the application opens on: the repositories, the integrations and the settings.
 /// </summary>
-public partial class MainWindow : Window, IHostWindow
+public partial class StartWindow : Window, IHostWindow
 {
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
-    public MainWindow()
+    public StartWindow()
     {
-        // The generated InitializeComponent is used deliberately: it is what assigns the x:Name'd
-        // ContentDialog, Overlay and InfoBar host fields. A hand-written one that only calls
-        // AvaloniaXamlLoader.Load leaves them null, and every dialog then fails at runtime.
+        // The generated InitializeComponent, for the same reason as MainWindow's: it assigns the
+        // x:Name'd host fields.
         InitializeComponent();
         Opened += OnOpened;
     }
@@ -40,11 +38,11 @@ public partial class MainWindow : Window, IHostWindow
     /// The one place an <c>async void</c> is allowed: a UI event handler that immediately delegates
     /// to a Task-returning method.
     /// </summary>
-    private async void OnOpened(object? sender, EventArgs e) => await RunStartupChecksAsync();
+    private async void OnOpened(object? sender, EventArgs e) => await InitialiseAsync();
 
-    private async Task RunStartupChecksAsync()
+    private async Task InitialiseAsync()
     {
-        if (DataContext is MainWindowViewModel viewModel)
+        if (DataContext is StartWindowViewModel viewModel)
         {
             await viewModel.InitialiseAsync();
         }

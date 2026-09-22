@@ -1,6 +1,6 @@
 # FEATURE-5431 — A start window, one repository per window
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-22-home-window-merges-refresh
@@ -44,7 +44,7 @@ Enigma.GitClient can run at the same time, each on its own repository.
 ## PHASE01 — Start window and repository window
 
 **Branch:** `feature/feature-5431-phase01-start-window`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5431-PHASE01.md`
 
 ### Steps
 

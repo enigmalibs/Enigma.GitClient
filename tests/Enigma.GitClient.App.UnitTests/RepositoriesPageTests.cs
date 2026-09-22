@@ -64,14 +64,13 @@ public sealed class RepositoriesPageTests
                 .InitAsync(Path.Combine(root, "my-repo"), "main");
 
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
-            IShellNavigation shell = services.Get<IShellNavigation>();
             IRepositoryContext context = services.Get<IRepositoryContext>();
 
             bool opened = await page.OpenPathAsync(repository.WorkTreePath);
 
             Assert.True(opened);
             Assert.Equal("my-repo", context.Repository?.Name);
-            Assert.Equal(ShellPage.History, shell.Current);
+            Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
             Assert.Contains(page.Recent, entry => entry.Name == "my-repo");
         });
     }
