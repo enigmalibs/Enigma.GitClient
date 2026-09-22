@@ -19,6 +19,7 @@ public partial class HistoryPageView : UserControl
 {
     private HistoryPageViewModel? _page;
     private ScrollViewer? _listScroll;
+    private Vector? _offsetBeforeReplace;
 
     /// <summary>
     /// Initialises a new instance.
@@ -112,6 +113,8 @@ public partial class HistoryPageView : UserControl
         if (_page is not null)
         {
             _page.PropertyChanged -= OnPagePropertyChanged;
+            _page.RowsReplacing -= OnRowsReplacing;
+            _page.RowsReplaced -= OnRowsReplaced;
         }
 
         _page = DataContext as HistoryPageViewModel;
@@ -119,10 +122,43 @@ public partial class HistoryPageView : UserControl
         if (_page is not null)
         {
             _page.PropertyChanged += OnPagePropertyChanged;
+            _page.RowsReplacing += OnRowsReplacing;
+            _page.RowsReplaced += OnRowsReplaced;
         }
 
         // Another page's columns know nothing of this list's width.
         ReportViewport();
+    }
+
+    // ---------------------------------------------------------------- keeping the reader's place
+
+    /// <summary>
+    /// Remembers where the list was scrolled to before a refresh replaces its rows.
+    /// </summary>
+    private void OnRowsReplacing(object? sender, EventArgs e) => _offsetBeforeReplace = _listScroll?.Offset;
+
+    /// <summary>
+    /// Puts the list back where it was once the new rows are in. Posted, because the rows are measured
+    /// in the layout pass that follows, and an offset past what has been measured is clamped away.
+    /// </summary>
+    private void OnRowsReplaced(object? sender, EventArgs e)
+    {
+        if (_offsetBeforeReplace is not { } offset)
+        {
+            return;
+        }
+
+        _offsetBeforeReplace = null;
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (_listScroll is not null)
+                {
+                    _listScroll.Offset = offset;
+                }
+            },
+            DispatcherPriority.Loaded);
     }
 
     // ---------------------------------------------------------------- leaving the diffs

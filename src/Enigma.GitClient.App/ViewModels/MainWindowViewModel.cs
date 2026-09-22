@@ -39,6 +39,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
+    /// <param name="autoRefresh">
+    /// Fetches and refreshes the repository on its own; the graph is told what each refresh found.
+    /// </param>
     public MainWindowViewModel(
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
@@ -48,7 +51,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         HistoryPageViewModel history,
         ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
-        IMergeOperations merges)
+        IMergeOperations merges,
+        IAutoRefreshService autoRefresh)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
@@ -59,10 +63,16 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(conflicts);
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
+        ArgumentNullException.ThrowIfNull(autoRefresh);
 
         // The graph's uncommitted row belongs to the working directory page, and the shell is the
         // only thing that knows how to get there.
         history.WorkingDirectoryRequested += (_, _) => shell.GoTo(ShellPage.Changes);
+
+        // The pages that follow the repository's state (branches, tags, changes, this strip) follow
+        // the refresh on their own; the graph is told, because redrawing it is what costs the reader
+        // their place, and it only does so when there is something new.
+        autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed);
 
         Shell = shell;
         Conflicts = conflicts;

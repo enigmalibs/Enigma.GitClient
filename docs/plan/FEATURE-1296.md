@@ -1,6 +1,6 @@
 # FEATURE-1296 — Automatic fetch and refresh
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-22-home-window-merges-refresh
@@ -54,7 +54,7 @@ default. The interval is configurable in the settings, and the automatic refresh
 ## PHASE02 — The periodic fetch and refresh
 
 **Branch:** `feature/feature-1296-phase02-auto-refresh`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1296-PHASE02.md`
 
 ### Steps
 

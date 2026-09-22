@@ -1,3 +1,4 @@
+using System;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
@@ -9,6 +10,7 @@ using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.App.Views.Panels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Enigma.GitClient.App.DependencyInjection;
 
@@ -59,6 +61,10 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
+
+            // The automatic refresh measures its interval on this clock, which a test replaces.
+            services.TryAddSingleton(TimeProvider.System);
+            services.AddSingleton<IAutoRefreshService, AutoRefreshService>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
