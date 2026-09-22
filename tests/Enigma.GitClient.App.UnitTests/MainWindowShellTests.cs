@@ -107,12 +107,12 @@ public sealed class MainWindowShellTests
 
             // Guards the cycle that would otherwise build the rail twice: a page ViewModel depends
             // on IShellNavigation, so navigating from that service's constructor resolves it again.
-            Assert.Equal(5, viewModel.Navigation.Items.Count);
+            Assert.Equal(2, viewModel.Navigation.Items.Count);
 
-            // No Repositories: choosing one is the start window's business. Tags sit directly under
-            // Branches: they are the other half of what the branches page used to be.
+            // No Repositories: choosing one is the start window's business. No Branches, Tags or
+            // Remotes either: they open as dialogs from the history's toolbar.
             Assert.Equal(
-                ["History", "Changes", "Branches", "Tags", "Remotes"],
+                ["History", "Changes"],
                 viewModel.Navigation.Items.Select(item => item.Header));
 
             Assert.Equal(

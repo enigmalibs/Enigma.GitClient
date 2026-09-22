@@ -226,6 +226,11 @@ public sealed class AppWindows : IAppWindows
             _services.GetRequiredService<IInfoBarService>().RegisterHost(hosts.InfoBarHost);
         }
 
+        if (window is IToolDialogHostWindow tools)
+        {
+            _services.GetRequiredService<IToolDialogService>().RegisterHost(tools.ToolDialogHost);
+        }
+
         _services.GetRequiredService<IFileDialogService>().SetStorageProvider(window.StorageProvider);
         _services.GetRequiredService<IFolderDialogService>().SetStorageProvider(window.StorageProvider);
     }

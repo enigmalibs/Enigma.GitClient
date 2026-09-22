@@ -45,6 +45,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IMergeOperations _mergeOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
+    private readonly IToolDialogService _tools;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -64,6 +65,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
+    /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
@@ -79,6 +81,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ISettingsService settings,
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
+        IToolDialogService tools,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -94,6 +97,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -107,6 +111,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _mergeOperations = mergeOperations;
         _links = links;
         _settings = settings;
+        _tools = tools;
 
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
@@ -140,6 +145,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         RefreshCommand = new AsyncRelayCommand(ReloadAsync, () => IsRepositoryOpen && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
+
+        OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
+        OpenTagsCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Tags), () => IsRepositoryOpen);
+        OpenRemotesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Remotes), () => IsRepositoryOpen);
 
         SelectedScope = ScopeOptions[0];
     }
@@ -491,6 +500,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that puts the diffs away and brings the graph back.</summary>
     public RelayCommand CloseDiffViewCommand { get; }
 
+    /// <summary>Gets the command that opens the branches over the history.</summary>
+    public AsyncRelayCommand OpenBranchesCommand { get; }
+
+    /// <summary>Gets the command that opens the tags over the history.</summary>
+    public AsyncRelayCommand OpenTagsCommand { get; }
+
+    /// <summary>Gets the command that opens the remotes over the history.</summary>
+    public AsyncRelayCommand OpenRemotesCommand { get; }
+
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
     {
@@ -535,7 +553,32 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         base.OnRepositoryChanged();
 
         RefreshCommand.NotifyCanExecuteChanged();
+        OpenBranchesCommand.NotifyCanExecuteChanged();
+        OpenTagsCommand.NotifyCanExecuteChanged();
+        OpenRemotesCommand.NotifyCanExecuteChanged();
         _ = ReloadAsync();
+    }
+
+    /// <summary>
+    /// Opens one of the secondary pages over the history, and re-reads the history afterwards when
+    /// what it did moved a reference.
+    /// </summary>
+    /// <param name="dialog">Which page.</param>
+    /// <returns>A task that completes once the dialog has closed.</returns>
+    /// <remarks>
+    /// Only when something moved: closing the tags dialog after reading it is not a reason to lose
+    /// the selected line.
+    /// </remarks>
+    private async Task OpenToolAsync(ToolDialog dialog)
+    {
+        RepositoryStateStamp before = RepositoryStateStamp.Of(RepositoryContext);
+
+        await _tools.ShowAsync(dialog).ConfigureAwait(true);
+
+        if (IsRepositoryOpen && before != RepositoryStateStamp.Of(RepositoryContext))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
     }
 
     /// <inheritdoc />

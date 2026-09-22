@@ -197,6 +197,16 @@
       <ContentControl Content="{Binding Navigation.CurrentPage}" />
     </DockPanel>
 
+    <!--
+      The tool dialogs — branches, tags, remotes — on a host of their own, under the three overlay
+      hosts: the confirmations their operations ask for are shown on HostDialog, above them, and the
+      tool dialog is still there when the question has been answered. Sized from the window in
+      code-behind, because a list needs a bounded height to scroll in.
+    -->
+    <contentDialog:ContentDialog x:Name="ToolDialog"
+                                 DialogMinWidth="640"
+                                 DialogMaxWidth="1100" />
+
     <!-- The three overlay hosts must be the last children of the root panel. -->
     <contentDialog:ContentDialog x:Name="HostDialog"
                                  DialogMinWidth="380"
