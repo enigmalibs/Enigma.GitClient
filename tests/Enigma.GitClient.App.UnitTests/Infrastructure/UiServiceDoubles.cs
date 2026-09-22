@@ -265,3 +265,22 @@ public sealed class RecordingAppWindows : IAppWindows
         Current = kind;
     }
 }
+
+/// <summary>
+/// An <see cref="IInstanceLauncher"/> that records what it was asked to start instead of starting it.
+/// </summary>
+public sealed class RecordingInstanceLauncher : IInstanceLauncher
+{
+    /// <summary>Gets the repository paths each launch was given, <see langword="null"/> for none.</summary>
+    public List<string?> Launched { get; } = [];
+
+    /// <summary>Gets or sets a value indicating whether a launch pretends to succeed.</summary>
+    public bool Succeeds { get; set; } = true;
+
+    /// <inheritdoc />
+    public bool Launch(string? repositoryPath = null)
+    {
+        Launched.Add(repositoryPath);
+        return Succeeds;
+    }
+}

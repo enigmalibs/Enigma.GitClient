@@ -273,7 +273,8 @@ public sealed class SettingsService : ISettingsService, IDisposable
             string file = _paths.GetConfigurationFile(FileName);
             string json = JsonSerializer.Serialize(Current, SerializerOptions);
 
-            await File.WriteAllTextAsync(file, json, new UTF8Encoding(false), cancellationToken)
+            // Atomically: another instance of the application may be reading the same file.
+            await AtomicFile.WriteAllTextAsync(file, json, new UTF8Encoding(false), cancellationToken)
                 .ConfigureAwait(false);
 
             Writes++;

@@ -105,6 +105,13 @@
                           AutomationProperties.Name="Forget this repository">
                     <ei:Icon Kind="X" Classes="row" />
                   </Button>
+                  <Button Classes="toolbar"
+                          Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenInNewWindowCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="Open in a new window, beside this one"
+                          AutomationProperties.Name="Open this repository in a new window">
+                    <ei:Icon Kind="ArrowSquareOut" Classes="row" />
+                  </Button>
                   <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenRecentCommand}"
                           CommandParameter="{Binding}"
                           Content="Open"
