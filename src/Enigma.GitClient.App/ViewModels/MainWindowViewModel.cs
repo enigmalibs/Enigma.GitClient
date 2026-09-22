@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
@@ -20,6 +21,8 @@ namespace Enigma.GitClient.App.ViewModels;
 public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly IAppWindows _windows;
+    private readonly IInstanceLauncher _launcher;
+    private readonly IInfoBarService _infoBar;
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
     private bool _initialised;
@@ -30,6 +33,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="shell">Owns the navigation rail and the pages on it.</param>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="windows">Takes the reader back to the start window when the repository is closed.</param>
+    /// <param name="launcher">Starts another instance, for another repository beside this one.</param>
+    /// <param name="infoBar">Says so when that instance could not be started.</param>
     /// <param name="history">The graph page, whose uncommitted row navigates to the changes page.</param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
@@ -38,6 +43,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
         IAppWindows windows,
+        IInstanceLauncher launcher,
+        IInfoBarService infoBar,
         HistoryPageViewModel history,
         ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
@@ -46,6 +53,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
         ArgumentNullException.ThrowIfNull(windows);
+        ArgumentNullException.ThrowIfNull(launcher);
+        ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(conflicts);
         ArgumentNullException.ThrowIfNull(sync);
@@ -59,6 +68,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         Conflicts = conflicts;
         RepositoryContext = repositoryContext;
         _windows = windows;
+        _launcher = launcher;
+        _infoBar = infoBar;
 
         _sync = sync;
         _merges = merges;
@@ -73,6 +84,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ResolveConflictsCommand = new RelayCommand(() => Shell.GoTo(ShellPage.Conflicts), () => IsMergeInProgress);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
         CloseRepositoryCommand = new RelayCommand(OnCloseRepository);
+        NewWindowCommand = new AsyncRelayCommand(OnNewWindowAsync);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
     }
@@ -165,6 +177,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Gets the command that closes the repository and goes back to the start window.
     /// </summary>
     public RelayCommand CloseRepositoryCommand { get; }
+
+    /// <summary>
+    /// Gets the command that starts another instance on its start window, for working on another
+    /// repository beside this one.
+    /// </summary>
+    public AsyncRelayCommand NewWindowCommand { get; }
 
     /// <summary>Gets the command that fetches from every remote.</summary>
     public AsyncRelayCommand FetchCommand { get; }
@@ -329,6 +347,19 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         RepositoryContext.Close();
         _windows.ShowStart();
+    }
+
+    private async Task OnNewWindowAsync()
+    {
+        if (!_launcher.Launch())
+        {
+            await _infoBar.ShowAsync(bar =>
+            {
+                bar.Title = "No new window";
+                bar.Message = "Another instance of Enigma.GitClient could not be started.";
+                bar.Severity = InfoBarSeverity.Error;
+            }).ConfigureAwait(true);
+        }
     }
 
     private async Task OnRefreshAsync()

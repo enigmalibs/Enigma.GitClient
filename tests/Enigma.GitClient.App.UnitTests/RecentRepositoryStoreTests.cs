@@ -272,4 +272,29 @@ public sealed class RecentRepositoryStoreTests : IDisposable
             Path.Combine(paths.ConfigurationDirectory, "settings.json"),
             paths.GetConfigurationFile("settings.json"));
     }
+
+    [Fact]
+    public async Task TwoStoresOverTheSameDirectory_SeeEachOthersWrites()
+    {
+        // Two running instances of the application share this file.
+        RecentRepositoryStore other = new(new AppPaths(_root), NullLogger<RecentRepositoryStore>.Instance);
+
+        await _store.TouchAsync(File("one"), "one", TestContext.Current.CancellationToken);
+        await other.TouchAsync(File("two"), "two", TestContext.Current.CancellationToken);
+
+        IReadOnlyList<RecentRepository> entries = await _store.GetAllAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["two", "one"], entries.Select(entry => entry.Name));
+    }
+
+    [Fact]
+    public async Task Writing_LeavesOnlyTheDocumentBehind()
+    {
+        await _store.TouchAsync(File("one"), "one", TestContext.Current.CancellationToken);
+        await _store.SetPinnedAsync(File("one"), true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [RecentRepositoryStore.FileName],
+            Directory.GetFiles(_root).Select(Path.GetFileName));
+    }
 }

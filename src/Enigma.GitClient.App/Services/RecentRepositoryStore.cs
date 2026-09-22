@@ -289,7 +289,9 @@ public sealed class RecentRepositoryStore : IRecentRepositoryStore
 
         try
         {
-            File.WriteAllText(
+            // Atomically: every running instance shares this file, and a reader that caught a
+            // plain write half-way through would take the list for a corrupt one and move it aside.
+            AtomicFile.WriteAllText(
                 file,
                 JsonSerializer.Serialize(new StoredDocument(CurrentVersion, [.. entries]), SerializerOptions));
         }

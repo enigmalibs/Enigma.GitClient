@@ -33,6 +33,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IInfoBarService _infoBar;
     private readonly IRepositoryOpener _opener;
     private readonly IAppWindows _windows;
+    private readonly IInstanceLauncher _launcher;
     private readonly IServiceProvider _services;
     private readonly ILogger<RepositoriesPageViewModel> _logger;
 
@@ -50,6 +51,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="infoBar">Reports outcomes.</param>
     /// <param name="opener">Opens a repository by path, the same way the command line does.</param>
     /// <param name="windows">Swaps this window for the repository window once a repository is open.</param>
+    /// <param name="launcher">Starts another instance on a repository, for working on two at once.</param>
     /// <param name="services">Resolves the dialog views.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public RepositoriesPageViewModel(
@@ -62,6 +64,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IInfoBarService infoBar,
         IRepositoryOpener opener,
         IAppWindows windows,
+        IInstanceLauncher launcher,
         IServiceProvider services,
         ILogger<RepositoriesPageViewModel> logger)
         : base(repositoryContext)
@@ -74,6 +77,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(opener);
         ArgumentNullException.ThrowIfNull(windows);
+        ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -85,6 +89,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _infoBar = infoBar;
         _opener = opener;
         _windows = windows;
+        _launcher = launcher;
         _services = services;
         _logger = logger;
 
@@ -92,6 +97,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         CloneCommand = new AsyncRelayCommand(OnCloneAsync, () => IsNotBusy);
         CreateCommand = new AsyncRelayCommand(OnCreateAsync, () => IsNotBusy);
         OpenRecentCommand = new AsyncRelayCommand<RecentRepository>(OnOpenRecentAsync, _ => IsNotBusy);
+        OpenInNewWindowCommand = new AsyncRelayCommand<RecentRepository>(OnOpenInNewWindowAsync);
         ForgetRecentCommand = new AsyncRelayCommand<RecentRepository>(OnForgetRecentAsync);
         TogglePinCommand = new AsyncRelayCommand<RecentRepository>(OnTogglePinAsync);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
@@ -118,6 +124,12 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that opens a repository from the recent list.</summary>
     public AsyncRelayCommand<RecentRepository> OpenRecentCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens a repository from the recent list in another instance, leaving
+    /// this window as it is.
+    /// </summary>
+    public AsyncRelayCommand<RecentRepository> OpenInNewWindowCommand { get; }
 
     /// <summary>Gets the command that forgets a repository.</summary>
     public AsyncRelayCommand<RecentRepository> ForgetRecentCommand { get; }
@@ -210,6 +222,33 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
 
         await RunBusyAsync(() => OpenPathAsync(entry.Path)).ConfigureAwait(true);
+    }
+
+    private async Task OnOpenInNewWindowAsync(RecentRepository? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        if (!entry.Exists)
+        {
+            await ReportAsync(
+                    "That repository has moved",
+                    $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
+                    InfoBarSeverity.Warning)
+                .ConfigureAwait(true);
+            return;
+        }
+
+        if (!_launcher.Launch(entry.Path))
+        {
+            await ReportAsync(
+                    "No new window",
+                    "Another instance of Enigma.GitClient could not be started.",
+                    InfoBarSeverity.Error)
+                .ConfigureAwait(true);
+        }
     }
 
     private async Task OnForgetRecentAsync(RecentRepository? entry)

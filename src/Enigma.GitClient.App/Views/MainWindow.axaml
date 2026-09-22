@@ -105,6 +105,12 @@
                     Background="{DynamicResource EnigmaBorderSubtleBrush}" />
 
             <Button Classes="toolbar"
+                    Command="{Binding NewWindowCommand}"
+                    ToolTip.Tip="Open another window, for another repository"
+                    AutomationProperties.Name="Open a new window">
+              <ei:Icon Kind="AppWindow" Classes="toolbar" />
+            </Button>
+            <Button Classes="toolbar"
                     Command="{Binding CloseRepositoryCommand}"
                     ToolTip.Tip="Close this repository and go back to the start window"
                     AutomationProperties.Name="Close the repository">
