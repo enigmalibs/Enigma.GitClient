@@ -259,6 +259,72 @@
       </Grid>
     </Border>
 
+    <!--
+      The manual merge: another way to say "merge this into that" than dropping one row on another,
+      for when the two branches are far apart in the list or the reader would rather choose by name.
+      Any branch can be the source; only a local one can be written to.
+    -->
+    <Border DockPanel.Dock="Top"
+            Name="ManualMerge"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,10"
+            IsVisible="{Binding IsRepositoryOpen}">
+      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal" Spacing="8">
+          <ei:Icon Kind="GitMerge" Classes="row dim" VerticalAlignment="Center" />
+          <TextBlock Text="Merge"
+                     VerticalAlignment="Center"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Classes="dim" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Grid.Column="0"
+                   Text="Source"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Classes="dim" />
+        <ComboBox Grid.Row="1" Grid.Column="1"
+                  Name="MergeSource"
+                  HorizontalAlignment="Stretch"
+                  ItemsSource="{Binding MergeSources}"
+                  SelectedItem="{Binding SelectedMergeSource, Mode=TwoWay}"
+                  PlaceholderText="The branch to bring over"
+                  AutomationProperties.Name="The branch to merge from" />
+
+        <TextBlock Grid.Row="1" Grid.Column="2"
+                   Text="into"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Classes="dim" />
+        <ComboBox Grid.Row="1" Grid.Column="3"
+                  Name="MergeDestination"
+                  HorizontalAlignment="Stretch"
+                  ItemsSource="{Binding MergeDestinations}"
+                  SelectedItem="{Binding SelectedMergeDestination, Mode=TwoWay}"
+                  PlaceholderText="The branch to write to"
+                  AutomationProperties.Name="The branch to merge into" />
+
+        <StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="6">
+          <Button Classes="accent"
+                  Command="{Binding ManualMergeCommand}"
+                  Content="Merge"
+                  ToolTip.Tip="Merge the source into the destination, checking the destination out first when it is not the current branch"
+                  AutomationProperties.Name="Merge the source into the destination" />
+          <Button Command="{Binding ManualFastForwardCommand}"
+                  Content="Merge fast-forward"
+                  ToolTip.Tip="The same, refusing anything but a fast-forward"
+                  AutomationProperties.Name="Fast-forward the destination to the source" />
+          <Button Command="{Binding ClearManualMergeCommand}"
+                  Content="Clear"
+                  AutomationProperties.Name="Clear the source and the destination" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
     <Grid>
 
       <controls:EmptyState IconKind="GitBranch"

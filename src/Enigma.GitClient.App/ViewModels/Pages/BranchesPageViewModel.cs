@@ -259,6 +259,10 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private readonly IMergeOperations _mergeOperations;
     private readonly IBranchDropOperations _dropOperations;
 
+    // Every branch the manual merge can name, by name, as the last rebuild read them — the lists
+    // are names, and what a merge needs to know about each (remote? checked out?) is looked up here.
+    private Dictionary<string, GitBranch> _branchesByName = new(StringComparer.Ordinal);
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
@@ -301,6 +305,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             drop => OnDropAsync(drop?.Reversed(), FastForwardMode.WhenPossible),
             drop => CanDrop(drop?.Reversed()));
 
+        ManualMergeCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.WhenPossible), CanManualMerge);
+        ManualFastForwardCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.Only), CanManualMerge);
+        ClearManualMergeCommand = new RelayCommand(OnClearManualMerge, () => SelectedMergeSource is not null || SelectedMergeDestination is not null);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -412,6 +419,71 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </remarks>
     public AsyncRelayCommand<BranchDrop> MergeReversedDropCommand { get; }
 
+    // ---------------------------------------------------------------- the manual merge
+
+    /// <summary>
+    /// Gets every branch the manual merge can take its work from: the local ones, then the remote
+    /// ones.
+    /// </summary>
+    /// <remarks>
+    /// From the whole repository, not from the filtered list: the filter box narrows what the list
+    /// shows, and a merge source is chosen by name here.
+    /// </remarks>
+    public ObservableCollection<string> MergeSources { get; } = [];
+
+    /// <summary>
+    /// Gets every branch the manual merge can write to — local ones only: a remote branch is changed
+    /// by pushing, not by merging into it here.
+    /// </summary>
+    public ObservableCollection<string> MergeDestinations { get; } = [];
+
+    /// <summary>Gets or sets the branch whose work the manual merge brings over.</summary>
+    public string? SelectedMergeSource
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                NotifyManualMerge();
+            }
+        }
+    }
+
+    /// <summary>Gets or sets the branch the manual merge writes to.</summary>
+    public string? SelectedMergeDestination
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                NotifyManualMerge();
+            }
+        }
+    }
+
+    /// <summary>Gets the command that merges the chosen source into the chosen destination.</summary>
+    public AsyncRelayCommand ManualMergeCommand { get; }
+
+    /// <summary>Gets the command that does the same, refusing anything but a fast-forward.</summary>
+    public AsyncRelayCommand ManualFastForwardCommand { get; }
+
+    /// <summary>Gets the command that empties both choices.</summary>
+    public RelayCommand ClearManualMergeCommand { get; }
+
+    /// <summary>
+    /// Gets what the manual merge would ask the operations service to do, or <see langword="null"/>
+    /// while either end is missing.
+    /// </summary>
+    public BranchDropRequest? ManualMergeRequest
+        => SelectedMergeSource is { } source
+            && SelectedMergeDestination is { } destination
+            && _branchesByName.TryGetValue(source, out GitBranch? from)
+            && _branchesByName.TryGetValue(destination, out GitBranch? to)
+                ? new BranchDropRequest(from.ShortName, from.IsRemote, to.ShortName, to.IsRemote, to.IsCurrent)
+                : null;
+
     /// <summary>
     /// Answers whether a drop is one the page would carry out, which is what the drag asks on every
     /// pointer move.
@@ -454,6 +526,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <inheritdoc />
     protected override void OnRepositoryStateRefreshed() => Rebuild();
+
+    /// <inheritdoc />
+    protected override void OnBusyChanged()
+    {
+        ManualMergeCommand.NotifyCanExecuteChanged();
+        ManualFastForwardCommand.NotifyCanExecuteChanged();
+    }
 
     /// <summary>
     /// Rebuilds the groups from whatever the repository context last read.
@@ -528,6 +607,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         }
 
         RestoreSelection(selectedBranch);
+        RebuildMergeChoices(refs);
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
@@ -600,6 +680,68 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         => SelectedItem = branch is null
             ? null
             : Items.OfType<BranchRowViewModel>().FirstOrDefault(row => row.FullName == branch);
+
+    /// <summary>
+    /// Refills the manual merge's two lists from the repository, keeping each choice by name when
+    /// its branch is still there.
+    /// </summary>
+    /// <param name="refs">Every reference the repository has.</param>
+    /// <remarks>
+    /// Captured before the lists are emptied, for the same reason as the list's own selection: an
+    /// emptied list tells its combo box the choice is gone, and the combo box says so back.
+    /// </remarks>
+    private void RebuildMergeChoices(RefCollection refs)
+    {
+        string? source = SelectedMergeSource;
+        string? destination = SelectedMergeDestination;
+
+        _branchesByName = new Dictionary<string, GitBranch>(StringComparer.Ordinal);
+        MergeSources.Clear();
+        MergeDestinations.Clear();
+
+        foreach (GitBranch branch in refs.LocalBranches)
+        {
+            _branchesByName.TryAdd(branch.ShortName, branch);
+            MergeSources.Add(branch.ShortName);
+            MergeDestinations.Add(branch.ShortName);
+        }
+
+        foreach (GitBranch branch in refs.RemoteBranches)
+        {
+            _branchesByName.TryAdd(branch.ShortName, branch);
+            MergeSources.Add(branch.ShortName);
+        }
+
+        SelectedMergeSource = source is not null && MergeSources.Contains(source) ? source : null;
+        SelectedMergeDestination = destination is not null && MergeDestinations.Contains(destination) ? destination : null;
+
+        NotifyManualMerge();
+    }
+
+    private void NotifyManualMerge()
+    {
+        OnPropertyChanged(nameof(ManualMergeRequest));
+        ManualMergeCommand.NotifyCanExecuteChanged();
+        ManualFastForwardCommand.NotifyCanExecuteChanged();
+        ClearManualMergeCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanManualMerge()
+        => IsNotBusy && ManualMergeRequest is { } request && BranchDropOperations.CanDrop(request);
+
+    private async Task OnManualMergeAsync(FastForwardMode fastForward)
+    {
+        if (ManualMergeRequest is { } request)
+        {
+            await Run(() => _dropOperations.DropAsync(request, fastForward)).ConfigureAwait(true);
+        }
+    }
+
+    private void OnClearManualMerge()
+    {
+        SelectedMergeSource = null;
+        SelectedMergeDestination = null;
+    }
 
     private bool Matches(GitBranch branch) => Matches(branch.ShortName);
 
