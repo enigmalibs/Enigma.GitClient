@@ -451,9 +451,9 @@ public sealed class TagsAndCheckoutTests
             CommitRowViewModel row = history.Rows.Single(candidate => candidate.Subject == "Add the readme");
 
             Assert.True(row.HasBranch);
-            Assert.Equal("topic", row.BranchName);
+            HistoryBranchViewModel topic = row.Branches.Single(branch => branch.Name == "topic");
 
-            await row.Commands!.CheckoutBranch.ExecuteAsync(row);
+            await topic.Commands.Checkout.ExecuteAsync(topic);
 
             // The menu is the only way HEAD moves now, and it moves onto the branch itself.
             Assert.Equal("topic", services.Get<IRepositoryContext>().Head?.BranchName);

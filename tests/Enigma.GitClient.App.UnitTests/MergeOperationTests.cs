@@ -331,10 +331,11 @@ public sealed class MergeOperationTests
 
             CommitRowViewModel row = history.Rows.Single(candidate => candidate.Subject == "Their work");
 
-            Assert.True(row.CanMergeBranch);
-            Assert.Contains("theirs", row.MergeHeader, StringComparison.Ordinal);
+            HistoryBranchViewModel theirs = row.Branches.Single(branch => branch.IsLocal);
+            Assert.True(theirs.CanMergeIntoCurrent);
+            Assert.Contains("theirs", theirs.MergeIntoCurrentHeader, StringComparison.Ordinal);
 
-            await row.Commands!.MergeBranch.ExecuteAsync(row);
+            await theirs.Commands.MergeIntoCurrent.ExecuteAsync(theirs);
 
             Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src", "theirs.txt")));
         });
@@ -356,9 +357,10 @@ public sealed class MergeOperationTests
 
             CommitRowViewModel head = history.Rows.Single(row => row.IsHead);
 
-            Assert.Equal("main", head.BranchName);
-            Assert.False(head.CanMergeBranch);
-            Assert.False(head.Commands!.MergeBranch.CanExecute(head));
+            HistoryBranchViewModel main = head.Branches.Single(branch => branch.IsLocal);
+            Assert.Equal("main", main.Name);
+            Assert.False(main.CanMergeIntoCurrent);
+            Assert.False(main.Commands.MergeIntoCurrent.CanExecute(main));
         });
     }
 }

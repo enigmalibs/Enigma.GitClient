@@ -1,6 +1,6 @@
 # FEATURE-3507 — Branch actions in the history
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-22-home-window-merges-refresh
@@ -42,7 +42,7 @@ another branch ("Merge `<source>` into `<destination>`"). They can also **pull**
 ## PHASE01 — Merge source and merge into
 
 **Branch:** `feature/feature-3507-phase01-merge-source`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3507-PHASE01.md`
 
 ### Steps
 
