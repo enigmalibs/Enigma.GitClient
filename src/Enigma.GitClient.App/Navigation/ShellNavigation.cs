@@ -11,13 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace Enigma.GitClient.App.Navigation;
 
 /// <summary>
-/// The pages the navigation rail offers.
+/// The pages the repository window's rail offers.
 /// </summary>
 public enum ShellPage
 {
-    /// <summary>Recent repositories, and the open / clone / create actions.</summary>
-    Repositories,
-
     /// <summary>The commit graph.</summary>
     History,
 
@@ -59,7 +56,8 @@ public interface IShellNavigation
     INavigationService Service { get; }
 
     /// <summary>
-    /// Selects the page the application opens on.
+    /// Selects the page the repository window opens on, which is the history: choosing a repository
+    /// is the start window's business.
     /// </summary>
     /// <remarks>
     /// Deliberately not done in the constructor. Selecting a page builds it, and a page's ViewModel
@@ -120,7 +118,6 @@ public sealed class ShellNavigation : IShellNavigation
         navigation.NavigationFailed += (_, e) =>
             logger.LogError(e.Exception, "Navigation failed during {Phase}", e.Phase);
 
-        Add(navigation.Items, ShellPage.Repositories, "Repositories", PhosphorIcon.Folders, typeof(RepositoriesPageView), typeof(RepositoriesPageViewModel));
         Add(navigation.Items, ShellPage.History, "History", PhosphorIcon.GitCommit, typeof(HistoryPageView), typeof(HistoryPageViewModel));
         Add(navigation.Items, ShellPage.Changes, "Changes", PhosphorIcon.FileText, typeof(ChangesPageView), typeof(ChangesPageViewModel));
         Add(navigation.Items, ShellPage.Branches, "Branches", PhosphorIcon.GitBranch, typeof(BranchesPageView), typeof(BranchesPageViewModel));
@@ -138,10 +135,10 @@ public sealed class ShellNavigation : IShellNavigation
     public INavigationService Service { get; }
 
     /// <inheritdoc />
-    public ShellPage Current { get; private set; } = ShellPage.Repositories;
+    public ShellPage Current { get; private set; } = ShellPage.History;
 
     /// <inheritdoc />
-    public void Start() => GoTo(ShellPage.Repositories);
+    public void Start() => GoTo(ShellPage.History);
 
     /// <inheritdoc />
     public void SetConflictsVisible(bool visible)

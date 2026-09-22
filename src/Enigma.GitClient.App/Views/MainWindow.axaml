@@ -105,6 +105,12 @@
                     Background="{DynamicResource EnigmaBorderSubtleBrush}" />
 
             <Button Classes="toolbar"
+                    Command="{Binding CloseRepositoryCommand}"
+                    ToolTip.Tip="Close this repository and go back to the start window"
+                    AutomationProperties.Name="Close the repository">
+              <ei:Icon Kind="SignOut" Classes="toolbar" />
+            </Button>
+            <Button Classes="toolbar"
                     Command="{Binding RefreshCommand}"
                     ToolTip.Tip="Refresh the repository state"
                     AutomationProperties.Name="Refresh the repository state">

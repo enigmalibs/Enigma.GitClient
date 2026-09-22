@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Media;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Services;
@@ -10,25 +9,19 @@ using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Diagnostics;
-using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Refs;
-using Enigma.Icons.Avalonia;
-using Enigma.Icons.Phosphor;
-using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.App.ViewModels;
 
 /// <summary>
-/// The shell: the navigation rail, the repository strip in the title bar, and the one-time startup
-/// checks.
+/// The repository window: the navigation rail, the repository strip in the title bar, and the way
+/// back to the start window.
 /// </summary>
 public sealed class MainWindowViewModel : ViewModelBase
 {
-    private readonly IGitEnvironment _gitEnvironment;
-    private readonly IContentDialogService _dialogService;
+    private readonly IAppWindows _windows;
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
-    private readonly ILogger<MainWindowViewModel> _logger;
     private bool _initialised;
 
     /// <summary>
@@ -36,33 +29,27 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// </summary>
     /// <param name="shell">Owns the navigation rail and the pages on it.</param>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
-    /// <param name="gitEnvironment">Probes the host's git installation at startup.</param>
-    /// <param name="dialogService">Shows the blocking dialog when git is unusable.</param>
+    /// <param name="windows">Takes the reader back to the start window when the repository is closed.</param>
     /// <param name="history">The graph page, whose uncommitted row navigates to the changes page.</param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
-    /// <param name="logger">Receives startup failures.</param>
     public MainWindowViewModel(
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
-        IGitEnvironment gitEnvironment,
-        IContentDialogService dialogService,
+        IAppWindows windows,
         HistoryPageViewModel history,
         ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
-        IMergeOperations merges,
-        ILogger<MainWindowViewModel> logger)
+        IMergeOperations merges)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
-        ArgumentNullException.ThrowIfNull(gitEnvironment);
-        ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(windows);
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(conflicts);
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
-        ArgumentNullException.ThrowIfNull(logger);
 
         // The graph's uncommitted row belongs to the working directory page, and the shell is the
         // only thing that knows how to get there.
@@ -71,9 +58,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         Shell = shell;
         Conflicts = conflicts;
         RepositoryContext = repositoryContext;
-        _gitEnvironment = gitEnvironment;
-        _dialogService = dialogService;
-        _logger = logger;
+        _windows = windows;
 
         _sync = sync;
         _merges = merges;
@@ -87,6 +72,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         AbortMergeCommand = new AsyncRelayCommand(OnAbortMergeAsync, () => IsMergeInProgress);
         ResolveConflictsCommand = new RelayCommand(() => Shell.GoTo(ShellPage.Conflicts), () => IsMergeInProgress);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
+        CloseRepositoryCommand = new RelayCommand(OnCloseRepository);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
     }
@@ -175,6 +161,11 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// </summary>
     public AsyncRelayCommand RefreshCommand { get; }
 
+    /// <summary>
+    /// Gets the command that closes the repository and goes back to the start window.
+    /// </summary>
+    public RelayCommand CloseRepositoryCommand { get; }
+
     /// <summary>Gets the command that fetches from every remote.</summary>
     public AsyncRelayCommand FetchCommand { get; }
 
@@ -223,46 +214,20 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool HasUpstream => RepositoryContext.Refs.CurrentBranch?.UpstreamShortName is { Length: > 0 };
 
     /// <summary>
-    /// Runs the one-time startup checks. Called once the window is on screen, because the git
-    /// warning is shown through the content dialog host the window owns.
+    /// Selects the first page, the first time the window opens. Called once the window is on
+    /// screen rather than while the container is still wiring itself up, because selecting a page
+    /// builds it.
     /// </summary>
-    /// <returns>A task that completes once the checks have run.</returns>
-    public async Task InitialiseAsync()
+    /// <returns>A task that completes once the page is selected.</returns>
+    public Task InitialiseAsync()
     {
-        if (_initialised)
+        if (!_initialised)
         {
-            return;
+            _initialised = true;
+            Shell.Start();
         }
 
-        _initialised = true;
-
-        // Selecting the first page builds it, which is why it happens here rather than while the
-        // container is still wiring itself up.
-        Shell.Start();
-
-        GitAvailability availability = await _gitEnvironment.GetAvailabilityAsync().ConfigureAwait(true);
-
-        if (availability.IsUsable)
-        {
-            _logger.LogInformation("Using git {Version} at {Path}", availability.Version, availability.ExecutablePath);
-            return;
-        }
-
-        _logger.LogError("git is not usable: {Message}", availability.Message);
-
-        await _dialogService.ShowAsync(dialog =>
-        {
-            dialog.Title = "git is required";
-            dialog.Content = availability.Message
-                + "\n\nEnigma.GitClient drives the real git executable, so your existing keys, "
-                + "credential helpers and configuration keep working. Install git 2.20 or newer, "
-                + "then restart the application.";
-            dialog.IconData = PhosphorIconSet.Instance
-                .GetGlyph(PhosphorIcon.Warning, PhosphorWeight.Regular)
-                .ToGeometry();
-            dialog.IconBrush = new SolidColorBrush(Color.Parse("#E8A33D"));
-            dialog.CloseButtonText = "Close";
-        }).ConfigureAwait(true);
+        return Task.CompletedTask;
     }
 
     private void OnRepositoryContextPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -354,6 +319,16 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         application.RequestedThemeVariant =
             application.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
+    }
+
+    /// <summary>
+    /// Closes the repository and hands the screen back to the start window, which is where another
+    /// one is chosen.
+    /// </summary>
+    private void OnCloseRepository()
+    {
+        RepositoryContext.Close();
+        _windows.ShowStart();
     }
 
     private async Task OnRefreshAsync()
