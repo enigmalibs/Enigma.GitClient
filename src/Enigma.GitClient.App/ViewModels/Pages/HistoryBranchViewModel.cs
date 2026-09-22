@@ -23,6 +23,8 @@ public sealed record MergeSource(string Name, bool IsRemote);
 /// <param name="FastForwardInto">The same, refusing anything but a fast-forward.</param>
 /// <param name="MergeIntoCurrent">Merges the branch into the one checked out.</param>
 /// <param name="Delete">Deletes the branch, after asking.</param>
+/// <param name="Pull">Brings a local branch up to date with its upstream, current or not.</param>
+/// <param name="Push">Pushes a local branch, current or not.</param>
 /// <param name="CurrentSource">Reads the merge source at the moment it is asked for.</param>
 /// <param name="CurrentBranch">Reads the name of the branch HEAD is on, or <see langword="null"/> when detached.</param>
 public sealed record HistoryBranchCommands(
@@ -33,6 +35,8 @@ public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> FastForwardInto,
     AsyncRelayCommand<HistoryBranchViewModel> MergeIntoCurrent,
     AsyncRelayCommand<HistoryBranchViewModel> Delete,
+    AsyncRelayCommand<HistoryBranchViewModel> Pull,
+    AsyncRelayCommand<HistoryBranchViewModel> Push,
     Func<MergeSource?> CurrentSource,
     Func<string?> CurrentBranch);
 
@@ -132,6 +136,18 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets what the check-out item says.</summary>
     public string CheckoutHeader => $"Check out \"{Name}\"";
+
+    /// <summary>Gets what the pull item says.</summary>
+    public string PullHeader => $"Pull \"{Name}\"";
+
+    /// <summary>Gets what the push item says.</summary>
+    public string PushHeader => $"Push \"{Name}\"";
+
+    /// <summary>
+    /// Gets a value indicating whether the branch can be pulled or pushed: only a local one — there is
+    /// nothing local to pull into, or push from, on a remote-tracking branch.
+    /// </summary>
+    public bool CanSynchronise => IsLocal;
 
     /// <summary>Gets what the delete item says.</summary>
     public string DeleteHeader => $"Delete \"{Name}\"…";

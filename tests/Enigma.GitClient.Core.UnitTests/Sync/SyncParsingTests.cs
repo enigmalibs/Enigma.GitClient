@@ -343,4 +343,22 @@ public sealed class SyncParsingTests
     [Fact]
     public void BuildPushArguments_DefaultsToOrigin()
         => Assert.Contains("origin", SyncService.BuildPushArguments(new PushRequest()));
+
+    [Fact]
+    public void BuildFastForwardArguments_NamesBothSidesInFullAndNeverForces()
+    {
+        List<string> arguments = SyncService.BuildFastForwardArguments("origin", "feature/login", "login");
+
+        Assert.Equal(["fetch", "--progress", "--no-tags", "origin", "refs/heads/feature/login:refs/heads/login"], arguments);
+        Assert.DoesNotContain(arguments, argument => argument.StartsWith('+'));
+        Assert.DoesNotContain("--force", arguments);
+    }
+
+    [Theory]
+    [InlineData("", "main", "main")]
+    [InlineData("origin", " ", "main")]
+    [InlineData("origin", "main", "")]
+    [InlineData("--upload-pack=evil", "main", "main")]
+    public void BuildFastForwardArguments_RefusesWhatCannotBeARefOrARemote(string remote, string remoteBranch, string localBranch)
+        => Assert.ThrowsAny<ArgumentException>(() => SyncService.BuildFastForwardArguments(remote, remoteBranch, localBranch));
 }

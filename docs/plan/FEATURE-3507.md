@@ -1,6 +1,6 @@
 # FEATURE-3507 — Branch actions in the history
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-22-home-window-merges-refresh
@@ -73,7 +73,7 @@ another branch ("Merge `<source>` into `<destination>`"). They can also **pull**
 ## PHASE02 — Pull, push and delete per branch
 
 **Branch:** `feature/feature-3507-phase02-branch-sync`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3507-PHASE02.md`
 
 ### Steps
 

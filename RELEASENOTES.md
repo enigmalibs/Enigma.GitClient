@@ -19,7 +19,8 @@ diff.
   a warning before HEAD is detached.
 - Every branch badge has a menu of its own, so a line carrying several branches is never ambiguous:
   check it out, set it as the merge source, merge the source into it, merge it into the current
-  branch, or delete it. The line's menu offers the same merge source and merges for every branch it
+  branch, pull it, push it, or delete it. Pulling a branch that is not checked out only ever
+  fast-forwards it: HEAD does not move, and a branch that has diverged is left for you to merge. The line's menu offers the same merge source and merges for every branch it
   carries, and the toolbar shows the merge source until it is cleared.
 - The branches sit in a column of their own beside the graph, aligned on every line.
 - The columns have a header, and each one can be resized by dragging the boundary beside its title;
