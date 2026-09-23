@@ -123,3 +123,4 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-1296 | Automatic fetch and refresh             | DONE   | docs/plan/FEATURE-1296.md |
 | - PHASE01    | The interval setting                    | DONE   | (in FEATURE-1296.md)      |
 | - PHASE02    | The periodic fetch and refresh          | DONE   | (in FEATURE-1296.md)      |
+| BUG-45D9     | Uncommitted row shown twice             | TODO   | docs/plan/BUG-45D9.md     |
