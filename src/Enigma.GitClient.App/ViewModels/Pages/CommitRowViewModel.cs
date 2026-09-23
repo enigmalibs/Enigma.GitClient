@@ -5,6 +5,7 @@ using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Core.Reset;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
@@ -37,6 +38,15 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// here — check out, merge and delete "the" branch of a row — acted on whichever branch came first,
 /// which on a line carrying several was not necessarily the one the reader meant.
 /// </param>
+/// <param name="ResetSoft">
+/// Moves the branch HEAD is on to the row's commit, keeping every change staged. It takes a
+/// <see cref="HistoryResetRequest"/> rather than the row, so what moves is the branch the item named.
+/// </param>
+/// <param name="ResetHard">The same, discarding the uncommitted changes.</param>
+/// <param name="CurrentBranch">
+/// Reads the name of the branch HEAD is on, or <see langword="null"/> when it is detached or unborn —
+/// which is what the two reset items are called after, and whether they are offered at all.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -45,7 +55,21 @@ public sealed record HistoryRowCommands(
     RelayCommand<CommitRowViewModel> ShowChanges,
     AsyncRelayCommand<CommitRowViewModel>? OpenOnHost = null,
     Func<string?>? HostLabel = null,
-    HistoryBranchCommands? Branches = null);
+    HistoryBranchCommands? Branches = null,
+    AsyncRelayCommand<HistoryResetRequest>? ResetSoft = null,
+    AsyncRelayCommand<HistoryResetRequest>? ResetHard = null,
+    Func<string?>? CurrentBranch = null);
+
+/// <summary>
+/// What a reset item of a history line's menu asks for: the line, and the branch the item was named
+/// after.
+/// </summary>
+/// <param name="Row">The line whose commit the branch moves to.</param>
+/// <param name="Branch">
+/// The branch HEAD was on when the menu opened. Carried rather than read again when the item is
+/// clicked: HEAD can move in between, and the branch that moves must be the one the reader saw named.
+/// </param>
+public sealed record HistoryResetRequest(CommitRowViewModel Row, string Branch);
 
 /// <summary>
 /// One badge on a history row.
@@ -180,6 +204,23 @@ public sealed class CommitRowViewModel : ViewModelBase
     public bool CanOpenOnHost => Commit is not null && Commands?.HostLabel?.Invoke() is { Length: > 0 };
 
     /// <summary>
+    /// Gets the branch the two reset items would move, or <see langword="null"/> when HEAD is not on
+    /// a branch and they are not offered.
+    /// </summary>
+    public string? ResetBranch => Commands?.CurrentBranch?.Invoke() is { Length: > 0 } branch ? branch : null;
+
+    /// <summary>
+    /// What a reset item says.
+    /// </summary>
+    /// <param name="branch">The branch it moves.</param>
+    /// <param name="mode">Whether it keeps the changes or discards them.</param>
+    /// <returns>The item's header.</returns>
+    public static string ResetHeader(string branch, ResetMode mode)
+        => mode == ResetMode.Soft
+            ? $"Reset \"{branch}\" to this commit - Soft (keep all changes)"
+            : $"Reset \"{branch}\" to this commit - Hard (discard all changes)";
+
+    /// <summary>
     /// Gets the branches pointing at this commit, each with what it offers, in badge order.
     /// </summary>
     public IReadOnlyList<HistoryBranchViewModel> Branches { get; }
@@ -212,9 +253,9 @@ public sealed class CommitRowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Gets the line's menu, built as it is asked for: the commit's own actions, then — for every
-    /// branch on the line — "set it as the merge source" and, when there is a source, "merge it into
-    /// this one".
+    /// Gets the line's menu, built as it is asked for: the commit's own actions, resetting the
+    /// branch HEAD is on to the commit, then — for every branch on the line — "set it as the merge
+    /// source" and, when there is a source, "merge it into this one".
     /// </summary>
     /// <remarks>
     /// Data rather than markup because how many items there are depends on how many branches the line
@@ -238,6 +279,17 @@ public sealed class CommitRowViewModel : ViewModelBase
             entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this));
             entries.Add(HistoryMenuEntry.Separator);
             entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this));
+
+            // Named after the branch they move, so on a detached HEAD there is nothing to name and
+            // nothing to offer.
+            if (ResetBranch is { } current && commands.ResetSoft is { } resetSoft && commands.ResetHard is { } resetHard)
+            {
+                HistoryResetRequest request = new(this, current);
+
+                entries.Add(HistoryMenuEntry.Separator);
+                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request));
+                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request));
+            }
 
             if (Branches.Count > 0 && commands.Branches is { } branchCommands)
             {
