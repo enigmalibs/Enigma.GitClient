@@ -1,6 +1,6 @@
 # FEATURE-1A7E — Reset the branch to a commit
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-23-history-branch-reset
@@ -50,7 +50,7 @@ two items naming the current branch:
 ## PHASE01 — The reset engine
 
 **Branch:** `feature/feature-1a7e-phase01-reset-engine`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1A7E-PHASE01.md`
 
 ### Steps
 
