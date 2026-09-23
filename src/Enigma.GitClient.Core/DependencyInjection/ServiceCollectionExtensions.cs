@@ -10,6 +10,7 @@ using Enigma.GitClient.Core.Hosting.Providers;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Reset;
 using Enigma.GitClient.Core.Security;
 using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Stashes;
@@ -77,6 +78,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IBranchService, BranchService>();
             services.AddSingleton<ITagService, TagService>();
             services.AddSingleton<ICheckoutService, CheckoutService>();
+            services.AddSingleton<IResetService, ResetService>();
 
             services.AddRepositoryHosting();
 
