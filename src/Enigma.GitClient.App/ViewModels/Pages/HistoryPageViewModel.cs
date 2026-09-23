@@ -793,7 +793,18 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         try
         {
-            if (includeUncommittedRow && await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true))
+            bool dirty = includeUncommittedRow
+                && await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true);
+
+            // A newer load may have taken over while git answered. Cancelling cannot take back an answer
+            // git had already given, and the newer load has cleared the rows and adds its own
+            // uncommitted row: this one must add nothing to its list.
+            if (cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (dirty)
             {
                 Rows.Add(CommitRowViewModel.Uncommitted(0, 0, RowCommands));
             }
@@ -826,11 +837,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
         finally
         {
-            IsBusy = false;
-
-            if (ReferenceEquals(_loadCancellation, cancellation))
+            // The page is idle only when no other load has taken over from this one: a newer load is
+            // still running, and it is what the automatic refresh and the commands wait for.
+            if (_loadCancellation is null || ReferenceEquals(_loadCancellation, cancellation))
             {
                 _loadCancellation = null;
+                IsBusy = false;
             }
 
             cancellation.Dispose();
