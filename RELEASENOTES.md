@@ -17,6 +17,9 @@ diff.
   the graph, exactly where it was, with the line still selected.
 - Checking out: a branch from its badge's own menu, or the commit itself from the line's menu, with
   a warning before HEAD is detached.
+- Resetting the branch you are on to a commit, from that commit's line menu. "Soft (keep all
+  changes)" moves the branch and keeps everything, staged. "Hard (discard all changes)" asks first,
+  naming the files whose uncommitted changes it throws away, and leaves untracked files alone.
 - Every branch badge has a menu of its own, so a line carrying several branches is never ambiguous:
   check it out, set it as the merge source, merge the source into it, merge it into the current
   branch, pull it, push it, or delete it. Pulling a branch that is not checked out only ever

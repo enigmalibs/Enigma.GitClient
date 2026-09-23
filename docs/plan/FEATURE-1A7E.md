@@ -1,6 +1,6 @@
 # FEATURE-1A7E — Reset the branch to a commit
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-23-history-branch-reset
@@ -82,7 +82,7 @@ two items naming the current branch:
 ## PHASE02 — Soft and hard reset in the line menu
 
 **Branch:** `feature/feature-1a7e-phase02-reset-menu`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1A7E-PHASE02.md`
 
 ### Steps
 

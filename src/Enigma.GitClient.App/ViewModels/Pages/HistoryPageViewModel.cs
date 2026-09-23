@@ -18,6 +18,7 @@ using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Reset;
 using Enigma.GitClient.Core.Status;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +43,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IBranchOperations _branchOperations;
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
+    private readonly IResetOperations _resetOperations;
     private readonly IBranchDropOperations _dropOperations;
     private readonly ISyncOperations _syncOperations;
     private readonly IHostLinkService _links;
@@ -67,6 +69,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
+    /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
     /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
     /// <param name="syncOperations">Pulls and pushes a branch from its badge.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
@@ -80,6 +83,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IBranchOperations branchOperations,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
+        IResetOperations resetOperations,
         IBranchDropOperations dropOperations,
         ISyncOperations syncOperations,
         IHostLinkService links,
@@ -97,6 +101,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(branchOperations);
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
+        ArgumentNullException.ThrowIfNull(resetOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
         ArgumentNullException.ThrowIfNull(syncOperations);
         ArgumentNullException.ThrowIfNull(links);
@@ -114,6 +119,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _branchOperations = branchOperations;
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
+        _resetOperations = resetOperations;
         _dropOperations = dropOperations;
         _syncOperations = syncOperations;
         _links = links;
@@ -150,7 +156,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName,
-            BranchCommands);
+            BranchCommands,
+
+            // Soft back onto the commit HEAD is already at would do nothing; hard there is how the
+            // uncommitted work is thrown away, so it stays.
+            new AsyncRelayCommand<HistoryResetRequest>(
+                request => OnResetAsync(request, ResetMode.Soft),
+                request => request is { Row: { Commit: not null, IsHead: false } }),
+            new AsyncRelayCommand<HistoryResetRequest>(
+                request => OnResetAsync(request, ResetMode.Hard),
+                request => request?.Row.Commit is not null),
+            () => RepositoryContext.Head is { IsDetached: false, IsUnborn: false } head ? head.BranchName : null);
 
         Files = new ChangedFilesPanelViewModel(interop, settings)
         {
@@ -1249,6 +1265,22 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         if (await _checkoutOperations.CheckoutAsync(row.Sha, row.ShortSha, detach: true).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Moves the branch the menu named to a line's commit, and re-reads the history when it moved.
+    /// </summary>
+    private async Task OnResetAsync(HistoryResetRequest? request, ResetMode mode)
+    {
+        if (request?.Row is not { Commit: not null } row)
+        {
+            return;
+        }
+
+        if (await _resetOperations.ResetAsync(row.Sha, row.ShortSha, request.Branch, mode).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }

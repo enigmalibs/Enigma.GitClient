@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
+            services.AddSingleton<IResetOperations, ResetOperations>();
             services.AddSingleton<ISyncOperations, SyncOperations>();
             services.AddSingleton<IMergeOperations, MergeOperations>();
             services.AddSingleton<IBranchDropOperations, BranchDropOperations>();

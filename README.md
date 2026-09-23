@@ -31,6 +31,8 @@ Two things matter more than everything else in this app:
 - Tag management — create (lightweight or annotated) and delete
 - Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
   line's menu
+- Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
+  staged; hard discards them, after naming the files it takes
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
   into any other local branch the same way
 - Create, clone and open repositories from a start window with a recent-repositories list; the
