@@ -15,8 +15,13 @@ diff.
   whole page: the changed files on the left, the diff on the right, under a header naming the
   commit. The back button at its top left — or Escape, which works the moment it opens — returns to
   the graph, exactly where it was, with the line still selected.
-- Checking out is a line's own menu: its branch, or the commit itself with a warning before HEAD is
-  detached.
+- Checking out: a branch from its badge's own menu, or the commit itself from the line's menu, with
+  a warning before HEAD is detached.
+- Every branch badge has a menu of its own, so a line carrying several branches is never ambiguous:
+  check it out, set it as the merge source, merge the source into it, merge it into the current
+  branch, pull it, push it, or delete it. Pulling a branch that is not checked out only ever
+  fast-forwards it: HEAD does not move, and a branch that has diverged is left for you to merge. The line's menu offers the same merge source and merges for every branch it
+  carries, and the toolbar shows the merge source until it is cleared.
 - The branches sit in a column of their own beside the graph, aligned on every line.
 - The columns have a header, and each one can be resized by dragging the boundary beside its title;
   the message column takes whatever is left, so a long subject is trimmed rather than pushing the

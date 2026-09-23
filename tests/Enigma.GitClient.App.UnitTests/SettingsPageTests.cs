@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
@@ -95,6 +96,65 @@ public sealed class SettingsPageTests
 
             Assert.Equal(16, page.TabWidth);
             Assert.Equal(50, page.HistoryPageSize);
+        });
+    }
+
+    [Fact]
+    public void TheAutomaticRefresh_IsFifteenSecondsUntilChangedAndZeroTurnsItOff()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+            ISettingsService store = services.Get<ISettingsService>();
+
+            Assert.Equal(15, page.AutoRefreshSeconds);
+
+            page.AutoRefreshSeconds = 60;
+            Assert.Equal(60, store.Current.AutoRefreshSeconds);
+
+            page.AutoRefreshSeconds = 0;
+            Assert.Equal(0, store.Current.AutoRefreshSeconds);
+
+            // Too eager to be kind to a remote.
+            page.AutoRefreshSeconds = 1;
+            Assert.Equal(5, page.AutoRefreshSeconds);
+        });
+    }
+
+    [Fact]
+    public void TheAutomaticRefresh_HasItsEditorInTheGitCard()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageView view = services.Get<SettingsPageView>();
+            view.DataContext = services.Get<SettingsPageViewModel>();
+
+            Window window = new() { Content = view, Width = 1000, Height = 800 };
+            window.Show();
+
+            // The cards open collapsed, and a collapsed card has not realised what it holds.
+            foreach (Enigma.Avalonia.Desktop.Controls.SettingsCardExpander card in view.GetLogicalDescendants()
+                .OfType<Enigma.Avalonia.Desktop.Controls.SettingsCardExpander>())
+            {
+                card.IsExpanded = true;
+            }
+
+            window.UpdateLayout();
+
+            try
+            {
+                Assert.Equal(15m, view.AutoRefreshEditor.Value);
+                Assert.Equal(0m, view.AutoRefreshEditor.Minimum);
+                Assert.Equal(3600m, view.AutoRefreshEditor.Maximum);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 

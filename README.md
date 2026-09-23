@@ -29,8 +29,13 @@ Two things matter more than everything else in this app:
   drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
   the list scrolls while you hold a branch near its edge
 - Tag management — create (lightweight or annotated) and delete
-- Checkout of anything in the graph from a row's own menu, including a detached commit
-- Create, clone and open repositories, with a recent-repositories list
+- Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
+  line's menu
+- Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
+  into any other local branch the same way
+- Create, clone and open repositories from a start window with a recent-repositories list; the
+  repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
+  straight away
 - Working directory: status, stage/unstage, discard and commit
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
 - Merge conflict resolution with a three-way view, per-hunk selection and a live preview of the

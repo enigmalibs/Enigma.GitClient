@@ -537,6 +537,144 @@ public sealed class RemotesAndSyncTests
         });
     }
 
+    // ---------------------------------------------------------------- a branch's pull and push, from the history
+
+    /// <summary>
+    /// The history, reloaded, and the branch of that name on it.
+    /// </summary>
+    private static async Task<HistoryBranchViewModel> BranchInHistoryAsync(TestServices services, string name)
+    {
+        HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+        await history.ReloadAsync();
+
+        return history.Rows.SelectMany(row => row.Branches).Single(branch => branch.Name == name);
+    }
+
+    [Fact]
+    public void History_PullsABranchThatIsNotCheckedOutWithoutMovingHead()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "branch", "feature");
+            await GitAsync(world.Local.WorkTreePath, "push", "--set-upstream", "origin", "feature");
+
+            await GitAsync(world.OtherPath, "fetch", "origin");
+            await GitAsync(world.OtherPath, "checkout", "feature");
+            Write(world.OtherPath, "src/theirs.txt", "from elsewhere\n");
+            await GitAsync(world.OtherPath, "add", "--all");
+            await GitAsync(world.OtherPath, "commit", "-m", "Feature work elsewhere");
+            await GitAsync(world.OtherPath, "push", "origin", "feature");
+            string theirs = await ReadGitAsync(world.OtherPath, "rev-parse", "feature");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+            HistoryBranchViewModel feature = await BranchInHistoryAsync(services, "feature");
+
+            Assert.True(feature.Commands.Pull.CanExecute(feature));
+            await feature.Commands.Pull.ExecuteAsync(feature);
+
+            Assert.Equal(theirs, await ReadGitAsync(world.Local.WorkTreePath, "rev-parse", "feature"));
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.False(File.Exists(Path.Combine(world.Local.WorkTreePath, "src", "theirs.txt")));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Pulled");
+        });
+    }
+
+    [Fact]
+    public void History_PullingABranchWithNoUpstream_SaysSo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "branch", "local-only");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryBranchViewModel branch = await BranchInHistoryAsync(services, "local-only");
+            await branch.Commands.Pull.ExecuteAsync(branch);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Contains("no upstream", note.Message, StringComparison.Ordinal);
+            Assert.Equal(0, services.Overlay.ShowCount);
+        });
+    }
+
+    [Fact]
+    public void History_PullingTheCurrentBranch_IsTheOrdinaryPull()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            Write(world.OtherPath, "src/theirs.txt", "from elsewhere\n");
+            await GitAsync(world.OtherPath, "add", "--all");
+            await GitAsync(world.OtherPath, "commit", "-m", "Work done elsewhere");
+            await GitAsync(world.OtherPath, "push", "origin", "main");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+            HistoryBranchViewModel main = await BranchInHistoryAsync(services, "main");
+
+            await main.Commands.Pull.ExecuteAsync(main);
+
+            Assert.True(File.Exists(Path.Combine(world.Local.WorkTreePath, "src", "theirs.txt")));
+        });
+    }
+
+    [Fact]
+    public void History_PushesABranchThatIsNotCheckedOutAndTracksIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "branch", "topic");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryBranchViewModel topic = await BranchInHistoryAsync(services, "topic");
+            await topic.Commands.Push.ExecuteAsync(topic);
+
+            Assert.Equal(
+                await ReadGitAsync(world.Local.WorkTreePath, "rev-parse", "topic"),
+                await ReadGitAsync(world.OriginPath, "rev-parse", "topic"));
+            Assert.Equal(
+                "origin/topic",
+                await ReadGitAsync(world.Local.WorkTreePath, "rev-parse", "--abbrev-ref", "topic@{upstream}"));
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+        });
+    }
+
+    [Fact]
+    public void History_OffersNoPullOrPushOnARemoteBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryBranchViewModel remote = await BranchInHistoryAsync(services, "origin/main");
+
+            Assert.False(remote.CanSynchronise);
+            Assert.False(remote.Commands.Pull.CanExecute(remote));
+            Assert.False(remote.Commands.Push.CanExecute(remote));
+
+            // It can still be checked out — which creates its tracking branch — and deleted.
+            Assert.True(remote.Commands.Delete.CanExecute(remote));
+        });
+    }
+
+    [Theory]
+    [InlineData("origin/main", "origin", "main")]
+    [InlineData("origin/feature/login", "origin", "feature/login")]
+    [InlineData("main", "origin", "main")]
+    public void SplitUpstream_TakesTheRemoteBeforeTheFirstSlash(string upstream, string remote, string branch)
+        => Assert.Equal((remote, branch), SyncOperations.SplitUpstream(upstream));
+
     [Fact]
     public void Shell_PushesTheCurrentBranch()
     {

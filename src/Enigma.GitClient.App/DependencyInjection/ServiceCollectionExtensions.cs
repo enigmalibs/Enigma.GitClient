@@ -1,3 +1,4 @@
+using System;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
@@ -9,6 +10,7 @@ using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.App.Views.Panels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Enigma.GitClient.App.DependencyInjection;
 
@@ -27,6 +29,9 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddEnigmaDesktopServices()
         {
             services.AddSingleton<INavigationService, NavigationService>();
+
+            // The start window's rail is a second navigation, with a selection of its own.
+            services.AddKeyedSingleton<INavigationService, NavigationService>(StartNavigation.ServiceKey);
             services.AddSingleton<IContentDialogService, ContentDialogService>();
             services.AddSingleton<IOverlayService, OverlayService>();
             services.AddSingleton<IInfoBarService, InfoBarService>();
@@ -37,12 +42,13 @@ public static class ServiceCollectionExtensions
         }
 
         /// <summary>
-        /// Registers the window, the pages and their ViewModels.
+        /// Registers the windows, the pages and their ViewModels.
         /// </summary>
         /// <remarks>
-        /// Views are transient and ViewModels are singletons on purpose: navigating back to a page
-        /// builds a fresh control but re-attaches the ViewModel it had, so the page keeps its state
-        /// while the visual tree does not leak.
+        /// Views and windows are transient and ViewModels are singletons on purpose: navigating back
+        /// to a page builds a fresh control but re-attaches the ViewModel it had, so the page keeps
+        /// its state while the visual tree does not leak — and a window, which cannot be shown again
+        /// once it has closed, is simply built again the next time it is needed.
         /// </remarks>
         /// <returns>The same collection, so calls can be chained.</returns>
         public IServiceCollection AddGitClientApp()
@@ -50,6 +56,15 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
             services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
+            services.AddSingleton<IStartNavigation, StartNavigation>();
+            services.AddSingleton<IAppWindows, AppWindows>();
+            services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
+            services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
+            services.AddSingleton<IToolDialogService, ToolDialogService>();
+
+            // The automatic refresh measures its interval on this clock, which a test replaces.
+            services.TryAddSingleton(TimeProvider.System);
+            services.AddSingleton<IAutoRefreshService, AutoRefreshService>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
@@ -59,7 +74,9 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IBranchDropOperations, BranchDropOperations>();
             services.AddSingleton<IHostLinkService, HostLinkService>();
 
-            services.AddSingleton<MainWindow>();
+            services.AddTransient<StartWindow>();
+            services.AddSingleton<StartWindowViewModel>();
+            services.AddTransient<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
 
             services.AddTransient<RepositoriesPageView>();

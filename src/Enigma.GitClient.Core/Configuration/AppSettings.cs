@@ -96,6 +96,12 @@ public sealed record AppSettings
     /// </summary>
     public const double LegacyGraphLaneWidth = 16;
 
+    /// <summary>The shortest interval the automatic refresh may run at, in seconds.</summary>
+    public const int MinimumAutoRefreshSeconds = 5;
+
+    /// <summary>The longest interval the automatic refresh may run at, in seconds.</summary>
+    public const int MaximumAutoRefreshSeconds = 3600;
+
     /// <summary>The settings a fresh install runs on.</summary>
     public static readonly AppSettings Defaults = new();
 
@@ -192,6 +198,17 @@ public sealed record AppSettings
     public PullStrategy Pull { get; init; } = PullStrategy.Merge;
 
     /// <summary>
+    /// Gets how often an open repository is fetched and refreshed on its own, in seconds; zero turns
+    /// the automatic refresh off.
+    /// </summary>
+    /// <remarks>
+    /// One number rather than a switch and an interval: "every 0 seconds" has only one sensible
+    /// reading. A key a file written before this setting existed does not carry reads as the default,
+    /// so no schema migration is needed.
+    /// </remarks>
+    public int AutoRefreshSeconds { get; init; } = 15;
+
+    /// <summary>
     /// Returns these settings with every value forced into a range the application can use.
     /// </summary>
     /// <returns>The clamped settings.</returns>
@@ -209,6 +226,11 @@ public sealed record AppSettings
             FilesAutoExpandLimit = Math.Clamp(FilesAutoExpandLimit, 0, 100_000),
             DiffContextLines = Math.Clamp(DiffContextLines, 0, 100_000),
             TabWidth = Math.Clamp(TabWidth, 1, 16),
+
+            // Off stays off; anything else is kept to an interval that cannot hammer a remote.
+            AutoRefreshSeconds = AutoRefreshSeconds <= 0
+                ? 0
+                : Math.Clamp(AutoRefreshSeconds, MinimumAutoRefreshSeconds, MaximumAutoRefreshSeconds),
             DiffFontSize = Math.Clamp(DiffFontSize, 8, 32),
             DiffFontFamily = DiffFontFamily?.Trim() ?? string.Empty,
             GitExecutablePath = GitExecutablePath?.Trim() ?? string.Empty,

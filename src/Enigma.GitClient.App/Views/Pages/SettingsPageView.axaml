@@ -323,7 +323,7 @@
 
         <!-- Git -->
         <controls:SettingsCardExpander Header="Git"
-                                       Description="Which git is used, and what a pull is allowed to do"
+                                       Description="Which git is used, what a pull is allowed to do, and how often the repository is refreshed"
                                        IconData="{ei:IconGeometry Terminal}">
           <StackPanel Spacing="14">
 
@@ -342,6 +342,27 @@
                         ItemTemplate="{StaticResource PullItem}"
                         MinWidth="320"
                         AutomationProperties.Name="Pull strategy" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Fetch and refresh automatically"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="Every so many seconds while a repository is open, quietly: nothing on screen moves unless something changed. 0 turns it off."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <NumericUpDown Grid.Column="1"
+                             Name="AutoRefreshEditor"
+                             Value="{Binding AutoRefreshSeconds, Mode=TwoWay}"
+                             Minimum="0"
+                             Maximum="{Binding MaximumAutoRefreshSeconds}"
+                             Increment="5"
+                             FormatString="0"
+                             MinWidth="150"
+                             VerticalAlignment="Center"
+                             AutomationProperties.Name="Seconds between automatic refreshes" />
             </Grid>
 
             <StackPanel Spacing="4">

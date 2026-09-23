@@ -1682,11 +1682,12 @@ public sealed class BranchesPageTests
             CommitRowViewModel row = history.Rows.Single(candidate => candidate.Subject == "Work only on the branch");
 
             Assert.True(row.HasBranch);
-            Assert.Equal("unmerged", row.BranchName);
-            Assert.Contains("unmerged", row.CheckoutHeader, StringComparison.Ordinal);
-            Assert.True(row.Commands!.CheckoutBranch.CanExecute(row));
+            HistoryBranchViewModel branch = Assert.Single(row.Branches);
+            Assert.Equal("unmerged", branch.Name);
+            Assert.Contains("unmerged", branch.CheckoutHeader, StringComparison.Ordinal);
+            Assert.True(branch.Commands.Checkout.CanExecute(branch));
 
-            await row.Commands.CheckoutBranch.ExecuteAsync(row);
+            await branch.Commands.Checkout.ExecuteAsync(branch);
 
             Assert.Equal("unmerged", services.Get<IRepositoryContext>().Head?.BranchName);
         });
@@ -1712,11 +1713,11 @@ public sealed class BranchesPageTests
                 candidate => candidate.Subject == "Add the application file");
 
             Assert.False(row.HasBranch);
-            Assert.False(row.Commands!.CheckoutBranch.CanExecute(row));
-            Assert.False(row.Commands.DeleteBranch.CanExecute(row));
+            Assert.Empty(row.Branches);
+            Assert.DoesNotContain(row.MenuEntries, entry => entry.Header.Contains("merge source", StringComparison.Ordinal));
 
             // Creating one is always available: every commit can be branched from.
-            Assert.True(row.Commands.CreateBranchHere.CanExecute(row));
+            Assert.True(row.Commands!.CreateBranchHere.CanExecute(row));
         });
     }
 
@@ -1734,8 +1735,9 @@ public sealed class BranchesPageTests
 
             CommitRowViewModel head = history.Rows.Single(row => row.IsHead);
 
-            Assert.Equal("main", head.BranchName);
-            Assert.False(head.Commands!.CheckoutBranch.CanExecute(head));
+            HistoryBranchViewModel main = head.Branches.Single(branch => branch.IsLocal);
+            Assert.Equal("main", main.Name);
+            Assert.False(main.Commands.Checkout.CanExecute(main));
         });
     }
 

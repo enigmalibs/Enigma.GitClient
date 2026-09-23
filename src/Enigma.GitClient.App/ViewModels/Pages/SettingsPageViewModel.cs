@@ -253,6 +253,22 @@ public sealed class SettingsPageViewModel : PageViewModelBase
     }
 
     /// <summary>
+    /// Gets or sets how often the open repository is fetched and refreshed on its own, in seconds;
+    /// zero turns it off.
+    /// </summary>
+    public int AutoRefreshSeconds
+    {
+        get => _settings.Current.AutoRefreshSeconds;
+        set => Change(current => current with { AutoRefreshSeconds = value });
+    }
+
+    /// <summary>Gets the shortest interval the automatic refresh accepts, for the editor's hint.</summary>
+    public static int MinimumAutoRefreshSeconds => AppSettings.MinimumAutoRefreshSeconds;
+
+    /// <summary>Gets the longest interval the automatic refresh accepts, for the editor's bound.</summary>
+    public static int MaximumAutoRefreshSeconds => AppSettings.MaximumAutoRefreshSeconds;
+
+    /// <summary>
     /// Gets the sentence under the git path box, which says the obvious thing about changing it.
     /// </summary>
     public string GitExecutableHint =>
@@ -362,6 +378,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
             OnPropertyChanged(nameof(ShowWhitespace));
             OnPropertyChanged(nameof(IgnoreWhitespace));
             OnPropertyChanged(nameof(TabWidth));
+            OnPropertyChanged(nameof(AutoRefreshSeconds));
             OnPropertyChanged(nameof(WrapLines));
             OnPropertyChanged(nameof(DiffFont));
             OnPropertyChanged(nameof(DiffFontSize));

@@ -105,6 +105,18 @@
                     Background="{DynamicResource EnigmaBorderSubtleBrush}" />
 
             <Button Classes="toolbar"
+                    Command="{Binding NewWindowCommand}"
+                    ToolTip.Tip="Open another window, for another repository"
+                    AutomationProperties.Name="Open a new window">
+              <ei:Icon Kind="AppWindow" Classes="toolbar" />
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding CloseRepositoryCommand}"
+                    ToolTip.Tip="Close this repository and go back to the start window"
+                    AutomationProperties.Name="Close the repository">
+              <ei:Icon Kind="SignOut" Classes="toolbar" />
+            </Button>
+            <Button Classes="toolbar"
                     Command="{Binding RefreshCommand}"
                     ToolTip.Tip="Refresh the repository state"
                     AutomationProperties.Name="Refresh the repository state">
@@ -184,6 +196,16 @@
 
       <ContentControl Content="{Binding Navigation.CurrentPage}" />
     </DockPanel>
+
+    <!--
+      The tool dialogs — branches, tags, remotes — on a host of their own, under the three overlay
+      hosts: the confirmations their operations ask for are shown on HostDialog, above them, and the
+      tool dialog is still there when the question has been answered. Sized from the window in
+      code-behind, because a list needs a bounded height to scroll in.
+    -->
+    <contentDialog:ContentDialog x:Name="ToolDialog"
+                                 DialogMinWidth="640"
+                                 DialogMaxWidth="1100" />
 
     <!-- The three overlay hosts must be the last children of the root panel. -->
     <contentDialog:ContentDialog x:Name="HostDialog"

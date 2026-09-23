@@ -19,6 +19,7 @@ public partial class HistoryPageView : UserControl
 {
     private HistoryPageViewModel? _page;
     private ScrollViewer? _listScroll;
+    private Vector? _offsetBeforeReplace;
 
     /// <summary>
     /// Initialises a new instance.
@@ -31,6 +32,10 @@ public partial class HistoryPageView : UserControl
         // whatever inside them has the key — the file filter box, the patch, a list — and before
         // any of them can handle it first.
         AddHandler(KeyDownEvent, OnPageKeyDown, RoutingStrategies.Tunnel);
+
+        // Tunnelling too, so the line's menu is rebuilt before it opens: what it offers depends on
+        // things that change while the line is on screen — the host's name, read after the rows were.
+        AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Tunnel);
 
         Resizes(RefsGrip, HistoryColumn.Refs);
         Resizes(AuthorGrip, HistoryColumn.Author);
@@ -108,6 +113,8 @@ public partial class HistoryPageView : UserControl
         if (_page is not null)
         {
             _page.PropertyChanged -= OnPagePropertyChanged;
+            _page.RowsReplacing -= OnRowsReplacing;
+            _page.RowsReplaced -= OnRowsReplaced;
         }
 
         _page = DataContext as HistoryPageViewModel;
@@ -115,10 +122,43 @@ public partial class HistoryPageView : UserControl
         if (_page is not null)
         {
             _page.PropertyChanged += OnPagePropertyChanged;
+            _page.RowsReplacing += OnRowsReplacing;
+            _page.RowsReplaced += OnRowsReplaced;
         }
 
         // Another page's columns know nothing of this list's width.
         ReportViewport();
+    }
+
+    // ---------------------------------------------------------------- keeping the reader's place
+
+    /// <summary>
+    /// Remembers where the list was scrolled to before a refresh replaces its rows.
+    /// </summary>
+    private void OnRowsReplacing(object? sender, EventArgs e) => _offsetBeforeReplace = _listScroll?.Offset;
+
+    /// <summary>
+    /// Puts the list back where it was once the new rows are in. Posted, because the rows are measured
+    /// in the layout pass that follows, and an offset past what has been measured is clamped away.
+    /// </summary>
+    private void OnRowsReplaced(object? sender, EventArgs e)
+    {
+        if (_offsetBeforeReplace is not { } offset)
+        {
+            return;
+        }
+
+        _offsetBeforeReplace = null;
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (_listScroll is not null)
+                {
+                    _listScroll.Offset = offset;
+                }
+            },
+            DispatcherPriority.Loaded);
     }
 
     // ---------------------------------------------------------------- leaving the diffs
@@ -179,6 +219,21 @@ public partial class HistoryPageView : UserControl
 
         page.IsDiffViewOpen = false;
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Asks the line under a right-click to rebuild its menu before the menu opens.
+    /// </summary>
+    /// <param name="sender">The page.</param>
+    /// <param name="e">The request, which is left for the menu to handle.</param>
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (e.Source is Visual source
+            && source.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(control => control.DataContext is CommitRowViewModel)
+                is { DataContext: CommitRowViewModel row })
+        {
+            row.RefreshMenu();
+        }
     }
 
     /// <summary>

@@ -21,7 +21,7 @@
               BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
               BorderThickness="0,0,0,1"
               Padding="12,8">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="10">
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
@@ -52,7 +52,34 @@
                     Content="First parent only"
                     ToolTip.Tip="Follow only the first parent of each merge, hiding the branches it brought in" />
 
-          <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
+          <!-- The merge source, while there is one: a choice that outlives the menu it was made in has
+               to be visible, and has to have a way out. -->
+          <Border Grid.Column="3"
+                  Name="MergeSourceChip"
+                  Classes="pill"
+                  Background="{DynamicResource EnigmaSelectionBrush}"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="1"
+                  Padding="8,0,2,0"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding HasMergeSource}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ei:Icon Kind="GitMerge" Classes="pill" VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Text="{Binding MergeSourceSummary}"
+                         VerticalAlignment="Center"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Button Classes="toolbar"
+                      Command="{Binding ClearMergeSourceCommand}"
+                      ToolTip.Tip="Clear the merge source"
+                      AutomationProperties.Name="Clear the merge source">
+                <ei:Icon Kind="X" Classes="pill" />
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <Grid Grid.Column="4" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
             <!-- What the search found, because nothing is hidden: without a count, a search that
                  matched nothing and one that matched everything look exactly alike. -->
             <TextBlock Grid.Column="0"
@@ -76,7 +103,33 @@
             </Button>
           </Grid>
 
-          <Button Grid.Column="4"
+          <!-- The secondary pages, over the history: the graph is where the work is done, and these
+               are what it is done with. -->
+          <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <Button Name="OpenBranches"
+                    Classes="toolbar"
+                    Command="{Binding OpenBranchesCommand}"
+                    ToolTip.Tip="Branches"
+                    AutomationProperties.Name="Open the branches">
+              <ei:Icon Kind="GitBranch" Classes="toolbar" />
+            </Button>
+            <Button Name="OpenTags"
+                    Classes="toolbar"
+                    Command="{Binding OpenTagsCommand}"
+                    ToolTip.Tip="Tags"
+                    AutomationProperties.Name="Open the tags">
+              <ei:Icon Kind="Tag" Classes="toolbar" />
+            </Button>
+            <Button Name="OpenRemotes"
+                    Classes="toolbar"
+                    Command="{Binding OpenRemotesCommand}"
+                    ToolTip.Tip="Remotes and stashes"
+                    AutomationProperties.Name="Open the remotes">
+              <ei:Icon Kind="CloudArrowUp" Classes="toolbar" />
+            </Button>
+          </StackPanel>
+
+          <Button Grid.Column="6"
                   Classes="toolbar"
                   Command="{Binding RefreshCommand}"
                   ToolTip.Tip="Re-read the history"
@@ -245,41 +298,21 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- The row's own menu. It opens in its own popup tree, so the row carries the
-                     commands rather than reaching the page through a visual ancestor. -->
+                     commands rather than reaching the page through a visual ancestor. It is built
+                     as data, because how many items it has depends on how many branches the line
+                     carries: every one of them can be the merge source, or be merged into. A header
+                     of "-" is a separator. -->
                 <Grid.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="Show what it changed"
-                              Command="{Binding Commands.ShowChanges}"
-                              CommandParameter="{Binding}" />
-                    <Separator />
-                    <MenuItem Header="Create branch here…"
-                              Command="{Binding Commands.CreateBranchHere}"
-                              CommandParameter="{Binding}" />
-                    <MenuItem Header="Create tag here…"
-                              Command="{Binding Commands.CreateTagHere}"
-                              CommandParameter="{Binding}" />
-                    <Separator />
-                    <MenuItem Header="Check out this commit (detaches HEAD)"
-                              Command="{Binding Commands.CheckoutCommit}"
-                              CommandParameter="{Binding}" />
-                    <Separator IsVisible="{Binding HasBranch}" />
-                    <MenuItem Header="{Binding CheckoutHeader}"
-                              IsVisible="{Binding HasBranch}"
-                              Command="{Binding Commands.CheckoutBranch}"
-                              CommandParameter="{Binding}" />
-                    <MenuItem Header="{Binding MergeHeader}"
-                              IsVisible="{Binding CanMergeBranch}"
-                              Command="{Binding Commands.MergeBranch}"
-                              CommandParameter="{Binding}" />
-                    <MenuItem Header="{Binding DeleteBranchHeader}"
-                              IsVisible="{Binding HasBranch}"
-                              Command="{Binding Commands.DeleteBranch}"
-                              CommandParameter="{Binding}" />
-                    <Separator IsVisible="{Binding CanOpenOnHost}" />
-                    <MenuItem Header="{Binding HostLabel}"
-                              IsVisible="{Binding CanOpenOnHost}"
-                              Command="{Binding Commands.OpenOnHost}"
-                              CommandParameter="{Binding}" />
+                  <ContextMenu ItemsSource="{Binding MenuEntries}">
+                    <ContextMenu.ItemContainerTheme>
+                      <ControlTheme TargetType="MenuItem"
+                                    BasedOn="{StaticResource {x:Type MenuItem}}"
+                                    x:DataType="vm:HistoryMenuEntry">
+                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
+                        <Setter Property="CommandParameter" Value="{Binding Parameter}" />
+                      </ControlTheme>
+                    </ContextMenu.ItemContainerTheme>
                   </ContextMenu>
                 </Grid.ContextMenu>
 
@@ -302,7 +335,7 @@
                 <ItemsControl Grid.Column="1"
                               Name="RefStrip"
                               Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.RefsWidth}"
-                              ItemsSource="{Binding Refs}"
+                              ItemsSource="{Binding Badges}"
                               ClipToBounds="True"
                               VerticalAlignment="Center">
                   <ItemsControl.ItemsPanel>
@@ -310,13 +343,63 @@
                       <StackPanel Orientation="Horizontal" Spacing="4" />
                     </ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:RefBadgeItem">
+                  <ItemsControl.DataTemplates>
+                    <!-- A branch brings its own menu: on a line carrying several, the badge is the one
+                         place that says unambiguously which branch an action is about. -->
+                    <DataTemplate DataType="vm:HistoryBranchViewModel" x:DataType="vm:HistoryBranchViewModel">
+                      <controls:RefBadge Kind="{Binding Badge.Kind}"
+                                         Text="{Binding Name}"
+                                         IsCurrent="{Binding IsCurrent}"
+                                         Classes.mergesource="{Binding IsMergeSource}">
+                        <controls:RefBadge.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="{Binding CheckoutHeader}"
+                                      Command="{Binding Commands.Checkout}"
+                                      CommandParameter="{Binding}" />
+                            <Separator />
+                            <MenuItem Header="{Binding SetAsMergeSourceHeader}"
+                                      IsVisible="{Binding CanSetAsMergeSource}"
+                                      Command="{Binding Commands.SetAsMergeSource}"
+                                      CommandParameter="{Binding}" />
+                            <MenuItem Header="Clear the merge source"
+                                      IsVisible="{Binding IsMergeSource}"
+                                      Command="{Binding Commands.ClearMergeSource}" />
+                            <MenuItem Header="{Binding MergeIntoHeader}"
+                                      IsVisible="{Binding CanMergeInto}"
+                                      Command="{Binding Commands.MergeInto}"
+                                      CommandParameter="{Binding}" />
+                            <MenuItem Header="{Binding FastForwardIntoHeader}"
+                                      IsVisible="{Binding CanMergeInto}"
+                                      Command="{Binding Commands.FastForwardInto}"
+                                      CommandParameter="{Binding}" />
+                            <MenuItem Header="{Binding MergeIntoCurrentHeader}"
+                                      IsVisible="{Binding CanMergeIntoCurrent}"
+                                      Command="{Binding Commands.MergeIntoCurrent}"
+                                      CommandParameter="{Binding}" />
+                            <Separator IsVisible="{Binding CanSynchronise}" />
+                            <MenuItem Header="{Binding PullHeader}"
+                                      IsVisible="{Binding CanSynchronise}"
+                                      Command="{Binding Commands.Pull}"
+                                      CommandParameter="{Binding}" />
+                            <MenuItem Header="{Binding PushHeader}"
+                                      IsVisible="{Binding CanSynchronise}"
+                                      Command="{Binding Commands.Push}"
+                                      CommandParameter="{Binding}" />
+                            <Separator />
+                            <MenuItem Header="{Binding DeleteHeader}"
+                                      Command="{Binding Commands.Delete}"
+                                      CommandParameter="{Binding}" />
+                          </ContextMenu>
+                        </controls:RefBadge.ContextMenu>
+                      </controls:RefBadge>
+                    </DataTemplate>
+
+                    <DataTemplate DataType="vm:RefBadgeItem" x:DataType="vm:RefBadgeItem">
                       <controls:RefBadge Kind="{Binding Kind}"
                                          Text="{Binding Name}"
                                          IsCurrent="{Binding IsCurrent}" />
                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
+                  </ItemsControl.DataTemplates>
                 </ItemsControl>
 
                 <TextBlock Grid.Column="2"

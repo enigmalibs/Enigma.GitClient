@@ -7,6 +7,7 @@ using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Sync;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,44 @@ public interface ISyncOperations
     /// <param name="setUpstream">Whether to record the upstream this pushes to.</param>
     /// <returns><see langword="true"/> when the push finished.</returns>
     Task<bool> PushAsync(bool setUpstream = false);
+
+    /// <summary>
+    /// Brings a local branch up to date with its upstream: the current branch through a pull, any
+    /// other one by fast-forwarding it — which never moves HEAD and never merges.
+    /// </summary>
+    /// <param name="branch">The local branch's name.</param>
+    /// <returns><see langword="true"/> when the branch was brought up to date.</returns>
+    Task<bool> PullBranchAsync(string branch);
+
+    /// <summary>
+    /// Pushes a local branch, current or not, setting its upstream when it has none.
+    /// </summary>
+    /// <param name="branch">The local branch's name.</param>
+    /// <returns><see langword="true"/> when the push finished.</returns>
+    Task<bool> PushBranchAsync(string branch);
+
+    /// <summary>
+    /// Fetches from every remote without showing anything: no overlay, no notification, whatever
+    /// happens — the automatic refresh's fetch.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the transfer.</param>
+    /// <returns>What happened; a failure is logged, never reported.</returns>
+    Task<QuietFetchResult> FetchQuietlyAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// What a quiet fetch came to.
+/// </summary>
+public enum QuietFetchResult
+{
+    /// <summary>The fetch ran, and the reference state was re-read after it.</summary>
+    Fetched,
+
+    /// <summary>Another operation held the repository, so nothing ran.</summary>
+    Skipped,
+
+    /// <summary>The fetch ran and failed — offline, no credentials, a remote gone.</summary>
+    Failed,
 }
 
 /// <summary>
@@ -112,7 +151,7 @@ public sealed class SyncOperations : ISyncOperations
     {
         PushRequest request = new()
         {
-            Remote = _context.Refs.CurrentBranch?.RemoteName ?? Core.Refs.GitRemote.DefaultName,
+            Remote = _context.Refs.CurrentBranch?.RemoteName ?? GitRemote.DefaultName,
             Branch = _context.Head?.BranchName,
             SetUpstream = setUpstream || _context.Refs.CurrentBranch?.UpstreamShortName is null,
             PushTags = true,
@@ -125,11 +164,144 @@ public sealed class SyncOperations : ISyncOperations
             "The remote has your commits.");
     }
 
+    /// <inheritdoc />
+    public async Task<bool> PullBranchAsync(string branch)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        GitBranch? local = FindLocal(branch);
+
+        if (local is null)
+        {
+            return false;
+        }
+
+        if (local.IsCurrent)
+        {
+            return await PullAsync().ConfigureAwait(true);
+        }
+
+        if (local.UpstreamShortName is not { Length: > 0 } upstream || local.Tracking.IsUpstreamGone)
+        {
+            await ReportAsync(
+                    $"Nothing to pull into \"{branch}\"",
+                    $"\"{branch}\" has no upstream to pull from. Give it one with \"Set upstream\" in the branches, or push it once.",
+                    InfoBarSeverity.Info)
+                .ConfigureAwait(true);
+            return false;
+        }
+
+        (string remote, string remoteBranch) = SplitUpstream(upstream);
+
+        return await RunAsync(
+                $"Pulling {branch}",
+                (handle, progress, token) => _sync.FastForwardBranchAsync(handle, remote, remoteBranch, branch, progress, token),
+                "Pulled",
+                $"\"{branch}\" is up to date with \"{upstream}\".",
+                failure => failure.Kind == SyncFailureKind.NonFastForward
+                    ? $"\"{branch}\" and \"{upstream}\" have both moved on, so it cannot simply be moved forward. "
+                        + "Check it out and pull to merge them."
+                    : null)
+            .ConfigureAwait(true);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> PushBranchAsync(string branch)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        GitBranch? local = FindLocal(branch);
+
+        if (local is null)
+        {
+            return false;
+        }
+
+        string? upstream = local.Tracking.IsUpstreamGone ? null : local.UpstreamShortName;
+
+        PushRequest request = new()
+        {
+            Remote = upstream is { Length: > 0 } ? SplitUpstream(upstream).Remote : GitRemote.DefaultName,
+            Branch = branch,
+            SetUpstream = upstream is null,
+            PushTags = true,
+        };
+
+        return await RunAsync(
+                $"Pushing {branch}",
+                (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
+                "Pushed",
+                $"The remote has the commits of \"{branch}\".")
+            .ConfigureAwait(true);
+    }
+
+    /// <inheritdoc />
+    public async Task<QuietFetchResult> FetchQuietlyAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            bool ran = await _context
+                .TryRunExclusiveAsync(
+                    (handle, token) => _sync.FetchAsync(handle, null, true, true, null, token),
+                    true,
+                    cancellationToken)
+                .ConfigureAwait(true);
+
+            return ran ? QuietFetchResult.Fetched : QuietFetchResult.Skipped;
+        }
+        catch (OperationCanceledException)
+        {
+            return QuietFetchResult.Skipped;
+        }
+        catch (SyncException exception)
+        {
+            // Debug, not warning: an offline laptop fails this every few seconds.
+            _logger.LogDebug(exception, "The automatic fetch failed: {Kind}", exception.Failure.Kind);
+            return QuietFetchResult.Failed;
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogDebug(exception, "The automatic fetch failed");
+            return QuietFetchResult.Failed;
+        }
+    }
+
+    /// <summary>
+    /// The local branch of that name, as the context last read it.
+    /// </summary>
+    private GitBranch? FindLocal(string branch)
+    {
+        foreach (GitBranch candidate in _context.Refs.LocalBranches)
+        {
+            if (string.Equals(candidate.ShortName, branch, StringComparison.Ordinal))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Splits an upstream's short name — <c>origin/feature/login</c> — into its remote and the branch's
+    /// name on that remote. The remote is the part before the first slash, which is how git abbreviates
+    /// it.
+    /// </summary>
+    internal static (string Remote, string Branch) SplitUpstream(string upstream)
+    {
+        int separator = upstream.IndexOf('/');
+
+        return separator <= 0
+            ? (GitRemote.DefaultName, upstream)
+            : (upstream[..separator], upstream[(separator + 1)..]);
+    }
+
     private async Task<bool> RunAsync(
         string title,
         Func<RepositoryHandle, IProgress<SyncProgress>, CancellationToken, Task> operation,
         string successTitle,
-        string successMessage)
+        string successMessage,
+        Func<SyncFailure, string?>? explain = null)
     {
         RepositoryHandle? repository = _context.Repository;
 
@@ -175,7 +347,7 @@ public sealed class SyncOperations : ISyncOperations
 
             await ReportAsync(
                 $"{title} failed",
-                exception.Failure.Message,
+                explain?.Invoke(exception.Failure) ?? exception.Failure.Message,
 
                 // A failure the user can fix themselves is a warning; one that needs their
                 // credentials or their host configuration is an error.

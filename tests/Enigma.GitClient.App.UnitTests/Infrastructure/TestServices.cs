@@ -86,6 +86,20 @@ public sealed class TestServices : IDisposable
         services.RemoveAll<IContentDialogService>();
         services.AddSingleton<IContentDialogService, ScriptedContentDialogService>();
 
+        // A page asking for the repository window gets a record of having asked, not a window left
+        // open on the headless platform after the test.
+        services.RemoveAll<IAppWindows>();
+        services.AddSingleton<IAppWindows, RecordingAppWindows>();
+
+        // Nor may a test start another instance of the application.
+        services.RemoveAll<IInstanceLauncher>();
+        services.AddSingleton<IInstanceLauncher, RecordingInstanceLauncher>();
+
+        // A clock that only moves when a test says so: the automatic refresh must not fire in the
+        // middle of a test that is about something else.
+        services.RemoveAll<TimeProvider>();
+        services.AddSingleton<TimeProvider, ManualTimeProvider>();
+
         // The clipboard and the file manager belong to whoever is running the tests.
         services.RemoveAll<ISystemInterop>();
         services.AddSingleton<ISystemInterop, RecordingSystemInterop>();
@@ -109,6 +123,21 @@ public sealed class TestServices : IDisposable
     /// Gets the recording desktop interop, for asserting what a row menu asked for.
     /// </summary>
     public RecordingSystemInterop Interop => (RecordingSystemInterop)Get<ISystemInterop>();
+
+    /// <summary>
+    /// Gets the recording window coordinator, for asserting which window a page asked for.
+    /// </summary>
+    public RecordingAppWindows Windows => (RecordingAppWindows)Get<IAppWindows>();
+
+    /// <summary>
+    /// Gets the recording launcher, for asserting which new instance a page asked for.
+    /// </summary>
+    public RecordingInstanceLauncher Launcher => (RecordingInstanceLauncher)Get<IInstanceLauncher>();
+
+    /// <summary>
+    /// Gets the manual clock the automatic refresh runs on.
+    /// </summary>
+    public ManualTimeProvider Clock => (ManualTimeProvider)Get<TimeProvider>();
 
     /// <summary>
     /// Gets the scripted dialog service, for choosing what a dialog answers.

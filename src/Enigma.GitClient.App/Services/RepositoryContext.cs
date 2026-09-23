@@ -215,6 +215,39 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     }
 
     /// <inheritdoc />
+    public async Task<bool> TryRunExclusiveAsync(
+        Func<RepositoryHandle, CancellationToken, Task> operation,
+        bool refreshAfter = true,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (Repository is not { } repository || !_writeLock.Wait(0, CancellationToken.None))
+        {
+            return false;
+        }
+
+        try
+        {
+            using CancellationTokenSource linked =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+
+            await operation(repository, linked.Token).ConfigureAwait(true);
+
+            if (refreshAfter)
+            {
+                await RefreshAsync(cancellationToken).ConfigureAwait(true);
+            }
+
+            return true;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

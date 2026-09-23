@@ -111,3 +111,15 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | A drag the page runs itself             | DONE   | (in BUG-11A4.md)          |
 | - PHASE02    | A pointer that says yes, and a way out  | DONE   | (in BUG-11A4.md)          |
 | BUG-39D9     | Progress reports arrive late, unordered | DONE   | docs/plan/BUG-39D9.md     |
+| FEATURE-5431 | A start window, one repo per window     | DONE   | docs/plan/FEATURE-5431.md |
+| - PHASE01    | Start window and repository window      | DONE   | (in FEATURE-5431.md)      |
+| - PHASE02    | Several instances side by side          | DONE   | (in FEATURE-5431.md)      |
+| FEATURE-7514 | Branches, tags and remotes as dialogs   | DONE   | docs/plan/FEATURE-7514.md |
+| - PHASE01    | Dialogs from the history toolbar        | DONE   | (in FEATURE-7514.md)      |
+| - PHASE02    | A manual merge section                  | DONE   | (in FEATURE-7514.md)      |
+| FEATURE-3507 | Branch actions in the history           | DONE   | docs/plan/FEATURE-3507.md |
+| - PHASE01    | Merge source and merge into             | DONE   | (in FEATURE-3507.md)      |
+| - PHASE02    | Pull, push and delete per branch        | DONE   | (in FEATURE-3507.md)      |
+| FEATURE-1296 | Automatic fetch and refresh             | DONE   | docs/plan/FEATURE-1296.md |
+| - PHASE01    | The interval setting                    | DONE   | (in FEATURE-1296.md)      |
+| - PHASE02    | The periodic fetch and refresh          | DONE   | (in FEATURE-1296.md)      |

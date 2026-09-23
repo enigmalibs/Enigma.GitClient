@@ -138,6 +138,13 @@
     <Style Selector="^.stash">
       <Setter Property="Background" Value="{DynamicResource RefBadgeStashBrush}" />
     </Style>
+
+    <!-- The history's merge source: ringed rather than recoloured, so the badge still says what
+         kind of branch it is. The ring is the border every badge already draws, so the badge's size
+         — which RefBadgeMetrics mirrors — does not change. -->
+    <Style Selector="^.mergesource">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+    </Style>
   </ControlTheme>
 
   <!--

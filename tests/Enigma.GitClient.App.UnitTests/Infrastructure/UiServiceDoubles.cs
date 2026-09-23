@@ -224,3 +224,63 @@ public sealed class RecordingSystemInterop : ISystemInterop
         return Task.FromResult(OpensUrls);
     }
 }
+
+/// <summary>
+/// An <see cref="IAppWindows"/> that records which window was asked for instead of opening one.
+/// </summary>
+/// <remarks>
+/// A page test is about the page. A real window swap would leave windows open on the headless
+/// platform after the test has finished; the swap itself is covered by its own tests.
+/// </remarks>
+public sealed class RecordingAppWindows : IAppWindows
+{
+    /// <summary>Gets every window asked for, oldest first.</summary>
+    public List<AppWindowKind> Requested { get; } = [];
+
+    /// <summary>Gets the paths <see cref="StartAsync"/> was given.</summary>
+    public List<string?> Started { get; } = [];
+
+    /// <inheritdoc />
+    public AppWindowKind Current { get; private set; }
+
+    /// <inheritdoc />
+    public Window? CurrentWindow => null;
+
+    /// <inheritdoc />
+    public Task StartAsync(string? path)
+    {
+        Started.Add(path);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public void ShowStart() => Record(AppWindowKind.Start);
+
+    /// <inheritdoc />
+    public void ShowRepository() => Record(AppWindowKind.Repository);
+
+    private void Record(AppWindowKind kind)
+    {
+        Requested.Add(kind);
+        Current = kind;
+    }
+}
+
+/// <summary>
+/// An <see cref="IInstanceLauncher"/> that records what it was asked to start instead of starting it.
+/// </summary>
+public sealed class RecordingInstanceLauncher : IInstanceLauncher
+{
+    /// <summary>Gets the repository paths each launch was given, <see langword="null"/> for none.</summary>
+    public List<string?> Launched { get; } = [];
+
+    /// <summary>Gets or sets a value indicating whether a launch pretends to succeed.</summary>
+    public bool Succeeds { get; set; } = true;
+
+    /// <inheritdoc />
+    public bool Launch(string? repositoryPath = null)
+    {
+        Launched.Add(repositoryPath);
+        return Succeeds;
+    }
+}

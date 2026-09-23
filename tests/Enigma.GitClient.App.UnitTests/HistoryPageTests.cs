@@ -11,6 +11,7 @@ using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -890,6 +891,42 @@ public sealed class HistoryPageTests
 
             // And a point over a cell still reaches the same menu, through the cell.
             Assert.Same(row, MenuOwnerAt(window, row.TranslatePoint(subject.Bounds.Center, window)));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ALinesMenu_IsBuiltFromItsEntriesAndABranchBadgeHasItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, _, _, Panel workspace, _) = await ShowHistoryPageAsync(services);
+
+            Grid line = RowGrids(workspace).First(grid => ((CommitRowViewModel)grid.DataContext!).HasBranch);
+            CommitRowViewModel row = (CommitRowViewModel)line.DataContext!;
+
+            ContextMenu menu = line.ContextMenu!;
+            menu.Open(line);
+            Render(window);
+
+            string[] headers = [.. menu.GetLogicalDescendants()
+                .OfType<MenuItem>()
+                .Select(item => item.Header as string ?? string.Empty)
+                .Where(header => header != "-")];
+
+            Assert.Equal(
+                row.MenuEntries.Where(entry => !entry.IsSeparator).Select(entry => entry.Header),
+                headers);
+            Assert.Contains(headers, header => header.EndsWith("as merge source", StringComparison.Ordinal));
+
+            menu.Close();
+
+            // Each branch badge on the line opens a menu about that branch; the line's own is
+            // behind it for everything else.
+            RefBadge[] badges = [.. line.GetVisualDescendants().OfType<RefBadge>()];
+            Assert.Equal(row.Branches.Count, badges.Count(badge => badge.ContextMenu is not null));
 
             window.Close();
         });

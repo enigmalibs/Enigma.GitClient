@@ -109,6 +109,26 @@ public interface IRepositoryContext : INotifyPropertyChanged
         Func<RepositoryHandle, CancellationToken, Task<TResult>> operation,
         bool refreshAfter = true,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs a write the way <see cref="RunExclusiveAsync"/> does — but only if no other write is in
+    /// progress; otherwise it does nothing at all.
+    /// </summary>
+    /// <param name="operation">The operation, given a token linked to the repository's lifetime.</param>
+    /// <param name="refreshAfter">Whether to re-read the reference state when the operation finishes.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>
+    /// <see langword="true"/> when the operation ran; <see langword="false"/> when another write held
+    /// the repository, or none is open.
+    /// </returns>
+    /// <remarks>
+    /// For work nobody asked for — the automatic refresh — which must never queue up behind the reader's
+    /// own operations: when they are busy, the next tick will do.
+    /// </remarks>
+    Task<bool> TryRunExclusiveAsync(
+        Func<RepositoryHandle, CancellationToken, Task> operation,
+        bool refreshAfter = true,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
