@@ -26,6 +26,9 @@ using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Status;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -37,6 +40,8 @@ namespace Enigma.GitClient.App.UnitTests;
 [Collection(HeadlessCollection.Name)]
 public sealed class HistoryPageTests
 {
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+
     private readonly HeadlessAvaloniaFixture _fixture;
 
     public HistoryPageTests(HeadlessAvaloniaFixture fixture) => _fixture = fixture;
@@ -223,6 +228,66 @@ public sealed class HistoryPageTests
             Assert.Same(page.Rows[0], uncommitted);
             Assert.Equal("Uncommitted changes", uncommitted.Subject);
             Assert.Null(uncommitted.Commit);
+        });
+    }
+
+    [Fact]
+    public void Page_ShowsOneUncommittedRowWhenTwoLoadsOverlap()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            GatedWorkingTreeProbe probe = new();
+            using TestServices services = BuildWithProbe(probe);
+            HistoryPageViewModel page = await OpenOverProbeAsync(services, probe);
+
+            // Two reloads back to back — the page appearing while the automatic refresh redraws it.
+            Task superseded = page.ReloadAsync();
+            Task current = page.ReloadAsync();
+
+            // git had answered the first one before it was superseded: cancelling cannot take that
+            // answer back, and it reaches a list the second one has already cleared.
+            probe.AnswerNext(dirty: true);
+            await superseded.WaitAsync(Patience);
+
+            probe.AnswerNext(dirty: true);
+            await current.WaitAsync(Patience);
+
+            CommitRowViewModel uncommitted = Assert.Single(page.Rows, row => row.IsUncommitted);
+            Assert.Same(page.Rows[0], uncommitted);
+
+            string[] commits = [.. page.Rows.Where(row => !row.IsUncommitted).Select(row => row.Sha)];
+            Assert.Equal(6, commits.Length);
+            Assert.Equal(commits.Length, commits.Distinct(StringComparer.Ordinal).Count());
+        });
+    }
+
+    [Fact]
+    public void Page_StaysBusyUntilTheLastOverlappingLoadHasFinished()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            GatedWorkingTreeProbe probe = new();
+            using TestServices services = BuildWithProbe(probe);
+            HistoryPageViewModel page = await OpenOverProbeAsync(services, probe);
+
+            Task superseded = page.ReloadAsync();
+            Task current = page.ReloadAsync();
+
+            probe.AnswerNext(dirty: false);
+            await superseded.WaitAsync(Patience);
+
+            // The second load is still waiting on git: nothing may start a third in the meantime. Read
+            // now and asserted once both loads are over, so a failure never leaves one waiting.
+            bool busyInBetween = page.IsBusy;
+            bool refreshableInBetween = page.RefreshCommand.CanExecute(null);
+
+            probe.AnswerNext(dirty: false);
+            await current.WaitAsync(Patience);
+
+            Assert.True(busyInBetween);
+            Assert.False(refreshableInBetween);
+            Assert.False(page.IsBusy);
+            Assert.True(page.RefreshCommand.CanExecute(null));
         });
     }
 
@@ -1970,5 +2035,56 @@ public sealed class HistoryPageTests
         }
 
         Assert.True(condition(), "the page never reached the state the test waited for");
+    }
+
+    /// <summary>
+    /// The container with the working-tree probe replaced, over the real reference reader.
+    /// </summary>
+    private static TestServices BuildWithProbe(IWorkingTreeProbe probe)
+        => TestServices.Build(useRealRefReader: true, configure: services =>
+        {
+            services.RemoveAll<IWorkingTreeProbe>();
+            services.AddSingleton(probe);
+        });
+
+    /// <summary>
+    /// Opens the test history over a gated probe, and returns the page once its own first read is over.
+    /// </summary>
+    /// <remarks>
+    /// Choosing its scope as it is built already reads the history once. That read is answered here,
+    /// so the loads a test starts are the only ones left asking.
+    /// </remarks>
+    private static async Task<HistoryPageViewModel> OpenOverProbeAsync(TestServices services, GatedWorkingTreeProbe probe)
+    {
+        RepositoryHandle repository = await BuildHistoryAsync(services);
+        await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+        HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+
+        probe.AnswerNext(dirty: false);
+        await WaitUntilAsync(() => page.IsNotBusy);
+
+        return page;
+    }
+
+    /// <summary>
+    /// A working-tree probe that answers when the test says so, oldest question first — and, like a
+    /// <c>git status</c> that had already finished, answers a load that was cancelled in the meantime.
+    /// </summary>
+    private sealed class GatedWorkingTreeProbe : IWorkingTreeProbe
+    {
+        private readonly Queue<TaskCompletionSource<bool>> _questions = new();
+
+        public Task<bool> IsDirtyAsync(
+            RepositoryHandle repository,
+            bool includeUntracked = true,
+            CancellationToken cancellationToken = default)
+        {
+            TaskCompletionSource<bool> answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            _questions.Enqueue(answer);
+            return answer.Task;
+        }
+
+        public void AnswerNext(bool dirty) => _questions.Dequeue().SetResult(dirty);
     }
 }

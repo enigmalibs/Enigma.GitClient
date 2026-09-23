@@ -1,6 +1,6 @@
 # BUG-45D9 — The uncommitted row is shown twice
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-45D9.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-45d9-uncommitted-row-once`
 **Run:** bugfix/2026-09-23-uncommitted-row-once
