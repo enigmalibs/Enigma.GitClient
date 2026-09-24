@@ -124,3 +124,6 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | The interval setting                    | DONE   | (in FEATURE-1296.md)      |
 | - PHASE02    | The periodic fetch and refresh          | DONE   | (in FEATURE-1296.md)      |
 | BUG-45D9     | Uncommitted row shown twice             | DONE   | docs/plan/BUG-45D9.md     |
+| FEATURE-1A7E | Reset the branch to a commit            | DONE   | docs/plan/FEATURE-1A7E.md |
+| - PHASE01    | The reset engine                        | DONE   | (in FEATURE-1A7E.md)      |
+| - PHASE02    | Soft and hard reset in the line menu    | DONE   | (in FEATURE-1A7E.md)      |
