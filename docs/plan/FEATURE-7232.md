@@ -1,6 +1,6 @@
 # FEATURE-7232 — Toolbars, one refresh, flat file lists
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-24-toolbar-refresh-theme-menus
@@ -61,7 +61,7 @@ Three changes to how the application's strips read and behave:
 ## PHASE01 — Toolbar buttons that look enabled
 
 **Branch:** `feature/feature-7232-phase01-toolbar-buttons`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7232-PHASE01.md`
 
 ### Steps
 
