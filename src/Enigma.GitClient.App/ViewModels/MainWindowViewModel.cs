@@ -25,6 +25,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IInfoBarService _infoBar;
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
+    private readonly IAutoRefreshService _autoRefresh;
     private bool _initialised;
 
     /// <summary>
@@ -40,7 +41,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
     /// <param name="autoRefresh">
-    /// Fetches and refreshes the repository on its own; the graph is told what each refresh found.
+    /// Fetches and refreshes the repository on its own, and when the toolbar's refresh button asks;
+    /// the graph is told what each refresh found.
     /// </param>
     public MainWindowViewModel(
         IShellNavigation shell,
@@ -71,8 +73,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         // The pages that follow the repository's state (branches, tags, changes, this strip) follow
         // the refresh on their own; the graph is told, because redrawing it is what costs the reader
-        // their place, and it only does so when there is something new.
-        autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed);
+        // their place, and it only does so when there is something new — or when the reader pressed
+        // refresh, which is asking for exactly that.
+        autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed || result.Requested);
 
         Shell = shell;
         Conflicts = conflicts;
@@ -83,6 +86,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         _sync = sync;
         _merges = merges;
+        _autoRefresh = autoRefresh;
 
         ToggleThemeCommand = new RelayCommand(OnToggleTheme);
 
@@ -179,8 +183,14 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand ToggleThemeCommand { get; }
 
     /// <summary>
-    /// Gets the command that re-reads the open repository's state.
+    /// Gets the command that refreshes everything: the application's one refresh button.
     /// </summary>
+    /// <remarks>
+    /// It runs what the automatic refresh runs — a quiet fetch from every remote, then the repository's
+    /// HEAD, references and status read again — and, because the reader asked, the history is redrawn
+    /// in place whether or not anything moved and the integrations page reads its repositories again.
+    /// No page has a refresh button of its own: every one of them follows this.
+    /// </remarks>
     public AsyncRelayCommand RefreshCommand { get; }
 
     /// <summary>
@@ -377,7 +387,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            await RepositoryContext.RefreshAsync().ConfigureAwait(true);
+            await _autoRefresh.RequestRefreshAsync().ConfigureAwait(true);
         }
         finally
         {

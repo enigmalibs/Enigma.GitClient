@@ -21,7 +21,7 @@
               BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
               BorderThickness="0,0,0,1"
               Padding="12,8">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="10">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
@@ -128,14 +128,6 @@
               <ei:Icon Kind="CloudArrowUp" Classes="toolbar" />
             </Button>
           </StackPanel>
-
-          <Button Grid.Column="6"
-                  Classes="toolbar"
-                  Command="{Binding RefreshCommand}"
-                  ToolTip.Tip="Re-read the history"
-                  AutomationProperties.Name="Re-read the history">
-            <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
-          </Button>
         </Grid>
       </Border>
 

@@ -240,7 +240,7 @@ public sealed class ToolbarButtonLookTests
             Icon GlyphOf(Button button) => button.GetVisualDescendants().OfType<Icon>().First();
 
             // No repository is open: there is nothing to refresh, but a theme to switch.
-            Button refresh = Named("Refresh the repository state");
+            Button refresh = Named("Refresh everything");
             Button theme = Named("Switch between the dark and light themes");
 
             Assert.False(refresh.IsEffectivelyEnabled);

@@ -186,6 +186,10 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
     /// <param name="dialogs">Raises the connect and disconnect dialogs.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="services">Resolves the dialog's view.</param>
+    /// <param name="autoRefresh">
+    /// Says when the reader pressed the toolbar's refresh, which re-reads the selected account's
+    /// repositories too: this page has no refresh button of its own.
+    /// </param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
     public IntegrationsPageViewModel(
         IRepositoryContext repositoryContext,
@@ -196,6 +200,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         IServiceProvider services,
+        IAutoRefreshService autoRefresh,
         ILogger<IntegrationsPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -206,6 +211,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(autoRefresh);
         ArgumentNullException.ThrowIfNull(logger);
 
         _accounts = accounts;
@@ -219,7 +225,6 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
 
         AddAccountCommand = new AsyncRelayCommand(OnAddAccountAsync, () => CanAddAccount);
         RemoveAccountCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnRemoveAccountAsync);
-        RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => HasAccounts);
         CloneCommand = new AsyncRelayCommand<HostRepositoryRowViewModel>(OnCloneAsync);
         OpenRepositoryCommand = new AsyncRelayCommand<HostRepositoryRowViewModel>(OnOpenRepositoryAsync);
         ClearSearchCommand = new RelayCommand(() => Search = string.Empty, () => Search.Length > 0);
@@ -227,6 +232,8 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         ShowAllCommand = new RelayCommand(() => Visibility = HostVisibility.All);
         ShowPublicCommand = new RelayCommand(() => Visibility = HostVisibility.Public);
         ShowPrivateCommand = new RelayCommand(() => Visibility = HostVisibility.Private);
+
+        autoRefresh.Refreshed += OnRefreshed;
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -326,9 +333,6 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
     /// <summary>Gets the command that disconnects one.</summary>
     public AsyncRelayCommand<HostAccountRowViewModel> RemoveAccountCommand { get; }
 
-    /// <summary>Gets the command that re-reads the selected account's repositories.</summary>
-    public AsyncRelayCommand RefreshCommand { get; }
-
     /// <summary>Gets the command that clones a repository.</summary>
     public AsyncRelayCommand<HostRepositoryRowViewModel> CloneCommand { get; }
 
@@ -395,7 +399,6 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         }
 
         OnPropertyChanged(nameof(HasAccounts));
-        RefreshCommand.NotifyCanExecuteChanged();
 
         SelectedAccount = Find(rows, previous);
     }
@@ -708,7 +711,18 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         await _links.RefreshAsync().ConfigureAwait(true);
     }
 
-    private Task OnRefreshAsync() => LoadRepositoriesAsync();
+    /// <summary>
+    /// Re-reads the selected account's repositories when the reader pressed refresh. Only then: the
+    /// periodic refresh is about the repository on disk, and calling a hosting API every few seconds
+    /// for a list nobody asked to see again would spend the account's rate limit for nothing.
+    /// </summary>
+    private void OnRefreshed(object? sender, AutoRefreshResult result)
+    {
+        if (result.Requested && HasAccounts)
+        {
+            _ = LoadRepositoriesAsync();
+        }
+    }
 
     private async Task OnCloneAsync(HostRepositoryRowViewModel? row)
     {

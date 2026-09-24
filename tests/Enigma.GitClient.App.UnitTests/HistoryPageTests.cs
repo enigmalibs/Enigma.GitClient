@@ -136,7 +136,7 @@ public sealed class HistoryPageTests
 
             Assert.True(page.IsEmpty);
             Assert.Contains("Open a repository", page.EmptyMessage, StringComparison.Ordinal);
-            Assert.False(page.RefreshCommand.CanExecute(null));
+            Assert.False(page.LoadMoreCommand.CanExecute(null));
         });
     }
 
@@ -276,18 +276,16 @@ public sealed class HistoryPageTests
             probe.AnswerNext(dirty: false);
             await superseded.WaitAsync(Patience);
 
-            // The second load is still waiting on git: nothing may start a third in the meantime. Read
-            // now and asserted once both loads are over, so a failure never leaves one waiting.
+            // The second load is still waiting on git: the page says it is busy until it is over, which
+            // is what keeps "load more" and the in-place refresh from starting a third. Read now and
+            // asserted once both loads are over, so a failure never leaves one waiting.
             bool busyInBetween = page.IsBusy;
-            bool refreshableInBetween = page.RefreshCommand.CanExecute(null);
 
             probe.AnswerNext(dirty: false);
             await current.WaitAsync(Patience);
 
             Assert.True(busyInBetween);
-            Assert.False(refreshableInBetween);
             Assert.False(page.IsBusy);
-            Assert.True(page.RefreshCommand.CanExecute(null));
         });
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
@@ -231,6 +232,50 @@ public sealed class ShellRenderTests
         });
     }
 
+    [Theory]
+    [InlineData(typeof(HistoryPageView))]
+    [InlineData(typeof(ChangesPageView))]
+    [InlineData(typeof(BranchesPageView))]
+    [InlineData(typeof(TagsPageView))]
+    [InlineData(typeof(RemotesPageView))]
+    [InlineData(typeof(IntegrationsPageView))]
+    [InlineData(typeof(SettingsPageView))]
+    public void NoPage_HasARefreshButtonOfItsOwn(Type pageType)
+    {
+        _fixture.Run(() =>
+        {
+            Control page = (Control)Activator.CreateInstance(pageType)!;
+            Window window = new() { Content = page };
+
+            Layout(window);
+
+            // The repository strip's refresh is the only one: it refreshes everything every page shows.
+            Assert.DoesNotContain(
+                page.GetVisualDescendants().OfType<Icon>(),
+                icon => icon.Kind == Enigma.Icons.Phosphor.PhosphorIcon.ArrowsClockwise);
+        });
+    }
+
+    [Fact]
+    public void TheRepositoryStrip_HasTheOneRefreshButton()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            Views.MainWindow window = services.Get<Views.MainWindow>();
+            window.DataContext = services.Get<ViewModels.MainWindowViewModel>();
+
+            Layout(window);
+
+            Button refresh = Assert.Single(
+                window.GetVisualDescendants().OfType<Button>(),
+                button => button.Content is Icon { Kind: Enigma.Icons.Phosphor.PhosphorIcon.ArrowsClockwise });
+
+            Assert.Equal("Refresh everything", AutomationProperties.GetName(refresh));
+        });
+    }
+
     [Fact]
     public void AToolbarButtonsIconIsTheToolbarSize()
     {
@@ -241,13 +286,14 @@ public sealed class ShellRenderTests
 
             Layout(window);
 
-            // "New branch" and the refresh both sit on the page's strip. The segmented toggles that
-            // used to sit between them went with the tags, which have a page of their own.
+            // "New branch" sits on the page's strip. The segmented toggles that used to sit beside it
+            // went with the tags, which have a page of their own, and the refresh went to the
+            // repository strip, which refreshes everything.
             Icon[] toolbar = [.. page.GetVisualDescendants()
                 .OfType<Icon>()
                 .Where(icon => icon.Classes.Contains("toolbar"))];
 
-            Assert.True(toolbar.Length >= 2, $"the branches toolbar drew {toolbar.Length} icons");
+            Assert.True(toolbar.Length >= 1, $"the branches toolbar drew {toolbar.Length} icons");
             Assert.All(toolbar, icon => Assert.Equal(18, icon.Size));
         });
     }
