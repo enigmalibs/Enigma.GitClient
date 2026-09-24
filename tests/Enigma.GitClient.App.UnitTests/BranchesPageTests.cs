@@ -1210,22 +1210,27 @@ public sealed class BranchesPageTests
 
             Application application = Application.Current!;
             Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+            Assert.True(application.TryFindResource("EnigmaForegroundSecondaryBrush", application.ActualThemeVariant, out object? grey));
 
-            // Check out and delete: the icons of the buttons at the end of the line.
-            static Icon[] Actions(ListBoxItem row) =>
+            // Check out and delete: the buttons at the end of the line, with their icons.
+            static (Button Button, Icon Icon)[] Actions(ListBoxItem row) =>
                 [.. row.GetVisualDescendants()
                     .OfType<Button>()
                     .Where(button => button.Classes.Contains("toolbar"))
-                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
+                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>().Select(icon => (button, icon)))];
 
             Assert.True(Actions(rows[0]).Length >= 2, "a branch row drew fewer than two actions");
 
             list.SelectedItem = rows[0].DataContext;
             window.UpdateLayout();
 
-            // The selected row and the rest of them: an action is legible wherever it is.
-            Assert.All(Actions(rows[0]), icon => Assert.Same(full, icon.Foreground));
-            Assert.All(Actions(rows[1]), icon => Assert.Same(full, icon.Foreground));
+            // The selected row and the rest of them: an action that can be pressed is legible
+            // wherever it is, and one that cannot — the current branch cannot be checked out or
+            // deleted — is grey, selected or not.
+            (Button Button, Icon Icon)[] all = [.. Actions(rows[0]), .. Actions(rows[1])];
+
+            Assert.Contains(all, action => action.Button.IsEffectivelyEnabled);
+            Assert.All(all, action => Assert.Same(action.Button.IsEffectivelyEnabled ? full : grey, action.Icon.Foreground));
 
             window.Close();
         });
