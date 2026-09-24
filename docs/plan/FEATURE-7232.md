@@ -1,6 +1,6 @@
 # FEATURE-7232 — Toolbars, one refresh, flat file lists
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-24-toolbar-refresh-theme-menus
@@ -122,7 +122,7 @@ Three changes to how the application's strips read and behave:
 ## PHASE03 — Flat file lists by default
 
 **Branch:** `feature/feature-7232-phase03-flat-file-list`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7232-PHASE03.md`
 
 ### Steps
 

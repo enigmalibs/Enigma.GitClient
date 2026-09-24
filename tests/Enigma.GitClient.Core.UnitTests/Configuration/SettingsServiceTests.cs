@@ -45,7 +45,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(AppSettings.CurrentVersion, defaults.Version);
         Assert.Equal(ThemePreference.System, defaults.Theme);
         Assert.Equal(DateDisplay.Relative, defaults.DateDisplay);
-        Assert.Equal(FilesView.Tree, defaults.FilesView);
+        Assert.Equal(FilesView.List, defaults.FilesView);
         Assert.Equal(DiffView.SideBySide, defaults.DiffView);
         Assert.Equal(PullStrategy.Merge, defaults.Pull);
         Assert.Equal(3, defaults.DiffContextLines);
@@ -354,6 +354,46 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AVersionFourTreeNobodyChangedBecomesTheFlatList()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 4, "filesView": "Tree", "tabWidth": 8 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        // Tree was every earlier build's own default, so it is a shape nobody chose.
+        Assert.Equal(FilesView.List, stored.FilesView);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+        Assert.Equal(8, stored.TabWidth);
+    }
+
+    [Fact]
+    public async Task AVersionFourListIsKept()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 4, "filesView": "List" }""");
+
+        using SettingsService settings = Build();
+
+        Assert.Equal(FilesView.List, (await settings.LoadAsync(TestContext.Current.CancellationToken)).FilesView);
+    }
+
+    [Fact]
+    public async Task ACurrentVersionTreeIsNeverMigrated()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 5, "filesView": "Tree" }""");
+
+        using SettingsService settings = Build();
+
+        // From version 5 on, the tree is a preference like any other.
+        Assert.Equal(
+            AppSettings.LegacyFilesView,
+            (await settings.LoadAsync(TestContext.Current.CancellationToken)).FilesView);
+    }
+
+    [Fact]
     public async Task ACurrentVersionLaneWidthIsNeverMigrated()
     {
         Directory.CreateDirectory(_root);
@@ -373,7 +413,7 @@ public sealed class SettingsServiceTests : IDisposable
         Directory.CreateDirectory(_root);
         System.IO.File.WriteAllText(
             File_,
-            """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified", "graphLaneWidth": 16 }""");
+            """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified", "graphLaneWidth": 16, "filesView": "Tree" }""");
 
         using SettingsService settings = Build();
         AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
@@ -381,6 +421,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(AppSettings.Defaults.GraphRowHeight, stored.GraphRowHeight);
         Assert.Equal(AppSettings.Defaults.DiffView, stored.DiffView);
         Assert.Equal(AppSettings.Defaults.GraphLaneWidth, stored.GraphLaneWidth);
+        Assert.Equal(AppSettings.Defaults.FilesView, stored.FilesView);
         Assert.Equal(AppSettings.CurrentVersion, stored.Version);
     }
 

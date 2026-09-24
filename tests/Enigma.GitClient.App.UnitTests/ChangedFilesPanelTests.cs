@@ -84,6 +84,17 @@ public sealed class ChangedFilesPanelTests
         return panel;
     }
 
+    /// <summary>
+    /// The sample files, shown as the tree — which is one choice away from the list the panel opens
+    /// on.
+    /// </summary>
+    private static ChangedFilesPanelViewModel LoadedAsTree(RecordingSystemInterop? interop = null)
+    {
+        ChangedFilesPanelViewModel panel = Loaded(interop);
+        panel.ViewMode = ChangedFilesViewMode.Tree;
+        return panel;
+    }
+
     // ---------------------------------------------------------------- the two shapes
 
     [Fact]
@@ -105,11 +116,21 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
-    public void Panel_NestsFilesUnderTheirDirectoriesInTreeMode()
+    public void Panel_OpensAsAFlatList()
     {
         ChangedFilesPanelViewModel panel = Loaded();
 
-        Assert.Equal(ChangedFilesViewMode.Tree, panel.ViewMode);
+        // With no preference to follow, the panel opens on the preference's own default.
+        Assert.Equal(ChangedFilesViewMode.List, panel.ViewMode);
+        Assert.True(panel.IsListMode);
+        Assert.False(panel.IsTreeMode);
+        Assert.All(panel.Nodes, node => Assert.False(node.IsDirectory));
+    }
+
+    [Fact]
+    public void Panel_NestsFilesUnderTheirDirectoriesInTreeMode()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
 
         // Directories first, then the root-level file.
         Assert.Equal(["assets", "docs", "src/app", "README.md"], panel.Nodes.Select(node => node.Label));
@@ -126,7 +147,7 @@ public sealed class ChangedFilesPanelTests
     [Fact]
     public void Panel_CanShowEverySingleChildDirectoryOnItsOwnRow()
     {
-        ChangedFilesPanelViewModel panel = Loaded();
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
         panel.CollapseDirectories = false;
 
         ChangedFileNodeViewModel source = panel.Nodes.Single(node => node.Label == "src");
@@ -339,7 +360,7 @@ public sealed class ChangedFilesPanelTests
     [Fact]
     public void Panel_SelectingADirectoryRowSelectsNoFile()
     {
-        ChangedFilesPanelViewModel panel = Loaded();
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
 
         panel.SelectedNode = panel.Nodes.Single(node => node.Label == "src/app");
 
@@ -397,7 +418,7 @@ public sealed class ChangedFilesPanelTests
     public void Panel_WillNotOpenSomethingThatIsNotOnDisk()
     {
         RecordingSystemInterop interop = new();
-        ChangedFilesPanelViewModel panel = Loaded(interop);
+        ChangedFilesPanelViewModel panel = LoadedAsTree(interop);
 
         ChangedFileNodeViewModel directory = panel.Nodes.Single(node => node.Label == "src/app");
         ChangedFileNodeViewModel deleted = ChangedFilesPanelViewModel.Flatten(panel.Nodes)
@@ -429,7 +450,7 @@ public sealed class ChangedFilesPanelTests
     [Fact]
     public void Panel_HandlesACommitTouchingTenThousandFiles()
     {
-        ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop());
+        ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop()) { ViewMode = ChangedFilesViewMode.Tree };
 
         List<ChangedFile> files = new(10_000);
 
@@ -468,9 +489,10 @@ public sealed class ChangedFilesPanelTests
     [Fact]
     public void Panel_OpensTheTreeForAChangeSmallEnoughToRead()
     {
-        ChangedFilesPanelViewModel panel = Loaded();
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
 
         Assert.True(ChangedFilesPanelViewModel.DefaultAutoExpandLimit > 5);
+        Assert.Contains(panel.Nodes, node => node.IsDirectory);
         Assert.All(panel.Nodes.Where(node => node.IsDirectory), node => Assert.True(node.IsExpanded));
     }
 
@@ -587,7 +609,7 @@ public sealed class ChangedFilesPanelTests
 
             try
             {
-                ChangedFilesPanelViewModel panel = Loaded();
+                ChangedFilesPanelViewModel panel = LoadedAsTree();
                 ChangedFilesPanelView view = new() { DataContext = panel };
 
                 IReadOnlyList<string> tree = RenderAndReadText(view, "changed-files-tree.png");
@@ -646,10 +668,11 @@ public sealed class ChangedFilesPanelTests
 
                 IReadOnlyList<string> texts = RenderAndReadText(view, "history-page-details.png", 1200, 700);
 
-                // The graph is still there, and the details pane now sits under it.
+                // The graph is still there, and the details pane now sits under it — its files a
+                // flat list of names, which is what the panel opens on: no directory row.
                 Assert.Contains("Rework the sources", texts);
                 Assert.Contains("Program.cs", texts);
-                Assert.Contains("src/app", texts);
+                Assert.DoesNotContain("src/app", texts);
                 Assert.Contains(texts, text => text.StartsWith("3 files", StringComparison.Ordinal));
             }
             finally
