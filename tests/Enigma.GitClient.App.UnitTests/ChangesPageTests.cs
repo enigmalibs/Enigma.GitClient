@@ -20,6 +20,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
 
@@ -267,6 +268,9 @@ public sealed class ChangesPageTests
             Write(repository, "src/one.txt", "one\n");
             Write(repository, "src/two.txt", "two\n");
             Write(repository, "README.md", "# edited\n");
+
+            // A directory row is the tree's: the list the page opens on has none.
+            services.Get<ISettingsService>().Update(current => current with { FilesView = FilesView.Tree });
 
             ChangesPageViewModel page = await OpenAsync(services, repository);
 
