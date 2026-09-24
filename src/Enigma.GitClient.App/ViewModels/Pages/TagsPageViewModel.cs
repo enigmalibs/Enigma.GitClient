@@ -109,7 +109,6 @@ public sealed class TagsPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
 
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => IsRepositoryOpen);
         CreateCommand = new AsyncRelayCommand(OnCreateAsync, () => IsRepositoryOpen);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
@@ -164,9 +163,6 @@ public sealed class TagsPageViewModel : PageViewModelBase
                 ? "No tag matches this search."
                 : "This repository has no tags yet.";
 
-    /// <summary>Gets the command that re-reads the references.</summary>
-    public AsyncRelayCommand RefreshCommand { get; }
-
     /// <summary>Gets the command that opens the create-tag dialog.</summary>
     public AsyncRelayCommand CreateCommand { get; }
 
@@ -205,7 +201,6 @@ public sealed class TagsPageViewModel : PageViewModelBase
     {
         base.OnRepositoryChanged();
 
-        RefreshCommand.NotifyCanExecuteChanged();
         CreateCommand.NotifyCanExecuteChanged();
         Rebuild();
     }

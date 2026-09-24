@@ -118,8 +118,8 @@
             </Button>
             <Button Classes="toolbar"
                     Command="{Binding RefreshCommand}"
-                    ToolTip.Tip="Refresh the repository state"
-                    AutomationProperties.Name="Refresh the repository state">
+                    ToolTip.Tip="Refresh everything: fetch from every remote, then read the repository again"
+                    AutomationProperties.Name="Refresh everything">
               <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
             </Button>
             <Button Classes="toolbar"

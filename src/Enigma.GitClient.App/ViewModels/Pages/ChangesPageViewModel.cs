@@ -162,8 +162,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         Unstaged.SelectionChanged += (_, _) => OnSelected(Unstaged, Staged, DiffTarget.WorkingTree());
         Staged.SelectionChanged += (_, _) => OnSelected(Staged, Unstaged, DiffTarget.Staged());
 
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => IsRepositoryOpen);
-
         StageCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnStageAsync, node => node is not null);
         UnstageCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnUnstageAsync, node => node is not null);
         DiscardCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnDiscardAsync, node => node is not null);
@@ -377,9 +375,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             ? "Open a repository to see what has changed in its working directory."
             : "Nothing has changed since the last commit.";
 
-    /// <summary>Gets the command that re-reads the status.</summary>
-    public AsyncRelayCommand RefreshCommand { get; }
-
     /// <summary>Gets the command that stages one row.</summary>
     public AsyncRelayCommand<ChangedFileNodeViewModel> StageCommand { get; }
 
@@ -504,7 +499,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     {
         base.OnRepositoryChanged();
 
-        RefreshCommand.NotifyCanExecuteChanged();
         Message = string.Empty;
         Amend = false;
 

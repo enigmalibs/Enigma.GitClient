@@ -183,7 +183,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         CloseDiffViewCommand = new RelayCommand(() => IsDiffViewOpen = false);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
-        RefreshCommand = new AsyncRelayCommand(ReloadAsync, () => IsRepositoryOpen && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
         OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
@@ -583,9 +582,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that loads the next page.</summary>
     public AsyncRelayCommand LoadMoreCommand { get; }
 
-    /// <summary>Gets the command that re-reads the history from scratch.</summary>
-    public AsyncRelayCommand RefreshCommand { get; }
-
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
 
@@ -752,7 +748,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         base.OnRepositoryChanged();
 
-        RefreshCommand.NotifyCanExecuteChanged();
         OpenBranchesCommand.NotifyCanExecuteChanged();
         OpenTagsCommand.NotifyCanExecuteChanged();
         OpenRemotesCommand.NotifyCanExecuteChanged();
@@ -785,7 +780,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     protected override void OnBusyChanged()
     {
         LoadMoreCommand.NotifyCanExecuteChanged();
-        RefreshCommand.NotifyCanExecuteChanged();
     }
 
     private Task OnLoadMoreAsync() => LoadPageAsync(includeUncommittedRow: false);

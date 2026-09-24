@@ -14,7 +14,13 @@ namespace Enigma.GitClient.App.Services;
 /// Whether HEAD or any reference is somewhere else than before the refresh — which is what decides
 /// whether the history has anything new to draw.
 /// </param>
-public sealed record AutoRefreshResult(QuietFetchResult Fetch, bool Changed)
+/// <param name="Requested">
+/// Whether the reader asked for this refresh with the toolbar's refresh button, rather than the
+/// interval running out. A requested refresh is a refresh of everything: what only the reader's
+/// asking justifies — redrawing a history in which nothing moved, calling a hosting API — follows it
+/// and not the periodic one.
+/// </param>
+public sealed record AutoRefreshResult(QuietFetchResult Fetch, bool Changed, bool Requested = false)
 {
     /// <summary>A refresh that did not run: another one was still going, or no repository was open.</summary>
     public static readonly AutoRefreshResult NotRun = new(QuietFetchResult.Skipped, false);
@@ -52,6 +58,15 @@ public interface IAutoRefreshService
     /// <param name="cancellationToken">Cancels it.</param>
     /// <returns>What it came to.</returns>
     Task<AutoRefreshResult> RefreshNowAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs one refresh now because the reader asked for it — the same fetch and re-read as the
+    /// periodic one, published with <see cref="AutoRefreshResult.Requested"/> set — unless one is
+    /// already running, in which case nothing more runs and the running one publishes what it found.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels it.</param>
+    /// <returns>What it came to.</returns>
+    Task<AutoRefreshResult> RequestRefreshAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -110,7 +125,14 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
     public event EventHandler<AutoRefreshResult>? Refreshed;
 
     /// <inheritdoc />
-    public async Task<AutoRefreshResult> RefreshNowAsync(CancellationToken cancellationToken = default)
+    public Task<AutoRefreshResult> RefreshNowAsync(CancellationToken cancellationToken = default)
+        => RefreshAsync(requested: false, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<AutoRefreshResult> RequestRefreshAsync(CancellationToken cancellationToken = default)
+        => RefreshAsync(requested: true, cancellationToken);
+
+    private async Task<AutoRefreshResult> RefreshAsync(bool requested, CancellationToken cancellationToken)
     {
         if (!_context.IsRepositoryOpen || Interlocked.Exchange(ref _refreshing, 1) == 1)
         {
@@ -136,7 +158,7 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
                 await _context.RefreshAsync(cancellationToken).ConfigureAwait(true);
             }
 
-            AutoRefreshResult result = new(fetch, before != RepositoryStateStamp.Of(_context));
+            AutoRefreshResult result = new(fetch, before != RepositoryStateStamp.Of(_context), requested);
             Refreshed?.Invoke(this, result);
 
             return result;

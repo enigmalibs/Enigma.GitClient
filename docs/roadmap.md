@@ -129,7 +129,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Soft and hard reset in the line menu    | DONE        | (in FEATURE-1A7E.md)      |
 | FEATURE-7232 | Toolbars, one refresh, flat file lists  | IN PROGRESS | docs/plan/FEATURE-7232.md |
 | - PHASE01    | Toolbar buttons that look enabled       | DONE        | (in FEATURE-7232.md)      |
-| - PHASE02    | One refresh for everything              | TODO        | (in FEATURE-7232.md)      |
+| - PHASE02    | One refresh for everything              | DONE        | (in FEATURE-7232.md)      |
 | - PHASE03    | Flat file lists by default              | TODO        | (in FEATURE-7232.md)      |
 | BUG-449E     | Theme toggle is forgotten on restart    | TODO        | docs/plan/BUG-449E.md     |
 | BUG-1840     | Long context menu items are clipped     | TODO        | docs/plan/BUG-1840.md     |

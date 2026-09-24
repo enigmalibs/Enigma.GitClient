@@ -127,7 +127,6 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         _infoBar = infoBar;
         _logger = logger;
 
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => IsRepositoryOpen);
         AddCommand = new AsyncRelayCommand(OnAddAsync, () => IsRepositoryOpen);
         EditCommand = new AsyncRelayCommand<RemoteRowViewModel>(OnEditAsync, row => row is not null);
         RemoveCommand = new AsyncRelayCommand<RemoteRowViewModel>(OnRemoveAsync, row => row is not null);
@@ -164,9 +163,6 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         => IsRepositoryOpen
             ? "This repository has no remotes. Add one to fetch from and push to."
             : "Open a repository to manage its remotes.";
-
-    /// <summary>Gets the command that re-reads the remotes.</summary>
-    public AsyncRelayCommand RefreshCommand { get; }
 
     /// <summary>Gets the command that adds a remote.</summary>
     public AsyncRelayCommand AddCommand { get; }
@@ -241,7 +237,6 @@ public sealed class RemotesPageViewModel : PageViewModelBase
     {
         base.OnRepositoryChanged();
 
-        RefreshCommand.NotifyCanExecuteChanged();
         AddCommand.NotifyCanExecuteChanged();
 
         _ = RefreshAsync();

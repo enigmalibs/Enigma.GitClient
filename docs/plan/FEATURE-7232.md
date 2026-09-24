@@ -90,7 +90,7 @@ Three changes to how the application's strips read and behave:
 ## PHASE02 — One refresh for everything
 
 **Branch:** `feature/feature-7232-phase02-single-refresh`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7232-PHASE02.md`
 
 ### Steps
 
