@@ -628,4 +628,20 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
 
+  <!--
+    A context menu is as wide as its widest item. FluentTheme caps every menu at its flyout width
+    (456 px) and an item's title has no trimming, so a title longer than that — a line's menu naming
+    two long branches, say — was simply cut off, at the branch name the reader needed. The cap is
+    lifted for every menu in the application, and a title wider than even the screen the menu opens
+    on breaks onto a second line rather than running off its edge: whatever the length, all of it is
+    there to read.
+  -->
+  <Style Selector="ContextMenu">
+    <Setter Property="MaxWidth" Value="Infinity" />
+  </Style>
+
+  <Style Selector="MenuItem /template/ ContentPresenter#PART_HeaderPresenter">
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
 </Styles>
