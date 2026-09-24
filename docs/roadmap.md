@@ -131,5 +131,5 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Toolbar buttons that look enabled       | DONE   | (in FEATURE-7232.md)      |
 | - PHASE02    | One refresh for everything              | DONE   | (in FEATURE-7232.md)      |
 | - PHASE03    | Flat file lists by default              | DONE   | (in FEATURE-7232.md)      |
-| BUG-449E     | Theme toggle is forgotten on restart    | TODO   | docs/plan/BUG-449E.md     |
+| BUG-449E     | Theme toggle is forgotten on restart    | DONE   | docs/plan/BUG-449E.md     |
 | BUG-1840     | Long context menu items are clipped     | TODO   | docs/plan/BUG-1840.md     |
