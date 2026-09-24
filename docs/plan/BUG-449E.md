@@ -1,6 +1,6 @@
 # BUG-449E — Theme toggle is forgotten on restart
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-449E.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-449e-theme-toggle-persist`
 **Run:** feature/2026-09-24-toolbar-refresh-theme-menus
