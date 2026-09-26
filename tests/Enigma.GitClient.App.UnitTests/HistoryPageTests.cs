@@ -720,8 +720,11 @@ public sealed class HistoryPageTests
             RepositoryHandle repository = await BuildHistoryAsync(services);
             await services.Get<IRepositoryContext>().OpenAsync(repository);
 
+            // The merged topic branch is deleted, so its commit is reachable only through the merge:
+            // every ref is walked, and following first parents is what leaves it out.
+            await GitAsync(repository, "branch", "-d", "topic");
+
             HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
-            page.SelectedScope = page.ScopeOptions.Single(option => option.Scope == CommitLogScope.Head);
             await page.ReloadAsync();
 
             int withBranches = page.Rows.Count;
@@ -735,7 +738,7 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Page_ScopeSelectorSwitchesBetweenAllBranchesAndTheCurrentOne()
+    public void Page_ShowsEveryBranch_NotOnlyTheCurrentOne()
     {
         _fixture.RunAsync(async () =>
         {
@@ -746,12 +749,29 @@ public sealed class HistoryPageTests
             HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
             await page.ReloadAsync();
 
+            // "feature" is not checked out: its commit is there because every ref is walked.
             Assert.Contains(page.Rows, row => row.Subject == "Start the feature branch");
+            Assert.Contains(page.Rows, row => row.Subject == "Extend the application file");
+        });
+    }
 
-            page.SelectedScope = page.ScopeOptions.Single(option => option.Scope == CommitLogScope.Head);
-            await page.ReloadAsync();
+    [Fact]
+    public void Toolbar_HasNoBranchScopeSelector()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, _, HistoryPageView view, _, _) = await ShowHistoryPageAsync(services);
 
-            Assert.DoesNotContain(page.Rows, row => row.Subject == "Start the feature branch");
+            try
+            {
+                Assert.Empty(view.GetVisualDescendants().OfType<ComboBox>());
+            }
+            finally
+            {
+                window.Content = null;
+                window.Close();
+            }
         });
     }
 
@@ -2046,11 +2066,11 @@ public sealed class HistoryPageTests
         });
 
     /// <summary>
-    /// Opens the test history over a gated probe, and returns the page once its own first read is over.
+    /// Opens the test history over a gated probe, and returns the page before it has read anything.
     /// </summary>
     /// <remarks>
-    /// Choosing its scope as it is built already reads the history once. That read is answered here,
-    /// so the loads a test starts are the only ones left asking.
+    /// Building the page reads nothing — its first read is the one it makes when it appears — so the
+    /// loads a test starts are the only ones asking the probe.
     /// </remarks>
     private static async Task<HistoryPageViewModel> OpenOverProbeAsync(TestServices services, GatedWorkingTreeProbe probe)
     {
@@ -2059,8 +2079,8 @@ public sealed class HistoryPageTests
 
         HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
 
-        probe.AnswerNext(dirty: false);
-        await WaitUntilAsync(() => page.IsNotBusy);
+        Assert.True(page.IsNotBusy);
+        Assert.Empty(page.Rows);
 
         return page;
     }

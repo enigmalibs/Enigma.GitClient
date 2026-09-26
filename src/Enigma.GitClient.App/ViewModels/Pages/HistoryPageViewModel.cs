@@ -25,16 +25,13 @@ using Microsoft.Extensions.Logging;
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
 /// <summary>
-/// Which part of the history the view is showing.
-/// </summary>
-/// <param name="Label">What the selector displays.</param>
-/// <param name="Scope">The scope it maps to.</param>
-public sealed record HistoryScopeOption(string Label, CommitLogScope Scope);
-
-/// <summary>
 /// The commit graph: pages commits in, lays them out, and keeps the selection in step with the rest
 /// of the shell.
 /// </summary>
+/// <remarks>
+/// The graph is always the whole repository — every branch, tag and remote-tracking ref, and HEAD —
+/// which is the query's own default scope; there is no switch to narrow it to the current branch.
+/// </remarks>
 public sealed class HistoryPageViewModel : PageViewModelBase
 {
     private readonly ICommitLogReader _reader;
@@ -188,39 +185,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
         OpenTagsCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Tags), () => IsRepositoryOpen);
         OpenRemotesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Remotes), () => IsRepositoryOpen);
-
-        SelectedScope = ScopeOptions[0];
     }
 
     /// <summary>
     /// Gets the rows the list shows, newest first.
     /// </summary>
     public ObservableCollection<CommitRowViewModel> Rows { get; } = [];
-
-    /// <summary>
-    /// Gets the scopes the selector offers.
-    /// </summary>
-    public IReadOnlyList<HistoryScopeOption> ScopeOptions { get; } =
-    [
-        new("All branches", CommitLogScope.AllRefs),
-        new("Current branch", CommitLogScope.Head),
-    ];
-
-    /// <summary>
-    /// Gets or sets which part of the history is shown.
-    /// </summary>
-    public HistoryScopeOption SelectedScope
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                _query = _query with { Scope = value.Scope, Skip = 0 };
-                QueueReload();
-            }
-        }
-    }
 
     /// <summary>
     /// Gets or sets a value indicating whether merged-in branches are hidden.
