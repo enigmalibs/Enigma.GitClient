@@ -24,7 +24,13 @@ public interface IMergeOperations
     /// <param name="source">The branch, tag or commit to merge in.</param>
     /// <param name="fastForward">How to treat a branch that is simply ahead.</param>
     /// <returns>What happened.</returns>
-    Task<MergeOutcome> MergeAsync(string source, FastForwardMode fastForward = FastForwardMode.WhenPossible);
+    /// <remarks>
+    /// A merge the user asks for records a merge commit, even when a fast-forward would do: the drop
+    /// menu, the manual merge and the graph offer "Merge" beside "fast-forward only", so the two have
+    /// to differ, and "Merge" means the same thing wherever else it appears. git's own default —
+    /// fast-forward when possible — is what Core keeps, and what this layer deliberately does not.
+    /// </remarks>
+    Task<MergeOutcome> MergeAsync(string source, FastForwardMode fastForward = FastForwardMode.Never);
 
     /// <summary>
     /// Abandons a merge in progress, after confirming.
@@ -82,7 +88,7 @@ public sealed class MergeOperations : IMergeOperations
     /// <inheritdoc />
     public async Task<MergeOutcome> MergeAsync(
         string source,
-        FastForwardMode fastForward = FastForwardMode.WhenPossible)
+        FastForwardMode fastForward = FastForwardMode.Never)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(source);
 

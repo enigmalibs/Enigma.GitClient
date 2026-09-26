@@ -71,6 +71,8 @@ diff.
   can act on rather than git's stderr.
 - Merge: merge a branch, and when it conflicts, resolve it region by region with ours, theirs, both,
   the original or your own text — beside a live preview of exactly the file that will be written.
+  A merge is always recorded as a merge commit, even when a fast-forward would do; the
+  fast-forward-only merges move a branch without one.
 
 ### Hosting
 

@@ -100,7 +100,7 @@ public sealed class ManualMergeTests
     }
 
     [Theory]
-    [InlineData(false, FastForwardMode.WhenPossible)]
+    [InlineData(false, FastForwardMode.Never)]
     [InlineData(true, FastForwardMode.Only)]
     public void Merging_AsksForWhatDroppingTheSourceOnTheDestinationWould(bool fastForward, FastForwardMode expected)
     {
@@ -204,7 +204,7 @@ public sealed class ManualMergeTests
     {
         public List<(BranchDropRequest Request, FastForwardMode Mode)> Requests { get; } = [];
 
-        public Task<bool> DropAsync(BranchDropRequest request, FastForwardMode fastForward = FastForwardMode.WhenPossible)
+        public Task<bool> DropAsync(BranchDropRequest request, FastForwardMode fastForward = FastForwardMode.Never)
         {
             Requests.Add((request, fastForward));
             return Task.FromResult(false);

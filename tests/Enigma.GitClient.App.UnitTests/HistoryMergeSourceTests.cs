@@ -182,6 +182,62 @@ public sealed class HistoryMergeSourceTests
     }
 
     [Fact]
+    public void MergingTheSourceIntoABranch_RecordsAMergeCommitEvenWhenAFastForwardWouldDo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            (TestServices services, RepositoryHandle repository, HistoryPageViewModel history) = await OpenAsync();
+            using TestServices scope = services;
+
+            // main is simply behind feature: the fast-forward-only item would move it, so "Merge" has
+            // to be the one that records the merge.
+            HistoryBranchViewModel feature = Branch(history, "feature");
+            feature.Commands.SetAsMergeSource.Execute(feature);
+
+            HistoryBranchViewModel main = Branch(history, "main");
+            await main.Commands.MergeInto.ExecuteAsync(main);
+
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+            Assert.Equal(GitProbe.Sha(repository, "feature"), GitProbe.Sha(repository, "HEAD^2"));
+        });
+    }
+
+    [Fact]
+    public void FastForwardingTheSourceIntoABranch_MovesItWithoutAMergeCommit()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            (TestServices services, RepositoryHandle repository, HistoryPageViewModel history) = await OpenAsync();
+            using TestServices scope = services;
+
+            HistoryBranchViewModel feature = Branch(history, "feature");
+            feature.Commands.SetAsMergeSource.Execute(feature);
+
+            HistoryBranchViewModel main = Branch(history, "main");
+            await main.Commands.FastForwardInto.ExecuteAsync(main);
+
+            Assert.Equal(GitProbe.Sha(repository, "feature"), GitProbe.Sha(repository, "main"));
+            Assert.Equal(1, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
+    public void MergingABranchIntoTheCurrentOne_RecordsAMergeCommitEvenWhenAFastForwardWouldDo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            (TestServices services, RepositoryHandle repository, HistoryPageViewModel history) = await OpenAsync();
+            using TestServices scope = services;
+
+            HistoryBranchViewModel feature = Branch(history, "feature");
+            await feature.Commands.MergeIntoCurrent.ExecuteAsync(feature);
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
     public void MergingIntoABranchThatIsNotCheckedOut_ChecksItOutFirst()
     {
         _fixture.RunAsync(async () =>

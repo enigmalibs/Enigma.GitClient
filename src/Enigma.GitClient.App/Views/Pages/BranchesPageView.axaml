@@ -304,11 +304,11 @@
           <Button Classes="accent"
                   Command="{Binding ManualMergeCommand}"
                   Content="Merge"
-                  ToolTip.Tip="Merge the source into the destination, checking the destination out first when it is not the current branch"
+                  ToolTip.Tip="Merge the source into the destination, always recording a merge commit — even when a fast-forward would do — and checking the destination out first when it is not the current branch"
                   AutomationProperties.Name="Merge the source into the destination" />
           <Button Command="{Binding ManualFastForwardCommand}"
                   Content="Merge fast-forward"
-                  ToolTip.Tip="The same, refusing anything but a fast-forward"
+                  ToolTip.Tip="Move the destination forward onto the source without a merge commit, refusing when the two have diverged"
                   AutomationProperties.Name="Fast-forward the destination to the source" />
           <Button Command="{Binding ClearManualMergeCommand}"
                   Content="Clear"

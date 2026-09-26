@@ -138,3 +138,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The identity page, in both windows      | DONE   | (in FEATURE-6151.md)      |
 | - PHASE03    | Identity profiles                       | DONE   | (in FEATURE-6151.md)      |
 | - PHASE04    | A repository's own identity             | DONE   | (in FEATURE-6151.md)      |
+| BUG-39CC     | Merge fast-forwards instead of merging  | DONE   | docs/plan/BUG-39CC.md     |
