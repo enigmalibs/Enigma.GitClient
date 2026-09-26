@@ -1,6 +1,6 @@
 # FEATURE-75F4 — A splash screen and an About box
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-release-1-0-0
@@ -81,7 +81,7 @@ style:
 
 ## PHASE02 — The About dialog
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-75F4-PHASE02.md`
 **Branch:** `feature/feature-75f4-phase02-about-dialog`
 
 ### Steps

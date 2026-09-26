@@ -31,28 +31,49 @@ public static class ProductInformation
         "Enigma.GitClient never rebases, and it does not handle issues or pull requests.";
 
     /// <summary>
-    /// Gets the displayable version, as a property markup can read with <c>x:Static</c>.
+    /// The version and the revision this build was cut from, read once from this assembly.
     /// </summary>
-    public static string Version => GetVersion();
+    /// <remarks>
+    /// From <b>this</b> assembly rather than the entry assembly: Core and App carry one version between
+    /// them, and under a test host the entry assembly is the runner.
+    /// </remarks>
+    private static readonly ProductVersion Product = ProductVersion.From(
+        typeof(ProductInformation).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+        FallbackVersion());
 
     /// <summary>
-    /// Gets the informational version of the running assembly, falling back to its assembly version.
+    /// Gets the displayable version, as a property markup can read with <c>x:Static</c>.
+    /// </summary>
+    public static string Version => Product.Version;
+
+    /// <summary>
+    /// Gets the short commit this build was cut from, or <see langword="null"/> when it recorded none —
+    /// a build from a source drop rather than from the repository.
+    /// </summary>
+    public static string? BuildSha => Product.BuildSha;
+
+    /// <summary>
+    /// Gets the copyright notice <c>Directory.Build.props</c> stamps on the assembly, or an empty string
+    /// when it carries none.
+    /// </summary>
+    public static string Copyright { get; } =
+        typeof(ProductInformation).Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright?.Trim() ?? string.Empty;
+
+    /// <summary>
+    /// Gets the informational version of the running assembly, without the source revision the SDK
+    /// appends, falling back to its assembly version.
     /// </summary>
     /// <returns>A displayable version string.</returns>
-    public static string GetVersion()
+    public static string GetVersion() => Version;
+
+    /// <summary>
+    /// The plain assembly version, for when the informational one says nothing usable, trimmed to
+    /// three components: the fourth is a zero nobody wrote.
+    /// </summary>
+    private static string? FallbackVersion()
     {
-        Assembly assembly = typeof(ProductInformation).Assembly;
-        string? informational = assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        Version? version = typeof(ProductInformation).Assembly.GetName().Version;
 
-        if (!string.IsNullOrWhiteSpace(informational))
-        {
-            // Strip the source-revision suffix the SDK appends (e.g. "1.0.0+9a1b2c3").
-            int plus = informational.IndexOf('+');
-            return plus < 0 ? informational : informational.Substring(0, plus);
-        }
-
-        Version? version = assembly.GetName().Version;
-        return version?.ToString() ?? "0.0.0";
+        return version is null ? null : version.ToString(version.Build >= 0 ? 3 : 2);
     }
 }

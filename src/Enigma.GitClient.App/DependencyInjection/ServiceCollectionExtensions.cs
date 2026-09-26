@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
+            services.AddSingleton<IAboutDialogService, AboutDialogService>();
 
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);

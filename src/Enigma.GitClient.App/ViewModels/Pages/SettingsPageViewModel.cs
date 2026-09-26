@@ -36,6 +36,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
     private readonly IGitEnvironment _git;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
+    private readonly IAboutDialogService _about;
 
     private bool _applying;
 
@@ -47,25 +48,30 @@ public sealed class SettingsPageViewModel : PageViewModelBase
     /// <param name="git">Reports which git the client found, for the About card.</param>
     /// <param name="dialogs">Raises the confirmation before a reset.</param>
     /// <param name="infoBar">Reports that the reset happened.</param>
+    /// <param name="about">Shows the About dialog from the About card — the start window's only way to it.</param>
     public SettingsPageViewModel(
         IRepositoryContext repositoryContext,
         ISettingsService settings,
         IGitEnvironment git,
         IContentDialogService dialogs,
-        IInfoBarService infoBar)
+        IInfoBarService infoBar,
+        IAboutDialogService about)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(about);
 
         _settings = settings;
         _git = git;
         _dialogs = dialogs;
         _infoBar = infoBar;
+        _about = about;
 
         ResetCommand = new AsyncRelayCommand(OnResetAsync);
+        OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
 
         _settings.Changed += (_, _) => NotifyAll();
     }
@@ -301,6 +307,9 @@ public sealed class SettingsPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that puts every preference back to its default.</summary>
     public AsyncRelayCommand ResetCommand { get; }
+
+    /// <summary>Gets the command that opens the About dialog.</summary>
+    public AsyncRelayCommand OpenAboutCommand { get; }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
