@@ -1,6 +1,6 @@
 # FEATURE-75F4 — A splash screen and an About box
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-release-1-0-0
@@ -52,7 +52,7 @@ style:
 
 ## PHASE01 — The splash screen
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-75F4-PHASE01.md`
 **Branch:** `feature/feature-75f4-phase01-splash-screen`
 
 ### Steps

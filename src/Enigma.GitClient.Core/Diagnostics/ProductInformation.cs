@@ -14,11 +14,26 @@ public static class ProductInformation
     public const string Name = "Enigma.GitClient";
 
     /// <summary>
+    /// The product's name in words, as the surfaces that present the product by name show it: the
+    /// splash screen, the About dialog and the Linux launcher entry.
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="Name"/> rather than in place of it: that one is also the product token of the
+    /// HTTP user agent, which cannot carry a space.
+    /// </remarks>
+    public const string DisplayName = "Enigma git client";
+
+    /// <summary>
     /// The scope statement the product is built to. Rebase is deliberately absent from this client,
     /// and issue and pull-request workflows are out of scope.
     /// </summary>
     public const string ScopeStatement =
         "Enigma.GitClient never rebases, and it does not handle issues or pull requests.";
+
+    /// <summary>
+    /// Gets the displayable version, as a property markup can read with <c>x:Static</c>.
+    /// </summary>
+    public static string Version => GetVersion();
 
     /// <summary>
     /// Gets the informational version of the running assembly, falling back to its assembly version.

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Navigation;
@@ -249,6 +250,88 @@ public sealed class AppWindowsTests
             finally
             {
                 CloseWindow(windows);
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("folder")]
+    [InlineData("repository")]
+    public void StartAsync_WithASplash_ClosesItOnlyOnceTheFirstWindowIsOnScreen(string start)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = Build(useRealRefReader: start == "repository");
+            IAppWindows windows = services.Get<IAppWindows>();
+
+            string? path = null;
+
+            if (start == "folder")
+            {
+                path = Path.Combine(services.ConfigurationRoot, "just-a-folder");
+                Directory.CreateDirectory(path);
+            }
+            else if (start == "repository")
+            {
+                string root = Path.Combine(services.ConfigurationRoot, "workspace");
+                Directory.CreateDirectory(root);
+                path = (await services.Get<IRepositoryService>().InitAsync(Path.Combine(root, "behind-the-splash"), "main")).WorkTreePath;
+            }
+
+            SplashWindow splash = new();
+            splash.Show();
+
+            // What was on screen at the moment the splash went: the application ends when its last
+            // window closes, so the window that replaces it has to be up already.
+            bool? replacementVisible = null;
+            splash.Closed += (_, _) => replacementVisible = windows.CurrentWindow?.IsVisible;
+
+            try
+            {
+                await windows.StartAsync(path, new SplashHandOver(splash, TimeSpan.Zero, TimeProvider.System));
+
+                Assert.True(replacementVisible);
+                Assert.False(splash.IsVisible);
+                Assert.Equal(start == "repository" ? AppWindowKind.Repository : AppWindowKind.Start, windows.Current);
+            }
+            finally
+            {
+                CloseWindow(windows);
+            }
+        });
+    }
+
+    [Fact]
+    public void StartAsync_WithASplash_WaitsOutItsFloorBeforeShowingAnything()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = Build();
+            IAppWindows windows = services.Get<IAppWindows>();
+            ManualTimeProvider time = new();
+
+            SplashWindow splash = new();
+            splash.Show();
+
+            try
+            {
+                Task starting = windows.StartAsync(null, new SplashHandOver(splash, TimeSpan.FromSeconds(1), time));
+
+                Assert.False(starting.IsCompleted);
+                Assert.Null(windows.CurrentWindow);
+                Assert.True(splash.IsVisible);
+
+                time.Advance(TimeSpan.FromSeconds(1));
+                await starting.WaitAsync(TimeSpan.FromSeconds(10));
+
+                Assert.Equal(AppWindowKind.Start, windows.Current);
+                Assert.False(splash.IsVisible);
+            }
+            finally
+            {
+                CloseWindow(windows);
+                splash.Close();
             }
         });
     }
