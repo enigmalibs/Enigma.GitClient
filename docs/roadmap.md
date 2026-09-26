@@ -127,3 +127,9 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-1A7E | Reset the branch to a commit            | DONE   | docs/plan/FEATURE-1A7E.md |
 | - PHASE01    | The reset engine                        | DONE   | (in FEATURE-1A7E.md)      |
 | - PHASE02    | Soft and hard reset in the line menu    | DONE   | (in FEATURE-1A7E.md)      |
+| FEATURE-7232 | Toolbars, one refresh, flat file lists  | DONE   | docs/plan/FEATURE-7232.md |
+| - PHASE01    | Toolbar buttons that look enabled       | DONE   | (in FEATURE-7232.md)      |
+| - PHASE02    | One refresh for everything              | DONE   | (in FEATURE-7232.md)      |
+| - PHASE03    | Flat file lists by default              | DONE   | (in FEATURE-7232.md)      |
+| BUG-449E     | Theme toggle is forgotten on restart    | DONE   | docs/plan/BUG-449E.md     |
+| BUG-1840     | Long context menu items are clipped     | DONE   | docs/plan/BUG-1840.md     |

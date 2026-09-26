@@ -289,7 +289,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         _mergeOperations = mergeOperations;
         _dropOperations = dropOperations;
 
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => IsRepositoryOpen);
         CreateBranchCommand = new AsyncRelayCommand(OnCreateAsync, () => IsRepositoryOpen);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
@@ -377,9 +376,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             : SearchText.Trim().Length > 0
                 ? "No branch matches this search."
                 : "This repository has no branches yet. The first commit creates one.";
-
-    /// <summary>Gets the command that re-reads the references.</summary>
-    public AsyncRelayCommand RefreshCommand { get; }
 
     /// <summary>Gets the command that opens the create-branch dialog.</summary>
     public AsyncRelayCommand CreateBranchCommand { get; }
@@ -519,7 +515,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     {
         base.OnRepositoryChanged();
 
-        RefreshCommand.NotifyCanExecuteChanged();
         CreateBranchCommand.NotifyCanExecuteChanged();
         Rebuild();
     }

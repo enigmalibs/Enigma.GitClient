@@ -113,7 +113,6 @@ public sealed class TagsPageTests
             Assert.True(page.IsEmpty);
             Assert.Contains("Open a repository", page.EmptyMessage, StringComparison.Ordinal);
             Assert.False(page.CreateCommand.CanExecute(null));
-            Assert.False(page.RefreshCommand.CanExecute(null));
         });
     }
 

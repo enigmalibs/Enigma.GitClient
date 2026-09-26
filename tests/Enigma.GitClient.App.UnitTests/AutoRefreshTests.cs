@@ -8,9 +8,11 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
+using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,12 +45,13 @@ public sealed class AutoRefreshTests
     /// <summary>
     /// The container with a scripted quiet fetch, over the fake reference reader.
     /// </summary>
-    private static TestServices BuildScripted()
+    private static TestServices BuildScripted(Action<ServiceCollection>? configure = null)
         => TestServices.Build(configure: services =>
         {
             services.RemoveAll<ISyncOperations>();
             services.AddSingleton<ScriptedSync>();
             services.AddSingleton<ISyncOperations>(provider => provider.GetRequiredService<ScriptedSync>());
+            configure?.Invoke(services);
         });
 
     /// <summary>
@@ -435,6 +438,193 @@ public sealed class AutoRefreshTests
 
             Assert.Contains(history.Rows, row => row.Subject == "As if fetched");
         });
+    }
+
+    // ---------------------------------------------------------------- the one refresh button
+
+    /// <summary>
+    /// The scripted fetch over the real reference reader, with the repository window's ViewModel
+    /// resolved — it is what connects the refresh to the history.
+    /// </summary>
+    private static TestServices BuildWindow(Action<ServiceCollection>? configure = null)
+        => TestServices.Build(
+            useRealRefReader: true,
+            configure: collection =>
+            {
+                collection.RemoveAll<ISyncOperations>();
+                collection.AddSingleton<ScriptedSync>();
+                collection.AddSingleton<ISyncOperations>(provider => provider.GetRequiredService<ScriptedSync>());
+                configure?.Invoke(collection);
+            });
+
+    [Fact]
+    public void ARequestedRefresh_RunsTheSameFetchAndSaysItWasAskedFor()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+            FakeRefReader reader = (FakeRefReader)services.Get<IRefReader>();
+
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            await context.OpenAsync(Handle("asked"));
+            sync.RefreshAfter = context;
+            int reads = reader.ReadCount;
+
+            AutoRefreshResult requested = await NextRefreshAsync(service, () => _ = service.RequestRefreshAsync());
+
+            Assert.Equal(new AutoRefreshResult(QuietFetchResult.Fetched, false, Requested: true), requested);
+            Assert.Equal(1, sync.QuietFetches);
+            Assert.True(reader.ReadCount > reads);
+
+            // The periodic one is not the reader asking.
+            Assert.False((await service.RefreshNowAsync()).Requested);
+        });
+    }
+
+    [Fact]
+    public void ARequestWhileARefreshIsRunning_RunsNoSecondOne()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+
+            await services.Get<IRepositoryContext>().OpenAsync(Handle("asked"));
+
+            TaskCompletionSource release = new();
+            sync.Gate = release.Task;
+
+            Task<AutoRefreshResult> periodic = service.RefreshNowAsync();
+
+            Assert.Same(AutoRefreshResult.NotRun, await service.RequestRefreshAsync());
+
+            release.SetResult();
+            await periodic.WaitAsync(Patience);
+            Assert.Equal(1, sync.QuietFetches);
+        });
+    }
+
+    [Fact]
+    public void TheRefreshButton_FetchesAndRedrawsTheHistoryEvenWhenNothingMoved()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildWindow();
+            RepositoryHandle repository = await InitAsync(services, "button");
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+
+            ViewModels.MainWindowViewModel shell = services.Get<ViewModels.MainWindowViewModel>();
+            await context.OpenAsync(repository);
+            services.Get<ScriptedSync>().RefreshAfter = context;
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            string selected = history.Rows[0].Sha;
+            history.SelectedRow = history.Rows[0];
+
+            TaskCompletionSource redrawn = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            history.RowsReplaced += (_, _) => redrawn.TrySetResult();
+
+            await shell.RefreshCommand.ExecuteAsync(null);
+            await redrawn.Task.WaitAsync(Patience);
+
+            // Nothing moved, and the reader asked anyway: the history is read again, in place.
+            Assert.Equal(1, services.Get<ScriptedSync>().QuietFetches);
+            Assert.Equal(selected, history.SelectedRow?.Sha);
+            Assert.False(shell.IsBusy);
+        });
+    }
+
+    [Fact]
+    public void TheRefreshButton_PicksUpACommitMadeInATerminal()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildWindow();
+            RepositoryHandle repository = await InitAsync(services, "terminal");
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+
+            ViewModels.MainWindowViewModel shell = services.Get<ViewModels.MainWindowViewModel>();
+            await context.OpenAsync(repository);
+
+            // Offline: the fetch fails, and what changed on disk is still read.
+            services.Get<ScriptedSync>().Result = QuietFetchResult.Failed;
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            TaskCompletionSource redrawn = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            history.RowsReplaced += (_, _) => redrawn.TrySetResult();
+
+            Commit(repository, "src/later.txt", "later\n", "Committed in a terminal");
+
+            await shell.RefreshCommand.ExecuteAsync(null);
+            await redrawn.Task.WaitAsync(Patience);
+
+            Assert.Contains(history.Rows, row => row.Subject == "Committed in a terminal");
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void TheIntegrationsPage_RereadsItsRepositoriesWhenAskedAndOnlyThen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            FakeHostProvider provider = new();
+
+            using TestServices services = BuildScripted(collection =>
+            {
+                collection.RemoveAll<IRepositoryHostProvider>();
+                collection.AddSingleton<IRepositoryHostProvider>(provider);
+            });
+
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            IntegrationsPageViewModel page = services.Get<IntegrationsPageViewModel>();
+            await page.OnAppearingAsync();
+            await page.ConnectAsync(new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
+            {
+                InstanceUrl = "https://github.com",
+                Token = "ghp_token",
+            });
+
+            await services.Get<IRepositoryContext>().OpenAsync(Handle("hosted"));
+            await WaitUntilAsync(() => page.IsNotBusy);
+            int listed = provider.Queries.Count;
+
+            Assert.True(listed > 0, "connecting never listed the account's repositories");
+
+            // Every few seconds is the repository on disk, not the host's list.
+            await service.RefreshNowAsync();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(listed, provider.Queries.Count);
+
+            // The reader pressing refresh is.
+            await service.RequestRefreshAsync();
+            await WaitUntilAsync(() => provider.Queries.Count > listed);
+
+            Assert.Equal(listed + 1, provider.Queries.Count);
+        });
+    }
+
+    /// <summary>
+    /// Pumps the dispatcher until the condition holds.
+    /// </summary>
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        Stopwatch watch = Stopwatch.StartNew();
+
+        while (!condition())
+        {
+            Assert.True(watch.Elapsed < Patience, "the condition never held");
+
+            await Task.Delay(10);
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     // ---------------------------------------------------------------- helpers

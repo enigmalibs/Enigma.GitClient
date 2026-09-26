@@ -36,41 +36,67 @@
   </Style>
 
   <!--
-    Toolbar buttons: icon-only actions that sit on a surface strip. FluentTheme's default button
-    paints a filled plate in every state, which reads as a box floating on the strip; a toolbar
-    button should be invisible until it is hovered.
+    Toolbar buttons: the actions that sit on a surface strip. FluentTheme's default button paints a
+    filled plate in every state, which reads as a box floating on the strip; a toolbar button is
+    drawn as its glyph in the full foreground inside a one-pixel frame instead, so an enabled button
+    is never mistaken for a disabled one, and the strip is not a row of boxes.
 
-    The padding is what makes the hovered plate a square around the glyph rather than a bar: it is
-    stated against the toolbar icon size above, so the two move together.
+    A disabled toolbar button drops the frame and the full foreground: it is its glyph in the
+    secondary grey, and nothing else. It is not faded — a faded grey glyph on the strip's surface
+    read as a smudge rather than as a button that cannot be pressed right now.
+
+    The frame is stated on the button and repeated on the presenter for every state, because
+    FluentTheme's own :pointerover, :pressed and :disabled rules set the presenter's brushes directly
+    and would otherwise win. The padding is what makes the frame a square around the glyph rather than
+    a bar: it is stated against the toolbar icon size above, less the frame's pixel, so the two move
+    together and a button keeps the size it always had.
   -->
   <Style Selector="Button.toolbar">
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="7,6" />
-    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="Padding" Value="6,5" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
   <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
     <Setter Property="CornerRadius" Value="4" />
   </Style>
 
   <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
   <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource EnigmaPressedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
   </Style>
 
   <Style Selector="Button.toolbar:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
 
-  <Style Selector="Button.toolbar:disabled">
-    <Setter Property="Opacity" Value="0.35" />
+  <!--
+    A toolbar button on a line of a list or a tree is a row's own action (see below), and a frame
+    around it on every row of a list is noise: there it is its glyph alone, as it always was, with
+    the padding it always had.
+  -->
+  <Style Selector="ListBoxItem Button.toolbar, TreeViewItem Button.toolbar">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="7,6" />
   </Style>
 
   <!--
@@ -131,9 +157,16 @@
 
     The leading glyph of a row keeps its `dim` class and stays quiet: it repeats what the row is, it is
     not a thing to press.
+
+    That same setter would keep a disabled row action in the full foreground, looking pressable, so
+    the disabled one is stated after it and wins: grey, as every disabled toolbar button is.
   -->
   <Style Selector="Button.toolbar ei|Icon.row">
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled ei|Icon.row">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
 
   <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
@@ -181,30 +214,54 @@
     <Setter Property="Foreground" Value="{DynamicResource DiffStatusForegroundBrush}" />
   </Style>
 
-  <!-- A pair of toggles acting as one segmented control, for the list/tree switch. -->
+  <!--
+    A pair of toggles acting as one segmented control — the list/tree switch, the diff's renderings —
+    and the diff viewer's on/off toggles. They are toolbar buttons and read the same way: the full
+    foreground inside a frame when they can be pressed, the selection plate behind the one that is
+    on, and the secondary grey with no frame when they cannot.
+  -->
   <Style Selector="ToggleButton.segment">
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="6,5" />
-    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="Padding" Value="5,4" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
   <Style Selector="ToggleButton.segment /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
     <Setter Property="CornerRadius" Value="4" />
   </Style>
 
   <Style Selector="ToggleButton.segment:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaPressedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
   <Style Selector="ToggleButton.segment:checked /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
   </Style>
 
-  <Style Selector="ToggleButton.segment:checked">
-    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  <Style Selector="ToggleButton.segment:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
 
   <!--
@@ -569,6 +626,22 @@
 
   <Style Selector="Button.rowaction:pointerover">
     <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!--
+    A context menu is as wide as its widest item. FluentTheme caps every menu at its flyout width
+    (456 px) and an item's title has no trimming, so a title longer than that — a line's menu naming
+    two long branches, say — was simply cut off, at the branch name the reader needed. The cap is
+    lifted for every menu in the application, and a title wider than even the screen the menu opens
+    on breaks onto a second line rather than running off its edge: whatever the length, all of it is
+    there to read.
+  -->
+  <Style Selector="ContextMenu">
+    <Setter Property="MaxWidth" Value="Infinity" />
+  </Style>
+
+  <Style Selector="MenuItem /template/ ContentPresenter#PART_HeaderPresenter">
+    <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
 </Styles>

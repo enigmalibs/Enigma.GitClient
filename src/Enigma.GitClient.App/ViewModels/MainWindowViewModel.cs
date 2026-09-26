@@ -9,6 +9,7 @@ using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diagnostics;
 using Enigma.GitClient.Core.Refs;
 
@@ -25,6 +26,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IInfoBarService _infoBar;
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
+    private readonly IAutoRefreshService _autoRefresh;
+    private readonly ISettingsService _settings;
     private bool _initialised;
 
     /// <summary>
@@ -40,8 +43,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
     /// <param name="autoRefresh">
-    /// Fetches and refreshes the repository on its own; the graph is told what each refresh found.
+    /// Fetches and refreshes the repository on its own, and when the toolbar's refresh button asks;
+    /// the graph is told what each refresh found.
     /// </param>
+    /// <param name="settings">Records the theme the toolbar's theme switch chose.</param>
     public MainWindowViewModel(
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
@@ -52,7 +57,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
         IMergeOperations merges,
-        IAutoRefreshService autoRefresh)
+        IAutoRefreshService autoRefresh,
+        ISettingsService settings)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
@@ -64,6 +70,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(autoRefresh);
+        ArgumentNullException.ThrowIfNull(settings);
 
         // The graph's uncommitted row belongs to the working directory page, and the shell is the
         // only thing that knows how to get there.
@@ -71,8 +78,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         // The pages that follow the repository's state (branches, tags, changes, this strip) follow
         // the refresh on their own; the graph is told, because redrawing it is what costs the reader
-        // their place, and it only does so when there is something new.
-        autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed);
+        // their place, and it only does so when there is something new — or when the reader pressed
+        // refresh, which is asking for exactly that.
+        autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed || result.Requested);
 
         Shell = shell;
         Conflicts = conflicts;
@@ -83,6 +91,8 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         _sync = sync;
         _merges = merges;
+        _autoRefresh = autoRefresh;
+        _settings = settings;
 
         ToggleThemeCommand = new RelayCommand(OnToggleTheme);
 
@@ -174,13 +184,21 @@ public sealed class MainWindowViewModel : ViewModelBase
         };
 
     /// <summary>
-    /// Gets the command that switches between the Dark and Light theme variants.
+    /// Gets the command that switches between the Dark and Light theme variants, and records the one
+    /// it switched to as the theme preference — so the next start opens on it, and the settings page
+    /// says so.
     /// </summary>
     public RelayCommand ToggleThemeCommand { get; }
 
     /// <summary>
-    /// Gets the command that re-reads the open repository's state.
+    /// Gets the command that refreshes everything: the application's one refresh button.
     /// </summary>
+    /// <remarks>
+    /// It runs what the automatic refresh runs — a quiet fetch from every remote, then the repository's
+    /// HEAD, references and status read again — and, because the reader asked, the history is redrawn
+    /// in place whether or not anything moved and the integrations page reads its repositories again.
+    /// No page has a refresh button of its own: every one of them follows this.
+    /// </remarks>
     public AsyncRelayCommand RefreshCommand { get; }
 
     /// <summary>
@@ -336,7 +354,17 @@ public sealed class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasUpstream));
     }
 
-    private static void OnToggleTheme()
+    /// <summary>
+    /// Switches to the variant that is not on screen, and makes it the preference. From "follow the
+    /// system" too: a click on the switch is a choice, and the settings page is where the system is
+    /// followed again.
+    /// </summary>
+    /// <remarks>
+    /// The variant is put on the application here rather than left to the settings' change handler
+    /// the application wires at startup: the switch has to work wherever the ViewModel runs, and
+    /// applying the same variant a second time is nothing.
+    /// </remarks>
+    private void OnToggleTheme()
     {
         Application? application = Application.Current;
 
@@ -345,8 +373,12 @@ public sealed class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        application.RequestedThemeVariant =
-            application.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
+        bool toLight = application.ActualThemeVariant == ThemeVariant.Dark;
+
+        application.RequestedThemeVariant = toLight ? ThemeVariant.Light : ThemeVariant.Dark;
+
+        ThemePreference chosen = toLight ? ThemePreference.Light : ThemePreference.Dark;
+        _settings.Update(current => current with { Theme = chosen });
     }
 
     /// <summary>
@@ -377,7 +409,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            await RepositoryContext.RefreshAsync().ConfigureAwait(true);
+            await _autoRefresh.RequestRefreshAsync().ConfigureAwait(true);
         }
         finally
         {

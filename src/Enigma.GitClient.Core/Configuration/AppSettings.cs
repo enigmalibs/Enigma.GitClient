@@ -73,10 +73,11 @@ public sealed record AppSettings
     /// <summary>The schema version this build writes.</summary>
     /// <remarks>
     /// Version 2 raised the default row height from 26 to 36, version 3 moved the diff to the
-    /// side-by-side rendering, and version 4 widened the graph lane from 16 to 20; see
-    /// <c>SettingsService.Migrate</c> for what each does to a file written by an earlier one.
+    /// side-by-side rendering, version 4 widened the graph lane from 16 to 20, and version 5 made the
+    /// changed files a flat list; see <c>SettingsService.Migrate</c> for what each does to a file
+    /// written by an earlier one.
     /// </remarks>
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     /// <summary>
     /// The row height version 1 shipped as its default, which the version 2 migration replaces
@@ -95,6 +96,12 @@ public sealed record AppSettings
     /// replaces wherever it was never changed.
     /// </summary>
     public const double LegacyGraphLaneWidth = 16;
+
+    /// <summary>
+    /// The file-list shape versions 1 to 4 shipped as their default, which the version 5 migration
+    /// replaces wherever it was never changed.
+    /// </summary>
+    public const FilesView LegacyFilesView = FilesView.Tree;
 
     /// <summary>The shortest interval the automatic refresh may run at, in seconds.</summary>
     public const int MinimumAutoRefreshSeconds = 5;
@@ -136,10 +143,12 @@ public sealed record AppSettings
     // ---------------------------------------------------------------- changed files
 
     /// <summary>
-    /// Gets how the changed files are arranged. A tree by default, which is what the panel has
-    /// always opened as — a preference must not quietly change what the application does today.
+    /// Gets how the changed files are arranged — in the history's diffs, on the changes page and in
+    /// a stash. A flat list by default: a commit touches a handful of files far more often than a
+    /// tree's worth, and a list shows every one of them without a click; the tree is one setting, or
+    /// one toggle on the panel, away.
     /// </summary>
-    public FilesView FilesView { get; init; } = FilesView.Tree;
+    public FilesView FilesView { get; init; } = FilesView.List;
 
     /// <summary>Gets how many files a tree will expand on its own.</summary>
     public int FilesAutoExpandLimit { get; init; } = 500;
