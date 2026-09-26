@@ -712,32 +712,6 @@ public sealed class HistoryPageTests
     // ---------------------------------------------------------------- filters
 
     [Fact]
-    public void Page_HidesMergedInBranchesWithFirstParentOnly()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildHistoryAsync(services);
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            // The merged topic branch is deleted, so its commit is reachable only through the merge:
-            // every ref is walked, and following first parents is what leaves it out.
-            await GitAsync(repository, "branch", "-d", "topic");
-
-            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
-            await page.ReloadAsync();
-
-            int withBranches = page.Rows.Count;
-
-            page.FirstParentOnly = true;
-            await page.ReloadAsync();
-
-            Assert.True(page.Rows.Count < withBranches);
-            Assert.DoesNotContain(page.Rows, row => row.Subject == "Work on the topic branch");
-        });
-    }
-
-    [Fact]
     public void Page_ShowsEveryBranch_NotOnlyTheCurrentOne()
     {
         _fixture.RunAsync(async () =>
@@ -756,7 +730,28 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Toolbar_HasNoBranchScopeSelector()
+    public void Page_FollowsEveryParentOfAMerge()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+
+            // The merged topic branch is deleted, so its commit is reachable only through the merge's
+            // second parent — and it is still in the graph.
+            await GitAsync(repository, "branch", "-d", "topic");
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            Assert.Contains(page.Rows, row => row.Subject == "Work on the topic branch");
+            Assert.Contains(page.Rows, row => row.Subject == "Merge the topic branch");
+        });
+    }
+
+    [Fact]
+    public void Toolbar_HasNoBranchScopeSelectorAndNoFirstParentSwitch()
     {
         _fixture.RunAsync(async () =>
         {
@@ -766,6 +761,7 @@ public sealed class HistoryPageTests
             try
             {
                 Assert.Empty(view.GetVisualDescendants().OfType<ComboBox>());
+                Assert.Empty(view.GetVisualDescendants().OfType<CheckBox>());
             }
             finally
             {
