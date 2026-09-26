@@ -1,6 +1,6 @@
 # FEATURE-70C1 — Hide branches from the history
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-release-1-0-0
@@ -95,7 +95,7 @@ repository.
 
 ## PHASE03 — Show and hide from the branches
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-70C1-PHASE03.md`
 **Branch:** `feature/feature-70c1-phase03-branch-visibility`
 
 ### Steps

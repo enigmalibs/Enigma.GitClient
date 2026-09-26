@@ -21,7 +21,7 @@
               BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
               BorderThickness="0,0,0,1"
               Padding="12,8">
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
@@ -60,7 +60,34 @@
             </StackPanel>
           </Border>
 
-          <Grid Grid.Column="2" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
+          <!-- The branches hidden from the branches dialog, while there are any: a graph that leaves
+               something out says so, and says how to put it back. -->
+          <Border Grid.Column="2"
+                  Name="HiddenBranchesChip"
+                  Classes="pill"
+                  Background="{DynamicResource EnigmaSelectionBrush}"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="1"
+                  Padding="8,0,2,0"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding HasHiddenBranches}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ei:Icon Kind="EyeSlash" Classes="pill" VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Text="{Binding HiddenBranchesSummary}"
+                         VerticalAlignment="Center"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Button Classes="toolbar"
+                      Command="{Binding ShowHiddenBranchesCommand}"
+                      ToolTip.Tip="Show every hidden branch again"
+                      AutomationProperties.Name="Show every hidden branch again">
+                <ei:Icon Kind="X" Classes="pill" />
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
             <!-- What the search found, because nothing is hidden: without a count, a search that
                  matched nothing and one that matched everything look exactly alike. -->
             <TextBlock Grid.Column="0"
@@ -86,7 +113,7 @@
 
           <!-- The secondary pages, over the history: the graph is where the work is done, and these
                are what it is done with. -->
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
             <Button Name="OpenBranches"
                     Classes="toolbar"
                     Command="{Binding OpenBranchesCommand}"
