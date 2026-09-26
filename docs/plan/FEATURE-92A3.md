@@ -1,6 +1,6 @@
 # FEATURE-92A3 — History: no scope, no first parent
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-release-1-0-0
@@ -29,7 +29,7 @@ Take two controls off the History page's toolbar, with everything that exists on
 
 ## PHASE01 — No branch-scope selector
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-92A3-PHASE01.md`
 **Branch:** `feature/feature-92a3-phase01-no-scope-selector`
 
 ### Steps
