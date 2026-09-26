@@ -134,7 +134,7 @@ commit, reachable from the start window as well as from a repository's window:
 ## PHASE03 — Identity profiles
 
 **Branch:** `feature/feature-6151-phase03-identity-profiles`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6151-PHASE03.md`
 
 ### Steps
 

@@ -85,6 +85,10 @@ diff.
   the settings — for the name and email git records on every commit: your global `user.name` and
   `user.email`, read from git and written back with one Save. It says so when git has no identity
   yet, which is when git refuses to commit.
+- Profiles: keep each name and email you commit as under a label — work, personal — and make one
+  your global identity with **Use**. The profile matching what git has is marked *Current*, even
+  after the identity was changed in a terminal. Adding one starts from your global identity;
+  deleting one asks first and never touches git's configuration.
 
 ### Preferences
 
