@@ -4,9 +4,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.DependencyInjection;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.App.Views;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,7 +74,21 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
             desktop.Exit += OnExit;
 
-            _ = services.GetRequiredService<IAppWindows>().StartAsync(FirstArgument(desktop.Args));
+            // The splash, once the theme it is painted in is known: a splash that paints dark and then
+            // flips to light is the flicker it exists to hide. The window service closes it once the
+            // first real window is on screen.
+            SplashWindow splash = new();
+            splash.Show();
+            SplashHandOver handOver = new(splash, SplashTiming.MinimumDisplay, TimeProvider.System);
+
+            IAppWindows windows = services.GetRequiredService<IAppWindows>();
+            string? path = FirstArgument(desktop.Args);
+
+            // Posted, so this method returns and the message loop paints the splash before the first
+            // window is built. Background priority is the point: layout and rendering run above
+            // Normal, so a start posted at the default would take its turn before the splash had drawn
+            // a single frame.
+            Dispatcher.UIThread.Post(() => _ = windows.StartAsync(path, handOver), DispatcherPriority.Background);
         }
 
         base.OnFrameworkInitializationCompleted();
