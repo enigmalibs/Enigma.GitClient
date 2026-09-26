@@ -90,6 +90,7 @@ Everything the client remembers about you lives in one per-user directory —
 | `host-accounts.json` | The hosting accounts you connected — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
 | `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
+| `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email or use a profile on the Identity

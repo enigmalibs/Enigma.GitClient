@@ -68,7 +68,7 @@ repository.
 
 ## PHASE02 — Remembering hidden branches
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-70C1-PHASE02.md`
 **Branch:** `feature/feature-70c1-phase02-hidden-branch-store`
 
 ### Steps
