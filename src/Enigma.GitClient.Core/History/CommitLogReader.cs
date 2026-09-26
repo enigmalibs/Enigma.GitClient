@@ -149,8 +149,18 @@ public sealed class CommitLogReader : ICommitLogReader
             : 0;
     }
 
-    private static List<string> BuildArguments(CommitLogQuery query, int? take, bool countOnly = false)
+    /// <summary>
+    /// Builds the <c>git log</c> — or, for a count, <c>git rev-list --count</c> — arguments for a query.
+    /// Public so the argument vector can be unit-tested.
+    /// </summary>
+    /// <param name="query">What to read.</param>
+    /// <param name="take">How many commits to ask for, or <see langword="null"/> for no limit.</param>
+    /// <param name="countOnly">Whether the arguments are for counting rather than reading.</param>
+    /// <returns>The arguments, without the executable.</returns>
+    public static List<string> BuildArguments(CommitLogQuery query, int? take, bool countOnly = false)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         // Counting is rev-list's job: it walks the same selectors and filters but prints only a
         // number, so a count never pays for formatting a payload that is thrown away.
         List<string> arguments = countOnly ? ["rev-list", "--count"] : ["log"];
@@ -222,6 +232,16 @@ public sealed class CommitLogReader : ICommitLogReader
         switch (query.Scope)
         {
             case CommitLogScope.AllRefs:
+                // Before --all, and it has to be: an --exclude applies to the next --all, --branches,
+                // --remotes or --glob on the command line, and to nothing after it.
+                foreach (string reference in query.ExcludedRefs)
+                {
+                    if (IsExcludable(reference))
+                    {
+                        arguments.Add($"--exclude={reference}");
+                    }
+                }
+
                 arguments.Add("--all");
                 break;
             case CommitLogScope.Revision when !string.IsNullOrWhiteSpace(query.Revision):
@@ -240,6 +260,15 @@ public sealed class CommitLogReader : ICommitLogReader
 
         return arguments;
     }
+
+    /// <summary>
+    /// Answers whether an entry of <see cref="CommitLogQuery.ExcludedRefs"/> can be handed to git as it
+    /// is: a full ref name, which as a pattern only ever matches itself.
+    /// </summary>
+    private static bool IsExcludable(string? reference)
+        => reference is { Length: > 5 }
+           && reference.StartsWith("refs/", StringComparison.Ordinal)
+           && reference.AsSpan().IndexOfAny("*?[ \t\n") < 0;
 
     private static bool IsEmptyHistory(string standardError)
     {

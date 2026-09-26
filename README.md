@@ -10,11 +10,17 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
+> **What's new in 1.0** — the first release: the commit graph and the diff, branches you can hide
+> from the history, and a one-command Linux installer. See [RELEASENOTES.md](RELEASENOTES.md).
+
 ## Features
 
 - Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
 - History list with a column header you can resize, and a search that highlights what it
   found instead of hiding everything else
+- Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
+  brings and its badge leave the graph, the history says how many branches it is leaving out, and
+  the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit, shown as a **list or a tree** (your choice)
 - Colour-coded file diffs with word-level intra-line highlighting
@@ -92,6 +98,7 @@ Everything the client remembers about you lives in one per-user directory —
 | `host-accounts.json` | The hosting accounts you connected — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
 | `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
+| `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email or use a profile on the Identity
@@ -102,7 +109,8 @@ to nothing else.
 
 - **git 2.20 or newer** on the `PATH` (the app drives the real `git` executable, so your existing
   SSH keys, credential helpers and configuration all keep working)
-- **.NET 10 SDK** to build; the published app is framework-dependent and needs the matching runtime
+- **.NET 10 SDK** to build. The Linux installer bundles the .NET runtime with the application by
+  default; a framework-dependent build needs the .NET 10 runtime instead
 - Linux or Windows
 
 ## Build and run
@@ -112,6 +120,30 @@ dotnet build Enigma.GitClient.slnx
 dotnet test --solution Enigma.GitClient.slnx
 dotnet run --project src/Enigma.GitClient.App
 ```
+
+## Install on Linux
+
+`packaging/linux/install.sh` builds the application from this repository and installs it for you —
+no root, no `sudo`, nothing outside your home directory — so that **Enigma git client** is in your
+application launcher:
+
+```bash
+./packaging/linux/install.sh
+```
+
+| What | Where (`XDG_DATA_HOME` and `XDG_BIN_HOME` are honoured) |
+|------|---------------------------------------------------------|
+| The application | `~/.local/share/enigma-git-client` |
+| A launcher command, `enigma-git-client [repository]` | `~/.local/bin/enigma-git-client` |
+| The desktop entry | `~/.local/share/applications/enigma-git-client.desktop` |
+| The icon, in six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
+
+By default the .NET runtime is bundled with the application (about 116 MB), so it runs whatever is
+installed on the machine. `--framework-dependent` builds against an installed .NET 10 runtime instead
+(about 37 MB); `--from DIR` installs a directory you published yourself, and `--rid` picks another
+runtime identifier. Run the installer again to upgrade in place. `./packaging/linux/uninstall.sh`
+removes those four things and nothing else: your settings, accounts and tokens in
+`~/.config/Enigma.GitClient` are left as they are.
 
 ## Repository layout
 

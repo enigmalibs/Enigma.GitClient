@@ -179,6 +179,32 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     /// <summary>Gets the tip commit's short hash.</summary>
     public string ShortSha => Branch.TargetSha.Length >= 7 ? Branch.TargetSha[..7] : Branch.TargetSha;
 
+    /// <summary>
+    /// Gets a value indicating whether the branch is hidden from the history: its own commits and its
+    /// badge are left out of the graph.
+    /// </summary>
+    public bool IsHiddenInHistory => _owner.IsHiddenInHistory(this);
+
+    /// <summary>
+    /// Gets a value indicating whether the branch can be hidden from the history at all — every one but
+    /// the checked-out branch, which the history walks through HEAD whatever it is told.
+    /// </summary>
+    public bool CanChangeVisibility => !IsCurrent;
+
+    /// <summary>Gets what the visibility button says when the pointer rests on it.</summary>
+    public string VisibilityTip
+        => IsCurrent
+            ? "The branch you are on is always shown in the history"
+            : IsHiddenInHistory
+                ? "Hidden from the history — show it again"
+                : "Hide from the history";
+
+    /// <summary>Gets what the row menu's visibility item is called.</summary>
+    public string VisibilityHeader => IsHiddenInHistory ? "Show in the history" : "Hide from the history";
+
+    /// <summary>Gets the command that hides the branch from the history, or shows it again.</summary>
+    public RelayCommand<BranchRowViewModel> ToggleVisibilityCommand => _owner.ToggleVisibilityCommand;
+
     /// <summary>Gets the command that checks the branch out.</summary>
     public AsyncRelayCommand<BranchRowViewModel> CheckoutCommand => _owner.CheckoutCommand;
 
@@ -193,6 +219,17 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 
     /// <summary>Gets the command that merges the branch into the one checked out.</summary>
     public AsyncRelayCommand<BranchRowViewModel> MergeCommand => _owner.MergeCommand;
+
+    /// <summary>
+    /// Says the branch's visibility may have changed, without rebuilding the row — a rebuild of the
+    /// whole list would scroll it back to the top under the reader's pointer.
+    /// </summary>
+    internal void NotifyVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(IsHiddenInHistory));
+        OnPropertyChanged(nameof(VisibilityTip));
+        OnPropertyChanged(nameof(VisibilityHeader));
+    }
 
     /// <inheritdoc />
     public override string ToString() => FullName;
@@ -258,6 +295,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
     private readonly IBranchDropOperations _dropOperations;
+    private readonly IHiddenBranches _hidden;
 
     // Every branch the manual merge can name, by name, as the last rebuild read them — the lists
     // are names, and what a merge needs to know about each (remote? checked out?) is looked up here.
@@ -271,23 +309,33 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
     /// <param name="mergeOperations">Merges a branch into the current one.</param>
     /// <param name="dropOperations">Carries out one branch dropped onto another.</param>
+    /// <param name="hidden">Which branches are hidden from the history, and hides or shows one.</param>
     public BranchesPageViewModel(
         IRepositoryContext repositoryContext,
         IBranchOperations operations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
-        IBranchDropOperations dropOperations)
+        IBranchDropOperations dropOperations,
+        IHiddenBranches hidden)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
+        ArgumentNullException.ThrowIfNull(hidden);
 
         _operations = operations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
         _dropOperations = dropOperations;
+        _hidden = hidden;
+
+        ToggleVisibilityCommand = new RelayCommand<BranchRowViewModel>(
+            row => _hidden.SetHidden(row!.Branch.FullName, !row.IsHiddenInHistory),
+            row => row?.CanChangeVisibility == true);
+
+        _hidden.Changed += (_, _) => NotifyVisibility();
 
         CreateBranchCommand = new AsyncRelayCommand(OnCreateAsync, () => IsRepositoryOpen);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
@@ -384,6 +432,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
+
+    /// <summary>Gets the command that hides a branch from the history, or shows it again.</summary>
+    public RelayCommand<BranchRowViewModel> ToggleVisibilityCommand { get; }
 
     /// <summary>Gets the command that checks a branch out.</summary>
     public AsyncRelayCommand<BranchRowViewModel> CheckoutCommand { get; }
@@ -529,6 +580,30 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     {
         ManualMergeCommand.NotifyCanExecuteChanged();
         ManualFastForwardCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Answers whether a row's branch is hidden from the history. The rows ask the page, so the one
+    /// set the history reads is the one they show.
+    /// </summary>
+    /// <param name="row">The row.</param>
+    /// <returns><see langword="true"/> when the branch is hidden.</returns>
+    internal bool IsHiddenInHistory(BranchRowViewModel row) => _hidden.IsHidden(row.Branch.FullName);
+
+    /// <summary>
+    /// Tells every row its visibility may have changed.
+    /// </summary>
+    private void NotifyVisibility()
+    {
+        foreach (BranchGroupViewModel group in Groups)
+        {
+            foreach (BranchRowViewModel row in group.Rows)
+            {
+                row.NotifyVisibilityChanged();
+            }
+        }
+
+        ToggleVisibilityCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>

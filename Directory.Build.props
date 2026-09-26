@@ -6,6 +6,10 @@
     <!-- Fill these in for the solution (author/copyright metadata). -->
     <Authors>Josué Clément</Authors>
     <Copyright>Copyright © 2026 Josué Clément</Copyright>
+    <!-- The product version, for the whole solution: Core and App ship as one application, so they
+         never carry separate numbers. The splash screen, the About dialog, the Settings page and the
+         hosting user agent all read it. -->
+    <Version>1.0.0</Version>
     <LangVersion>14</LangVersion>
     <Nullable>enable</Nullable>
     <!-- Explicit usings everywhere: every file declares its own using directives. -->

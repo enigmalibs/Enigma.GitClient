@@ -1,6 +1,6 @@
 # Release notes
 
-## 1.0.0 — unreleased
+## 1.0.0 — 2026-09-26
 
 The first release: a cross-platform git client built around two things, the commit graph and the
 diff.
@@ -34,6 +34,11 @@ diff.
 - The search box marks the commits it finds and hides nothing: the graph you are reading stays the
   graph git drew. It says how many lines it found, and searches the messages of the commits you have
   loaded.
+- The graph always shows every branch and follows every parent of every merge — and any branch but
+  the one you are on can be hidden from it, with the eye on its row in the branches dialog: the
+  commits only that branch brings and its badge leave the graph, while a commit another branch still
+  reaches stays. The toolbar says how many branches are hidden and shows them all again in one click,
+  and the choice is remembered for the repository.
 
 ### The diff
 
@@ -56,6 +61,9 @@ diff.
 - Every local branch row says where it stands with its remote: an up arrow with the number of
   commits to push, a down arrow with the number to pull, and a badge saying whether the branch is
   on a remote, is on none, or names an upstream that has been deleted.
+- Branches, tags and remotes open from the history's toolbar as dialogs over the graph, drawn on the
+  window's own background; a question one of them asks opens above it, and the dialog is still there
+  once it is answered.
 - The branches, tags and remotes lists select a row, with the pointer or the keyboard, and keep the
   selection while the page refreshes underneath.
 - Drag one branch onto another to merge them. The drop opens a menu naming both ends: merge, merge
@@ -97,11 +105,36 @@ diff.
   fills the two fields from the profile marked *Current*, ready to save. The page says which
   identity the repository's commits will use.
 
+### The application
+
+- A start window with the recent repositories, and the open, clone and create actions; each
+  repository opens in a window of its own, and `Enigma.GitClient.App <path>` opens one straight away.
+- A splash screen while the application starts — its icon, its name and its version — held for a
+  second at the least and gone the moment the first window is up.
+- An **About** dialog, from the repository window's toolbar and from the Settings page in either
+  window: the version, the build it was cut from, the copyright, and what the application is built
+  with, under which licence.
+
+### Installing
+
+- On Linux, `packaging/linux/install.sh` builds and installs the application for you — no root,
+  nothing outside your home directory — with **Enigma git client** in your application launcher, an
+  `enigma-git-client` command, and its icon. The .NET runtime is bundled by default;
+  `--framework-dependent` uses an installed one instead. Run it again to upgrade;
+  `packaging/linux/uninstall.sh` takes it all away and leaves your settings alone.
+
 ### Preferences
 
-- Theme, history page size, first-parent history, date style, graph row height and lane width, the
-  file list's shape, the diff's shape, font family and size, context, tab width, whitespace handling
-  and wrapping, the pull strategy, and the path to git.
+- Theme, history page size, date style, graph row height and lane width, the file list's shape, the
+  diff's shape, font family and size, context, tab width, whitespace handling and wrapping, the pull
+  strategy, and the path to git.
+
+### Compatibility
+
+- Linux and Windows, from the same code.
+- git 2.20 or newer, on the `PATH` or named in the settings.
+- .NET 10 — bundled with the application by the Linux installer, or installed, for a
+  framework-dependent build.
 
 ### What this client does not do
 

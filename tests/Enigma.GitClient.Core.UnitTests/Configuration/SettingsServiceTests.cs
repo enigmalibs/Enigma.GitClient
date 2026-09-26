@@ -96,7 +96,6 @@ public sealed class SettingsServiceTests : IDisposable
                 DiffFontSize = 18,
                 FilesView = FilesView.List,
                 HistoryPageSize = 750,
-                FirstParentOnly = true,
                 DateDisplay = DateDisplay.Absolute,
                 GraphRowHeight = 32,
                 GraphLaneWidth = 20,
@@ -118,7 +117,6 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(18, stored.DiffFontSize);
         Assert.Equal(FilesView.List, stored.FilesView);
         Assert.Equal(750, stored.HistoryPageSize);
-        Assert.True(stored.FirstParentOnly);
         Assert.Equal(DateDisplay.Absolute, stored.DateDisplay);
         Assert.Equal(32, stored.GraphRowHeight);
         Assert.Equal(20, stored.GraphLaneWidth);
@@ -155,6 +153,29 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(ThemePreference.Dark, loaded.Theme);
         Assert.Equal(15, loaded.AutoRefreshSeconds);
+    }
+
+    [Fact]
+    public async Task AFileFromWhenTheHistoryCouldFollowFirstParents_StillLoads_AndForgetsIt()
+    {
+        // Written by a build that still had the first-parent preference: the key is simply not read,
+        // and the next save leaves it out.
+        System.IO.Directory.CreateDirectory(_root);
+        await System.IO.File.WriteAllTextAsync(
+            File_,
+            $"{{ \"version\": {AppSettings.CurrentVersion.ToString(CultureInfo.InvariantCulture)}, \"theme\": \"Light\", \"historyPageSize\": 750, \"firstParentOnly\": true }}",
+            TestContext.Current.CancellationToken);
+
+        using SettingsService settings = Build();
+        AppSettings loaded = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(ThemePreference.Light, loaded.Theme);
+        Assert.Equal(750, loaded.HistoryPageSize);
+
+        settings.Update(current => current with { Theme = ThemePreference.Dark });
+        await settings.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("firstParentOnly", System.IO.File.ReadAllText(File_), StringComparison.Ordinal);
     }
 
     [Fact]

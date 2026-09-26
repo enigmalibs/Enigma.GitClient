@@ -106,20 +106,6 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <StackPanel Grid.Column="0">
-                <TextBlock Text="Follow first parents only"
-                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                <TextBlock Text="Hides the commits that came in through a merge, leaving the branch's own line."
-                           FontSize="11"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-              </StackPanel>
-              <ToggleSwitch Grid.Column="1"
-                            IsChecked="{Binding FirstParentOnly, Mode=TwoWay}"
-                            AutomationProperties.Name="Follow first parents only" />
-            </Grid>
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <TextBlock Grid.Column="0"
                          Text="Dates"
                          VerticalAlignment="Center"
@@ -430,6 +416,15 @@
                          FontSize="12"
                          Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             </Border>
+
+            <!-- The dialog with the icon, the build and the credits: from here, because the start
+                 window has no toolbar to put it on. -->
+            <Button Name="OpenAbout"
+                    Command="{Binding OpenAboutCommand}"
+                    HorizontalAlignment="Left"
+                    Margin="0,4,0,0"
+                    Content="About Enigma git client"
+                    AutomationProperties.Name="About Enigma git client" />
           </StackPanel>
         </controls:SettingsCardExpander>
       </StackPanel>

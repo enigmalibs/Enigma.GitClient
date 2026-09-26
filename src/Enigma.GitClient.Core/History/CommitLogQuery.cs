@@ -25,6 +25,25 @@ public sealed record CommitLogQuery
     public string? Revision { get; init; }
 
     /// <summary>
+    /// Gets the refs an <see cref="CommitLogScope.AllRefs"/> walk leaves out, by full name —
+    /// <c>refs/heads/topic</c>, <c>refs/remotes/origin/topic</c>. Empty by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// git decides what disappears: a commit is left out only when none of the refs still walked
+    /// reaches it, so hiding a branch hides what only that branch brings, and the commits it shares
+    /// with a visible branch stay. HEAD is walked whatever the list says, so leaving out the branch it
+    /// is on changes nothing.
+    /// </para>
+    /// <para>
+    /// Only full names under <c>refs/</c> without a glob character are used: git refuses <c>*</c>,
+    /// <c>?</c> and <c>[</c> in a ref name, so each entry can only ever match the one ref it names.
+    /// Other scopes ignore the list.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> ExcludedRefs { get; init; } = [];
+
+    /// <summary>
     /// Gets how many commits to skip before the page starts.
     /// </summary>
     public int Skip { get; init; }
@@ -80,7 +99,8 @@ public sealed record CommitLogQuery
            PathFilters.Count > 0 ||
            Since.HasValue ||
            Until.HasValue ||
-           FirstParentOnly;
+           FirstParentOnly ||
+           ExcludedRefs.Count > 0;
 
     /// <summary>
     /// Returns the query for the page after this one.

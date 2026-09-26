@@ -128,6 +128,13 @@
                     AutomationProperties.Name="Switch between the dark and light themes">
               <ei:Icon Kind="Palette" Classes="toolbar" />
             </Button>
+            <Button Name="OpenAbout"
+                    Classes="toolbar"
+                    Command="{Binding OpenAboutCommand}"
+                    ToolTip.Tip="About"
+                    AutomationProperties.Name="About Enigma git client">
+              <ei:Icon Kind="Info" Classes="toolbar" />
+            </Button>
           </StackPanel>
         </Grid>
       </Border>
@@ -202,16 +209,29 @@
       hosts: the confirmations their operations ask for are shown on HostDialog, above them, and the
       tool dialog is still there when the question has been answered. Sized from the window in
       code-behind, because a list needs a bounded height to scroll in.
+
+      Drawn on the window's own background rather than on the library's dialog surface: these are
+      the window's pages, laid out for that background, with lighter strips — their headers, the
+      merge band, the group headings — standing out from it. The library's template paints its
+      card with the EnigmaSurfaceHighBrush resource rather than with the control's Background, so
+      the lever is that resource, redefined for this host alone; the questions asked on HostDialog
+      keep the library's look. A brush whose colour is a DynamicResource, as the library's own
+      brushes are, so it follows a theme switch.
     -->
     <contentDialog:ContentDialog x:Name="ToolDialog"
                                  DialogMinWidth="640"
-                                 DialogMaxWidth="1100" />
+                                 DialogMaxWidth="1100">
+      <contentDialog:ContentDialog.Resources>
+        <SolidColorBrush x:Key="EnigmaSurfaceHighBrush" Color="{DynamicResource EnigmaBackgroundColor}" />
+      </contentDialog:ContentDialog.Resources>
+    </contentDialog:ContentDialog>
 
-    <!-- The three overlay hosts must be the last children of the root panel. -->
+    <!-- The three overlay hosts must be the last children of the root panel. At most 640 high, as
+         Enigma.MarkdownEditor's: the About dialog's icon, build and credits fit without scrolling. -->
     <contentDialog:ContentDialog x:Name="HostDialog"
                                  DialogMinWidth="380"
                                  DialogMaxWidth="720"
-                                 DialogMaxHeight="600" />
+                                 DialogMaxHeight="640" />
     <controls:Overlay x:Name="HostOverlay" />
     <infoBar:InfoBar x:Name="HostInfoBar" />
   </Panel>

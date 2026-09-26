@@ -55,12 +55,15 @@ public static class ServiceCollectionExtensions
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
             services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
+            services.AddSingleton<IHiddenBranchStore, HiddenBranchStore>();
+            services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
             services.AddSingleton<IStartNavigation, StartNavigation>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
+            services.AddSingleton<IAboutDialogService, AboutDialogService>();
 
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);

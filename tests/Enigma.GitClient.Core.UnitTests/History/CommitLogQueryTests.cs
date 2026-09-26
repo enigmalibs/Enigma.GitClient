@@ -16,6 +16,7 @@ public sealed class CommitLogQueryTests
         Assert.Equal(CommitLogQuery.DefaultPageSize, query.Take);
         Assert.Equal(0, query.Skip);
         Assert.False(query.FirstParentOnly);
+        Assert.Empty(query.ExcludedRefs);
         Assert.False(query.IsFiltered);
     }
 
@@ -36,6 +37,7 @@ public sealed class CommitLogQueryTests
     [InlineData("since")]
     [InlineData("until")]
     [InlineData("first-parent")]
+    [InlineData("excluded")]
     public void IsFiltered_IsTrueForAnyFilter(string which)
     {
         CommitLogQuery query = which switch
@@ -45,6 +47,7 @@ public sealed class CommitLogQueryTests
             "path" => new CommitLogQuery { PathFilters = ["src/"] },
             "since" => new CommitLogQuery { Since = DateTimeOffset.UnixEpoch },
             "until" => new CommitLogQuery { Until = DateTimeOffset.UnixEpoch },
+            "excluded" => new CommitLogQuery { ExcludedRefs = ["refs/heads/topic"] },
             _ => new CommitLogQuery { FirstParentOnly = true },
         };
 

@@ -43,6 +43,12 @@
       <Setter Property="BorderThickness" Value="1" />
     </Style>
 
+    <!-- A branch hidden from the history stays in this list — it is still a branch — but reads as
+         set aside, so the eye beside it is not the only thing saying so. -->
+    <Style Selector="StackPanel.hiddenbranch, ei|Icon.hiddenbranch">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+
     <Style Selector="Border.pill">
       <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
@@ -69,6 +75,9 @@
               <MenuItem Header="Merge into the current branch"
                         Command="{Binding MergeCommand}"
                         CommandParameter="{Binding}" />
+              <MenuItem Header="{Binding VisibilityHeader}"
+                        Command="{Binding ToggleVisibilityCommand}"
+                        CommandParameter="{Binding}" />
               <Separator />
               <MenuItem Header="Rename…"
                         Command="{Binding RenameCommand}"
@@ -86,9 +95,10 @@
           <ei:Icon Grid.Column="0"
                    Kind="GitBranch"
                    Classes="row dim"
+                   Classes.hiddenbranch="{Binding IsHiddenInHistory}"
                    VerticalAlignment="Center" />
 
-          <StackPanel Grid.Column="1" Spacing="2">
+          <StackPanel Grid.Column="1" Spacing="2" Classes.hiddenbranch="{Binding IsHiddenInHistory}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="{Binding Name}"
                          Classes.current="{Binding IsCurrent}"
@@ -190,6 +200,20 @@
           </StackPanel>
 
           <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <!-- Whether the history draws this branch. The eye says what the history does now: open
+                 while it is drawn, struck through while it is hidden. -->
+            <Button Name="ToggleVisibility"
+                    Classes="toolbar"
+                    Command="{Binding ToggleVisibilityCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="{Binding VisibilityTip}"
+                    ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="{Binding VisibilityTip}">
+              <Panel>
+                <ei:Icon Kind="Eye" Classes="row" IsVisible="{Binding !IsHiddenInHistory}" />
+                <ei:Icon Kind="EyeSlash" Classes="row" IsVisible="{Binding IsHiddenInHistory}" />
+              </Panel>
+            </Button>
             <Button Classes="toolbar"
                     Command="{Binding CheckoutCommand}"
                     CommandParameter="{Binding}"

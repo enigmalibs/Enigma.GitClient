@@ -75,8 +75,13 @@ public interface IAppWindows
     /// repository, the start window otherwise.
     /// </summary>
     /// <param name="path">A path given on the command line, or <see langword="null"/>.</param>
+    /// <param name="splash">
+    /// The splash screen covering the start, or <see langword="null"/> when there is none: held until
+    /// its floor has passed, then closed once the first window is on screen — or on the way out of a
+    /// start that failed.
+    /// </param>
     /// <returns>A task that completes once a window is on screen.</returns>
-    Task StartAsync(string? path);
+    Task StartAsync(string? path, SplashHandOver? splash = null);
 
     /// <summary>Shows the start window in place of whatever is on screen.</summary>
     void ShowStart();
@@ -127,32 +132,51 @@ public sealed class AppWindows : IAppWindows
     public Window? CurrentWindow { get; private set; }
 
     /// <inheritdoc />
-    public async Task StartAsync(string? path)
+    public async Task StartAsync(string? path, SplashHandOver? splash = null)
     {
         string? failure = null;
+        bool opened = false;
 
-        if (path is { Length: > 0 })
+        try
         {
-            try
+            if (path is { Length: > 0 })
             {
-                RepositoryDiscoveryResult discovery = await _opener.OpenAsync(path).ConfigureAwait(true);
-
-                if (discovery.IsFound)
+                try
                 {
-                    ShowRepository();
-                    return;
-                }
+                    RepositoryDiscoveryResult discovery = await _opener.OpenAsync(path).ConfigureAwait(true);
 
-                failure = discovery.Message;
+                    opened = discovery.IsFound;
+                    failure = opened ? null : discovery.Message;
+                }
+                catch (Exception exception) when (exception is GitCommandException or IOException or ArgumentException)
+                {
+                    _logger.LogWarning(exception, "The repository at {Path} could not be opened", path);
+                    failure = exception.Message;
+                }
             }
-            catch (Exception exception) when (exception is GitCommandException or IOException or ArgumentException)
+
+            // After the slow part and before the first window: a start that took longer than the floor
+            // waits for nothing, and one fast enough to make the splash flash waits out the rest.
+            if (splash is not null)
             {
-                _logger.LogWarning(exception, "The repository at {Path} could not be opened", path);
-                failure = exception.Message;
+                await splash.WaitForMinimumAsync().ConfigureAwait(true);
+            }
+
+            if (opened)
+            {
+                ShowRepository();
+            }
+            else
+            {
+                ShowStart();
             }
         }
-
-        ShowStart();
+        finally
+        {
+            // Once the window that replaces it is on screen, so the splash is never the last window to
+            // close — and here, in a finally, so a start that threw still takes it away and ends.
+            splash?.Close();
+        }
 
         if (failure is not null)
         {
