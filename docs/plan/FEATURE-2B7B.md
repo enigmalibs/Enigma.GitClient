@@ -1,6 +1,6 @@
 # FEATURE-2B7B — Release 1.0.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2B7B.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-2b7b-release-1-0-0`
 **Run:** feature/2026-09-26-release-1-0-0

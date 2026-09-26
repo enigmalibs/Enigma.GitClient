@@ -10,6 +10,9 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
+> **What's new in 1.0** — the first release: the commit graph and the diff, branches you can hide
+> from the history, and a one-command Linux installer. See [RELEASENOTES.md](RELEASENOTES.md).
+
 ## Features
 
 - Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
