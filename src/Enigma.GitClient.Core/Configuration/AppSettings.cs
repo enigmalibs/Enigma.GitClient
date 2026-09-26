@@ -125,9 +125,6 @@ public sealed record AppSettings
     /// <summary>Gets how many commits the history reads at a time.</summary>
     public int HistoryPageSize { get; init; } = History.CommitLogQuery.DefaultPageSize;
 
-    /// <summary>Gets a value indicating whether the history follows only first parents.</summary>
-    public bool FirstParentOnly { get; init; }
-
     /// <summary>Gets how a commit's date is written.</summary>
     public DateDisplay DateDisplay { get; init; } = DateDisplay.Relative;
 

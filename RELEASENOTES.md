@@ -97,9 +97,9 @@ diff.
 
 ### Preferences
 
-- Theme, history page size, first-parent history, date style, graph row height and lane width, the
-  file list's shape, the diff's shape, font family and size, context, tab width, whitespace handling
-  and wrapping, the pull strategy, and the path to git.
+- Theme, history page size, date style, graph row height and lane width, the file list's shape, the
+  diff's shape, font family and size, context, tab width, whitespace handling and wrapping, the pull
+  strategy, and the path to git.
 
 ### What this client does not do
 

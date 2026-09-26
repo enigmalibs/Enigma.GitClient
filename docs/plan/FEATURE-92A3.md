@@ -1,6 +1,6 @@
 # FEATURE-92A3 — History: no scope, no first parent
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-release-1-0-0
@@ -48,7 +48,7 @@ Take two controls off the History page's toolbar, with everything that exists on
 
 ## PHASE02 — No first-parent history
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-92A3-PHASE02.md`
 **Branch:** `feature/feature-92a3-phase02-no-first-parent`
 
 ### Steps

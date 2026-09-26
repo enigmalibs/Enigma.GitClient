@@ -467,10 +467,8 @@ public sealed class SettingsPageTests
             SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
 
             page.HistoryPageSize = 250;
-            page.FirstParentOnly = true;
 
             Assert.Equal(250, history.PageSize);
-            Assert.True(history.FirstParentOnly);
         });
     }
 
@@ -557,6 +555,9 @@ public sealed class SettingsPageTests
                 Assert.Contains(texts, text => text == "Git");
                 Assert.Contains(texts, text => text == "About");
                 Assert.Contains(texts, text => text.Contains("never rebases", StringComparison.Ordinal));
+
+                // The history always follows every parent: there is no preference to say otherwise.
+                Assert.DoesNotContain(texts, text => text.Contains("first parent", StringComparison.OrdinalIgnoreCase));
             }
             finally
             {

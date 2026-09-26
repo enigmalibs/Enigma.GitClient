@@ -30,7 +30,8 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// </summary>
 /// <remarks>
 /// The graph is always the whole repository — every branch, tag and remote-tracking ref, and HEAD —
-/// which is the query's own default scope; there is no switch to narrow it to the current branch.
+/// which is the query's own default scope, with every parent of every merge followed: there is no
+/// switch to narrow it to the current branch or to first parents.
 /// </remarks>
 public sealed class HistoryPageViewModel : PageViewModelBase
 {
@@ -191,22 +192,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the rows the list shows, newest first.
     /// </summary>
     public ObservableCollection<CommitRowViewModel> Rows { get; } = [];
-
-    /// <summary>
-    /// Gets or sets a value indicating whether merged-in branches are hidden.
-    /// </summary>
-    public bool FirstParentOnly
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                _query = _query with { FirstParentOnly = value, Skip = 0 };
-                QueueReload();
-            }
-        }
-    }
 
     /// <summary>
     /// Gets or sets what to look for in the commit messages.
@@ -1332,12 +1317,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _absoluteDates = absolute;
         PageSize = settings.HistoryPageSize;
 
-        if (FirstParentOnly != settings.FirstParentOnly)
-        {
-            // Its own setter re-reads the history, so this branch must not do it twice.
-            FirstParentOnly = settings.FirstParentOnly;
-        }
-        else if (rebuild && Rows.Count > 0)
+        if (rebuild && Rows.Count > 0)
         {
             _ = ReloadAsync();
         }

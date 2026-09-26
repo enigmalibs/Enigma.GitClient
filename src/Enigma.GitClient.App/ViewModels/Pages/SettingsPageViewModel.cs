@@ -117,13 +117,6 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         set => Change(current => current with { HistoryPageSize = value });
     }
 
-    /// <summary>Gets or sets a value indicating whether the history follows only first parents.</summary>
-    public bool FirstParentOnly
-    {
-        get => _settings.Current.FirstParentOnly;
-        set => Change(current => current with { FirstParentOnly = value });
-    }
-
     /// <summary>Gets or sets how a commit's date is written.</summary>
     public DateDisplay DateDisplay
     {
@@ -376,7 +369,6 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         {
             OnPropertyChanged(nameof(Theme));
             OnPropertyChanged(nameof(HistoryPageSize));
-            OnPropertyChanged(nameof(FirstParentOnly));
             OnPropertyChanged(nameof(DateDisplay));
             OnPropertyChanged(nameof(GraphRowHeight));
             OnPropertyChanged(nameof(GraphLaneWidth));

@@ -106,20 +106,6 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <StackPanel Grid.Column="0">
-                <TextBlock Text="Follow first parents only"
-                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                <TextBlock Text="Hides the commits that came in through a merge, leaving the branch's own line."
-                           FontSize="11"
-                           TextWrapping="Wrap"
-                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-              </StackPanel>
-              <ToggleSwitch Grid.Column="1"
-                            IsChecked="{Binding FirstParentOnly, Mode=TwoWay}"
-                            AutomationProperties.Name="Follow first parents only" />
-            </Grid>
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <TextBlock Grid.Column="0"
                          Text="Dates"
                          VerticalAlignment="Center"
