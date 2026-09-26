@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.IdentityProfileDialogView"
+             x:DataType="vm:IdentityProfileDialogViewModel"
+             MinWidth="460">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Profile"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Label, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="Work, personal, …"
+               AutomationProperties.Name="Profile name" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="Ada Lovelace"
+               AutomationProperties.Name="Name git records" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Email"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="ada@example.com"
+               AutomationProperties.Name="Email git records" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -1,28 +1,40 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels;
+using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
 
 /// <summary>
-/// The identity page: where it is reached from, and the global name and email it reads from git and
-/// writes back. Every test runs against the in-memory identity, never the developer's own.
+/// The identity page: where it is reached from, the global name and email it reads from git and
+/// writes back, and the profiles that switch them. Every test runs against the in-memory identity,
+/// never the developer's own.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class IdentityPageTests
 {
     private static readonly GitIdentity Ada = new("Ada Lovelace", "ada@example.com");
+    private static readonly GitIdentity Work = new("Ada Lovelace", "ada@work.example");
+    private static readonly GitIdentity Home = new("Ada", "ada@home.example");
 
     private readonly HeadlessAvaloniaFixture _fixture;
 
@@ -303,6 +315,315 @@ public sealed class IdentityPageTests
         Assert.Equal("Enter a name.", IdentityPageViewModel.Describe(new ArgumentException("Enter a name.", "identity")));
     }
 
+    // ---------------------------------------------------------------- profiles
+
+    [Fact]
+    public void AddingAProfileStartsFromTheGlobalIdentityAndMarksItCurrent()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.False(page.HasProfiles);
+            Assert.Null(page.CurrentProfile);
+
+            IdentityProfileDialogViewModel? seen = null;
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                seen = DialogModel(dialog);
+                seen.Label = "Personal";
+            };
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            Assert.NotNull(seen);
+            Assert.Equal("Ada Lovelace", seen.Name);
+            Assert.Equal("ada@example.com", seen.Email);
+            Assert.Equal("Add a profile", services.Dialogs.Last!.Title);
+
+            IdentityProfile stored = Assert.Single(await services.Get<IIdentityProfileStore>().GetAllAsync());
+            Assert.Equal("Personal", stored.Label);
+            Assert.Equal(Ada, stored.Identity);
+
+            IdentityProfileRowViewModel row = Assert.Single(page.Profiles);
+            Assert.True(row.IsCurrent);
+            Assert.Equal(stored, page.CurrentProfile);
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Profile added");
+
+            // Adding a profile never writes git's configuration.
+            Assert.Equal(0, services.Identity.GlobalWrites);
+        });
+    }
+
+    [Fact]
+    public void TheDialogCanOnlyBeConfirmedWithUsableFields()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            List<bool> enabled = [];
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                IdentityProfileDialogViewModel model = DialogModel(dialog);
+
+                // No label yet.
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+                Assert.False(model.HasValidationMessage);
+
+                model.Label = "Work";
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+
+                model.Email = "nope";
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+                Assert.Equal("An email needs something on both sides of an @.", model.ValidationMessage);
+            };
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            Assert.Equal([false, true, false], enabled);
+
+            // Confirmed while invalid: nothing is stored.
+            Assert.Empty(await services.Get<IIdentityProfileStore>().GetAllAsync());
+        });
+    }
+
+    [Fact]
+    public void ACancelledDialogAddsNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Dialogs.Result = DialogResult.None;
+            services.Dialogs.OnShown = dialog => DialogModel(dialog).Label = "Work";
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            Assert.Empty(await services.Get<IIdentityProfileStore>().GetAllAsync());
+            Assert.Empty(page.Profiles);
+        });
+    }
+
+    [Fact]
+    public void EditingAProfileKeepsItsPlaceAndItsIdentifier()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                IdentityProfileDialogViewModel model = DialogModel(dialog);
+
+                Assert.Equal("Work", model.Label);
+                Assert.Equal("ada@work.example", model.Email);
+
+                model.Label = "Office";
+                model.Email = "ada@office.example";
+            };
+
+            await page.EditProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.Equal("Edit the profile", services.Dialogs.Last!.Title);
+            Assert.Equal(["Office", "Home"], page.Profiles.Select(row => row.Label));
+            Assert.Equal(work.Id, page.Profiles[0].Profile.Id);
+            Assert.Equal("Ada Lovelace <ada@office.example>", page.Profiles[0].Summary);
+            Assert.Equal(2, (await store.GetAllAsync()).Count);
+        });
+    }
+
+    [Fact]
+    public void DeletingAProfileAsksFirstAndLeavesGitAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Dialogs.Script(DialogResult.Close, DialogResult.Primary);
+
+            await page.RemoveProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.Equal("Delete this profile", services.Dialogs.Last!.Title);
+            Assert.Single(await store.GetAllAsync());
+            Assert.Single(page.Profiles);
+
+            await page.RemoveProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.Empty(await store.GetAllAsync());
+            Assert.Empty(page.Profiles);
+            Assert.Null(page.CurrentProfile);
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Profile deleted");
+
+            // The identity it described is still git's.
+            Assert.Equal(Work, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+        });
+    }
+
+    [Fact]
+    public void UsingAProfileMakesItTheGlobalIdentityInOneClick()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.True(page.Profiles[0].IsCurrent);
+            Assert.False(page.Profiles[1].IsCurrent);
+            Assert.Equal("Work", page.CurrentProfile?.Label);
+
+            await page.UseProfileCommand.ExecuteAsync(page.Profiles[1]);
+
+            Assert.Equal(Home, services.Identity.Global);
+            Assert.Equal("Ada", page.GlobalName);
+            Assert.Equal("ada@home.example", page.GlobalEmail);
+            Assert.False(page.IsGlobalChanged);
+
+            Assert.False(page.Profiles[0].IsCurrent);
+            Assert.True(page.Profiles[1].IsCurrent);
+            Assert.Equal("Home", page.CurrentProfile?.Label);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Using Home", note.Title);
+            Assert.Contains("Ada <ada@home.example>", note.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void TheCurrentProfileFollowsAnIdentitySavedByHand()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.Null(page.CurrentProfile);
+
+            // The emails' case does not matter; the names' does.
+            page.GlobalEmail = "ADA@work.example";
+            await page.SaveGlobalCommand.ExecuteAsync(null);
+
+            Assert.Equal("Work", page.CurrentProfile?.Label);
+            Assert.True(page.Profiles[0].IsCurrent);
+        });
+    }
+
+    [Fact]
+    public void AFailedUseIsReportedAndTheCurrentProfileStays()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+
+            await page.UseProfileCommand.ExecuteAsync(page.Profiles[1]);
+
+            Assert.Equal("Could not save the git identity", Assert.Single(services.InfoBar.Shown).Title);
+            Assert.Equal("Work", page.CurrentProfile?.Label);
+            Assert.Equal(Work, page.GlobalIdentity);
+        });
+    }
+
+    [Fact]
+    public void AProfileFileThatCannotBeReadOrWrittenIsReported()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IIdentityProfileStore>();
+                collection.AddSingleton<IIdentityProfileStore, FailingProfileStore>();
+            });
+
+            services.Identity.Global = Ada;
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.Equal("Could not read the identity profiles", Assert.Single(services.InfoBar.Shown).Title);
+
+            // The global identity was still read.
+            Assert.Equal(Ada, page.GlobalIdentity);
+
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog => DialogModel(dialog).Label = "Work";
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            Assert.Equal("Could not save the profile", services.InfoBar.Last!.Title);
+            Assert.Equal("The disk is full.", services.InfoBar.Last.Message);
+        });
+    }
+
+    [Fact]
+    public void TheDialogSaysNothingUntilSomethingIsTypedAndKeepsAnEditedProfilesIdentifier()
+    {
+        IdentityProfileDialogViewModel fresh = new(string.Empty, Ada);
+
+        Assert.False(fresh.IsValid);
+        Assert.False(fresh.HasValidationMessage);
+        Assert.Throws<InvalidOperationException>(() => fresh.ToProfile(existing: null));
+
+        fresh.Label = " Work ";
+
+        Assert.True(fresh.IsValid);
+        IdentityProfile created = fresh.ToProfile(existing: null);
+        Assert.Equal("Work", created.Label);
+        Assert.Equal(Ada, created.Identity);
+
+        IdentityProfileDialogViewModel editing = new("Work", Ada) { Email = "ada@office.example" };
+        IdentityProfile edited = editing.ToProfile(created);
+
+        Assert.Equal(created.Id, edited.Id);
+        Assert.Equal("ada@office.example", edited.Email);
+    }
+
     // ---------------------------------------------------------------- the view
 
     [Fact]
@@ -344,9 +665,77 @@ public sealed class IdentityPageTests
         });
     }
 
+    [Fact]
+    public void TheViewMarksTheCurrentProfileAndOffersUseOnTheOthers()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            IdentityPageView view = services.Get<IdentityPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 900 };
+            window.Show();
+
+            try
+            {
+                Button[] use = [.. All<Button>(view, "Use this profile")];
+
+                Assert.Equal(2, use.Length);
+                Assert.False(use[0].IsVisible);
+                Assert.True(use[1].IsVisible);
+
+                TextBlock[] pills = [.. view.GetVisualDescendants().OfType<TextBlock>().Where(block => block.Text == "Current")];
+                Assert.Equal(2, pills.Length);
+                Assert.True(pills[0].IsEffectivelyVisible);
+                Assert.False(pills[1].IsEffectivelyVisible);
+
+                Assert.Equal(2, All<Button>(view, "Edit this profile").Count());
+                Assert.Equal(2, All<Button>(view, "Delete this profile").Count());
+                Assert.True(Named<Button>(view, "Add a profile").IsEffectivelyEnabled);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private static IdentityProfileDialogViewModel DialogModel(ContentDialog dialog)
+        => Assert.IsType<IdentityProfileDialogViewModel>(Assert.IsType<IdentityProfileDialogView>(dialog.Content).DataContext);
+
+    private static IEnumerable<T> All<T>(Control root, string name)
+        where T : Control
+        => root.GetVisualDescendants()
+            .OfType<T>()
+            .Where(control => AutomationProperties.GetName(control) == name);
+
     private static T Named<T>(Control root, string name)
         where T : Control
         => root.GetVisualDescendants()
             .OfType<T>()
             .Single(control => AutomationProperties.GetName(control) == name);
+}
+
+/// <summary>
+/// A profile store whose file can be neither read nor written.
+/// </summary>
+internal sealed class FailingProfileStore : IIdentityProfileStore
+{
+    public Task<IReadOnlyList<IdentityProfile>> GetAllAsync(CancellationToken cancellationToken = default)
+        => throw new UnauthorizedAccessException("Access to the profiles is denied.");
+
+    public Task<IdentityProfile> SaveAsync(IdentityProfile profile, CancellationToken cancellationToken = default)
+        => throw new IOException("The disk is full.");
+
+    public Task<bool> RemoveAsync(string profileId, CancellationToken cancellationToken = default)
+        => throw new IOException("The disk is full.");
 }

@@ -136,5 +136,5 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6151 | Git identity: global, profiles, local   | IN PROGRESS | docs/plan/FEATURE-6151.md |
 | - PHASE01    | Read and write the git identity         | DONE        | (in FEATURE-6151.md)      |
 | - PHASE02    | The identity page, in both windows      | DONE        | (in FEATURE-6151.md)      |
-| - PHASE03    | Identity profiles                       | TODO        | (in FEATURE-6151.md)      |
+| - PHASE03    | Identity profiles                       | DONE        | (in FEATURE-6151.md)      |
 | - PHASE04    | A repository's own identity             | TODO        | (in FEATURE-6151.md)      |

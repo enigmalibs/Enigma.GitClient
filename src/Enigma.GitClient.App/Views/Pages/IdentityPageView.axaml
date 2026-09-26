@@ -6,10 +6,83 @@
              x:Class="Enigma.GitClient.App.Views.Pages.IdentityPageView"
              x:DataType="vm:IdentityPageViewModel">
 
+  <UserControl.Styles>
+    <!-- A profile's actions are a row's own actions, framed no more than a list row's are. -->
+    <Style Selector="ItemsControl.profiles Button.toolbar">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="7,6" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+
+    <DataTemplate x:Key="ProfileRow" x:DataType="vm:IdentityProfileRowViewModel">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10" Margin="0,4">
+
+        <ei:Icon Grid.Column="0"
+                 Kind="UserCircle"
+                 Classes="row dim"
+                 VerticalAlignment="Center" />
+
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="{Binding Label}"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <Border Classes="pill"
+                    Background="{DynamicResource EnigmaSelectionBrush}"
+                    IsVisible="{Binding IsCurrent}"
+                    ToolTip.Tip="Your global git configuration has this name and email">
+              <TextBlock Text="Current" FontSize="11" Classes="dim" />
+            </Border>
+          </StackPanel>
+          <TextBlock Classes="faint"
+                     Text="{Binding Summary}"
+                     FontSize="11"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <Button Grid.Column="2"
+                Classes="choice"
+                Command="{Binding UseCommand}"
+                CommandParameter="{Binding}"
+                IsVisible="{Binding IsNotCurrent}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Make this name and email your global git identity"
+                AutomationProperties.Name="Use this profile">
+          <TextBlock Text="Use" />
+        </Button>
+
+        <Button Grid.Column="3"
+                Classes="toolbar rowaction"
+                Command="{Binding EditCommand}"
+                CommandParameter="{Binding}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Edit this profile"
+                AutomationProperties.Name="Edit this profile">
+          <ei:Icon Kind="PencilSimple" Classes="row" />
+        </Button>
+
+        <Button Grid.Column="4"
+                Classes="toolbar rowaction"
+                Command="{Binding RemoveCommand}"
+                CommandParameter="{Binding}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Delete this profile; your git configuration is not changed"
+                AutomationProperties.Name="Delete this profile">
+          <ei:Icon Kind="Trash" Classes="row" />
+        </Button>
+      </Grid>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
   <!--
-    Who git says made a commit: the global identity every repository inherits. It is git's own
-    configuration being edited, so each section saves on its own button rather than on every
-    keystroke.
+    Who git says made a commit: the global identity every repository inherits, and the profiles
+    that switch it. It is git's own configuration being edited, so each section saves on its own
+    button rather than on every keystroke.
   -->
   <DockPanel>
 
@@ -90,6 +163,42 @@
                 <TextBlock Text="Save" />
               </Button>
             </Grid>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- Profiles -->
+        <controls:SettingsCardExpander Header="Profiles"
+                                       Description="Names and emails you commit as, kept here so switching is one click"
+                                       IconData="{ei:IconGeometry UserSwitch}"
+                                       IsExpanded="True">
+          <StackPanel Spacing="10">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="No profiles yet. Add one for each identity you commit as — work, personal — and switch between them with Use."
+                         IsVisible="{Binding !HasProfiles}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+              <Button Grid.Column="1"
+                      Classes="toolbar"
+                      Command="{Binding AddProfileCommand}"
+                      ToolTip.Tip="Keep a name and email under a label, starting from your global identity"
+                      AutomationProperties.Name="Add a profile">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
+                  <TextBlock Text="Add a profile" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </Grid>
+
+            <ItemsControl Classes="profiles"
+                          ItemsSource="{Binding Profiles}"
+                          ItemTemplate="{StaticResource ProfileRow}"
+                          IsVisible="{Binding HasProfiles}"
+                          AutomationProperties.Name="Identity profiles" />
           </StackPanel>
         </controls:SettingsCardExpander>
 

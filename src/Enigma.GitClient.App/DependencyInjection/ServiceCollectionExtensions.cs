@@ -113,6 +113,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
             services.AddTransient<AddHostAccountDialogView>();
+            services.AddTransient<IdentityProfileDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.

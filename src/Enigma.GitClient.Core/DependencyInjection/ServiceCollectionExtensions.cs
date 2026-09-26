@@ -33,8 +33,8 @@ public static class ServiceCollectionExtensions
         /// <summary>
         /// Registers the git engine: executable resolution, the command factory, the process
         /// runner, the environment probe, repository discovery and creation, the commit-log
-        /// reader, the reference and remote readers, the git identity, and the user's configuration
-        /// paths.
+        /// reader, the reference and remote readers, the git identity and its profiles, and the user's
+        /// configuration paths.
         /// </summary>
         /// <returns>The same collection, so calls can be chained.</returns>
         public IServiceCollection AddGitClientCore()
@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ICheckoutService, CheckoutService>();
             services.AddSingleton<IResetService, ResetService>();
             services.AddSingleton<IGitIdentityService, GitIdentityService>();
+            services.AddSingleton<IIdentityProfileStore, IdentityProfileStore>();
 
             services.AddRepositoryHosting();
 
