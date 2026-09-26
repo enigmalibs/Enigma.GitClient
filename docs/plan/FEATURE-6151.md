@@ -1,6 +1,6 @@
 # FEATURE-6151 — Git identity: global, profiles, local
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-git-identity-profiles
@@ -169,7 +169,7 @@ commit, reachable from the start window as well as from a repository's window:
 ## PHASE04 — A repository's own identity
 
 **Branch:** `feature/feature-6151-phase04-local-identity`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6151-PHASE04.md`
 
 ### Steps
 
