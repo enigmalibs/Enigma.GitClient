@@ -28,6 +28,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IMergeOperations _merges;
     private readonly IAutoRefreshService _autoRefresh;
     private readonly ISettingsService _settings;
+    private readonly IAboutDialogService _about;
     private bool _initialised;
 
     /// <summary>
@@ -47,6 +48,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// the graph is told what each refresh found.
     /// </param>
     /// <param name="settings">Records the theme the toolbar's theme switch chose.</param>
+    /// <param name="about">Shows the About dialog from the toolbar.</param>
     public MainWindowViewModel(
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
@@ -58,7 +60,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         ISyncOperations sync,
         IMergeOperations merges,
         IAutoRefreshService autoRefresh,
-        ISettingsService settings)
+        ISettingsService settings,
+        IAboutDialogService about)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
@@ -71,6 +74,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(autoRefresh);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(about);
 
         // The graph's uncommitted row belongs to the working directory page, and the shell is the
         // only thing that knows how to get there.
@@ -93,8 +97,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         _merges = merges;
         _autoRefresh = autoRefresh;
         _settings = settings;
+        _about = about;
 
         ToggleThemeCommand = new RelayCommand(OnToggleTheme);
+        OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
 
         FetchCommand = new AsyncRelayCommand(RunSyncAsync(_sync.FetchAsync), () => CanSync);
         PullCommand = new AsyncRelayCommand(RunSyncAsync(_sync.PullAsync), () => CanSync);
@@ -189,6 +195,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// says so.
     /// </summary>
     public RelayCommand ToggleThemeCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens the About dialog: what the application is, which build is running
+    /// and what it is built with.
+    /// </summary>
+    public AsyncRelayCommand OpenAboutCommand { get; }
 
     /// <summary>
     /// Gets the command that refreshes everything: the application's one refresh button.

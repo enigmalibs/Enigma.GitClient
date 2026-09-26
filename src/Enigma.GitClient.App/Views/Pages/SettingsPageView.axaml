@@ -430,6 +430,15 @@
                          FontSize="12"
                          Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             </Border>
+
+            <!-- The dialog with the icon, the build and the credits: from here, because the start
+                 window has no toolbar to put it on. -->
+            <Button Name="OpenAbout"
+                    Command="{Binding OpenAboutCommand}"
+                    HorizontalAlignment="Left"
+                    Margin="0,4,0,0"
+                    Content="About Enigma git client"
+                    AutomationProperties.Name="About Enigma git client" />
           </StackPanel>
         </controls:SettingsCardExpander>
       </StackPanel>

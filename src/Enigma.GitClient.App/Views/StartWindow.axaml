@@ -33,11 +33,12 @@
       <ContentControl Content="{Binding Navigation.CurrentPage}" />
     </DockPanel>
 
-    <!-- The three overlay hosts must be the last children of the root panel. -->
+    <!-- The three overlay hosts must be the last children of the root panel. At most 640 high, as
+         Enigma.MarkdownEditor's: the About dialog's icon, build and credits fit without scrolling. -->
     <contentDialog:ContentDialog x:Name="HostDialog"
                                  DialogMinWidth="380"
                                  DialogMaxWidth="720"
-                                 DialogMaxHeight="600" />
+                                 DialogMaxHeight="640" />
     <controls:Overlay x:Name="HostOverlay" />
     <infoBar:InfoBar x:Name="HostInfoBar" />
   </Panel>
