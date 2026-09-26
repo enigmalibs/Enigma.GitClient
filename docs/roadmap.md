@@ -149,5 +149,5 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Leaving refs out of the walk            | DONE   | (in FEATURE-70C1.md)      |
 | - PHASE02    | Remembering hidden branches             | DONE   | (in FEATURE-70C1.md)      |
 | - PHASE03    | Show and hide from the branches         | DONE   | (in FEATURE-70C1.md)      |
-| FEATURE-B4C0 | A Linux installer                       | TODO   | docs/plan/FEATURE-B4C0.md |
+| FEATURE-B4C0 | A Linux installer                       | DONE   | docs/plan/FEATURE-B4C0.md |
 | FEATURE-2B7B | Release 1.0.0                           | TODO   | docs/plan/FEATURE-2B7B.md |

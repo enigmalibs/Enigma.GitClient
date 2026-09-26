@@ -104,7 +104,8 @@ to nothing else.
 
 - **git 2.20 or newer** on the `PATH` (the app drives the real `git` executable, so your existing
   SSH keys, credential helpers and configuration all keep working)
-- **.NET 10 SDK** to build; the published app is framework-dependent and needs the matching runtime
+- **.NET 10 SDK** to build. The Linux installer bundles the .NET runtime with the application by
+  default; a framework-dependent build needs the .NET 10 runtime instead
 - Linux or Windows
 
 ## Build and run
@@ -114,6 +115,30 @@ dotnet build Enigma.GitClient.slnx
 dotnet test --solution Enigma.GitClient.slnx
 dotnet run --project src/Enigma.GitClient.App
 ```
+
+## Install on Linux
+
+`packaging/linux/install.sh` builds the application from this repository and installs it for you —
+no root, no `sudo`, nothing outside your home directory — so that **Enigma git client** is in your
+application launcher:
+
+```bash
+./packaging/linux/install.sh
+```
+
+| What | Where (`XDG_DATA_HOME` and `XDG_BIN_HOME` are honoured) |
+|------|---------------------------------------------------------|
+| The application | `~/.local/share/enigma-git-client` |
+| A launcher command, `enigma-git-client [repository]` | `~/.local/bin/enigma-git-client` |
+| The desktop entry | `~/.local/share/applications/enigma-git-client.desktop` |
+| The icon, in six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
+
+By default the .NET runtime is bundled with the application (about 116 MB), so it runs whatever is
+installed on the machine. `--framework-dependent` builds against an installed .NET 10 runtime instead
+(about 37 MB); `--from DIR` installs a directory you published yourself, and `--rid` picks another
+runtime identifier. Run the installer again to upgrade in place. `./packaging/linux/uninstall.sh`
+removes those four things and nothing else: your settings, accounts and tokens in
+`~/.config/Enigma.GitClient` are left as they are.
 
 ## Repository layout
 
