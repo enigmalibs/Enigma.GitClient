@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Enigma git client
+GenericName=Enigma git client
+Comment=A git client built around the commit graph and the diff
+Exec=@EXEC@
+Icon=enigma-git-client
+Terminal=false
+Categories=Development;RevisionControl;
+Keywords=git;version control;repository;commit;branch;merge;diff;history;
+StartupNotify=true
+StartupWMClass=Enigma.GitClient.App

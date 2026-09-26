@@ -1,6 +1,6 @@
 # FEATURE-B4C0 — A Linux installer
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-B4C0.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-b4c0-linux-installer`
 **Run:** feature/2026-09-26-release-1-0-0
