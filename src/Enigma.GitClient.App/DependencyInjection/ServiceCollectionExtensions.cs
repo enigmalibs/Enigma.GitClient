@@ -55,6 +55,8 @@ public static class ServiceCollectionExtensions
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
             services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
+            services.AddSingleton<IHiddenBranchStore, HiddenBranchStore>();
+            services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
             services.AddSingleton<IStartNavigation, StartNavigation>();
             services.AddSingleton<IAppWindows, AppWindows>();
