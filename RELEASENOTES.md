@@ -34,6 +34,11 @@ diff.
 - The search box marks the commits it finds and hides nothing: the graph you are reading stays the
   graph git drew. It says how many lines it found, and searches the messages of the commits you have
   loaded.
+- The graph always shows every branch and follows every parent of every merge — and any branch but
+  the one you are on can be hidden from it, with the eye on its row in the branches dialog: the
+  commits only that branch brings and its badge leave the graph, while a commit another branch still
+  reaches stays. The toolbar says how many branches are hidden and shows them all again in one click,
+  and the choice is remembered for the repository.
 
 ### The diff
 

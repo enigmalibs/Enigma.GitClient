@@ -47,6 +47,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
+    private readonly IHiddenBranches _hidden;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -71,6 +72,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
     /// <param name="syncOperations">Pulls and pushes a branch from its badge.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
+    /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
@@ -89,6 +91,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         DiffViewerViewModel diff,
         IInfoBarService infoBar,
         IToolDialogService tools,
+        IHiddenBranches hidden,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -107,6 +110,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(tools);
+        ArgumentNullException.ThrowIfNull(hidden);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -123,6 +127,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _links = links;
         _settings = settings;
         _tools = tools;
+        _hidden = hidden;
+        _hidden.Changed += (_, _) => OnHiddenBranchesChanged();
 
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
@@ -186,6 +192,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
         OpenTagsCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Tags), () => IsRepositoryOpen);
         OpenRemotesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Remotes), () => IsRepositoryOpen);
+        ShowHiddenBranchesCommand = new RelayCommand(_hidden.ShowAll, () => HiddenBranchCount > 0);
     }
 
     /// <summary>
@@ -552,6 +559,30 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that opens the remotes over the history.</summary>
     public AsyncRelayCommand OpenRemotesCommand { get; }
 
+    /// <summary>
+    /// Gets how many branches the graph leaves out: those hidden from the branches dialog that still
+    /// exist, less the checked-out one, which is drawn whatever it is told.
+    /// </summary>
+    public int HiddenBranchCount => ExcludedRefs().Count;
+
+    /// <summary>Gets a value indicating whether the graph leaves any branch out.</summary>
+    public bool HasHiddenBranches => HiddenBranchCount > 0;
+
+    /// <summary>
+    /// Gets what the toolbar says while branches are hidden: the graph is not the whole repository,
+    /// and a reader who forgot hiding them has to be told so.
+    /// </summary>
+    public string HiddenBranchesSummary
+        => HiddenBranchCount switch
+        {
+            0 => string.Empty,
+            1 => "1 branch hidden",
+            int count => $"{count.ToString(CultureInfo.CurrentCulture)} branches hidden",
+        };
+
+    /// <summary>Gets the command that shows every hidden branch again.</summary>
+    public RelayCommand ShowHiddenBranchesCommand { get; }
+
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
     {
@@ -691,7 +722,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <inheritdoc />
-    protected override void OnRepositoryStateRefreshed() => ForgetAMergeSourceThatIsGone();
+    protected override void OnRepositoryStateRefreshed()
+    {
+        ForgetAMergeSourceThatIsGone();
+
+        // A hidden branch deleted, or checked out, changes what the chip counts.
+        NotifyHiddenBranches();
+    }
 
     /// <inheritdoc />
     protected override void OnRepositoryChanged()
@@ -706,6 +743,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OpenBranchesCommand.NotifyCanExecuteChanged();
         OpenTagsCommand.NotifyCanExecuteChanged();
         OpenRemotesCommand.NotifyCanExecuteChanged();
+        NotifyHiddenBranches();
         _ = ReloadAsync();
     }
 
@@ -774,7 +812,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 Rows.Add(CommitRowViewModel.Uncommitted(0, 0, RowCommands));
             }
 
-            CommitLogPage page = await _reader.GetPageAsync(repository, _query, cancellation.Token)
+            // The hidden branches are read as each page is asked for, not kept in the query: a page
+            // is always read with the set the reader sees now, and a change reloads from the top.
+            CommitLogPage page = await _reader
+                .GetPageAsync(repository, _query with { ExcludedRefs = [.. ExcludedRefs()] }, cancellation.Token)
                 .ConfigureAwait(true);
 
             // The repository may have been swapped while the read was in flight.
@@ -847,6 +888,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _layoutCarry = layout.State;
 
         RefDecorationIndex decorations = RepositoryContext.Decorations;
+        IReadOnlySet<string> excluded = ExcludedRefs();
         string headSha = RepositoryContext.Head?.Sha ?? string.Empty;
         DateTimeOffset now = DateTimeOffset.Now;
 
@@ -857,7 +899,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             Rows.Add(new CommitRowViewModel(
                 commit,
                 layout.Rows[index],
-                decorations.GetRefs(commit.Sha),
+                WithoutHidden(decorations.GetRefs(commit.Sha), excluded),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
                 now,
                 RowCommands,
@@ -911,7 +953,90 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         return max;
     }
 
-    private void QueueReload() => _ = ReloadAsync();
+    /// <summary>
+    /// The refs the graph leaves out: every hidden one that still exists, less the branch HEAD is on —
+    /// git walks HEAD whatever it is told, so leaving that branch "out" would only lose its badge.
+    /// </summary>
+    private IReadOnlySet<string> ExcludedRefs()
+    {
+        IReadOnlySet<string> hidden = _hidden.Hidden;
+
+        if (hidden.Count == 0)
+        {
+            return hidden;
+        }
+
+        string? current = RepositoryContext.Head is { IsDetached: false, BranchName: { Length: > 0 } name }
+            ? GitBranch.LocalPrefix + name
+            : null;
+
+        HashSet<string> excluded = new(StringComparer.Ordinal);
+        RefCollection refs = RepositoryContext.Refs;
+
+        foreach (GitBranch branch in (IEnumerable<GitBranch>)[.. refs.LocalBranches, .. refs.RemoteBranches])
+        {
+            if (hidden.Contains(branch.FullName) && !string.Equals(branch.FullName, current, StringComparison.Ordinal))
+            {
+                excluded.Add(branch.FullName);
+            }
+        }
+
+        return excluded;
+    }
+
+    /// <summary>
+    /// A row's badges without those of the branches the graph leaves out — otherwise hiding a branch
+    /// that is already merged would change nothing anyone could see.
+    /// </summary>
+    private static IReadOnlyList<GitRef> WithoutHidden(IReadOnlyList<GitRef> refs, IReadOnlySet<string> excluded)
+    {
+        if (excluded.Count == 0 || refs.Count == 0)
+        {
+            return refs;
+        }
+
+        List<GitRef> shown = new(refs.Count);
+
+        foreach (GitRef reference in refs)
+        {
+            if (!(reference is GitBranch && excluded.Contains(reference.FullName)))
+            {
+                shown.Add(reference);
+            }
+        }
+
+        return shown.Count == refs.Count ? refs : shown;
+    }
+
+    /// <summary>
+    /// Redraws the graph with the branches the reader has just hidden or shown — keeping the place,
+    /// and waiting, as the automatic refresh does, while the diffs have the page.
+    /// </summary>
+    private void OnHiddenBranchesChanged()
+    {
+        NotifyHiddenBranches();
+
+        if (!IsRepositoryOpen)
+        {
+            return;
+        }
+
+        if (IsDiffViewOpen)
+        {
+            _refreshPending = true;
+            return;
+        }
+
+        _ = ReloadKeepingPlaceAsync();
+    }
+
+    private void NotifyHiddenBranches()
+    {
+        OnPropertyChanged(nameof(HiddenBranchCount));
+        OnPropertyChanged(nameof(HasHiddenBranches));
+        OnPropertyChanged(nameof(HiddenBranchesSummary));
+        ShowHiddenBranchesCommand.NotifyCanExecuteChanged();
+    }
 
     /// <summary>
     /// Marks the loaded rows the search finds, and counts them.

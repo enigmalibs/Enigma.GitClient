@@ -15,6 +15,9 @@ Two things matter more than everything else in this app:
 - Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
 - History list with a column header you can resize, and a search that highlights what it
   found instead of hiding everything else
+- Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
+  brings and its badge leave the graph, the history says how many branches it is leaving out, and
+  the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit, shown as a **list or a tree** (your choice)
 - Colour-coded file diffs with word-level intra-line highlighting
