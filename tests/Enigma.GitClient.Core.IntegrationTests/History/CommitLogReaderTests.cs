@@ -169,6 +169,50 @@ public sealed class CommitLogReaderTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetPageAsync_AnExcludedBranchTakesItsOwnCommitsAway()
+    {
+        CommitLogPage page = await ReadAsync(new CommitLogQuery { ExcludedRefs = ["refs/heads/feature"] });
+
+        List<string> shas = [.. page.Commits.Select(commit => commit.Sha)];
+
+        // F is reached by feature alone; A, which feature starts from, is on main too.
+        Assert.DoesNotContain(_fixture.ShaF, shas);
+        Assert.Contains(_fixture.ShaA, shas);
+        Assert.Equal(5, page.Commits.Count);
+    }
+
+    [Fact]
+    public async Task GetPageAsync_AnExcludedBranchKeepsWhatAVisibleOneReaches()
+    {
+        CommitLogPage page = await ReadAsync(new CommitLogQuery { ExcludedRefs = ["refs/heads/topic"] });
+
+        // C is topic's own commit, and main reaches it through the merge: it stays.
+        Assert.Contains(_fixture.ShaC, page.Commits.Select(commit => commit.Sha));
+        Assert.Equal(6, page.Commits.Count);
+    }
+
+    [Fact]
+    public async Task GetPageAsync_ExcludingTheCheckedOutBranchChangesNothing()
+    {
+        CommitLogPage page = await ReadAsync(new CommitLogQuery { ExcludedRefs = ["refs/heads/main"] });
+
+        // HEAD is walked whatever the list says.
+        Assert.Equal(6, page.Commits.Count);
+    }
+
+    [Fact]
+    public async Task CountAsync_AgreesWithThePageWhenRefsAreExcluded()
+    {
+        CommitLogQuery query = new() { ExcludedRefs = ["refs/heads/feature", "refs/heads/topic"] };
+
+        int count = await Reader.CountAsync(_handle, query, TestContext.Current.CancellationToken);
+        CommitLogPage page = await ReadAsync(query);
+
+        Assert.Equal(page.Commits.Count, count);
+        Assert.Equal(5, count);
+    }
+
+    [Fact]
     public async Task GetPageAsync_FirstParentOnlyHidesTheMergedInBranch()
     {
         CommitLogPage page = await ReadAsync(new CommitLogQuery
