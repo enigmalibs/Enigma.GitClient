@@ -133,3 +133,8 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Flat file lists by default              | DONE   | (in FEATURE-7232.md)      |
 | BUG-449E     | Theme toggle is forgotten on restart    | DONE   | docs/plan/BUG-449E.md     |
 | BUG-1840     | Long context menu items are clipped     | DONE   | docs/plan/BUG-1840.md     |
+| FEATURE-6151 | Git identity: global, profiles, local   | TODO   | docs/plan/FEATURE-6151.md |
+| - PHASE01    | Read and write the git identity         | TODO   | (in FEATURE-6151.md)      |
+| - PHASE02    | The identity page, in both windows      | TODO   | (in FEATURE-6151.md)      |
+| - PHASE03    | Identity profiles                       | TODO   | (in FEATURE-6151.md)      |
+| - PHASE04    | A repository's own identity             | TODO   | (in FEATURE-6151.md)      |
