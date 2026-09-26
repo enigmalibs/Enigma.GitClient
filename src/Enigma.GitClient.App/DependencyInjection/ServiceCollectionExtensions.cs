@@ -87,6 +87,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
+            services.AddTransient<IdentityPageView>();
             services.AddTransient<IntegrationsPageView>();
             services.AddTransient<SettingsPageView>();
 
@@ -97,6 +98,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
+            services.AddSingleton<IdentityPageViewModel>();
             services.AddSingleton<IntegrationsPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
 
@@ -111,6 +113,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
             services.AddTransient<AddHostAccountDialogView>();
+            services.AddTransient<IdentityProfileDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.

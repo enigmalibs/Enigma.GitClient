@@ -79,6 +79,22 @@ diff.
 - Open a commit, a branch or a file on its host, from the graph and from the file list.
 - Tokens are encrypted at rest and redacted from every log line.
 
+### Your git identity
+
+- An **Identity** page of its own — on the start window and in every repository window, apart from
+  the settings — for the name and email git records on every commit: your global `user.name` and
+  `user.email`, read from git and written back with one Save. It says so when git has no identity
+  yet, which is when git refuses to commit.
+- Profiles: keep each name and email you commit as under a label — work, personal — and make one
+  your global identity with **Use**. The profile matching what git has is marked *Current*, even
+  after the identity was changed in a terminal. Adding one starts from your global identity;
+  deleting one asks first and never touches git's configuration.
+- A repository's own identity: in a repository's window the page gives that repository a name and
+  email of its own — written to its local configuration, so its commits use them whatever the
+  global identity is — and **Remove** puts it back on the global one. **Copy from current profile**
+  fills the two fields from the profile marked *Current*, ready to save. The page says which
+  identity the repository's commits will use.
+
 ### Preferences
 
 - Theme, history page size, first-parent history, date style, graph row height and lane width, the

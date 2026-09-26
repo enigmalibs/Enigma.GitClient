@@ -1,0 +1,285 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.Avalonia.Desktop.Controls"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.IdentityPageView"
+             x:DataType="vm:IdentityPageViewModel">
+
+  <UserControl.Styles>
+    <!-- A profile's actions are a row's own actions, framed no more than a list row's are. -->
+    <Style Selector="ItemsControl.profiles Button.toolbar">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="7,6" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+
+    <DataTemplate x:Key="ProfileRow" x:DataType="vm:IdentityProfileRowViewModel">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10" Margin="0,4">
+
+        <ei:Icon Grid.Column="0"
+                 Kind="UserCircle"
+                 Classes="row dim"
+                 VerticalAlignment="Center" />
+
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="{Binding Label}"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <Border Classes="pill"
+                    Background="{DynamicResource EnigmaSelectionBrush}"
+                    IsVisible="{Binding IsCurrent}"
+                    ToolTip.Tip="Your global git configuration has this name and email">
+              <TextBlock Text="Current" FontSize="11" Classes="dim" />
+            </Border>
+          </StackPanel>
+          <TextBlock Classes="faint"
+                     Text="{Binding Summary}"
+                     FontSize="11"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <Button Grid.Column="2"
+                Classes="choice"
+                Command="{Binding UseCommand}"
+                CommandParameter="{Binding}"
+                IsVisible="{Binding IsNotCurrent}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Make this name and email your global git identity"
+                AutomationProperties.Name="Use this profile">
+          <TextBlock Text="Use" />
+        </Button>
+
+        <Button Grid.Column="3"
+                Classes="toolbar rowaction"
+                Command="{Binding EditCommand}"
+                CommandParameter="{Binding}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Edit this profile"
+                AutomationProperties.Name="Edit this profile">
+          <ei:Icon Kind="PencilSimple" Classes="row" />
+        </Button>
+
+        <Button Grid.Column="4"
+                Classes="toolbar rowaction"
+                Command="{Binding RemoveCommand}"
+                CommandParameter="{Binding}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Delete this profile; your git configuration is not changed"
+                AutomationProperties.Name="Delete this profile">
+          <ei:Icon Kind="Trash" Classes="row" />
+        </Button>
+      </Grid>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <!--
+    Who git says made a commit: the global identity every repository inherits, the profiles that
+    switch it, and — in a repository's window — the identity that repository sets for itself. It is
+    git's own configuration being edited, so each section saves on its own button rather than on
+    every keystroke.
+  -->
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <ei:Icon Kind="IdentificationCard" Classes="header" VerticalAlignment="Center"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+        <TextBlock Text="{Binding Title}"
+                   VerticalAlignment="Center"
+                   FontSize="15"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer>
+      <!-- The settings page's column: centred, with a ceiling on its width. -->
+      <StackPanel Margin="24" Spacing="16" MaxWidth="900" HorizontalAlignment="Stretch">
+
+        <!-- The global identity -->
+        <controls:SettingsCardExpander Header="Global identity"
+                                       Description="The name and email git records on every commit, unless a repository sets its own"
+                                       IconData="{ei:IconGeometry Globe}"
+                                       IsExpanded="True">
+          <StackPanel Spacing="12">
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="Name"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBox Text="{Binding GlobalName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="Ada Lovelace"
+                         AutomationProperties.Name="Global name" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Text="Email"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBox Text="{Binding GlobalEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="ada@example.com"
+                         AutomationProperties.Name="Global email" />
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        IsVisible="{Binding HasGlobalError}">
+              <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+                       Foreground="{DynamicResource EnigmaErrorBrush}" />
+              <TextBlock Text="{Binding GlobalError}"
+                         FontSize="12"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaErrorBrush}" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+                         IsVisible="{Binding IsGlobalUnset}"
+                         Foreground="{DynamicResource EnigmaWarningBrush}" />
+                <TextBlock Text="{Binding GlobalSummary}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+
+              <Button Grid.Column="1"
+                      Classes="accent"
+                      Command="{Binding SaveGlobalCommand}"
+                      ToolTip.Tip="Write this name and email to your global git configuration"
+                      AutomationProperties.Name="Save the global identity">
+                <TextBlock Text="Save" />
+              </Button>
+            </Grid>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- Profiles -->
+        <controls:SettingsCardExpander Header="Profiles"
+                                       Description="Names and emails you commit as, kept here so switching is one click"
+                                       IconData="{ei:IconGeometry UserSwitch}"
+                                       IsExpanded="True">
+          <StackPanel Spacing="10">
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="No profiles yet. Add one for each identity you commit as — work, personal — and switch between them with Use."
+                         IsVisible="{Binding !HasProfiles}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+              <Button Grid.Column="1"
+                      Classes="toolbar"
+                      Command="{Binding AddProfileCommand}"
+                      ToolTip.Tip="Keep a name and email under a label, starting from your global identity"
+                      AutomationProperties.Name="Add a profile">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
+                  <TextBlock Text="Add a profile" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </Grid>
+
+            <ItemsControl Classes="profiles"
+                          ItemsSource="{Binding Profiles}"
+                          ItemTemplate="{StaticResource ProfileRow}"
+                          IsVisible="{Binding HasProfiles}"
+                          AutomationProperties.Name="Identity profiles" />
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- The open repository's own identity: only in a repository's window. -->
+        <controls:SettingsCardExpander Header="{Binding RepositoryName, StringFormat='This repository: {0}'}"
+                                       Description="A name and email of its own, which its commits use whatever the global identity is"
+                                       IconData="{ei:IconGeometry FolderUser}"
+                                       IsExpanded="True"
+                                       IsVisible="{Binding IsRepositoryOpen}">
+          <StackPanel Spacing="12">
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="Name"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBox Text="{Binding LocalName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="Not set: the global name is used"
+                         AutomationProperties.Name="This repository's name" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Text="Email"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBox Text="{Binding LocalEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="Not set: the global email is used"
+                         AutomationProperties.Name="This repository's email" />
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        IsVisible="{Binding HasLocalError}">
+              <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+                       Foreground="{DynamicResource EnigmaErrorBrush}" />
+              <TextBlock Text="{Binding LocalError}"
+                         FontSize="12"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaErrorBrush}" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding LocalSummary}"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Classes="toolbar"
+                      Command="{Binding CopyFromCurrentProfileCommand}"
+                      ToolTip.Tip="Fill these fields with the name and email of the profile marked Current"
+                      ToolTip.ShowOnDisabled="True"
+                      AutomationProperties.Name="Copy from the current profile">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ei:Icon Kind="Copy" Classes="toolbar" VerticalAlignment="Center" />
+                  <TextBlock Text="Copy from current profile" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+
+              <Button Classes="toolbar"
+                      Command="{Binding RemoveLocalCommand}"
+                      ToolTip.Tip="Remove this repository's own name and email, so its commits use the global identity"
+                      AutomationProperties.Name="Remove this repository's identity">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ei:Icon Kind="Eraser" Classes="toolbar" VerticalAlignment="Center" />
+                  <TextBlock Text="Remove" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+
+              <Button Classes="accent"
+                      Command="{Binding SaveLocalCommand}"
+                      ToolTip.Tip="Write this name and email to this repository's own git configuration"
+                      AutomationProperties.Name="Save this repository's identity">
+                <TextBlock Text="Save" />
+              </Button>
+            </StackPanel>
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

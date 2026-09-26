@@ -46,6 +46,10 @@ Two things matter more than everything else in this app:
   token, browse and clone your repositories, and open a commit, branch or file on the host — on the
   public instances and on self-hosted ones (GitHub Enterprise Server, self-hosted GitLab, Azure
   DevOps Server)
+- A **Git identity** page, on the start window and in every repository window, to edit the
+  global name and email git records on every commit, and profiles — work, personal — that switch
+  them in one click; in a repository's window, give that repository a name and email of its own
+  (copied from the current profile in one click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
   font and context, the pull strategy and the path to git — every one of them applied without a
   restart
@@ -85,9 +89,12 @@ Everything the client remembers about you lives in one per-user directory —
 | `recent-repositories.json` | The repositories you have opened, and the ones you pinned |
 | `host-accounts.json` | The hosting accounts you connected — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
+| `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
 
-Nothing is written anywhere else, and nothing is sent anywhere: the client talks to your git and to
-the hosts you connected, and to nothing else.
+Nothing else is written anywhere — apart from git's own configuration (your global one, or a
+repository's), and only when you save or remove a name and email or use a profile on the Identity
+page — and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and
+to nothing else.
 
 ## Requirements
 
