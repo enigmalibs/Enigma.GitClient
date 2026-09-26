@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.InitRepositoryDialogView"
+             x:DataType="vm:InitRepositoryDialogViewModel"
+             MinWidth="520">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Create it in"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0"
+                 Text="{Binding ParentDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 AutomationProperties.Name="Parent directory" />
+        <Button Grid.Column="1"
+                Command="{Binding BrowseCommand}"
+                AutomationProperties.Name="Choose a folder"
+                ToolTip.Tip="Choose a folder">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="FolderOpen" Size="15" VerticalAlignment="Center" />
+            <TextBlock Text="Browse" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Directory name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding DirectoryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="my-project"
+               AutomationProperties.Name="Directory name" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Initial branch"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding InitialBranch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               AutomationProperties.Name="Initial branch" />
+    </StackPanel>
+
+    <TextBlock Text="{Binding TargetPath}"
+               FontSize="12"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

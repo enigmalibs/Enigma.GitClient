@@ -1,0 +1,110 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
+namespace Enigma.GitClient.Core.History;
+
+/// <summary>
+/// Turns the output of the client's <c>git log</c> format template into commits.
+/// </summary>
+/// <remarks>
+/// The template separates fields with the ASCII unit separator (0x1F) and terminates each record
+/// with a NUL. Both are chosen deliberately: a newline-separated format corrupts every multi-line
+/// commit body, and git refuses to create a commit whose message contains a NUL, so the record
+/// separator cannot collide with message content.
+/// </remarks>
+public static class CommitLogParser
+{
+    /// <summary>
+    /// The field separator emitted by <see cref="FormatTemplate"/> (ASCII unit separator).
+    /// </summary>
+    public const char FieldSeparator = '\u001F';
+
+    /// <summary>
+    /// The record separator emitted by <see cref="FormatTemplate"/> (NUL).
+    /// </summary>
+    public const char RecordSeparator = '\u0000';
+
+    /// <summary>
+    /// The <c>--pretty</c> template the reader passes to git. Field order must match
+    /// <see cref="ParseRecord"/>.
+    /// </summary>
+    public const string FormatTemplate =
+        "%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%cn%x1f%ce%x1f%cI%x1f%s%x1f%b%x00";
+
+    private const int FieldCount = 10;
+
+    /// <summary>
+    /// Parses a whole <c>git log</c> payload.
+    /// </summary>
+    /// <param name="payload">Everything git wrote to standard output.</param>
+    /// <returns>The commits, in the order they appeared.</returns>
+    /// <exception cref="FormatException">A record did not match the template.</exception>
+    public static IReadOnlyList<GitCommit> Parse(string payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        List<GitCommit> commits = [];
+
+        foreach (string record in payload.Split(RecordSeparator))
+        {
+            // git writes a newline between records, which lands at the head of the next one. The
+            // first field is a SHA, so trimming leading newlines is always safe.
+            string trimmed = record.TrimStart('\n', '\r');
+
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            commits.Add(ParseRecord(trimmed));
+        }
+
+        return commits;
+    }
+
+    /// <summary>
+    /// Parses a single record.
+    /// </summary>
+    /// <param name="record">One record, without its terminating NUL.</param>
+    /// <returns>The commit.</returns>
+    /// <exception cref="FormatException">The record did not match the template.</exception>
+    public static GitCommit ParseRecord(string record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        string[] fields = record.Split(FieldSeparator);
+
+        if (fields.Length < FieldCount)
+        {
+            throw new FormatException(
+                $"A git log record had {fields.Length} fields; the template produces {FieldCount}.");
+        }
+
+        // A body containing the field separator would inflate the count; everything from the tenth
+        // field onwards belongs to the body, so it is re-joined rather than rejected.
+        string body = fields.Length == FieldCount
+            ? fields[9]
+            : string.Join(FieldSeparator, fields, 9, fields.Length - 9);
+
+        return new GitCommit(
+            fields[0],
+            ParseParents(fields[1]),
+            new GitSignature(fields[2], fields[3], ParseDate(fields[4])),
+            new GitSignature(fields[5], fields[6], ParseDate(fields[7])),
+            fields[8],
+            body.TrimEnd('\n', '\r'));
+    }
+
+    private static IReadOnlyList<string> ParseParents(string field)
+        => field.Length == 0 ? [] : field.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    private static DateTimeOffset ParseDate(string field)
+        => DateTimeOffset.TryParse(
+            field,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind,
+            out DateTimeOffset parsed)
+            ? parsed
+            : DateTimeOffset.MinValue;
+}

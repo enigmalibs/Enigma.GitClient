@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <!-- Single-TFM on purpose: this library is app-internal (it ships only inside
+         Enigma.GitClient.App) and is never published to NuGet, so multi-targeting
+         netstandard2.0 would only buy polyfills no consumer needs. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Enigma.GitClient.Core</RootNamespace>
+  </PropertyGroup>
+  <!-- LangVersion / Nullable / ImplicitUsings / TreatWarningsAsErrors are deliberately absent:
+       they come from Directory.Build.props. No Version attributes either — versions live in
+       Directory.Packages.props (CPM). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+</Project>

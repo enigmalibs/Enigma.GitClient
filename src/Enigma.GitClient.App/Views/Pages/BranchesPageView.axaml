@@ -1,0 +1,394 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
+             x:Class="Enigma.GitClient.App.Views.Pages.BranchesPageView"
+             x:DataType="vm:BranchesPageViewModel">
+
+  <UserControl.Styles>
+    <!-- The checked-out branch is the first thing anyone looks for in this list. -->
+    <Style Selector="TextBlock.current">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!--
+      A row fills its container and brings its own separator line; the hover and the selection are
+      the list's, so a selected branch looks selected the way every other list in the application
+      does.
+    -->
+    <Style Selector="ListBox > ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <!--
+      A group heading is in the list so the scroll keeps it with its branches, but it is not a thing
+      to select. Its container is disabled to say so — and restored to full opacity, because it is
+      not disabled in the sense the theme means: there is nothing there to be unavailable.
+    -->
+    <Style Selector="ListBox#BranchList > ListBoxItem" x:DataType="vm:IBranchListItem">
+      <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+    </Style>
+
+    <Style Selector="ListBox#BranchList > ListBoxItem:disabled">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <!-- Where a dragged branch would land. A ring rather than a fill: the row underneath may be the
+         selected one or the hovered one, and a drop mark has to be legible over both. -->
+    <Style Selector="ListBoxItem.droptarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- A branch hidden from the history stays in this list — it is still a branch — but reads as
+         set aside, so the eye beside it is not the only thing saying so. -->
+    <Style Selector="StackPanel.hiddenbranch, ei|Icon.hiddenbranch">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+
+    <Style Selector="Border.pill">
+      <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="6,1" />
+    </Style>
+  </UserControl.Styles>
+
+  <UserControl.Resources>
+
+    <DataTemplate x:Key="BranchRow" x:DataType="vm:BranchRowViewModel">
+      <Border Classes="branchrow"
+              Background="Transparent"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="14,7">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+
+          <Grid.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Check out"
+                        Command="{Binding CheckoutCommand}"
+                        CommandParameter="{Binding}" />
+              <MenuItem Header="Merge into the current branch"
+                        Command="{Binding MergeCommand}"
+                        CommandParameter="{Binding}" />
+              <MenuItem Header="{Binding VisibilityHeader}"
+                        Command="{Binding ToggleVisibilityCommand}"
+                        CommandParameter="{Binding}" />
+              <Separator />
+              <MenuItem Header="Rename…"
+                        Command="{Binding RenameCommand}"
+                        CommandParameter="{Binding}" />
+              <MenuItem Header="Set upstream…"
+                        Command="{Binding SetUpstreamCommand}"
+                        CommandParameter="{Binding}" />
+              <Separator />
+              <MenuItem Header="Delete…"
+                        Command="{Binding DeleteCommand}"
+                        CommandParameter="{Binding}" />
+            </ContextMenu>
+          </Grid.ContextMenu>
+
+          <ei:Icon Grid.Column="0"
+                   Kind="GitBranch"
+                   Classes="row dim"
+                   Classes.hiddenbranch="{Binding IsHiddenInHistory}"
+                   VerticalAlignment="Center" />
+
+          <StackPanel Grid.Column="1" Spacing="2" Classes.hiddenbranch="{Binding IsHiddenInHistory}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Name}"
+                         Classes.current="{Binding IsCurrent}"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+              <Border Classes="pill"
+                      IsVisible="{Binding IsCurrent}"
+                      VerticalAlignment="Center">
+                <TextBlock Classes="dim" Text="checked out" FontSize="10" />
+              </Border>
+
+              <TextBlock Text="{Binding Upstream}"
+                         IsVisible="{Binding HasUpstream}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         TextTrimming="CharacterEllipsis"
+                         MaxWidth="200"
+                         Classes="faint" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding TipSubject}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis"
+                       Classes="dim" />
+          </StackPanel>
+
+          <!--
+            Where this branch stands with its remote, for a local branch: what there is to push, what
+            there is to pull, and whether it is up there at all. Arrows from the icon set rather than
+            the ↑ and ↓ characters, so they follow the theme and the icon scale instead of whatever the
+            text font happens to carry — and every badge names itself in a tooltip, because an arrow
+            and a number beside a branch is only obvious once you already know what it means.
+
+            A counter appears only when it has something to say; the cloud is what is there on every
+            local row, so "nothing to push, nothing to pull" reads as the quiet row it is.
+          -->
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Border Classes="pill"
+                    IsVisible="{Binding IsAhead}"
+                    ToolTip.Tip="{Binding AheadTip}"
+                    AutomationProperties.Name="{Binding AheadTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="ArrowUp" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="{Binding Ahead}" FontSize="10" VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="pill"
+                    IsVisible="{Binding IsBehind}"
+                    ToolTip.Tip="{Binding BehindTip}"
+                    AutomationProperties.Name="{Binding BehindTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="ArrowDown" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="{Binding Behind}" FontSize="10" VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="pill"
+                    IsVisible="{Binding IsUpstreamGone}"
+                    ToolTip.Tip="{Binding RemoteStateTip}"
+                    AutomationProperties.Name="{Binding RemoteStateTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="CloudWarning" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="upstream gone" FontSize="10" VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="pill"
+                    IsVisible="{Binding IsLocalOnly}"
+                    ToolTip.Tip="{Binding RemoteStateTip}"
+                    AutomationProperties.Name="{Binding RemoteStateTip}">
+              <StackPanel Orientation="Horizontal" Spacing="3">
+                <ei:Icon Kind="CloudSlash" Classes="pill dim" VerticalAlignment="Center" />
+                <TextBlock Classes="dim" Text="local only" FontSize="10" VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+
+            <ei:Icon Kind="CloudCheck"
+                     Classes="row dim"
+                     IsVisible="{Binding IsPublished}"
+                     VerticalAlignment="Center"
+                     ToolTip.Tip="{Binding RemoteStateTip}"
+                     AutomationProperties.Name="{Binding RemoteStateTip}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+            <TextBlock Text="{Binding TipAuthor}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="160"
+                       HorizontalAlignment="Right"
+                       Classes="faint" />
+            <TextBlock Text="{Binding TipDate}"
+                       FontSize="11"
+                       HorizontalAlignment="Right"
+                       Classes="faint" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <!-- Whether the history draws this branch. The eye says what the history does now: open
+                 while it is drawn, struck through while it is hidden. -->
+            <Button Name="ToggleVisibility"
+                    Classes="toolbar"
+                    Command="{Binding ToggleVisibilityCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="{Binding VisibilityTip}"
+                    ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="{Binding VisibilityTip}">
+              <Panel>
+                <ei:Icon Kind="Eye" Classes="row" IsVisible="{Binding !IsHiddenInHistory}" />
+                <ei:Icon Kind="EyeSlash" Classes="row" IsVisible="{Binding IsHiddenInHistory}" />
+              </Panel>
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding CheckoutCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Check out"
+                    AutomationProperties.Name="Check out">
+              <ei:Icon Kind="SignIn" Classes="row" />
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding DeleteCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Delete"
+                    AutomationProperties.Name="Delete branch">
+              <ei:Icon Kind="Trash" Classes="row" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="{Binding Title}"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+
+        <TextBox Grid.Column="1"
+                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="{Binding SearchPlaceholder}"
+                 MaxWidth="320"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Center"
+                 AutomationProperties.Name="Filter branches" />
+
+        <Button Grid.Column="2"
+                Classes="toolbar"
+                Command="{Binding CreateBranchCommand}"
+                ToolTip.Tip="Create a branch"
+                AutomationProperties.Name="Create a branch">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
+            <TextBlock Text="New branch" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!--
+      The manual merge: another way to say "merge this into that" than dropping one row on another,
+      for when the two branches are far apart in the list or the reader would rather choose by name.
+      Any branch can be the source; only a local one can be written to.
+    -->
+    <Border DockPanel.Dock="Top"
+            Name="ManualMerge"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,10"
+            IsVisible="{Binding IsRepositoryOpen}">
+      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal" Spacing="8">
+          <ei:Icon Kind="GitMerge" Classes="row dim" VerticalAlignment="Center" />
+          <TextBlock Text="Merge"
+                     VerticalAlignment="Center"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Classes="dim" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Grid.Column="0"
+                   Text="Source"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Classes="dim" />
+        <ComboBox Grid.Row="1" Grid.Column="1"
+                  Name="MergeSource"
+                  HorizontalAlignment="Stretch"
+                  ItemsSource="{Binding MergeSources}"
+                  SelectedItem="{Binding SelectedMergeSource, Mode=TwoWay}"
+                  PlaceholderText="The branch to bring over"
+                  AutomationProperties.Name="The branch to merge from" />
+
+        <TextBlock Grid.Row="1" Grid.Column="2"
+                   Text="into"
+                   VerticalAlignment="Center"
+                   FontSize="12"
+                   Classes="dim" />
+        <ComboBox Grid.Row="1" Grid.Column="3"
+                  Name="MergeDestination"
+                  HorizontalAlignment="Stretch"
+                  ItemsSource="{Binding MergeDestinations}"
+                  SelectedItem="{Binding SelectedMergeDestination, Mode=TwoWay}"
+                  PlaceholderText="The branch to write to"
+                  AutomationProperties.Name="The branch to merge into" />
+
+        <StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="6">
+          <Button Classes="accent"
+                  Command="{Binding ManualMergeCommand}"
+                  Content="Merge"
+                  ToolTip.Tip="Merge the source into the destination, always recording a merge commit — even when a fast-forward would do — and checking the destination out first when it is not the current branch"
+                  AutomationProperties.Name="Merge the source into the destination" />
+          <Button Command="{Binding ManualFastForwardCommand}"
+                  Content="Merge fast-forward"
+                  ToolTip.Tip="Move the destination forward onto the source without a merge commit, refusing when the two have diverged"
+                  AutomationProperties.Name="Fast-forward the destination to the source" />
+          <Button Command="{Binding ClearManualMergeCommand}"
+                  Content="Clear"
+                  AutomationProperties.Name="Clear the source and the destination" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="GitBranch"
+                           Title="Branches"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding IsEmpty}"
+                           ZIndex="1" />
+
+      <!--
+        One list for every group, not a list per group: the page has one selection, and nested lists
+        would each keep their own — two rows highlighted at once, and no way to say which of them an
+        action is about. The headings are items of the same list, resolved by their own type and
+        made unselectable by the container theme below.
+      -->
+      <ListBox Name="BranchList"
+               ItemsSource="{Binding Items}"
+               SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+               Background="Transparent"
+               BorderThickness="0"
+               Padding="0,4"
+               AutomationProperties.Name="Branches">
+
+        <ListBox.DataTemplates>
+          <DataTemplate DataType="vm:BranchGroupHeaderViewModel" x:DataType="vm:BranchGroupHeaderViewModel">
+            <Border Padding="14,6" Background="{DynamicResource EnigmaSurfaceBrush}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ei:Icon Kind="HardDrives"
+                         Classes="pill faint"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding IsRemote}" />
+                <TextBlock Text="{Binding Title}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Classes="dim" />
+                <TextBlock Text="{Binding Count}"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Classes="faint" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:BranchRowViewModel" x:DataType="vm:BranchRowViewModel">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BranchRow}" />
+          </DataTemplate>
+        </ListBox.DataTemplates>
+      </ListBox>
+    </Grid>
+  </DockPanel>
+</UserControl>

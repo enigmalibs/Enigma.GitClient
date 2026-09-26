@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:hosting="using:Enigma.GitClient.Core.Hosting"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.AddHostAccountDialogView"
+             x:DataType="vm:AddHostAccountDialogViewModel"
+             MinWidth="520">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4" IsVisible="{Binding HasChoice}">
+      <TextBlock Text="Host"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <ComboBox ItemsSource="{Binding Providers}"
+                SelectedItem="{Binding SelectedProvider, Mode=TwoWay}"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.Name="Host">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="hosting:IRepositoryHostProvider">
+            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Instance"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding InstanceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="https://github.com"
+               AutomationProperties.Name="Instance URL" />
+      <TextBlock Text="Change this for a self-hosted instance, such as https://github.example.com."
+                 FontSize="11"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="{Binding TokenLabel}"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Token, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PasswordChar="•"
+               AutomationProperties.Name="Personal access token" />
+      <TextBlock Text="{Binding ScopeHint}"
+                 FontSize="11"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Name (optional)"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="Work, personal, …"
+               AutomationProperties.Name="Account name" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

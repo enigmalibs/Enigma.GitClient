@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Enigma.GitClient.Core/Enigma.GitClient.Core.csproj" />
+    <Project Path="src/Enigma.GitClient.App/Enigma.GitClient.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Enigma.GitClient.Core.UnitTests/Enigma.GitClient.Core.UnitTests.csproj" />
+    <Project Path="tests/Enigma.GitClient.Core.IntegrationTests/Enigma.GitClient.Core.IntegrationTests.csproj" />
+    <Project Path="tests/Enigma.GitClient.App.UnitTests/Enigma.GitClient.App.UnitTests.csproj" />
+  </Folder>
+</Solution>

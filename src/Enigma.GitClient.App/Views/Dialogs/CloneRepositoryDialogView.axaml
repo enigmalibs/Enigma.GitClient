@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.CloneRepositoryDialogView"
+             x:DataType="vm:CloneRepositoryDialogViewModel"
+             MinWidth="520">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Repository URL"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="https://github.com/owner/repository.git"
+               AutomationProperties.Name="Repository URL" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Create it in"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0"
+                 Text="{Binding ParentDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 AutomationProperties.Name="Parent directory" />
+        <Button Grid.Column="1"
+                Command="{Binding BrowseCommand}"
+                AutomationProperties.Name="Choose a folder"
+                ToolTip.Tip="Choose a folder">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="FolderOpen" Size="15" VerticalAlignment="Center" />
+            <TextBlock Text="Browse" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Directory name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding DirectoryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               AutomationProperties.Name="Directory name" />
+    </StackPanel>
+
+    <Expander Header="More options">
+      <StackPanel Spacing="12" Margin="0,8,0,0">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Branch to check out"
+                     FontSize="12"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBox Text="{Binding Branch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   PlaceholderText="the remote's default branch"
+                   AutomationProperties.Name="Branch to check out" />
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+          <CheckBox IsChecked="{Binding IsShallow, Mode=TwoWay}"
+                    Content="Shallow clone" />
+          <NumericUpDown Value="{Binding Depth, Mode=TwoWay}"
+                         IsEnabled="{Binding IsDepthEnabled}"
+                         Minimum="1"
+                         Maximum="100000"
+                         Increment="10"
+                         FormatString="0"
+                         AutomationProperties.Name="Shallow clone depth" />
+          <TextBlock Text="{Binding DepthDescription}"
+                     FontSize="12"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+        </StackPanel>
+
+        <CheckBox IsChecked="{Binding RecurseSubmodules, Mode=TwoWay}"
+                  Content="Clone submodules as well" />
+      </StackPanel>
+    </Expander>
+
+    <TextBlock Text="{Binding TargetPathPreview}"
+               FontSize="12"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

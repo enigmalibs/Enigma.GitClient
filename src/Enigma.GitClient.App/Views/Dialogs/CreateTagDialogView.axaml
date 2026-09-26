@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.CreateTagDialogView"
+             x:DataType="vm:CreateTagDialogViewModel"
+             MinWidth="520">
+  <StackPanel Spacing="12">
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Tag name"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               PlaceholderText="v1.0.0"
+               AutomationProperties.Name="Tag name" />
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Point it at"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <ComboBox ItemsSource="{Binding Targets}"
+                SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.Name="Tag target">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:BranchStartPoint">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding Detail}"
+                         VerticalAlignment="Center"
+                         FontSize="11"
+                         MaxWidth="280"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </StackPanel>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Message (optional)"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               Height="88"
+               PlaceholderText="What this release contains"
+               AutomationProperties.Name="Tag message" />
+      <TextBlock Text="{Binding KindDescription}"
+                 FontSize="11"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

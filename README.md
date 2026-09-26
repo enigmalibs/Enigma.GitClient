@@ -1,1 +1,161 @@
 # Enigma.GitClient
+
+A modern, cross-platform git client for the desktop, inspired by GitKraken and built with
+[Avalonia](https://avaloniaui.net/) 12. It runs on **Linux** and **Windows** from the same binary.
+
+Two things matter more than everything else in this app:
+
+1. **The commit graph** — lanes, merges and branches drawn so a real repository's history is readable
+   at a glance, with the author, the timestamp and the short hash on every row.
+2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
+   side-by-side.
+
+> **What's new in 1.0** — the first release: the commit graph and the diff, branches you can hide
+> from the history, and a one-command Linux installer. See [RELEASENOTES.md](RELEASENOTES.md).
+
+## Features
+
+- Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
+- History list with a column header you can resize, and a search that highlights what it
+  found instead of hiding everything else
+- Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
+  brings and its badge leave the graph, the history says how many branches it is leaving out, and
+  the choice is remembered for the repository
+- Author, timestamp and 7-character short hash on every commit row
+- Changed files for the selected commit, shown as a **list or a tree** (your choice)
+- Colour-coded file diffs with word-level intra-line highlighting
+- Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
+  change with the context you chose
+- A minimap in place of the diff's vertical scrollbar: where the changes are, where you are, and
+  click or drag it to go there
+- Branch management — create, rename, delete, set upstream, checkout
+- Every local branch says where it stands: an arrow and a count for the commits to push and to
+  pull, and whether the branch is on a remote at all
+- Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
+  drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
+  the list scrolls while you hold a branch near its edge
+- Tag management — create (lightweight or annotated) and delete
+- Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
+  line's menu
+- Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
+  staged; hard discards them, after naming the files it takes
+- Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
+  into any other local branch the same way
+- Every merge the app offers records a merge commit, even when the branch could simply be
+  fast-forwarded; the fast-forward-only merges are the way to move a branch without one
+- Create, clone and open repositories from a start window with a recent-repositories list; the
+  repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
+  straight away
+- Working directory: status, stage/unstage, discard and commit
+- Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
+- Merge conflict resolution with a three-way view, per-hunk selection and a live preview of the
+  file that will be written
+- Integrations with **GitHub**, **GitLab** and **Azure DevOps**: sign in with a personal access
+  token, browse and clone your repositories, and open a commit, branch or file on the host — on the
+  public instances and on self-hosted ones (GitHub Enterprise Server, self-hosted GitLab, Azure
+  DevOps Server)
+- A **Git identity** page, on the start window and in every repository window, to edit the
+  global name and email git records on every commit, and profiles — work, personal — that switch
+  them in one click; in a repository's window, give that repository a name and email of its own
+  (copied from the current profile in one click), or remove them again
+- Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
+  font and context, the pull strategy and the path to git — every one of them applied without a
+  restart
+
+## Non-goals
+
+These are deliberate, permanent exclusions — not gaps waiting to be filled:
+
+- **No rebase.** The client never rebases, and its command layer structurally refuses the verb.
+  `git pull` is always invoked with `--no-rebase`, even in a repository configured otherwise.
+- **No issues and no pull requests.** The hosting integrations cover repositories, cloning and deep
+  links only; no issue or pull-request scope is ever requested from a host.
+
+## Connecting a host
+
+Each integration signs in with a personal access token you create on the host itself, and asks for
+the smallest scope that can list and clone repositories:
+
+| Host | Scope to grant | Where to put the instance URL |
+|------|----------------|-------------------------------|
+| GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `https://github.com`, or your Enterprise Server's own address |
+| GitLab | `read_api` and `read_repository` | `https://gitlab.com`, or your instance's own address |
+| Azure DevOps | **Code: Read** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+
+No issue, work-item, merge-request or pull-request scope is ever requested, and the client never
+calls those APIs. Tokens are encrypted at rest — AES-GCM with a key protected by DPAPI on Windows
+and by file permissions (`0600`) on Linux — and are redacted from every log line and error message.
+
+## Where your things are kept
+
+Everything the client remembers about you lives in one per-user directory —
+`$XDG_CONFIG_HOME/Enigma.GitClient` on Linux, `%APPDATA%\Enigma.GitClient` on Windows:
+
+| File | What is in it |
+|------|---------------|
+| `settings.json` | Your preferences, as plain readable JSON |
+| `recent-repositories.json` | The repositories you have opened, and the ones you pinned |
+| `host-accounts.json` | The hosting accounts you connected — never their tokens |
+| `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
+| `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
+| `hidden-branches.json` | The branches you hid from the history, per repository |
+
+Nothing else is written anywhere — apart from git's own configuration (your global one, or a
+repository's), and only when you save or remove a name and email or use a profile on the Identity
+page — and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and
+to nothing else.
+
+## Requirements
+
+- **git 2.20 or newer** on the `PATH` (the app drives the real `git` executable, so your existing
+  SSH keys, credential helpers and configuration all keep working)
+- **.NET 10 SDK** to build. The Linux installer bundles the .NET runtime with the application by
+  default; a framework-dependent build needs the .NET 10 runtime instead
+- Linux or Windows
+
+## Build and run
+
+```bash
+dotnet build Enigma.GitClient.slnx
+dotnet test --solution Enigma.GitClient.slnx
+dotnet run --project src/Enigma.GitClient.App
+```
+
+## Install on Linux
+
+`packaging/linux/install.sh` builds the application from this repository and installs it for you —
+no root, no `sudo`, nothing outside your home directory — so that **Enigma git client** is in your
+application launcher:
+
+```bash
+./packaging/linux/install.sh
+```
+
+| What | Where (`XDG_DATA_HOME` and `XDG_BIN_HOME` are honoured) |
+|------|---------------------------------------------------------|
+| The application | `~/.local/share/enigma-git-client` |
+| A launcher command, `enigma-git-client [repository]` | `~/.local/bin/enigma-git-client` |
+| The desktop entry | `~/.local/share/applications/enigma-git-client.desktop` |
+| The icon, in six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
+
+By default the .NET runtime is bundled with the application (about 116 MB), so it runs whatever is
+installed on the machine. `--framework-dependent` builds against an installed .NET 10 runtime instead
+(about 37 MB); `--from DIR` installs a directory you published yourself, and `--rid` picks another
+runtime identifier. Run the installer again to upgrade in place. `./packaging/linux/uninstall.sh`
+removes those four things and nothing else: your settings, accounts and tokens in
+`~/.config/Enigma.GitClient` are left as they are.
+
+## Repository layout
+
+| Path                                       | What it is                                            |
+|--------------------------------------------|-------------------------------------------------------|
+| `src/Enigma.GitClient.Core`                | The headless git engine: process wrapper, parsers, graph layout, diff model |
+| `src/Enigma.GitClient.App`                 | The Avalonia 12 desktop application                   |
+| `tests/Enigma.GitClient.Core.UnitTests`    | Pure-logic tests (parsers, algorithms, validation)    |
+| `tests/Enigma.GitClient.Core.IntegrationTests` | Tests driving a real `git` against temporary repositories |
+| `tests/Enigma.GitClient.App.UnitTests`     | ViewModel and headless render tests                   |
+| `docs/`                                    | Roadmap, per-item plans and completion records        |
+
+## Licence
+
+MIT — see [LICENSE.md](LICENSE.md).
