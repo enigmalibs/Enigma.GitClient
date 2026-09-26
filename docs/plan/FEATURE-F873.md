@@ -1,6 +1,6 @@
 # FEATURE-F873 — Tool dialogs on the window background
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-F873.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-f873-tool-dialog-background`
 **Run:** feature/2026-09-26-release-1-0-0

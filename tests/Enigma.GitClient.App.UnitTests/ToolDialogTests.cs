@@ -1,7 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
@@ -256,6 +261,110 @@ public sealed class ToolDialogTests
                 window.Close();
             }
         });
+    }
+
+    [Fact]
+    public void TheToolDialog_IsDrawnOnTheWindowBackground_InBothThemes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = ThemeVariant.Dark;
+
+            using TestServices services = Build();
+            MainWindow window = Show(services);
+            IToolDialogService tools = services.Get<IToolDialogService>();
+
+            try
+            {
+                Task showing = tools.ShowAsync(ToolDialog.Tags);
+
+                // Switched while the dialog is open: the card follows the theme, it is not a colour
+                // frozen at the moment it was first drawn.
+                foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+                {
+                    application.RequestedThemeVariant = variant;
+                    Settle(window);
+
+                    Assert.Equal(Colour(window, "EnigmaBackgroundColor"), CardColour(window.ToolDialog));
+                    Assert.NotEqual(Colour(window, "EnigmaSurfaceHighColor"), CardColour(window.ToolDialog));
+                }
+
+                await window.ToolDialog.HideAsync().WaitAsync(Patience);
+                await showing.WaitAsync(Patience);
+            }
+            finally
+            {
+                window.Close();
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
+    public void AQuestion_KeepsTheLibrarysDialogSurface()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = ThemeVariant.Dark;
+
+            using TestServices services = Build();
+            MainWindow window = Show(services);
+
+            try
+            {
+                Task<DialogResult> question = services.Get<IContentDialogService>().ShowAsync(dialog =>
+                {
+                    dialog.Title = "Delete the branch";
+                    dialog.CloseButtonText = "Keep it";
+                });
+
+                Settle(window);
+
+                Assert.Equal(Colour(window, "EnigmaSurfaceHighColor"), CardColour(window.HostDialog));
+
+                await window.HostDialog.HideAsync().WaitAsync(Patience);
+                await question.WaitAsync(Patience);
+            }
+            finally
+            {
+                window.Close();
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Lets the dialog open, template itself and resolve its resources.
+    /// </summary>
+    private static void Settle(Window window)
+    {
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    /// <summary>
+    /// The colour a theme key has in the window's current theme.
+    /// </summary>
+    private static Color Colour(Window window, string key)
+        => window.TryFindResource(key, window.ActualThemeVariant, out object? value) && value is Color colour
+            ? colour
+            : throw new InvalidOperationException($"The theme has no colour {key}.");
+
+    /// <summary>
+    /// The colour the dialog's card is painted in — the one border of its template with a shadow.
+    /// </summary>
+    private static Color CardColour(ContentDialog dialog)
+    {
+        Border card = dialog.GetVisualDescendants()
+            .OfType<Border>()
+            .First(border => border.BoxShadow.Count > 0);
+
+        return Assert.IsAssignableFrom<ISolidColorBrush>(card.Background).Color;
     }
 
     [Fact]

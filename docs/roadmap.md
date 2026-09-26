@@ -138,7 +138,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The identity page, in both windows      | DONE   | (in FEATURE-6151.md)      |
 | - PHASE03    | Identity profiles                       | DONE   | (in FEATURE-6151.md)      |
 | - PHASE04    | A repository's own identity             | DONE   | (in FEATURE-6151.md)      |
-| FEATURE-F873 | Tool dialogs on the window background   | TODO   | docs/plan/FEATURE-F873.md |
+| FEATURE-F873 | Tool dialogs on the window background   | DONE   | docs/plan/FEATURE-F873.md |
 | FEATURE-75F4 | A splash screen and an About box        | TODO   | docs/plan/FEATURE-75F4.md |
 | - PHASE01    | The splash screen                       | TODO   | (in FEATURE-75F4.md)      |
 | - PHASE02    | The About dialog                        | TODO   | (in FEATURE-75F4.md)      |
