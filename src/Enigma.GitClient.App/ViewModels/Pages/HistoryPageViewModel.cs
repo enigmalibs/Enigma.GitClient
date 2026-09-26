@@ -135,8 +135,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<HistoryBranchViewModel>(OnCheckoutBranchAsync, branch => branch?.CanCheckout == true),
             new RelayCommand<HistoryBranchViewModel>(OnSetMergeSource, branch => branch?.CanSetAsMergeSource == true),
             ClearMergeSourceCommand,
+            // "Merge" records a merge commit even when a fast-forward would do, which is what sets it
+            // apart from the fast-forward-only item beside it.
             new AsyncRelayCommand<HistoryBranchViewModel>(
-                branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.WhenPossible),
+                branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.Never),
                 branch => branch?.CanMergeInto == true),
             new AsyncRelayCommand<HistoryBranchViewModel>(
                 branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.Only),
@@ -1173,7 +1175,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         BranchDropRequest request = new(branch.Name, branch.IsRemote, current, false, true);
 
-        if (await _dropOperations.DropAsync(request).ConfigureAwait(true))
+        if (await _dropOperations.DropAsync(request, Core.Merging.FastForwardMode.Never).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }

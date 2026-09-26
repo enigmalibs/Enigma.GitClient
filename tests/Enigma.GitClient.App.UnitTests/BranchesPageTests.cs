@@ -693,6 +693,91 @@ public sealed class BranchesPageTests
     }
 
     [Fact]
+    public void Drop_MergeRecordsAMergeCommitEvenWhenAFastForwardWouldDo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            // main is simply behind unmerged, so git on its own would fast-forward — the item beside
+            // this one does exactly that, which is why this one must not.
+            await page.MergeDropCommand.ExecuteAsync(new BranchDrop(Row(page, "unmerged"), Row(page, "main")));
+
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
+    public void Drop_MergingTheOtherWayRoundRecordsAMergeCommitToo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            await page.MergeReversedDropCommand.ExecuteAsync(new BranchDrop(Row(page, "main"), Row(page, "unmerged")));
+
+            Assert.Equal("main", services.Get<IRepositoryContext>().Head?.BranchName);
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
+    public void Drop_FastForwardOnlyMovesTheBranchWithoutAMergeCommit()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            await page.FastForwardDropCommand.ExecuteAsync(new BranchDrop(Row(page, "unmerged"), Row(page, "main")));
+
+            Assert.Equal(GitProbe.Sha(repository, "unmerged"), GitProbe.Sha(repository, "main"));
+            Assert.Equal(1, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
+    public void ManualMerge_RecordsAMergeCommitEvenWhenAFastForwardWouldDo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            page.SelectedMergeSource = "unmerged";
+            page.SelectedMergeDestination = "main";
+            await page.ManualMergeCommand.ExecuteAsync(null);
+
+            Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/branch.txt")));
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
+    public void ManualFastForward_MovesTheDestinationWithoutAMergeCommit()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            page.SelectedMergeSource = "unmerged";
+            page.SelectedMergeDestination = "main";
+            await page.ManualFastForwardCommand.ExecuteAsync(null);
+
+            Assert.Equal(GitProbe.Sha(repository, "unmerged"), GitProbe.Sha(repository, "main"));
+            Assert.Equal(1, GitProbe.ParentCount(repository));
+        });
+    }
+
+    [Fact]
     public void Drop_OnARemoteBranchRunsNothingAndSaysWhy()
     {
         _fixture.RunAsync(async () =>

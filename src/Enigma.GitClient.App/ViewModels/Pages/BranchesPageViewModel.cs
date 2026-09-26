@@ -298,13 +298,15 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
         MergeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnMergeAsync, CanMerge);
 
-        MergeDropCommand = new AsyncRelayCommand<BranchDrop>(drop => OnDropAsync(drop, FastForwardMode.WhenPossible), CanDrop);
+        // "Merge" records a merge commit even when a fast-forward would do: "fast-forward only" sits
+        // beside it, and the two have to mean different things.
+        MergeDropCommand = new AsyncRelayCommand<BranchDrop>(drop => OnDropAsync(drop, FastForwardMode.Never), CanDrop);
         FastForwardDropCommand = new AsyncRelayCommand<BranchDrop>(drop => OnDropAsync(drop, FastForwardMode.Only), CanDrop);
         MergeReversedDropCommand = new AsyncRelayCommand<BranchDrop>(
-            drop => OnDropAsync(drop?.Reversed(), FastForwardMode.WhenPossible),
+            drop => OnDropAsync(drop?.Reversed(), FastForwardMode.Never),
             drop => CanDrop(drop?.Reversed()));
 
-        ManualMergeCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.WhenPossible), CanManualMerge);
+        ManualMergeCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.Never), CanManualMerge);
         ManualFastForwardCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.Only), CanManualMerge);
         ClearManualMergeCommand = new RelayCommand(OnClearManualMerge, () => SelectedMergeSource is not null || SelectedMergeDestination is not null);
     }
@@ -781,7 +783,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         {
             await Run(async () =>
             {
-                Core.Merging.MergeOutcome outcome = await _mergeOperations.MergeAsync(row.FullName)
+                Core.Merging.MergeOutcome outcome = await _mergeOperations.MergeAsync(row.FullName, FastForwardMode.Never)
                     .ConfigureAwait(true);
 
                 return outcome.ChangedAnything;

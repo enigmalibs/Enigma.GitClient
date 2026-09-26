@@ -40,9 +40,10 @@ public interface IBranchDropOperations
     /// <returns><see langword="true"/> when the repository changed.</returns>
     /// <remarks>
     /// The mode is the caller's because the question is: the drop opens a menu naming both branches
-    /// and the actions they allow, so asking again in a dialog would be asking twice.
+    /// and the actions they allow, so asking again in a dialog would be asking twice. Left out, it is
+    /// a merge that records a merge commit, as <see cref="IMergeOperations.MergeAsync"/> explains.
     /// </remarks>
-    Task<bool> DropAsync(BranchDropRequest request, FastForwardMode fastForward = FastForwardMode.WhenPossible);
+    Task<bool> DropAsync(BranchDropRequest request, FastForwardMode fastForward = FastForwardMode.Never);
 }
 
 /// <summary>
@@ -107,7 +108,7 @@ public sealed class BranchDropOperations : IBranchDropOperations
     /// <inheritdoc />
     public async Task<bool> DropAsync(
         BranchDropRequest request,
-        FastForwardMode fastForward = FastForwardMode.WhenPossible)
+        FastForwardMode fastForward = FastForwardMode.Never)
     {
         ArgumentNullException.ThrowIfNull(request);
 
