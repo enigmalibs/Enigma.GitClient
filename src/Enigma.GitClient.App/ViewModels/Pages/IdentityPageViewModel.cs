@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
@@ -12,6 +13,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
+using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
@@ -78,8 +80,8 @@ public sealed class IdentityProfileRowViewModel : ViewModelBase
 }
 
 /// <summary>
-/// ViewModel behind the identity page: the name and email git records on every commit, and the
-/// profiles that switch them.
+/// ViewModel behind the identity page: the name and email git records on every commit, the
+/// profiles that switch them, and the identity the open repository sets for itself.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -91,6 +93,10 @@ public sealed class IdentityProfileRowViewModel : ViewModelBase
 /// <para>
 /// The current profile is not stored anywhere: it is whichever profile matches the identity git has,
 /// so it stays true after the configuration was changed in a terminal.
+/// </para>
+/// <para>
+/// The repository's section exists only while a repository is open — in a repository's window, never
+/// in the start window — and its writes go through the repository's write lock like every other.
 /// </para>
 /// <para>
 /// Names and emails are never logged: they identify a person. A failure is logged by what failed.
@@ -144,6 +150,9 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         EditProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnEditProfileAsync);
         RemoveProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnRemoveProfileAsync);
         UseProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnUseProfileAsync);
+        SaveLocalCommand = new AsyncRelayCommand(OnSaveLocalAsync, CanSaveLocal);
+        RemoveLocalCommand = new AsyncRelayCommand(OnRemoveLocalAsync, () => !IsBusy && IsRepositoryOpen && HasLocalIdentity);
+        CopyFromCurrentProfileCommand = new RelayCommand(OnCopyFromCurrentProfile, () => IsRepositoryOpen && HasCurrentProfile);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -163,6 +172,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
             {
                 OnPropertyChanged(nameof(IsGlobalUnset));
                 OnPropertyChanged(nameof(GlobalSummary));
+                OnPropertyChanged(nameof(LocalSummary));
                 OnGlobalEdited();
                 UpdateCurrentProfile();
             }
@@ -246,6 +256,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
             if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(HasCurrentProfile));
+                CopyFromCurrentProfileCommand.NotifyCanExecuteChanged();
             }
         }
     }
@@ -264,6 +275,103 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that makes a profile the global identity.</summary>
     public AsyncRelayCommand<IdentityProfileRowViewModel> UseProfileCommand { get; }
+
+    // ---------------------------------------------------------------- the repository's own identity
+
+    /// <summary>Gets the open repository's name, empty when none is open.</summary>
+    public string RepositoryName => RepositoryContext.Repository?.Name ?? string.Empty;
+
+    /// <summary>
+    /// Gets the identity the open repository's own configuration sets, as git last reported it —
+    /// only what it sets itself, not what it inherits.
+    /// </summary>
+    public GitIdentity LocalIdentity
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(HasLocalIdentity));
+                OnPropertyChanged(nameof(LocalSummary));
+                OnLocalEdited();
+                RemoveLocalCommand.NotifyCanExecuteChanged();
+            }
+        }
+    } = GitIdentity.Empty;
+
+    /// <summary>Gets or sets the repository's name, as typed.</summary>
+    public string LocalName
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value ?? string.Empty))
+            {
+                OnLocalEdited();
+            }
+        }
+    } = string.Empty;
+
+    /// <summary>Gets or sets the repository's email, as typed.</summary>
+    public string LocalEmail
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value ?? string.Empty))
+            {
+                OnLocalEdited();
+            }
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the repository's configuration sets a name or an email of its
+    /// own.
+    /// </summary>
+    public bool HasLocalIdentity => !LocalIdentity.IsEmpty;
+
+    /// <summary>Gets a value indicating whether the typed values differ from what the repository sets.</summary>
+    public bool IsLocalChanged => !TypedLocal.Equals(LocalIdentity.Normalised());
+
+    /// <summary>Gets what is wrong with the typed values, once something has been typed; empty otherwise.</summary>
+    public string LocalError => IsLocalChanged ? GitIdentityRules.Validate(TypedLocal) ?? string.Empty : string.Empty;
+
+    /// <summary>Gets a value indicating whether there is something wrong to say.</summary>
+    public bool HasLocalError => LocalError.Length > 0;
+
+    /// <summary>Gets the sentence saying who commits in the open repository are made as.</summary>
+    public string LocalSummary
+    {
+        get
+        {
+            if (LocalIdentity.IsComplete)
+            {
+                return $"Commits in {RepositoryName} are made as {LocalIdentity}, whatever the global identity is.";
+            }
+
+            if (HasLocalIdentity)
+            {
+                return $"{RepositoryName} sets only part of an identity; git takes the rest from the global one.";
+            }
+
+            return IsGlobalUnset
+                ? $"{RepositoryName} has no identity of its own and there is no global one: git refuses to commit here."
+                : $"{RepositoryName} has no identity of its own: its commits use the global one, {GlobalIdentity}.";
+        }
+    }
+
+    /// <summary>Gets the command that writes the typed values to the repository's own configuration.</summary>
+    public AsyncRelayCommand SaveLocalCommand { get; }
+
+    /// <summary>Gets the command that removes the repository's own identity.</summary>
+    public AsyncRelayCommand RemoveLocalCommand { get; }
+
+    /// <summary>Gets the command that fills the repository's fields from the current profile.</summary>
+    public RelayCommand CopyFromCurrentProfileCommand { get; }
+
+    private GitIdentity TypedLocal => new GitIdentity(LocalName, LocalEmail).Normalised();
 
     // ---------------------------------------------------------------- loading
 
@@ -290,6 +398,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         {
             await LoadGlobalAsync().ConfigureAwait(true);
             await LoadProfilesAsync().ConfigureAwait(true);
+            await LoadLocalAsync().ConfigureAwait(true);
         }
         finally
         {
@@ -302,6 +411,23 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     {
         SaveGlobalCommand.NotifyCanExecuteChanged();
         AddProfileCommand.NotifyCanExecuteChanged();
+        SaveLocalCommand.NotifyCanExecuteChanged();
+        RemoveLocalCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// A different repository, or none: its section starts over from what git says about the new one,
+    /// and anything typed for the old one goes with it.
+    /// </summary>
+    protected override void OnRepositoryChanged()
+    {
+        base.OnRepositoryChanged();
+
+        OnPropertyChanged(nameof(RepositoryName));
+        ShowLocal(GitIdentity.Empty);
+        CopyFromCurrentProfileCommand.NotifyCanExecuteChanged();
+
+        _ = LoadLocalAsync();
     }
 
     private async Task LoadGlobalAsync()
@@ -372,6 +498,58 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         OnPropertyChanged(nameof(HasProfiles));
         UpdateCurrentProfile();
+    }
+
+    private async Task LoadLocalAsync()
+    {
+        if (RepositoryContext.Repository is not { } repository)
+        {
+            ShowLocal(GitIdentity.Empty);
+            return;
+        }
+
+        try
+        {
+            GitIdentity loaded = await _identity.GetLocalAsync(repository, RepositoryContext.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+            // The repository may have changed while git was reading.
+            if (!Equals(RepositoryContext.Repository, repository))
+            {
+                return;
+            }
+
+            bool edited = IsLocalChanged;
+
+            LocalIdentity = loaded;
+
+            if (!edited)
+            {
+                LocalName = loaded.Name;
+                LocalEmail = loaded.Email;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the repository closes under the read.
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException)
+        {
+            _logger.LogWarning("Reading the repository's git identity failed ({Kind})", exception.GetType().Name);
+
+            await ReportAsync("Could not read this repository's identity", Describe(exception), InfoBarSeverity.Error)
+                .ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Shows an identity as the repository's, typed values included.
+    /// </summary>
+    private void ShowLocal(GitIdentity identity)
+    {
+        LocalIdentity = identity;
+        LocalName = identity.Name;
+        LocalEmail = identity.Email;
     }
 
     private void UpdateCurrentProfile()
@@ -614,6 +792,106 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         await LoadProfilesAsync().ConfigureAwait(true);
     }
 
+    // ---------------------------------------------------------------- commands: the repository
+
+    private bool CanSaveLocal()
+        => !IsBusy && IsRepositoryOpen && IsLocalChanged && GitIdentityRules.Validate(TypedLocal) is null;
+
+    private async Task OnSaveLocalAsync()
+    {
+        GitIdentity typed = TypedLocal;
+
+        if (!IsRepositoryOpen || GitIdentityRules.Validate(typed) is not null)
+        {
+            return;
+        }
+
+        string name = RepositoryName;
+
+        if (await WriteLocalAsync((repository, token) => _identity.SetLocalAsync(repository, typed, token), typed)
+                .ConfigureAwait(true))
+        {
+            await ReportAsync(
+                $"{name} has its own identity",
+                $"Its commits are made as {typed}, whatever the global identity is.",
+                InfoBarSeverity.Success).ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnRemoveLocalAsync()
+    {
+        if (!IsRepositoryOpen)
+        {
+            return;
+        }
+
+        string name = RepositoryName;
+
+        if (await WriteLocalAsync(_identity.RemoveLocalAsync, GitIdentity.Empty).ConfigureAwait(true))
+        {
+            await ReportAsync(
+                $"{name} uses the global identity again",
+                IsGlobalUnset
+                    ? "There is no global identity yet: set one above, or git refuses to commit here."
+                    : $"Its commits are made as {GlobalIdentity}.",
+                InfoBarSeverity.Info).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Runs a write to the repository's configuration under its write lock and, once git has done it,
+    /// shows the result.
+    /// </summary>
+    /// <returns><see langword="true"/> when git wrote it.</returns>
+    private async Task<bool> WriteLocalAsync(
+        Func<RepositoryHandle, CancellationToken, Task> write,
+        GitIdentity result)
+    {
+        IsBusy = true;
+
+        try
+        {
+            // Nothing in the references changes, so there is nothing to re-read afterwards.
+            await RepositoryContext.RunExclusiveAsync(write, refreshAfter: false).ConfigureAwait(true);
+
+            ShowLocal(result.Normalised());
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the repository closes under the write.
+            return false;
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException
+                                              or ArgumentException or InvalidOperationException)
+        {
+            // What was typed stays in the fields, so a retry is one click.
+            _logger.LogWarning("Writing the repository's git identity failed ({Kind})", exception.GetType().Name);
+
+            await ReportAsync("Could not change this repository's identity", Describe(exception), InfoBarSeverity.Error)
+                .ConfigureAwait(true);
+
+            return false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void OnCopyFromCurrentProfile()
+    {
+        if (CurrentProfile is not { } profile)
+        {
+            return;
+        }
+
+        // Filled, not written: the reader sees what Save will write, and can still change it.
+        LocalName = profile.Name;
+        LocalEmail = profile.Email;
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
@@ -642,6 +920,14 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(GlobalError));
         OnPropertyChanged(nameof(HasGlobalError));
         SaveGlobalCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnLocalEdited()
+    {
+        OnPropertyChanged(nameof(IsLocalChanged));
+        OnPropertyChanged(nameof(LocalError));
+        OnPropertyChanged(nameof(HasLocalError));
+        SaveLocalCommand.NotifyCanExecuteChanged();
     }
 
     private Task ReportAsync(string title, string message, InfoBarSeverity severity)

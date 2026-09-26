@@ -80,9 +80,10 @@
   </UserControl.Resources>
 
   <!--
-    Who git says made a commit: the global identity every repository inherits, and the profiles
-    that switch it. It is git's own configuration being edited, so each section saves on its own
-    button rather than on every keystroke.
+    Who git says made a commit: the global identity every repository inherits, the profiles that
+    switch it, and — in a repository's window — the identity that repository sets for itself. It is
+    git's own configuration being edited, so each section saves on its own button rather than on
+    every keystroke.
   -->
   <DockPanel>
 
@@ -199,6 +200,82 @@
                           ItemTemplate="{StaticResource ProfileRow}"
                           IsVisible="{Binding HasProfiles}"
                           AutomationProperties.Name="Identity profiles" />
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- The open repository's own identity: only in a repository's window. -->
+        <controls:SettingsCardExpander Header="{Binding RepositoryName, StringFormat='This repository: {0}'}"
+                                       Description="A name and email of its own, which its commits use whatever the global identity is"
+                                       IconData="{ei:IconGeometry FolderUser}"
+                                       IsExpanded="True"
+                                       IsVisible="{Binding IsRepositoryOpen}">
+          <StackPanel Spacing="12">
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="Name"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBox Text="{Binding LocalName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="Not set: the global name is used"
+                         AutomationProperties.Name="This repository's name" />
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Text="Email"
+                           FontSize="12"
+                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <TextBox Text="{Binding LocalEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="Not set: the global email is used"
+                         AutomationProperties.Name="This repository's email" />
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        IsVisible="{Binding HasLocalError}">
+              <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+                       Foreground="{DynamicResource EnigmaErrorBrush}" />
+              <TextBlock Text="{Binding LocalError}"
+                         FontSize="12"
+                         TextWrapping="Wrap"
+                         Foreground="{DynamicResource EnigmaErrorBrush}" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding LocalSummary}"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Classes="toolbar"
+                      Command="{Binding CopyFromCurrentProfileCommand}"
+                      ToolTip.Tip="Fill these fields with the name and email of the profile marked Current"
+                      ToolTip.ShowOnDisabled="True"
+                      AutomationProperties.Name="Copy from the current profile">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ei:Icon Kind="Copy" Classes="toolbar" VerticalAlignment="Center" />
+                  <TextBlock Text="Copy from current profile" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+
+              <Button Classes="toolbar"
+                      Command="{Binding RemoveLocalCommand}"
+                      ToolTip.Tip="Remove this repository's own name and email, so its commits use the global identity"
+                      AutomationProperties.Name="Remove this repository's identity">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ei:Icon Kind="Eraser" Classes="toolbar" VerticalAlignment="Center" />
+                  <TextBlock Text="Remove" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+
+              <Button Classes="accent"
+                      Command="{Binding SaveLocalCommand}"
+                      ToolTip.Tip="Write this name and email to this repository's own git configuration"
+                      AutomationProperties.Name="Save this repository's identity">
+                <TextBlock Text="Save" />
+              </Button>
+            </StackPanel>
           </StackPanel>
         </controls:SettingsCardExpander>
 

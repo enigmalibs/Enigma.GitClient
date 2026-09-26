@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Navigation;
+using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels;
 using Enigma.GitClient.App.ViewModels.Dialogs;
@@ -18,6 +19,7 @@ using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
+using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
@@ -26,8 +28,8 @@ namespace Enigma.GitClient.App.UnitTests;
 
 /// <summary>
 /// The identity page: where it is reached from, the global name and email it reads from git and
-/// writes back, and the profiles that switch them. Every test runs against the in-memory identity,
-/// never the developer's own.
+/// writes back, the profiles that switch them, and the open repository's own identity. Every test
+/// runs against the in-memory identity, never the developer's own.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class IdentityPageTests
@@ -35,6 +37,12 @@ public sealed class IdentityPageTests
     private static readonly GitIdentity Ada = new("Ada Lovelace", "ada@example.com");
     private static readonly GitIdentity Work = new("Ada Lovelace", "ada@work.example");
     private static readonly GitIdentity Home = new("Ada", "ada@home.example");
+
+    /// <summary>A repository that exists only as a handle: the identity behind it is in memory.</summary>
+    private static readonly RepositoryHandle WorkRepository = Handle("work");
+
+    /// <summary>A second one, for switching.</summary>
+    private static readonly RepositoryHandle HomeRepository = Handle("home");
 
     private readonly HeadlessAvaloniaFixture _fixture;
 
@@ -624,6 +632,284 @@ public sealed class IdentityPageTests
         Assert.Equal("ada@office.example", edited.Email);
     }
 
+    // ---------------------------------------------------------------- the repository's own identity
+
+    [Fact]
+    public void WithoutARepositoryThereIsNoRepositorySection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.False(page.IsRepositoryOpen);
+            Assert.Equal(string.Empty, page.RepositoryName);
+            Assert.False(page.SaveLocalCommand.CanExecute(null));
+            Assert.False(page.RemoveLocalCommand.CanExecute(null));
+
+            // A current profile, but nothing to copy it into.
+            Assert.True(page.HasCurrentProfile);
+            Assert.False(page.CopyFromCurrentProfileCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void ThePageReadsTheRepositorysOwnIdentity()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Home;
+            services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Work);
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.True(page.IsRepositoryOpen);
+            Assert.Equal("work", page.RepositoryName);
+            Assert.Equal(Work, page.LocalIdentity);
+            Assert.Equal("Ada Lovelace", page.LocalName);
+            Assert.Equal("ada@work.example", page.LocalEmail);
+            Assert.True(page.HasLocalIdentity);
+            Assert.False(page.IsLocalChanged);
+            Assert.Equal(
+                "Commits in work are made as Ada Lovelace <ada@work.example>, whatever the global identity is.",
+                page.LocalSummary);
+            Assert.True(page.RemoveLocalCommand.CanExecute(null));
+            Assert.False(page.SaveLocalCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void ARepositoryWithoutAnIdentitySaysItUsesTheGlobalOne()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.False(page.HasLocalIdentity);
+            Assert.False(page.RemoveLocalCommand.CanExecute(null));
+            Assert.Contains("there is no global one: git refuses to commit here", page.LocalSummary, StringComparison.Ordinal);
+
+            services.Identity.Global = Home;
+            await page.LoadAsync();
+
+            Assert.Equal("work has no identity of its own: its commits use the global one, Ada <ada@home.example>.", page.LocalSummary);
+        });
+    }
+
+    [Fact]
+    public void SavingGivesTheRepositoryItsOwnIdentityAndLeavesTheGlobalOneAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Home;
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.LocalName = " Ada Lovelace ";
+            Assert.Equal("Enter an email.", page.LocalError);
+            Assert.False(page.SaveLocalCommand.CanExecute(null));
+
+            page.LocalEmail = "ada@work.example";
+            Assert.False(page.HasLocalError);
+            Assert.True(page.SaveLocalCommand.CanExecute(null));
+
+            await page.SaveLocalCommand.ExecuteAsync(null);
+
+            Assert.Equal(Work, services.Identity.LocalOf(WorkRepository.WorkTreePath));
+            Assert.Equal([WorkRepository.WorkTreePath], services.Identity.LocalWrites);
+            Assert.Equal(Work, page.LocalIdentity);
+            Assert.Equal("Ada Lovelace", page.LocalName);
+            Assert.False(page.IsLocalChanged);
+            Assert.True(page.RemoveLocalCommand.CanExecute(null));
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("work has its own identity", note.Title);
+
+            Assert.Equal(Home, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+        });
+    }
+
+    [Fact]
+    public void RemovingTheRepositorysIdentityPutsItBackOnTheGlobalOne()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Home;
+            services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Work);
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            await page.RemoveLocalCommand.ExecuteAsync(null);
+
+            Assert.Equal(GitIdentity.Empty, services.Identity.LocalOf(WorkRepository.WorkTreePath));
+            Assert.False(page.HasLocalIdentity);
+            Assert.Equal(string.Empty, page.LocalName);
+            Assert.Equal(string.Empty, page.LocalEmail);
+            Assert.False(page.RemoveLocalCommand.CanExecute(null));
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("work uses the global identity again", note.Title);
+            Assert.Equal("Its commits are made as Ada <ada@home.example>.", note.Message);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+        });
+    }
+
+    [Fact]
+    public void CopyingFromTheCurrentProfileFillsTheFieldsWithoutWriting()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.Equal("Work", page.CurrentProfile?.Label);
+            Assert.True(page.CopyFromCurrentProfileCommand.CanExecute(null));
+
+            page.CopyFromCurrentProfileCommand.Execute(null);
+
+            Assert.Equal("Ada Lovelace", page.LocalName);
+            Assert.Equal("ada@work.example", page.LocalEmail);
+
+            // Filled, not written: Save is what writes.
+            Assert.Empty(services.Identity.LocalWrites);
+            Assert.True(page.IsLocalChanged);
+            Assert.True(page.SaveLocalCommand.CanExecute(null));
+
+            await page.SaveLocalCommand.ExecuteAsync(null);
+
+            Assert.Equal(Work, services.Identity.LocalOf(WorkRepository.WorkTreePath));
+        });
+    }
+
+    [Fact]
+    public void CopyingFollowsWhichProfileIsCurrent()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            // No profile is git's identity: nothing to copy.
+            Assert.False(page.CopyFromCurrentProfileCommand.CanExecute(null));
+
+            await page.UseProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.True(page.CopyFromCurrentProfileCommand.CanExecute(null));
+
+            page.CopyFromCurrentProfileCommand.Execute(null);
+
+            Assert.Equal("Ada", page.LocalName);
+            Assert.Equal("ada@home.example", page.LocalEmail);
+        });
+    }
+
+    [Fact]
+    public void AnotherRepositoryBringsItsOwnIdentityAndClosingItEmptiesTheSection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Work);
+            services.Identity.SetLocalDirectly(HomeRepository.WorkTreePath, Home);
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            await context.OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.LocalName = "Half typed for work";
+
+            await context.OpenAsync(HomeRepository);
+
+            // What was typed for the other repository goes with it.
+            Assert.Equal("home", page.RepositoryName);
+            Assert.Equal(Home, page.LocalIdentity);
+            Assert.Equal("Ada", page.LocalName);
+            Assert.False(page.IsLocalChanged);
+
+            context.Close();
+
+            Assert.False(page.IsRepositoryOpen);
+            Assert.Equal(GitIdentity.Empty, page.LocalIdentity);
+            Assert.Equal(string.Empty, page.LocalName);
+            Assert.False(page.SaveLocalCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void AFailedRepositoryWriteIsReportedAndKeepsWhatWasTyped()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+            page.LocalName = "Ada Lovelace";
+            page.LocalEmail = "ada@work.example";
+
+            await page.SaveLocalCommand.ExecuteAsync(null);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Could not change this repository's identity", note.Title);
+            Assert.StartsWith("error: could not lock config file", note.Message, StringComparison.Ordinal);
+            Assert.Equal("Ada Lovelace", page.LocalName);
+            Assert.False(page.HasLocalIdentity);
+            Assert.True(page.SaveLocalCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void AFailedRepositoryReadIsReported()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+
+            await page.OnAppearingAsync();
+
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Could not read this repository's identity");
+        });
+    }
+
     // ---------------------------------------------------------------- the view
 
     [Fact]
@@ -708,6 +994,64 @@ public sealed class IdentityPageTests
             }
         });
     }
+
+    [Fact]
+    public void TheViewShowsTheRepositorySectionOnlyInARepositorysWindow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Home);
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work));
+
+            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            await page.OnAppearingAsync();
+
+            IdentityPageView view = services.Get<IdentityPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 1100 };
+            window.Show();
+
+            try
+            {
+                // The start window's case: no repository, no section — a hidden card has not even
+                // built what it holds.
+                Assert.DoesNotContain(All<TextBox>(view, "This repository's name"), box => box.IsEffectivelyVisible);
+
+                await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
+                window.UpdateLayout();
+
+                TextBox name = Named<TextBox>(view, "This repository's name");
+                Assert.True(name.IsEffectivelyVisible);
+                Assert.Equal("Ada", name.Text);
+                Assert.Equal("ada@home.example", Named<TextBox>(view, "This repository's email").Text);
+
+                Button copy = Named<Button>(view, "Copy from the current profile");
+                Button remove = Named<Button>(view, "Remove this repository's identity");
+                Button save = Named<Button>(view, "Save this repository's identity");
+
+                Assert.True(copy.IsEffectivelyEnabled);
+                Assert.True(remove.IsEffectivelyEnabled);
+                Assert.False(save.IsEffectivelyEnabled);
+
+                copy.Command!.Execute(null);
+
+                Assert.Equal("Ada Lovelace", name.Text);
+                Assert.True(save.IsEffectivelyEnabled);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private static RepositoryHandle Handle(string name)
+        => OperatingSystem.IsWindows()
+            ? new RepositoryHandle($@"C:\src\{name}", $@"C:\src\{name}\.git")
+            : new RepositoryHandle($"/src/{name}", $"/src/{name}/.git");
 
     private static IdentityProfileDialogViewModel DialogModel(ContentDialog dialog)
         => Assert.IsType<IdentityProfileDialogViewModel>(Assert.IsType<IdentityProfileDialogView>(dialog.Content).DataContext);

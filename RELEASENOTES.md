@@ -89,6 +89,11 @@ diff.
   your global identity with **Use**. The profile matching what git has is marked *Current*, even
   after the identity was changed in a terminal. Adding one starts from your global identity;
   deleting one asks first and never touches git's configuration.
+- A repository's own identity: in a repository's window the page gives that repository a name and
+  email of its own — written to its local configuration, so its commits use them whatever the
+  global identity is — and **Remove** puts it back on the global one. **Copy from current profile**
+  fills the two fields from the profile marked *Current*, ready to save. The page says which
+  identity the repository's commits will use.
 
 ### Preferences
 
