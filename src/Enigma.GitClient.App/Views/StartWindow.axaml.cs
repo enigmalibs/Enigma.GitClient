@@ -10,7 +10,8 @@ using Enigma.GitClient.App.ViewModels;
 namespace Enigma.GitClient.App.Views;
 
 /// <summary>
-/// The window the application opens on: the repositories, the integrations and the settings.
+/// The window the application opens on: the repositories, the git identity, the integrations and
+/// the settings.
 /// </summary>
 public partial class StartWindow : Window, IHostWindow
 {

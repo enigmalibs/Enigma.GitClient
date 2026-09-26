@@ -79,6 +79,13 @@ diff.
 - Open a commit, a branch or a file on its host, from the graph and from the file list.
 - Tokens are encrypted at rest and redacted from every log line.
 
+### Your git identity
+
+- An **Identity** page of its own — on the start window and in every repository window, apart from
+  the settings — for the name and email git records on every commit: your global `user.name` and
+  `user.email`, read from git and written back with one Save. It says so when git has no identity
+  yet, which is when git refuses to commit.
+
 ### Preferences
 
 - Theme, history page size, first-parent history, date style, graph row height and lane width, the

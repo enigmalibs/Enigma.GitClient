@@ -119,7 +119,7 @@ public sealed class MainWindowShellTests
                 viewModel.Navigation.Items.Select(item => item.Header));
 
             Assert.Equal(
-                ["Integrations", "Settings"],
+                ["Identity", "Integrations", "Settings"],
                 viewModel.Navigation.FooterItems.Select(item => item.Header));
 
             Assert.All(

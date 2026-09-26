@@ -17,9 +17,9 @@
         Background="{DynamicResource EnigmaBackgroundBrush}">
 
   <!--
-    The start window: which repository to work on, and the two things that exist before any
-    repository does — the hosting integrations and the settings. Choosing a repository replaces this
-    window with the repository's own.
+    The start window: which repository to work on, and the three things that exist before any
+    repository does — the git identity, the hosting integrations and the settings. Choosing a
+    repository replaces this window with the repository's own.
   -->
   <Panel>
     <DockPanel>

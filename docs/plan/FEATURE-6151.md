@@ -102,7 +102,7 @@ commit, reachable from the start window as well as from a repository's window:
 ## PHASE02 — The identity page, in both windows
 
 **Branch:** `feature/feature-6151-phase02-identity-page`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6151-PHASE02.md`
 
 ### Steps
 

@@ -8,8 +8,8 @@ using Enigma.GitClient.Core.Diagnostics;
 namespace Enigma.GitClient.App.ViewModels;
 
 /// <summary>
-/// The start window: choose a repository, or look after the integrations and the settings, before
-/// any repository is open.
+/// The start window: choose a repository, or look after the git identity, the integrations and the
+/// settings, before any repository is open.
 /// </summary>
 public sealed class StartWindowViewModel : ViewModelBase
 {
