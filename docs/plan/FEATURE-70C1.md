@@ -1,6 +1,6 @@
 # FEATURE-70C1 — Hide branches from the history
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-26-release-1-0-0
@@ -46,7 +46,7 @@ repository.
 
 ## PHASE01 — Leaving refs out of the walk
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-70C1-PHASE01.md`
 **Branch:** `feature/feature-70c1-phase01-excluded-refs`
 
 ### Steps
