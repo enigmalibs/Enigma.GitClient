@@ -182,6 +182,27 @@ public sealed class BranchDropTests
     }
 
     [Fact]
+    public void Drop_RecordsAMergeCommitUnlessAFastForwardIsAskedFor()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildAheadAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            bool changed = await services.Get<IBranchDropOperations>()
+                .DropAsync(new BranchDropRequest("feature", false, "main", false, TargetIsCurrent: true));
+
+            Assert.True(changed);
+
+            // main was simply behind, and still got a merge commit with the feature as its second
+            // parent: a fast-forward is only ever what the caller asked for.
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+            Assert.Equal(GitProbe.Sha(repository, "feature"), GitProbe.Sha(repository, "HEAD^2"));
+        });
+    }
+
+    [Fact]
     public void Drop_FastForwardOnlyMovesABranchThatIsSimplyBehind()
     {
         _fixture.RunAsync(async () =>
@@ -198,6 +219,7 @@ public sealed class BranchDropTests
             Assert.True(changed);
             Assert.Equal("main", Head(services));
             Assert.True(File.Exists(Path.Combine(repository.WorkTreePath, "src/feature.txt")));
+            Assert.Equal(1, GitProbe.ParentCount(repository));
         });
     }
 

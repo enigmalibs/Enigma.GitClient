@@ -61,6 +61,20 @@ public sealed class MergeOperationTests
     }
 
     /// <summary>
+    /// Builds a branch one commit ahead of <c>main</c>, which has not moved — the shape git on its
+    /// own would fast-forward.
+    /// </summary>
+    private static async Task BuildAheadBranchAsync(RepositoryHandle repository)
+    {
+        await GitAsync(repository, "checkout", "-b", "ahead");
+        Write(repository, "src/ahead.txt", "further on\n");
+        await GitAsync(repository, "add", "--all");
+        await GitAsync(repository, "commit", "-m", "Work ahead");
+
+        await GitAsync(repository, "checkout", "main");
+    }
+
+    /// <summary>
     /// Builds a branch that changed the same line, so it conflicts.
     /// </summary>
     private static async Task BuildConflictingBranchAsync(RepositoryHandle repository)
@@ -178,6 +192,42 @@ public sealed class MergeOperationTests
             await page.MergeCommand.ExecuteAsync(Row(page, "behind"));
 
             Assert.Contains(services.InfoBar.Shown, note => note.Title == "Nothing to merge");
+        });
+    }
+
+    [Fact]
+    public void Page_RecordsAMergeCommitEvenWhenAFastForwardWouldDo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await BuildAheadBranchAsync(repository);
+
+            BranchesPageViewModel page = await OpenBranchesAsync(services, repository);
+
+            await page.MergeCommand.ExecuteAsync(Row(page, "ahead"));
+
+            Assert.Equal(2, GitProbe.ParentCount(repository));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Merged");
+        });
+    }
+
+    [Fact]
+    public void Merge_RecordsAMergeCommitUnlessAFastForwardIsAskedFor()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await BuildAheadBranchAsync(repository);
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            MergeOutcome outcome = await services.Get<IMergeOperations>().MergeAsync("ahead");
+
+            Assert.Equal(MergeResultKind.Merged, outcome.Kind);
+            Assert.Equal(2, GitProbe.ParentCount(repository));
         });
     }
 

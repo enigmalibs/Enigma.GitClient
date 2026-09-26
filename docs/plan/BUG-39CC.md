@@ -1,6 +1,6 @@
 # BUG-39CC — Merge fast-forwards instead of merging
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-39CC.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-39cc-merge-no-ff`
 **Run:** bugfix/2026-09-26-standard-merge-no-ff
@@ -36,7 +36,7 @@ fast-forward-only items stay the way to move a branch without one.
 - `MergeService.Classify` already reads a `--no-ff` merge as `Merged` ("Merge made by …"), a
   conflict as `Conflicted` and a contained source as `AlreadyUpToDate`, so reporting needs no change.
 - Pull is a separate operation with its own strategy setting and is not affected.
-- **Baseline:** to be measured on the dev branch before any change.
+- **Baseline:** clean build, 2103 tests green.
 
 ## Decisions
 

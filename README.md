@@ -35,6 +35,8 @@ Two things matter more than everything else in this app:
   staged; hard discards them, after naming the files it takes
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
   into any other local branch the same way
+- Every merge the app offers records a merge commit, even when the branch could simply be
+  fast-forwarded; the fast-forward-only merges are the way to move a branch without one
 - Create, clone and open repositories from a start window with a recent-repositories list; the
   repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
   straight away
