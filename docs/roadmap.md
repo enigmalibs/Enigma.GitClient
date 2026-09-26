@@ -138,3 +138,16 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The identity page, in both windows      | DONE   | (in FEATURE-6151.md)      |
 | - PHASE03    | Identity profiles                       | DONE   | (in FEATURE-6151.md)      |
 | - PHASE04    | A repository's own identity             | DONE   | (in FEATURE-6151.md)      |
+| FEATURE-F873 | Tool dialogs on the window background   | TODO   | docs/plan/FEATURE-F873.md |
+| FEATURE-75F4 | A splash screen and an About box        | TODO   | docs/plan/FEATURE-75F4.md |
+| - PHASE01    | The splash screen                       | TODO   | (in FEATURE-75F4.md)      |
+| - PHASE02    | The About dialog                        | TODO   | (in FEATURE-75F4.md)      |
+| FEATURE-92A3 | History: no scope, no first parent      | TODO   | docs/plan/FEATURE-92A3.md |
+| - PHASE01    | No branch-scope selector                | TODO   | (in FEATURE-92A3.md)      |
+| - PHASE02    | No first-parent history                 | TODO   | (in FEATURE-92A3.md)      |
+| FEATURE-70C1 | Hide branches from the history          | TODO   | docs/plan/FEATURE-70C1.md |
+| - PHASE01    | Leaving refs out of the walk            | TODO   | (in FEATURE-70C1.md)      |
+| - PHASE02    | Remembering hidden branches             | TODO   | (in FEATURE-70C1.md)      |
+| - PHASE03    | Show and hide from the branches         | TODO   | (in FEATURE-70C1.md)      |
+| FEATURE-B4C0 | A Linux installer                       | TODO   | docs/plan/FEATURE-B4C0.md |
+| FEATURE-2B7B | Release 1.0.0                           | TODO   | docs/plan/FEATURE-2B7B.md |
