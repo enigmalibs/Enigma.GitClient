@@ -69,7 +69,7 @@ public sealed class AppWindowsTests
     }
 
     [Fact]
-    public void StartWindow_OffersTheRepositoriesTheIntegrationsAndTheSettingsOnly()
+    public void StartWindow_OffersTheRepositoriesTheIdentityTheIntegrationsAndTheSettingsOnly()
     {
         _fixture.Run(() =>
         {
@@ -77,7 +77,7 @@ public sealed class AppWindowsTests
             StartWindowViewModel viewModel = services.Get<StartWindowViewModel>();
 
             Assert.Equal(["Repositories"], viewModel.Navigation.Items.Select(item => item.Header));
-            Assert.Equal(["Integrations", "Settings"], viewModel.Navigation.FooterItems.Select(item => item.Header));
+            Assert.Equal(["Identity", "Integrations", "Settings"], viewModel.Navigation.FooterItems.Select(item => item.Header));
         });
     }
 

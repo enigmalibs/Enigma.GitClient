@@ -3,6 +3,7 @@ using System.IO;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Refs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -104,6 +105,10 @@ public sealed class TestServices : IDisposable
         services.RemoveAll<ISystemInterop>();
         services.AddSingleton<ISystemInterop, RecordingSystemInterop>();
 
+        // And so does their git identity: the real service writes their own global configuration.
+        services.RemoveAll<IGitIdentityService>();
+        services.AddSingleton<IGitIdentityService, FakeGitIdentityService>();
+
         configure?.Invoke(services);
 
         return new TestServices(services.BuildServiceProvider(), root);
@@ -138,6 +143,11 @@ public sealed class TestServices : IDisposable
     /// Gets the manual clock the automatic refresh runs on.
     /// </summary>
     public ManualTimeProvider Clock => (ManualTimeProvider)Get<TimeProvider>();
+
+    /// <summary>
+    /// Gets the in-memory git identity, for setting what git has and asserting what was written.
+    /// </summary>
+    public FakeGitIdentityService Identity => (FakeGitIdentityService)Get<IGitIdentityService>();
 
     /// <summary>
     /// Gets the scripted dialog service, for choosing what a dialog answers.
