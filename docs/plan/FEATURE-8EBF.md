@@ -1,6 +1,6 @@
 # FEATURE-8EBF — Pastel, more visible diff colours
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8EBF.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-8ebf-pastel-diff-colours`
 **Run:** feature/2026-09-27-infobars-dialogs-diff-release

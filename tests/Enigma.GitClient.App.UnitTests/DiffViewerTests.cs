@@ -1330,6 +1330,102 @@ public sealed class DiffViewerTests
         });
     }
 
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public void DiffTints_StandOutFromTheBackground_AndKeepTheirMarkersReadable(string variantName)
+    {
+        _fixture.Run(() =>
+        {
+            ThemeVariant variant = variantName == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = variant;
+
+            try
+            {
+                Color background = Colour("EnigmaBackgroundColor", variant);
+
+                foreach ((string name, Color line, Color marker) in new[]
+                {
+                    ("added", Colour("DiffAddedLineColor", variant), Colour("DiffAddedMarkerColor", variant)),
+                    ("removed", Colour("DiffRemovedLineColor", variant), Colour("DiffRemovedMarkerColor", variant)),
+                })
+                {
+                    // A changed line the eye cannot tell from an unchanged one is the whole complaint:
+                    // 1.04:1 was the old tint in both themes.
+                    double visible = Contrast(background, line);
+
+                    Assert.True(
+                        visible >= 1.12,
+                        $"{variantName}/{name}: the line tint is only {visible.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}:1 against the background");
+
+                    // The + or − is text sitting on that tint.
+                    double readable = Contrast(marker, line);
+
+                    Assert.True(
+                        readable >= 4.5,
+                        $"{variantName}/{name}: the marker is only {readable.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}:1 on its line");
+                }
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public void StatusChips_AreDistinctVisibleAndReadable(string variantName)
+    {
+        _fixture.Run(() =>
+        {
+            ThemeVariant variant = variantName == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = variant;
+
+            try
+            {
+                Color background = Colour("EnigmaBackgroundColor", variant);
+                Color letter = Colour("DiffStatusForegroundColor", variant);
+
+                (string Name, Color Fill)[] chips =
+                [
+                    ("added", Colour("DiffStatusAddedColor", variant)),
+                    ("modified", Colour("DiffStatusModifiedColor", variant)),
+                    ("deleted", Colour("DiffStatusDeletedColor", variant)),
+                    ("renamed", Colour("DiffStatusRenamedColor", variant)),
+                    ("conflicted", Colour("DiffStatusConflictedColor", variant)),
+                ];
+
+                Assert.Equal(chips.Length, chips.Select(chip => chip.Fill).Distinct().Count());
+
+                foreach ((string name, Color fill) in chips)
+                {
+                    // The letter (A, M, D, R, U) is what still reads without colour.
+                    double readable = Contrast(letter, fill);
+
+                    Assert.True(
+                        readable >= 4.5,
+                        $"{variantName}/{name}: the chip's letter is only {readable.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}:1");
+
+                    double visible = Contrast(background, fill);
+
+                    Assert.True(
+                        visible >= 1.5,
+                        $"{variantName}/{name}: the chip is only {visible.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}:1 against the background");
+                }
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- end to end
 
     [Fact]
