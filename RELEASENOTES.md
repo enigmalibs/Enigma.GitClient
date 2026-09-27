@@ -40,6 +40,17 @@ that can only read no longer pushes there. That is why this is 3.0: read *Upgrad
   problem.
 - **Connect an account** names the write scope a push needs for each host, and so does the README.
 
+### The history
+
+- The history follows the remote branches and tags on its own. After a push from the toolbar, the
+  remote branch's badge moves to the pushed commit straight away; before, it stayed where it was until
+  you pressed **Refresh**.
+- A pull or a fetch from the toolbar redraws the history as soon as it ends too, and only when
+  something moved: the selected commit and the scroll position stay where they were.
+- Whatever moved between two automatic refreshes — a remote branch, a tag, a branch — is redrawn by
+  the next one: every 15 seconds by default, as *Fetch and refresh automatically* on the Settings page
+  sets it. Before, the automatic refresh only noticed what its own fetch brought.
+
 ### Upgrading from 2.0
 
 - **If you push over HTTPS with a token that can only read, replace it.** 2.0 asked for read-only

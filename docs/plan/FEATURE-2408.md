@@ -1,6 +1,6 @@
 # FEATURE-2408 — Release 3.0.0 with the refresh fix
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2408.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-2408-release-3-0-0`
 **Run:** bugfix/2026-09-27-remote-refresh-release
