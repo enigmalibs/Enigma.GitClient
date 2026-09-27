@@ -165,4 +165,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Browse repositories in a dialog         | DONE   | (in FEATURE-1406.md)      |
 | - PHASE04    | Integrations inside each profile        | DONE   | (in FEATURE-1406.md)      |
 | - PHASE05    | A profile pushes only where it may      | DONE   | (in FEATURE-1406.md)      |
-| FEATURE-4AC8 | Release 2.0.0                           | TODO   | docs/plan/FEATURE-4AC8.md |
+| FEATURE-4AC8 | Release 2.0.0                           | DONE   | docs/plan/FEATURE-4AC8.md |

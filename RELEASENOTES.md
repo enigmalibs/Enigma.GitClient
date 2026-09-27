@@ -1,5 +1,73 @@
 # Release notes
 
+## 2.0.0 — 2026-09-27
+
+A major release. Your hosting integrations now belong to a profile, so each profile can have its
+own GitHub, GitLab or Azure DevOps accounts, and a profile without any integration stays local: it
+never pushes. The Identity page is now the **Profiles** page, and the Integrations page is gone; what
+it did moved onto the Profiles page. Pushes that 1.x ran can now be refused, which is why this is
+2.0: read *Upgrading from 1.x* below.
+
+### Profiles and their integrations
+
+- The **Identity** page is now the **Profiles** page, in both windows. The global identity, the
+  profiles and a repository's own identity work as before.
+- Every profile lists the accounts it is connected to. **Connect an account** under a profile signs
+  in with a personal access token as before, and the host still checks the token before anything is
+  stored. **Browse repositories** and **Disconnect** are on every integration.
+- **Browse repositories** opens the account's repositories in a dialog: filter them, ask the host for
+  all, public or private ones, open one on the host, or **Clone** it. The dialog closes and the clone
+  runs with its usual progress and cancel.
+- Deleting a profile disconnects its integrations and deletes their tokens. The confirmation says so
+  first, naming them.
+- The **Integrations** page and its place on both rails are gone. Nothing it did is lost.
+
+### Pushing
+
+- **A profile pushes only where one of its integrations leads.** A repository pushes as the profile
+  whose name and email match the identity git commits with there: the repository's own, or the global
+  one, conditional includes counted. A push then goes ahead only when that profile has an integration
+  for the remote's host (over HTTPS or SSH).
+- A profile with no integration never pushes, to a host or to a folder, and the Profiles page shows
+  it as *Local only*.
+- A refused push runs nothing and says which profile refused it, and for which host. For example:
+  *Work does not push to github.com — connect an account for it to Work on the Profiles page*. When
+  the profile cannot be checked, nothing is pushed either.
+- The integration is the permission, not the credential: git still signs in with its own credential
+  helper or SSH key, and no token is ever handed to git.
+- A repository whose identity matches no profile pushes exactly as before.
+
+### The diff
+
+- Opening the diffs of a commit always selects its first file, and its diff is shown straight away.
+  The file you had selected before is never carried over, neither to another commit nor to the same
+  one reopened. Selecting a line without opening its diffs reads no patch at all.
+
+### Upgrading from 1.x
+
+- **If you use profiles**, every push now needs an integration: connect an account to each profile
+  you push from, on the Profiles page. Until you do, pushing from a repository that commits as one
+  of your profiles is refused, with a message saying so. If you do not use profiles, nothing changes.
+- **Integrations connected with 1.x belong to no profile.** They are listed under **Earlier
+  integrations** on the Profiles page. Pick **Move to…** to give each one to the profile it is for;
+  its token moves with it. Until then no profile uses them, so none pushes through them.
+- `host-accounts.json` is now written as version 2, which adds each account's profile. 1.x reads the
+  new file and ignores that field, so going back to 1.1 keeps your accounts.
+  `identity-profiles.json`, `settings.json` and the tokens are unchanged.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set.
+- The Avalonia set (Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and
+  Avalonia.Headless and Avalonia.Skia in the tests) is held back at **12.1.1**. That is the set
+  Enigma.Avalonia.Desktop 1.1.0 is built against. 12.1.3 is out; the set moves as a whole, as a
+  decision of its own.
+
+### Version
+
+- **2.0.0** is a major release under Semantic Versioning. An upgrade can refuse pushes that 1.1 ran
+  until you connect your profiles, and a page is removed. The file formats stay compatible both ways.
+
 ## 1.1.0 — 2026-09-27
 
 A minor release: notifications that no longer get in the way, and diff colours you can see at a
