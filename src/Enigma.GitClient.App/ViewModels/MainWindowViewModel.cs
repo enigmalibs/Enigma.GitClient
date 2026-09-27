@@ -24,6 +24,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IAppWindows _windows;
     private readonly IInstanceLauncher _launcher;
     private readonly IInfoBarService _infoBar;
+    private readonly HistoryPageViewModel _history;
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
     private readonly IAutoRefreshService _autoRefresh;
@@ -39,7 +40,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="windows">Takes the reader back to the start window when the repository is closed.</param>
     /// <param name="launcher">Starts another instance, for another repository beside this one.</param>
     /// <param name="infoBar">Says so when that instance could not be started.</param>
-    /// <param name="history">The graph page, whose uncommitted row navigates to the changes page.</param>
+    /// <param name="history">
+    /// The graph page, whose uncommitted row navigates to the changes page, and which the toolbar's
+    /// fetch, pull and push bring up to date.
+    /// </param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
@@ -92,6 +96,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _windows = windows;
         _launcher = launcher;
         _infoBar = infoBar;
+        _history = history;
 
         _sync = sync;
         _merges = merges;
@@ -327,6 +332,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Wraps a synchronise operation so the toolbar shows the result of it without each command
     /// repeating the same four lines.
     /// </summary>
+    /// <remarks>
+    /// The graph is brought up to date at once: a push moves the remote-tracking branch, a pull the
+    /// current one, a fetch any of them — and the graph redraws only when something did move.
+    /// </remarks>
     private Func<Task> RunSyncAsync(Func<Task<bool>> operation)
         => async () =>
         {
@@ -335,6 +344,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             try
             {
                 await operation().ConfigureAwait(true);
+                await _history.RefreshInPlaceAsync(referencesMoved: false).ConfigureAwait(true);
             }
             finally
             {
