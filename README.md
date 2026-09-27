@@ -56,8 +56,10 @@ Two things matter more than everything else in this app:
   self-hosted GitLab, Azure DevOps Server)
 - A **Profiles** page, on the start window and in every repository window, to edit the
   global name and email git records on every commit, and profiles — work, personal — that switch
-  them in one click, each with the hosting accounts it is connected to; in a repository's window, give that repository a name and email of its own
-  (copied from the current profile in one click), or remove them again
+  them in one click, each with the hosting accounts it is connected to — a profile pushes only to
+  the hosts it is connected to, so one without any integration stays local; in a repository's
+  window, give that repository a name and email of its own (copied from the current profile in one
+  click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
   font and context, the pull strategy and the path to git — every one of them applied without a
   restart
@@ -82,6 +84,13 @@ the host itself, and asks for the smallest scope that can list and clone reposit
 | GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `https://github.com`, or your Enterprise Server's own address |
 | GitLab | `read_api` and `read_repository` | `https://gitlab.com`, or your instance's own address |
 | Azure DevOps | **Code: Read** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+
+**A profile pushes only where one of its integrations leads.** When a repository's commits are made
+as a profile — its name and email, as git resolves them there — a push goes ahead only if that
+profile has an integration for the remote's host; a profile with no integration never pushes, to a
+host or to a folder. The integration is the permission, not the credential: git still signs in with
+its own credential helper or SSH key. A repository whose identity matches no profile pushes as it
+always did.
 
 An integration connected with a 1.x version belongs to no profile: it is listed under **Earlier
 integrations** on the Profiles page until you move it into the profile it is for.

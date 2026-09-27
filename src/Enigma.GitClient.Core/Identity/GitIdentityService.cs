@@ -60,6 +60,16 @@ public interface IGitIdentityService
     Task<GitIdentity> GetLocalAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads the identity git commits with in a repository: every scope together — the system, the
+    /// global and the repository's own configuration, and whatever they include — the most specific
+    /// value of each key winning, as git itself resolves it.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The identity, with empty values for what no scope sets.</returns>
+    Task<GitIdentity> GetEffectiveAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Writes a repository's own identity, which its commits then use whatever the global one is.
     /// </summary>
     /// <param name="repository">The repository.</param>
@@ -138,6 +148,28 @@ public sealed class GitIdentityService : IGitIdentityService
     }
 
     /// <inheritdoc />
+    public async Task<GitIdentity> GetEffectiveAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, BuildEffectiveReadArguments());
+        GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.ExitCode == NothingFound)
+        {
+            return GitIdentity.Empty;
+        }
+
+        if (!result.IsSuccess)
+        {
+            throw new GitCommandException(command, result.ExitCode, result.StandardError, result.StandardOutput);
+        }
+
+        return Parse(result.StandardOutput);
+    }
+
+    /// <inheritdoc />
     public Task SetLocalAsync(
         RepositoryHandle repository,
         GitIdentity identity,
@@ -178,6 +210,18 @@ public sealed class GitIdentityService : IGitIdentityService
     /// </remarks>
     public static List<string> BuildReadArguments(GitConfigScope scope)
         => ["config", "-z", ScopeFlag(scope), "--get-regexp", KeyPattern];
+
+    /// <summary>
+    /// Builds the argument vector that reads both keys across every scope, run in the repository.
+    /// </summary>
+    /// <returns>The arguments.</returns>
+    /// <remarks>
+    /// With no scope flag git reads every configuration file, follows their includes — conditional ones
+    /// too — and lists the values from the least specific scope to the most, so the last one of each key
+    /// is the one a commit would use: what <see cref="Parse"/> keeps.
+    /// </remarks>
+    public static List<string> BuildEffectiveReadArguments()
+        => ["config", "-z", "--get-regexp", KeyPattern];
 
     /// <summary>
     /// Builds the argument vector that sets one key in a scope.
