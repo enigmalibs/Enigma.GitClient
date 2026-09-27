@@ -1,6 +1,6 @@
 # FEATURE-6C81 — Git signs in with the profile's token
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-27-profile-token-git-auth
@@ -49,7 +49,7 @@ deleting a tag, deleting a remote branch, and clone — with no credential helpe
 
 ## PHASE01 — Credential helper for git
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6C81-PHASE01.md`
 **Branch:** `feature/feature-6c81-phase01-credential-helper`
 
 ### Steps

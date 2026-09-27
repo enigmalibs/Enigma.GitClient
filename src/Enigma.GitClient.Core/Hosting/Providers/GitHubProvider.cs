@@ -59,6 +59,10 @@ public sealed class GitHubProvider : IRepositoryHostProvider
         + "Contents and Metadata). No issue or pull-request scope is ever requested.";
 
     /// <inheritdoc />
+    /// <remarks>GitHub documents <c>x-access-token</c> for a token used as a git password.</remarks>
+    public string GitUserName => "x-access-token";
+
+    /// <inheritdoc />
     public bool MatchesRemote(RemoteUrl remote) => WellKnownHosts.Detect(remote) == HostKind.GitHub;
 
     /// <summary>
