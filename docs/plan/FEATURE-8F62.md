@@ -1,6 +1,6 @@
 # FEATURE-8F62 — Release 1.1.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8F62.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-8f62-release-1-1-0`
 **Run:** feature/2026-09-27-infobars-dialogs-diff-release
