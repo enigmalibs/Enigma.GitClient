@@ -171,3 +171,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Sync and remote pushes sign in          | DONE   | (in FEATURE-6C81.md)      |
 | - PHASE03    | Clone signs in                          | DONE   | (in FEATURE-6C81.md)      |
 | - PHASE04    | Token scopes and refused tokens         | DONE   | (in FEATURE-6C81.md)      |
+| FEATURE-5CD8 | Release 3.0.0                           | DONE   | docs/plan/FEATURE-5CD8.md |
