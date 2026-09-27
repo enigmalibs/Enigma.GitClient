@@ -180,12 +180,8 @@ public sealed class AppWindows : IAppWindows
 
         if (failure is not null)
         {
-            await _services.GetRequiredService<IInfoBarService>().ShowAsync(bar =>
-            {
-                bar.Title = "Cannot open that folder";
-                bar.Message = $"{path}: {failure}";
-                bar.Severity = InfoBarSeverity.Warning;
-            }).ConfigureAwait(true);
+            _services.GetRequiredService<IInfoBarService>()
+                .Notify("Cannot open that folder", $"{path}: {failure}", InfoBarSeverity.Warning);
         }
     }
 

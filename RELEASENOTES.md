@@ -1,5 +1,49 @@
 # Release notes
 
+## 1.1.0 — 2026-09-27
+
+A minor release: notifications that no longer get in the way, and diff colours you can see at a
+glance in both themes. Nothing is removed, and nothing changes in how the settings, the repositories
+list or the tokens are stored.
+
+### Notifications
+
+- A notification never holds anything up. Before, a refresh, the end of a busy state, or the result
+  of a merge, a pull or a commit waited until its message had been closed; now the work carries on
+  with the message on screen.
+- A success or an informational message closes itself after 5 seconds. A warning or an error stays
+  until you close it, as before.
+- A history that could not be read no longer stays busy behind its error: "load more" and the
+  automatic refresh work again at once.
+
+### The diff
+
+- Pastel colours for what changed, in both themes: added and removed lines stand out from the
+  background, the changed words stand out from their line, and the code stays readable on all of
+  them.
+- The status chips beside each changed file — A, M, D, R, U — are pastel with a dark letter that
+  reads in both themes.
+
+### Working with the repository
+
+- The branches, tags and remotes dialogs use the control library's own darker dialog surface. They
+  look as they did in 1.0.
+
+### Dependencies
+
+- Enigma.Avalonia.Desktop **1.0.0 → 1.1.0**, for the timed notifications and the secondary dialog
+  surface.
+- The Avalonia set (Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and
+  Avalonia.Headless and Avalonia.Skia in the tests) is held back at **12.1.1**, the set
+  Enigma.Avalonia.Desktop 1.1.0 is built against. 12.1.3 is out; the set moves as a whole, as a
+  decision of its own.
+- No other package had an update.
+
+### Version
+
+- **1.1.0** — a minor release under Semantic Versioning: new, backward-compatible behaviour, nothing
+  removed or changed incompatibly.
+
 ## 1.0.0 — 2026-09-26
 
 The first release: a cross-platform git client built around two things, the commit graph and the

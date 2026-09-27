@@ -211,6 +211,9 @@ public sealed class IdentityPageTests
             RecordedNotification note = Assert.Single(services.InfoBar.Shown);
             Assert.Equal("Global identity saved", note.Title);
             Assert.Equal(InfoBarSeverity.Success, note.Severity);
+
+            // A success needs no answer, so it closes itself.
+            Assert.Equal(TimeSpan.FromSeconds(5), note.DisplayDuration);
         });
     }
 

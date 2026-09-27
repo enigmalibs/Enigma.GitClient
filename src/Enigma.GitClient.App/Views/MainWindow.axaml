@@ -210,21 +210,17 @@
       tool dialog is still there when the question has been answered. Sized from the window in
       code-behind, because a list needs a bounded height to scroll in.
 
-      Drawn on the window's own background rather than on the library's dialog surface: these are
-      the window's pages, laid out for that background, with lighter strips — their headers, the
-      merge band, the group headings — standing out from it. The library's template paints its
-      card with the EnigmaSurfaceHighBrush resource rather than with the control's Background, so
-      the lever is that resource, redefined for this host alone; the questions asked on HostDialog
-      keep the library's look. A brush whose colour is a DynamicResource, as the library's own
-      brushes are, so it follows a theme switch.
+      On the library's secondary dialog surface rather than its default one: these are the
+      window's pages, laid out for the window's background, with lighter strips — their headers,
+      the merge band, the group headings — standing out from it, and the secondary class paints the
+      card in that darker tone (EnigmaDialogSecondaryBackgroundBrush), following a theme switch.
+      The class is set on this host alone, so the questions asked on HostDialog keep the default
+      surface.
     -->
     <contentDialog:ContentDialog x:Name="ToolDialog"
+                                 Classes="secondary"
                                  DialogMinWidth="640"
-                                 DialogMaxWidth="1100">
-      <contentDialog:ContentDialog.Resources>
-        <SolidColorBrush x:Key="EnigmaSurfaceHighBrush" Color="{DynamicResource EnigmaBackgroundColor}" />
-      </contentDialog:ContentDialog.Resources>
-    </contentDialog:ContentDialog>
+                                 DialogMaxWidth="1100" />
 
     <!-- The three overlay hosts must be the last children of the root panel. At most 640 high, as
          Enigma.MarkdownEditor's: the About dialog's icon, build and credits fit without scrolling. -->

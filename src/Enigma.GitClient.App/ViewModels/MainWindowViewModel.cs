@@ -110,7 +110,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ResolveConflictsCommand = new RelayCommand(() => Shell.GoTo(ShellPage.Conflicts), () => IsMergeInProgress);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
         CloseRepositoryCommand = new RelayCommand(OnCloseRepository);
-        NewWindowCommand = new AsyncRelayCommand(OnNewWindowAsync);
+        NewWindowCommand = new RelayCommand(OnNewWindow);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
     }
@@ -222,7 +222,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Gets the command that starts another instance on its start window, for working on another
     /// repository beside this one.
     /// </summary>
-    public AsyncRelayCommand NewWindowCommand { get; }
+    public RelayCommand NewWindowCommand { get; }
 
     /// <summary>Gets the command that fetches from every remote.</summary>
     public AsyncRelayCommand FetchCommand { get; }
@@ -403,16 +403,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         _windows.ShowStart();
     }
 
-    private async Task OnNewWindowAsync()
+    private void OnNewWindow()
     {
         if (!_launcher.Launch())
         {
-            await _infoBar.ShowAsync(bar =>
-            {
-                bar.Title = "No new window";
-                bar.Message = "Another instance of Enigma.GitClient could not be started.";
-                bar.Severity = InfoBarSeverity.Error;
-            }).ConfigureAwait(true);
+            _infoBar.Notify(
+                "No new window",
+                "Another instance of Enigma.GitClient could not be started.",
+                InfoBarSeverity.Error);
         }
     }
 

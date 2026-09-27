@@ -1197,8 +1197,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         if (saved)
         {
-            await ReportAsync("File resolved", $"{path} is staged for the merge commit.", InfoBarSeverity.Success)
-                .ConfigureAwait(true);
+            Report("File resolved", $"{path} is staged for the merge commit.", InfoBarSeverity.Success);
         }
     }
 
@@ -1219,10 +1218,10 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         if (kept)
         {
-            await ReportAsync(
+            Report(
                 "File resolved",
                 $"{path} keeps {(side == ConflictSide.Ours ? "our" : "their")} version.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
         }
     }
 
@@ -1250,10 +1249,10 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         if (done)
         {
-            await ReportAsync(
+            Report(
                 "Conflicts resolved",
                 $"{Count(resolved.Count)} now keep{(resolved.Count == 1 ? "s" : string.Empty)} {which}.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
         }
     }
 
@@ -1313,14 +1312,13 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         }
         catch (GitOperationRefusedException refusal)
         {
-            await ReportAsync(failureTitle, refusal.Message, InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            await ReportAsync(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -1348,13 +1346,8 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         return result == DialogResult.Primary;
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 
     private static string Count(int files)
         => files == 1 ? "1 file" : $"{files.ToString(CultureInfo.CurrentCulture)} files";

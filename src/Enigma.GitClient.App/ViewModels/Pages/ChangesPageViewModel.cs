@@ -748,10 +748,10 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         Message = string.Empty;
         Amend = false;
 
-        await ReportAsync(
+        Report(
             Amend ? "Commit amended" : "Committed",
             $"{(sha.Length >= 7 ? sha[..7] : sha)} · {FirstLine(request.Message)}",
-            InfoBarSeverity.Success).ConfigureAwait(true);
+            InfoBarSeverity.Success);
     }
 
     // ---------------------------------------------------------------- plumbing
@@ -962,14 +962,13 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
         catch (GitOperationRefusedException refusal)
         {
-            await ReportAsync(failureTitle, refusal.Message, InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            await ReportAsync(failureTitle, GitFirstLine(exception.StandardError), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report(failureTitle, GitFirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -990,11 +989,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         return trimmed.Length == 0 ? "git reported no reason." : FirstLine(trimmed);
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }

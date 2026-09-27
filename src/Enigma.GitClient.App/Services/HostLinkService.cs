@@ -193,7 +193,7 @@ public sealed class HostLinkService : IHostLinkService
             return true;
         }
 
-        await ReportAsync("Could not open the link", url).ConfigureAwait(true);
+        Report("Could not open the link", url);
 
         return false;
     }
@@ -207,9 +207,9 @@ public sealed class HostLinkService : IHostLinkService
 
         if (_match is null)
         {
-            await ReportAsync(
+            Report(
                 "No host to open this on",
-                "This repository's remote is not on a host this client recognises.").ConfigureAwait(true);
+                "This repository's remote is not on a host this client recognises.");
 
             return false;
         }
@@ -238,11 +238,6 @@ public sealed class HostLinkService : IHostLinkService
         }
     }
 
-    private Task ReportAsync(string title, string message)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = InfoBarSeverity.Warning;
-        });
+    private void Report(string title, string message)
+        => _infoBar.Notify(title, message, InfoBarSeverity.Warning);
 }
