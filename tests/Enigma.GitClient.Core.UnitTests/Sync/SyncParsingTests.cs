@@ -120,6 +120,48 @@ public sealed class SyncParsingTests
     }
 
     [Fact]
+    public void Map_RefusedCredentialsWithoutAnIntegration_PointAtTheProfilesPageAndGitsOwnSetUp()
+    {
+        SyncFailure failure = SyncErrorMapper.Map("fatal: Authentication failed for 'https://github.com/ada/engine.git/'");
+
+        Assert.Equal(SyncErrorMapper.RefusedCredentialsMessage, failure.Message);
+        Assert.Contains("Connect an account for this host", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("SSH key", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Map_ARefusedIntegrationToken_SaysSo_WithTheScopesAPushNeeds()
+    {
+        SyncFailure failure = SyncErrorMapper.Map(
+            "remote: Invalid username or token.\nfatal: Authentication failed for 'https://github.com/ada/engine.git/'",
+            usedHostToken: true);
+
+        Assert.Equal(SyncFailureKind.Authentication, failure.Kind);
+        Assert.Equal(SyncErrorMapper.RefusedTokenMessage, failure.Message);
+        Assert.Contains("profile's token", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Contents: read and write", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("write_repository", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Code: Read & write", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("fatal: unable to access 'https://github.com/ada/engine.git/': The requested URL returned error: 403")]
+    [InlineData("fatal: unable to access 'https://gitlab.com/ada/engine.git/': The requested URL returned error: 401")]
+    [InlineData("remote: Permission to ada/engine.git denied to ada.\nfatal: unable to access 'https://github.com/ada/engine.git/': The requested URL returned error: 403")]
+    public void Map_A401OrA403_IsAnAuthenticationFailure_NotANetworkOne(string standardError)
+        => Assert.Equal(SyncFailureKind.Authentication, SyncErrorMapper.Map(standardError, usedHostToken: true).Kind);
+
+    [Fact]
+    public void Map_AnUnreachableHost_StaysANetworkFailure_EvenWithAToken()
+    {
+        SyncFailure failure = SyncErrorMapper.Map(
+            "fatal: unable to access 'https://github.com/ada/engine.git/': Could not resolve host: github.com",
+            usedHostToken: true);
+
+        Assert.Equal(SyncFailureKind.Network, failure.Kind);
+    }
+
+    [Fact]
     public void Map_RecognisesAMissingCredentialRatherThanHangingOnTheInvisiblePrompt()
     {
         SyncFailure failure = SyncErrorMapper.Map(

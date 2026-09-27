@@ -381,7 +381,10 @@ public sealed class SyncService : ISyncService
 
         if (!result.IsSuccess)
         {
-            throw new SyncException(SyncErrorMapper.Map(result.StandardError, result.StandardOutput));
+            throw new SyncException(SyncErrorMapper.Map(
+                result.StandardError,
+                result.StandardOutput,
+                usedHostToken: !credentials.IsEmpty));
         }
     }
 

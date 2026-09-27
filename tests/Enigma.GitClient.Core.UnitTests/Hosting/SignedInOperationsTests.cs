@@ -86,6 +86,23 @@ public sealed class SignedInOperationsTests
     }
 
     [Fact]
+    public async Task ARefusedLogin_IsExplainedAsTheProfilesToken()
+    {
+        _runner.Answer = new GitResult(128, string.Empty, "fatal: Authentication failed for 'https://github.com/ada/engine.git/'", TimeSpan.Zero);
+
+        SyncException refused = await Assert.ThrowsAsync<SyncException>(
+            () => Sync().PushAsync(Repository, new PushRequest(), cancellationToken: TestContext.Current.CancellationToken));
+
+        _credentials.Answer = GitCredentials.None;
+
+        SyncException unsigned = await Assert.ThrowsAsync<SyncException>(
+            () => Sync().PushAsync(Repository, new PushRequest(), cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(SyncErrorMapper.RefusedTokenMessage, refused.Failure.Message);
+        Assert.Equal(SyncErrorMapper.RefusedCredentialsMessage, unsigned.Failure.Message);
+    }
+
+    [Fact]
     public async Task PushingAndDeletingATagOnARemote_SignIn()
     {
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
@@ -138,14 +155,14 @@ public sealed class SignedInOperationsTests
     /// <summary>Records every command and succeeds without running anything.</summary>
     private sealed class RecordingRunner : IGitProcessRunner
     {
-        private static readonly GitResult Success = new(0, string.Empty, string.Empty, TimeSpan.Zero);
+        public GitResult Answer { get; set; } = new(0, string.Empty, string.Empty, TimeSpan.Zero);
 
         public List<GitCommand> Commands { get; } = [];
 
         public Task<GitResult> RunAsync(GitCommand command, bool throwOnError = true, CancellationToken cancellationToken = default)
         {
             Commands.Add(command);
-            return Task.FromResult(Success);
+            return Task.FromResult(Answer);
         }
 
         public Task<GitResult> RunStreamingAsync(
@@ -155,7 +172,7 @@ public sealed class SignedInOperationsTests
             CancellationToken cancellationToken = default)
         {
             Commands.Add(command);
-            return Task.FromResult(Success);
+            return Task.FromResult(Answer);
         }
 
         public Task<GitRawResult> RunRawAsync(GitCommand command, bool throwOnError = true, CancellationToken cancellationToken = default)

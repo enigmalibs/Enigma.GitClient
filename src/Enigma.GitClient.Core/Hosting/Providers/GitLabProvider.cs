@@ -51,8 +51,8 @@ public sealed class GitLabProvider : IRepositoryHostProvider
 
     /// <inheritdoc />
     public string TokenScopeHint =>
-        "A personal access token with the 'read_api' and 'read_repository' scopes. No issue or "
-        + "merge-request scope is ever requested.";
+        "A personal access token with the 'read_api' and 'read_repository' scopes — 'write_repository' "
+        + "instead of the latter for the client to push. No issue or merge-request scope is ever requested.";
 
     /// <inheritdoc />
     /// <remarks>GitLab pairs <c>oauth2</c> with a token used as a git password, and accepts it for a personal one.</remarks>

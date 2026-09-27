@@ -45,6 +45,7 @@ public sealed class AzureDevOpsProviderTests
         Assert.Equal("Azure DevOps", provider.DisplayName);
         Assert.Equal("pat", provider.GitUserName);
         Assert.Contains("Code: Read", provider.TokenScopeHint, StringComparison.Ordinal);
+        Assert.Contains("Code: Read & write", provider.TokenScopeHint, StringComparison.Ordinal);
         Assert.Contains("No work-item or pull-request scope", provider.TokenScopeHint, StringComparison.Ordinal);
     }
 

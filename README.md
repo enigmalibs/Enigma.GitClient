@@ -77,13 +77,17 @@ These are deliberate, permanent exclusions — not gaps waiting to be filled:
 
 Integrations are connected under a profile, with **Connect an account** on the Profiles page, so
 each profile has accounts of its own. Each one signs in with a personal access token you create on
-the host itself, and asks for the smallest scope that can list and clone repositories:
+the host itself, and asks for the smallest scope that lists and clones repositories — plus write
+access to the code if you push with it:
 
-| Host | Scope to grant | Where to put the instance URL |
-|------|----------------|-------------------------------|
-| GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `https://github.com`, or your Enterprise Server's own address |
-| GitLab | `read_api` and `read_repository` | `https://gitlab.com`, or your instance's own address |
-| Azure DevOps | **Code: Read** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+| Host | Scope to grant | To push as well | Where to put the instance URL |
+|------|----------------|-----------------|-------------------------------|
+| GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `repo`, or **Contents: Read and write** | `https://github.com`, or your Enterprise Server's own address |
+| GitLab | `read_api` and `read_repository` | `write_repository` instead of `read_repository` | `https://gitlab.com`, or your instance's own address |
+| Azure DevOps | **Code: Read** | **Code: Read & write** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+
+When the host refuses the token — it expired, or cannot push — the error says so and names the scope
+a push needs; disconnect the account on the Profiles page and connect it again with a new token.
 
 **A profile pushes only where one of its integrations leads.** When a repository's commits are made
 as a profile — its name and email, as git resolves them there — a push goes ahead only if that
