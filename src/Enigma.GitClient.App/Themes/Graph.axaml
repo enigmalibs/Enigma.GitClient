@@ -34,24 +34,32 @@
       <Color x:Key="RefBadgeStashColor">#33373D</Color>
       <Color x:Key="RefBadgeForegroundColor">#E6E8EC</Color>
 
-      <Color x:Key="DiffStatusAddedColor">#2E7D46</Color>
-      <Color x:Key="DiffStatusModifiedColor">#2A5A9E</Color>
-      <Color x:Key="DiffStatusDeletedColor">#9E3B32</Color>
-      <Color x:Key="DiffStatusRenamedColor">#6B4A9E</Color>
-      <Color x:Key="DiffStatusConflictedColor">#9E6B1E</Color>
-      <Color x:Key="DiffStatusForegroundColor">#F2F4F8</Color>
+      <!--
+        The status chips beside a changed file: a pastel fill per kind — mint, sky, rose, lavender,
+        apricot — and one dark letter that reads on every one of them, in both variants.
+      -->
+      <Color x:Key="DiffStatusAddedColor">#9CDAAB</Color>
+      <Color x:Key="DiffStatusModifiedColor">#9AD2FE</Color>
+      <Color x:Key="DiffStatusDeletedColor">#FEBBB8</Color>
+      <Color x:Key="DiffStatusRenamedColor">#D0C4FE</Color>
+      <Color x:Key="DiffStatusConflictedColor">#ECC68D</Color>
+      <Color x:Key="DiffStatusForegroundColor">#1E1F22</Color>
 
       <!--
-        The diff viewer's tints. A line's own tint stays quiet enough to read code through; the
-        word-level tint sitting on top of it is what the eye lands on, so the two differ by enough
-        to be told apart at a glance without either fighting the text.
+        The diff viewer's tints, from the chips' pastel family. A line's own tint is a wash that
+        stands out from the window's background yet stays quiet enough to read code through; the
+        word-level tint on top of it is what the eye lands on, so the two differ by enough to be
+        told apart at a glance. Both keep the diff text at 4.5:1 or better, which is what holds the
+        dark variant's washes as dark as they are. The + and − markers are the pastel itself here;
+        in the light variant they are the deep shade of the same hue, because a glyph on a tinted
+        row needs a contrast that a fill does not.
       -->
-      <Color x:Key="DiffAddedLineColor">#0C1F13</Color>
-      <Color x:Key="DiffRemovedLineColor">#2C1514</Color>
-      <Color x:Key="DiffAddedWordColor">#205230</Color>
-      <Color x:Key="DiffRemovedWordColor">#83352B</Color>
-      <Color x:Key="DiffAddedMarkerColor">#57C77E</Color>
-      <Color x:Key="DiffRemovedMarkerColor">#F2725B</Color>
+      <Color x:Key="DiffAddedLineColor">#11301B</Color>
+      <Color x:Key="DiffRemovedLineColor">#441F1F</Color>
+      <Color x:Key="DiffAddedWordColor">#285335</Color>
+      <Color x:Key="DiffRemovedWordColor">#703B3A</Color>
+      <Color x:Key="DiffAddedMarkerColor">#95DCA7</Color>
+      <Color x:Key="DiffRemovedMarkerColor">#FEBBB8</Color>
       <Color x:Key="DiffGutterColor">#1A1B1E</Color>
       <Color x:Key="DiffGutterForegroundColor">#6B7078</Color>
       <Color x:Key="DiffHunkBandColor">#232A38</Color>
@@ -124,19 +132,19 @@
       <Color x:Key="RefBadgeStashColor">#E4E7EB</Color>
       <Color x:Key="RefBadgeForegroundColor">#1A1D21</Color>
 
-      <Color x:Key="DiffStatusAddedColor">#2E9E56</Color>
-      <Color x:Key="DiffStatusModifiedColor">#3574F0</Color>
-      <Color x:Key="DiffStatusDeletedColor">#D14328</Color>
-      <Color x:Key="DiffStatusRenamedColor">#8E46AC</Color>
-      <Color x:Key="DiffStatusConflictedColor">#C2801B</Color>
-      <Color x:Key="DiffStatusForegroundColor">#FFFFFF</Color>
+      <Color x:Key="DiffStatusAddedColor">#83C594</Color>
+      <Color x:Key="DiffStatusModifiedColor">#6DBEF5</Color>
+      <Color x:Key="DiffStatusDeletedColor">#F79E9C</Color>
+      <Color x:Key="DiffStatusRenamedColor">#BAADEF</Color>
+      <Color x:Key="DiffStatusConflictedColor">#D6B075</Color>
+      <Color x:Key="DiffStatusForegroundColor">#1E1F22</Color>
 
-      <Color x:Key="DiffAddedLineColor">#E6F8EA</Color>
-      <Color x:Key="DiffRemovedLineColor">#FDEBE8</Color>
-      <Color x:Key="DiffAddedWordColor">#86D29D</Color>
-      <Color x:Key="DiffRemovedWordColor">#F59D8E</Color>
-      <Color x:Key="DiffAddedMarkerColor">#1E7A3C</Color>
-      <Color x:Key="DiffRemovedMarkerColor">#C03A22</Color>
+      <Color x:Key="DiffAddedLineColor">#CDECD3</Color>
+      <Color x:Key="DiffRemovedLineColor">#FFDCDA</Color>
+      <Color x:Key="DiffAddedWordColor">#85C394</Color>
+      <Color x:Key="DiffRemovedWordColor">#F29F9C</Color>
+      <Color x:Key="DiffAddedMarkerColor">#007037</Color>
+      <Color x:Key="DiffRemovedMarkerColor">#A63D42</Color>
       <Color x:Key="DiffGutterColor">#F2F4F7</Color>
       <Color x:Key="DiffGutterForegroundColor">#8A9099</Color>
       <Color x:Key="DiffHunkBandColor">#E6EDF8</Color>

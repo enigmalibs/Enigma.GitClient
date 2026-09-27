@@ -15,6 +15,7 @@ using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Media;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Controls;
 using Enigma.Icons.Avalonia;
 using Enigma.GitClient.App.Formatting;
@@ -23,6 +24,7 @@ using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -286,6 +288,38 @@ public sealed class HistoryPageTests
 
             Assert.True(busyInBetween);
             Assert.False(page.IsBusy);
+        });
+    }
+
+    [Fact]
+    public void Page_AFailedLoadIsOverWhileItsErrorIsStillOpen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true, configure: collection =>
+            {
+                collection.RemoveAll<ICommitLogReader>();
+                collection.AddSingleton<ICommitLogReader, FailingCommitLogReader>();
+            });
+
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            // The error stays until it is closed, as the real bar's does. The load must not wait for
+            // that: a page left busy behind an unread error refuses "load more" and every refresh.
+            services.InfoBar.HoldsOpen = true;
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+
+            await page.ReloadAsync().WaitAsync(Patience);
+
+            Assert.False(page.IsBusy);
+            Assert.True(services.InfoBar.IsOpen);
+
+            RecordedNotification note = services.InfoBar.Last!;
+            Assert.Equal("The history could not be read", note.Title);
+            Assert.Equal("fatal: bad object HEAD", note.Message);
+            Assert.Equal(InfoBarSeverity.Error, note.Severity);
+            Assert.Null(note.DisplayDuration);
         });
     }
 
@@ -2079,6 +2113,34 @@ public sealed class HistoryPageTests
         Assert.Empty(page.Rows);
 
         return page;
+    }
+
+    /// <summary>
+    /// A commit log git cannot read, as a repository with a broken object store gives.
+    /// </summary>
+    private sealed class FailingCommitLogReader : ICommitLogReader
+    {
+        public Task<CommitLogPage> GetPageAsync(
+            RepositoryHandle repository,
+            CommitLogQuery query,
+            CancellationToken cancellationToken = default)
+            => throw new GitCommandException(
+                new GitCommand(repository.WorkTreePath, ["log"]),
+                128,
+                "fatal: bad object HEAD\n",
+                string.Empty);
+
+        public Task<GitCommit?> GetCommitAsync(
+            RepositoryHandle repository,
+            string revision,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<GitCommit?>(null);
+
+        public Task<int> CountAsync(
+            RepositoryHandle repository,
+            CommitLogQuery query,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
     }
 
     /// <summary>

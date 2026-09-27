@@ -152,3 +152,9 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-B4C0 | A Linux installer                       | DONE   | docs/plan/FEATURE-B4C0.md |
 | FEATURE-2B7B | Release 1.0.0                           | DONE   | docs/plan/FEATURE-2B7B.md |
 | BUG-39CC     | Merge fast-forwards instead of merging  | DONE   | docs/plan/BUG-39CC.md     |
+| FEATURE-A5D3 | Info bars that never block              | DONE   | docs/plan/FEATURE-A5D3.md |
+| - PHASE01    | The helper, in the operations           | DONE   | (in FEATURE-A5D3.md)      |
+| - PHASE02    | Every page on the helper                | DONE   | (in FEATURE-A5D3.md)      |
+| FEATURE-5689 | Tool dialogs on the secondary surface   | DONE   | docs/plan/FEATURE-5689.md |
+| FEATURE-8EBF | Pastel, more visible diff colours       | DONE   | docs/plan/FEATURE-8EBF.md |
+| FEATURE-8F62 | Release 1.1.0                           | DONE   | docs/plan/FEATURE-8F62.md |

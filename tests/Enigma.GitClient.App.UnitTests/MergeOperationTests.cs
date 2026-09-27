@@ -23,6 +23,8 @@ namespace Enigma.GitClient.App.UnitTests;
 [Collection(HeadlessCollection.Name)]
 public sealed class MergeOperationTests
 {
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+
     private readonly HeadlessAvaloniaFixture _fixture;
 
     public MergeOperationTests(HeadlessAvaloniaFixture fixture) => _fixture = fixture;
@@ -360,6 +362,62 @@ public sealed class MergeOperationTests
 
             Assert.True(await merges.ContinueAsync("Resolve the two versions"));
             Assert.Contains(services.InfoBar.Shown, note => note.Title == "Merge committed");
+        });
+    }
+
+    // ---------------------------------------------------------------- reports never block
+
+    [Fact]
+    public void AMerge_ReturnsWhileItsReportIsStillOpen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await BuildCleanBranchAsync(repository);
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            // The bar stays open until it is closed, as the real one does: an operation that waited
+            // for it would never hand its result back to the page that refreshes on it.
+            services.InfoBar.HoldsOpen = true;
+
+            MergeOutcome outcome = await services.Get<IMergeOperations>().MergeAsync("theirs").WaitAsync(Patience);
+
+            Assert.Equal(MergeResultKind.Merged, outcome.Kind);
+            Assert.True(services.InfoBar.IsOpen);
+
+            RecordedNotification note = services.InfoBar.Last!;
+            Assert.Equal("Merged", note.Title);
+            Assert.Equal(TimeSpan.FromSeconds(5), note.DisplayDuration);
+        });
+    }
+
+    [Fact]
+    public void AnAbandonedMerge_ReturnsWhileItsReportIsStillOpen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await BuildConflictingBranchAsync(repository);
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            services.InfoBar.HoldsOpen = true;
+            IMergeOperations merges = services.Get<IMergeOperations>();
+
+            await merges.MergeAsync("theirs").WaitAsync(Patience);
+
+            // The conflict is a warning: it stays until it is closed, and still holds nothing up.
+            Assert.Null(services.InfoBar.Last!.DisplayDuration);
+
+            services.Dialogs.Result = DialogResult.Primary;
+
+            Assert.True(await merges.AbortAsync().WaitAsync(Patience));
+            Assert.True(services.InfoBar.IsOpen);
+            Assert.Equal("Merge abandoned", services.InfoBar.Last!.Title);
+            Assert.Equal(TimeSpan.FromSeconds(5), services.InfoBar.Last.DisplayDuration);
         });
     }
 

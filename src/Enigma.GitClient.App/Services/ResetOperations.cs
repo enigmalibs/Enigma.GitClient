@@ -101,7 +101,7 @@ public sealed class ResetOperations : IResetOperations
 
         if (Refuse(_context.Head, branch) is { } refusal)
         {
-            await ReportAsync($"Could not reset \"{branch}\"", refusal, InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report($"Could not reset \"{branch}\"", refusal, InfoBarSeverity.Warning);
             return false;
         }
 
@@ -116,28 +116,27 @@ public sealed class ResetOperations : IResetOperations
                 .RunExclusiveAsync((handle, token) => _reset.ResetAsync(handle, sha, mode, token))
                 .ConfigureAwait(true);
 
-            await ReportAsync(
+            Report(
                 $"\"{branch}\" reset to {target}",
                 mode == ResetMode.Soft
                     ? "Every change is kept, and staged: commit it again whenever you are ready."
                     : "The tracked files are as that commit left them.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
 
             return true;
         }
         catch (GitOperationRefusedException exception)
         {
-            await ReportAsync($"Could not reset \"{branch}\"", exception.Message, InfoBarSeverity.Warning)
-                .ConfigureAwait(true);
+            Report($"Could not reset \"{branch}\"", exception.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Resetting {Branch} to {Revision} failed", branch, sha);
 
-            await ReportAsync(
+            Report(
                 $"Could not reset \"{branch}\"",
                 FirstLine(exception.StandardError),
-                InfoBarSeverity.Error).ConfigureAwait(true);
+                InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -271,11 +270,6 @@ public sealed class ResetOperations : IResetOperations
         return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }

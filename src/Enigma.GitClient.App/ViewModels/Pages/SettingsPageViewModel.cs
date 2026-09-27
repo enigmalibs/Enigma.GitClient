@@ -349,12 +349,10 @@ public sealed class SettingsPageViewModel : PageViewModelBase
 
         await _settings.ResetAsync().ConfigureAwait(true);
 
-        await _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = "Preferences reset";
-            bar.Message = "Everything is back to its default.";
-            bar.Severity = Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Info;
-        }).ConfigureAwait(true);
+        _infoBar.Notify(
+            "Preferences reset",
+            "Everything is back to its default.",
+            Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Info);
     }
 
     /// <summary>

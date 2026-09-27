@@ -219,14 +219,13 @@ public sealed class TagOperations : ITagOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            await ReportAsync(failureTitle, refusal.Message, InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            await ReportAsync(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -250,11 +249,6 @@ public sealed class TagOperations : ITagOperations
         return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }
