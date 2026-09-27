@@ -66,7 +66,7 @@ public sealed class InstanceTests
     [Fact]
     public void OpenInNewWindow_StartsAnotherInstanceOnThatRepositoryAndLeavesThisWindowAlone()
     {
-        _fixture.RunAsync(async () =>
+        _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
@@ -74,7 +74,7 @@ public sealed class InstanceTests
             string path = Path.Combine(services.ConfigurationRoot, "other-repo");
             Directory.CreateDirectory(path);
 
-            await page.OpenInNewWindowCommand.ExecuteAsync(new RecentRepository(path, "other-repo", DateTimeOffset.UtcNow));
+            page.OpenInNewWindowCommand.Execute(new RecentRepository(path, "other-repo", DateTimeOffset.UtcNow));
 
             Assert.Equal([path], services.Launcher.Launched);
             Assert.Empty(services.Windows.Requested);
@@ -85,14 +85,14 @@ public sealed class InstanceTests
     [Fact]
     public void OpenInNewWindow_OnARepositoryThatMoved_SaysSoAndStartsNothing()
     {
-        _fixture.RunAsync(async () =>
+        _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
 
             string gone = Path.Combine(services.ConfigurationRoot, "gone");
 
-            await page.OpenInNewWindowCommand.ExecuteAsync(new RecentRepository(gone, "gone", DateTimeOffset.UtcNow));
+            page.OpenInNewWindowCommand.Execute(new RecentRepository(gone, "gone", DateTimeOffset.UtcNow));
 
             Assert.Empty(services.Launcher.Launched);
             Assert.Equal(InfoBarSeverity.Warning, Assert.Single(services.InfoBar.Shown).Severity);
@@ -102,7 +102,7 @@ public sealed class InstanceTests
     [Fact]
     public void OpenInNewWindow_WhenTheInstanceCannotStart_SaysSo()
     {
-        _fixture.RunAsync(async () =>
+        _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
             services.Launcher.Succeeds = false;
@@ -111,7 +111,7 @@ public sealed class InstanceTests
             string path = Path.Combine(services.ConfigurationRoot, "other-repo");
             Directory.CreateDirectory(path);
 
-            await page.OpenInNewWindowCommand.ExecuteAsync(new RecentRepository(path, "other-repo", DateTimeOffset.UtcNow));
+            page.OpenInNewWindowCommand.Execute(new RecentRepository(path, "other-repo", DateTimeOffset.UtcNow));
 
             Assert.Equal(InfoBarSeverity.Error, Assert.Single(services.InfoBar.Shown).Severity);
         });
@@ -120,12 +120,12 @@ public sealed class InstanceTests
     [Fact]
     public void NewWindow_StartsAnotherInstanceOnItsStartWindow()
     {
-        _fixture.RunAsync(async () =>
+        _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
             MainWindowViewModel shell = services.Get<MainWindowViewModel>();
 
-            await shell.NewWindowCommand.ExecuteAsync(null);
+            shell.NewWindowCommand.Execute(null);
 
             Assert.Equal([null], services.Launcher.Launched);
             Assert.Empty(services.InfoBar.Shown);
@@ -135,12 +135,12 @@ public sealed class InstanceTests
     [Fact]
     public void NewWindow_WhenTheInstanceCannotStart_SaysSo()
     {
-        _fixture.RunAsync(async () =>
+        _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
             services.Launcher.Succeeds = false;
 
-            await services.Get<MainWindowViewModel>().NewWindowCommand.ExecuteAsync(null);
+            services.Get<MainWindowViewModel>().NewWindowCommand.Execute(null);
 
             Assert.Equal("No new window", Assert.Single(services.InfoBar.Shown).Title);
         });

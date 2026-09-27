@@ -97,7 +97,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         CloneCommand = new AsyncRelayCommand(OnCloneAsync, () => IsNotBusy);
         CreateCommand = new AsyncRelayCommand(OnCreateAsync, () => IsNotBusy);
         OpenRecentCommand = new AsyncRelayCommand<RecentRepository>(OnOpenRecentAsync, _ => IsNotBusy);
-        OpenInNewWindowCommand = new AsyncRelayCommand<RecentRepository>(OnOpenInNewWindowAsync);
+        OpenInNewWindowCommand = new RelayCommand<RecentRepository>(OnOpenInNewWindow);
         ForgetRecentCommand = new AsyncRelayCommand<RecentRepository>(OnForgetRecentAsync);
         TogglePinCommand = new AsyncRelayCommand<RecentRepository>(OnTogglePinAsync);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
@@ -129,7 +129,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// Gets the command that opens a repository from the recent list in another instance, leaving
     /// this window as it is.
     /// </summary>
-    public AsyncRelayCommand<RecentRepository> OpenInNewWindowCommand { get; }
+    public RelayCommand<RecentRepository> OpenInNewWindowCommand { get; }
 
     /// <summary>Gets the command that forgets a repository.</summary>
     public AsyncRelayCommand<RecentRepository> ForgetRecentCommand { get; }
@@ -170,8 +170,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         if (!discovery.IsFound)
         {
-            await ReportAsync("Cannot open that folder", discovery.Message, InfoBarSeverity.Warning)
-                .ConfigureAwait(true);
+            Report("Cannot open that folder", discovery.Message, InfoBarSeverity.Warning);
             return false;
         }
 
@@ -213,18 +212,17 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         if (!entry.Exists)
         {
-            await ReportAsync(
-                    "That repository has moved",
-                    $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
-                    InfoBarSeverity.Warning)
-                .ConfigureAwait(true);
+            Report(
+                "That repository has moved",
+                $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
+                InfoBarSeverity.Warning);
             return;
         }
 
         await RunBusyAsync(() => OpenPathAsync(entry.Path)).ConfigureAwait(true);
     }
 
-    private async Task OnOpenInNewWindowAsync(RecentRepository? entry)
+    private void OnOpenInNewWindow(RecentRepository? entry)
     {
         if (entry is null)
         {
@@ -233,21 +231,19 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         if (!entry.Exists)
         {
-            await ReportAsync(
-                    "That repository has moved",
-                    $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
-                    InfoBarSeverity.Warning)
-                .ConfigureAwait(true);
+            Report(
+                "That repository has moved",
+                $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
+                InfoBarSeverity.Warning);
             return;
         }
 
         if (!_launcher.Launch(entry.Path))
         {
-            await ReportAsync(
-                    "No new window",
-                    "Another instance of Enigma.GitClient could not be started.",
-                    InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report(
+                "No new window",
+                "Another instance of Enigma.GitClient could not be started.",
+                InfoBarSeverity.Error);
         }
     }
 
@@ -305,11 +301,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
                 Replace(await _recentStore.TouchAsync(repository.WorkTreePath, repository.Name).ConfigureAwait(true));
 
-                await ReportAsync(
-                        "Repository created",
-                        $"{repository.Name} is ready on branch {model.InitialBranch.Trim()}.",
-                        InfoBarSeverity.Success)
-                    .ConfigureAwait(true);
+                Report(
+                    "Repository created",
+                    $"{repository.Name} is ready on branch {model.InitialBranch.Trim()}.",
+                    InfoBarSeverity.Success);
 
                 _windows.ShowRepository();
                 return true;
@@ -317,8 +312,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             catch (Exception exception) when (exception is GitCommandException or InvalidOperationException or System.IO.IOException)
             {
                 _logger.LogError(exception, "Creating a repository at {Path} failed", model.TargetPath);
-                await ReportAsync("The repository could not be created", exception.Message, InfoBarSeverity.Error)
-                    .ConfigureAwait(true);
+                Report("The repository could not be created", exception.Message, InfoBarSeverity.Error);
                 return false;
             }
         }).ConfigureAwait(true);
@@ -383,22 +377,20 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
             Replace(await _recentStore.TouchAsync(repository.WorkTreePath, repository.Name).ConfigureAwait(true));
 
-            await ReportAsync("Clone finished", $"{repository.Name} is ready.", InfoBarSeverity.Success)
-                .ConfigureAwait(true);
+            Report("Clone finished", $"{repository.Name} is ready.", InfoBarSeverity.Success);
 
             _windows.ShowRepository();
             return true;
         }
         catch (OperationCanceledException)
         {
-            await ReportAsync("Clone cancelled", "Nothing was left behind.", InfoBarSeverity.Info)
-                .ConfigureAwait(true);
+            Report("Clone cancelled", "Nothing was left behind.", InfoBarSeverity.Info);
             return false;
         }
         catch (Exception exception) when (exception is GitCommandException or ArgumentException or InvalidOperationException)
         {
             _logger.LogError(exception, "Cloning {Url} failed", ArgumentRedactor.Redact(request.Url));
-            await ReportAsync("The clone failed", exception.Message, InfoBarSeverity.Error).ConfigureAwait(true);
+            Report("The clone failed", exception.Message, InfoBarSeverity.Error);
             return false;
         }
         finally
@@ -470,13 +462,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 
     private void Replace(IReadOnlyList<RecentRepository> entries)
     {

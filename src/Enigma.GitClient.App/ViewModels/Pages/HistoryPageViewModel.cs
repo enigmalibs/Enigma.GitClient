@@ -836,12 +836,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             _logger.LogError(exception, "Reading the history of {Repository} failed", repository.WorkTreePath);
 
-            await _infoBar.ShowAsync(bar =>
-            {
-                bar.Title = "The history could not be read";
-                bar.Message = exception.StandardError.Trim().Length == 0 ? exception.Message : exception.StandardError.Trim();
-                bar.Severity = InfoBarSeverity.Error;
-            }).ConfigureAwait(true);
+            _infoBar.Notify(
+                "The history could not be read",
+                exception.StandardError.Trim().Length == 0 ? exception.Message : exception.StandardError.Trim(),
+                InfoBarSeverity.Error);
         }
         finally
         {

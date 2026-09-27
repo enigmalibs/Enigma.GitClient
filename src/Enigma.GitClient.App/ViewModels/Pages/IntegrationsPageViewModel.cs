@@ -374,8 +374,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         {
             _logger.LogError(exception, "Reading the connected accounts failed");
 
-            await ReportAsync("Could not read the connected accounts", exception.Message, InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not read the connected accounts", exception.Message, InfoBarSeverity.Error);
 
             accounts = [];
         }
@@ -429,10 +428,10 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
 
             if (token is null)
             {
-                await ReportAsync(
+                Report(
                     "No token for this account",
                     "Disconnect it and connect it again.",
-                    InfoBarSeverity.Warning).ConfigureAwait(true);
+                    InfoBarSeverity.Warning);
 
                 return;
             }
@@ -476,14 +475,13 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         }
         catch (HostRateLimitException exception)
         {
-            await ReportAsync("Rate limited", Describe(exception), InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report("Rate limited", Describe(exception), InfoBarSeverity.Warning);
         }
         catch (HostException exception)
         {
             _logger.LogError(exception, "Listing repositories failed");
 
-            await ReportAsync("Could not list the repositories", exception.Message, InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not list the repositories", exception.Message, InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -495,10 +493,10 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
             // not trust. The host never got to refuse anything, so it is reported separately.
             _logger.LogWarning(exception, "Reaching the host failed");
 
-            await ReportAsync(
+            Report(
                 "Could not reach the host",
                 "Check the instance URL and the network connection.",
-                InfoBarSeverity.Error).ConfigureAwait(true);
+                InfoBarSeverity.Error);
         }
         finally
         {
@@ -648,17 +646,17 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
 
             await _accounts.AddAsync(named, token, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
 
-            await ReportAsync(
+            Report(
                 $"Connected to {provider.DisplayName}",
                 $"Signed in as {identity.UserName}.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
 
             await LoadAccountsAsync().ConfigureAwait(true);
             await _links.RefreshAsync().ConfigureAwait(true);
         }
         catch (HostRateLimitException exception)
         {
-            await ReportAsync("Rate limited", Describe(exception), InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report("Rate limited", Describe(exception), InfoBarSeverity.Warning);
         }
         catch (HostException exception)
         {
@@ -666,8 +664,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
             // habit of carrying the request that failed.
             _logger.LogWarning("Connecting an account to {Host} was refused", provider.DisplayName);
 
-            await ReportAsync($"{provider.DisplayName} refused the token", exception.Message, InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report($"{provider.DisplayName} refused the token", exception.Message, InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -704,8 +701,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
 
         await _accounts.RemoveAsync(row.Account.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
 
-        await ReportAsync("Account disconnected", "Its token has been deleted.", InfoBarSeverity.Info)
-            .ConfigureAwait(true);
+        Report("Account disconnected", "Its token has been deleted.", InfoBarSeverity.Info);
 
         await LoadAccountsAsync().ConfigureAwait(true);
         await _links.RefreshAsync().ConfigureAwait(true);
@@ -752,11 +748,6 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
             ? "1 repository"
             : $"{repositories.ToString(CultureInfo.CurrentCulture)} repositories";
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }
