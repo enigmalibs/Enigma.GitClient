@@ -113,7 +113,7 @@ code).
 
 ## PHASE04 — Integrations inside each profile
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1406-PHASE04.md`
 **Branch:** `feature/feature-1406-phase04-profile-integrations`
 
 ### Steps

@@ -27,9 +27,6 @@ public enum ShellPage
     /// <summary>The profiles — the names and emails git records on a commit — and the global identity.</summary>
     Profiles,
 
-    /// <summary>Hosting integrations.</summary>
-    Integrations,
-
     /// <summary>Preferences.</summary>
     Settings,
 }
@@ -119,7 +116,6 @@ public sealed class ShellNavigation : IShellNavigation
         _conflicts = Build(ShellPage.Conflicts, "Conflicts", PhosphorIcon.GitMerge, typeof(ConflictResolutionPageView), typeof(ConflictResolutionPageViewModel));
 
         Add(navigation.FooterItems, ShellPage.Profiles, "Profiles", PhosphorIcon.IdentificationCard, typeof(ProfilesPageView), typeof(ProfilesPageViewModel));
-        Add(navigation.FooterItems, ShellPage.Integrations, "Integrations", PhosphorIcon.GlobeSimple, typeof(IntegrationsPageView), typeof(IntegrationsPageViewModel));
         Add(navigation.FooterItems, ShellPage.Settings, "Settings", PhosphorIcon.Gear, typeof(SettingsPageView), typeof(SettingsPageViewModel));
     }
 

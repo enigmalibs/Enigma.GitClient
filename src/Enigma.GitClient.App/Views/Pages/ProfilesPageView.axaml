@@ -8,7 +8,11 @@
 
   <UserControl.Styles>
     <!-- A profile's actions are a row's own actions, framed no more than a list row's are. -->
-    <Style Selector="ItemsControl.profiles Button.toolbar">
+    <Style Selector="ItemsControl.profiles Button.toolbar.rowaction">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="7,6" />
+    </Style>
+    <Style Selector="ItemsControl.integrations Button.toolbar.rowaction">
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="7,6" />
     </Style>
@@ -16,53 +20,56 @@
 
   <UserControl.Resources>
 
-    <DataTemplate x:Key="ProfileRow" x:DataType="vm:ProfileRowViewModel">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10" Margin="0,4">
+    <!-- One integration: the account, where it is, and what can be done with it. An earlier one,
+         which belongs to no profile yet, also offers the profiles it can be moved to. -->
+    <DataTemplate x:Key="IntegrationRow" x:DataType="vm:HostAccountRowViewModel">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,2">
 
         <ei:Icon Grid.Column="0"
-                 Kind="UserCircle"
+                 Kind="{Binding Icon}"
                  Classes="row dim"
                  VerticalAlignment="Center" />
 
-        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="{Binding Label}"
-                       VerticalAlignment="Center"
-                       FontWeight="SemiBold"
-                       TextTrimming="CharacterEllipsis"
-                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
-            <Border Classes="pill"
-                    Background="{DynamicResource EnigmaSelectionBrush}"
-                    IsVisible="{Binding IsCurrent}"
-                    ToolTip.Tip="Your global git configuration has this name and email">
-              <TextBlock Text="Current" FontSize="11" Classes="dim" />
-            </Border>
-          </StackPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="{Binding DisplayName}"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
           <TextBlock Classes="faint"
-                     Text="{Binding Summary}"
+                     Text="{Binding Details}"
                      FontSize="11"
                      TextTrimming="CharacterEllipsis" />
         </StackPanel>
 
         <Button Grid.Column="2"
                 Classes="choice"
-                Command="{Binding UseCommand}"
-                CommandParameter="{Binding}"
-                IsVisible="{Binding IsNotCurrent}"
+                IsVisible="{Binding HasMoveTargets}"
                 VerticalAlignment="Center"
-                ToolTip.Tip="Make this name and email your global git identity"
-                AutomationProperties.Name="Use this profile">
-          <TextBlock Text="Use" />
+                ToolTip.Tip="Give this integration to the profile it is for"
+                AutomationProperties.Name="Move to a profile">
+          <TextBlock Text="Move to…" />
+          <Button.Flyout>
+            <MenuFlyout ItemsSource="{Binding MoveTargets}">
+              <MenuFlyout.ItemContainerTheme>
+                <ControlTheme TargetType="MenuItem"
+                              BasedOn="{StaticResource {x:Type MenuItem}}"
+                              x:DataType="vm:AccountMoveTargetViewModel">
+                  <Setter Property="Header" Value="{Binding Header}" />
+                  <Setter Property="Command" Value="{Binding Command}" />
+                  <Setter Property="CommandParameter" Value="{Binding}" />
+                </ControlTheme>
+              </MenuFlyout.ItemContainerTheme>
+            </MenuFlyout>
+          </Button.Flyout>
         </Button>
 
         <Button Grid.Column="3"
-                Classes="toolbar rowaction"
-                Command="{Binding EditCommand}"
+                Classes="choice"
+                Command="{Binding BrowseCommand}"
                 CommandParameter="{Binding}"
                 VerticalAlignment="Center"
-                ToolTip.Tip="Edit this profile"
-                AutomationProperties.Name="Edit this profile">
-          <ei:Icon Kind="PencilSimple" Classes="row" />
+                ToolTip.Tip="List the repositories this account can reach, to open or clone one"
+                AutomationProperties.Name="Browse repositories">
+          <TextBlock Text="Browse repositories" />
         </Button>
 
         <Button Grid.Column="4"
@@ -70,20 +77,109 @@
                 Command="{Binding RemoveCommand}"
                 CommandParameter="{Binding}"
                 VerticalAlignment="Center"
-                ToolTip.Tip="Delete this profile; your git configuration is not changed"
-                AutomationProperties.Name="Delete this profile">
+                ToolTip.Tip="Disconnect this account and delete its token"
+                AutomationProperties.Name="Disconnect this account">
           <ei:Icon Kind="Trash" Classes="row" />
         </Button>
       </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ProfileRow" x:DataType="vm:ProfileRowViewModel">
+      <StackPanel Spacing="6" Margin="0,4">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+
+          <ei:Icon Grid.Column="0"
+                   Kind="UserCircle"
+                   Classes="row dim"
+                   VerticalAlignment="Center" />
+
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Label}"
+                         VerticalAlignment="Center"
+                         FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Border Classes="pill"
+                      Background="{DynamicResource EnigmaSelectionBrush}"
+                      IsVisible="{Binding IsCurrent}"
+                      ToolTip.Tip="Your global git configuration has this name and email">
+                <TextBlock Text="Current" FontSize="11" Classes="dim" />
+              </Border>
+            </StackPanel>
+            <TextBlock Classes="faint"
+                       Text="{Binding Summary}"
+                       FontSize="11"
+                       TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+
+          <Button Grid.Column="2"
+                  Classes="choice"
+                  Command="{Binding UseCommand}"
+                  CommandParameter="{Binding}"
+                  IsVisible="{Binding IsNotCurrent}"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="Make this name and email your global git identity"
+                  AutomationProperties.Name="Use this profile">
+            <TextBlock Text="Use" />
+          </Button>
+
+          <Button Grid.Column="3"
+                  Classes="toolbar rowaction"
+                  Command="{Binding EditCommand}"
+                  CommandParameter="{Binding}"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="Edit this profile"
+                  AutomationProperties.Name="Edit this profile">
+            <ei:Icon Kind="PencilSimple" Classes="row" />
+          </Button>
+
+          <Button Grid.Column="4"
+                  Classes="toolbar rowaction"
+                  Command="{Binding RemoveCommand}"
+                  CommandParameter="{Binding}"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="Delete this profile; your git configuration is not changed"
+                  AutomationProperties.Name="Delete this profile">
+            <ei:Icon Kind="Trash" Classes="row" />
+          </Button>
+        </Grid>
+
+        <!-- The accounts this profile is connected to, indented under its name. -->
+        <StackPanel Margin="34,0,0,0" Spacing="4">
+          <ItemsControl Classes="integrations"
+                        ItemsSource="{Binding Integrations}"
+                        ItemTemplate="{StaticResource IntegrationRow}"
+                        IsVisible="{Binding HasIntegrations}"
+                        AutomationProperties.Name="Integrations of this profile" />
+
+          <TextBlock Text="No integrations."
+                     IsVisible="{Binding !HasIntegrations}"
+                     FontSize="11"
+                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+          <Button Classes="toolbar"
+                  HorizontalAlignment="Left"
+                  Command="{Binding ConnectCommand}"
+                  CommandParameter="{Binding}"
+                  ToolTip.Tip="Connect a GitHub, GitLab or Azure DevOps account to this profile with a personal access token"
+                  AutomationProperties.Name="Connect an account to this profile">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
+              <TextBlock Text="Connect an account" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </StackPanel>
     </DataTemplate>
 
   </UserControl.Resources>
 
   <!--
     Who git says made a commit: the global identity every repository inherits, the profiles that
-    switch it, and — in a repository's window — the identity that repository sets for itself. It is
-    git's own configuration being edited, so each section saves on its own button rather than on
-    every keystroke.
+    switch it — each with the hosting accounts it is connected to — and, in a repository's window, the
+    identity that repository sets for itself. It is git's own configuration being edited, so each
+    section saves on its own button rather than on every keystroke.
   -->
   <DockPanel>
 
@@ -169,7 +265,7 @@
 
         <!-- Profiles -->
         <controls:SettingsCardExpander Header="Profiles"
-                                       Description="Names and emails you commit as, kept here so switching is one click"
+                                       Description="Who you commit as, and the hosting accounts each profile is connected to"
                                        IconData="{ei:IconGeometry UserSwitch}"
                                        IsExpanded="True">
           <StackPanel Spacing="10">
@@ -200,6 +296,26 @@
                           ItemTemplate="{StaticResource ProfileRow}"
                           IsVisible="{Binding HasProfiles}"
                           AutomationProperties.Name="Identity profiles" />
+          </StackPanel>
+        </controls:SettingsCardExpander>
+
+        <!-- Integrations that belong to no profile: only while there are some. -->
+        <controls:SettingsCardExpander Header="Earlier integrations"
+                                       Description="Connected before integrations belonged to a profile. Until one is moved into a profile, no profile uses it"
+                                       IconData="{ei:IconGeometry GlobeSimple}"
+                                       IsExpanded="True"
+                                       IsVisible="{Binding HasEarlierIntegrations}">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Add a profile above to give these integrations one."
+                       IsVisible="{Binding !HasProfiles}"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+
+            <ItemsControl Classes="integrations"
+                          ItemsSource="{Binding EarlierIntegrations}"
+                          ItemTemplate="{StaticResource IntegrationRow}"
+                          AutomationProperties.Name="Earlier integrations" />
           </StackPanel>
         </controls:SettingsCardExpander>
 

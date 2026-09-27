@@ -70,7 +70,7 @@ public sealed class AppWindowsTests
     }
 
     [Fact]
-    public void StartWindow_OffersTheRepositoriesTheProfilesTheIntegrationsAndTheSettingsOnly()
+    public void StartWindow_OffersTheRepositoriesTheProfilesAndTheSettingsOnly()
     {
         _fixture.Run(() =>
         {
@@ -78,7 +78,7 @@ public sealed class AppWindowsTests
             StartWindowViewModel viewModel = services.Get<StartWindowViewModel>();
 
             Assert.Equal(["Repositories"], viewModel.Navigation.Items.Select(item => item.Header));
-            Assert.Equal(["Profiles", "Integrations", "Settings"], viewModel.Navigation.FooterItems.Select(item => item.Header));
+            Assert.Equal(["Profiles", "Settings"], viewModel.Navigation.FooterItems.Select(item => item.Header));
         });
     }
 
@@ -162,7 +162,7 @@ public sealed class AppWindowsTests
                 windows.ShowRepository();
                 Window first = windows.CurrentWindow!;
 
-                // A clone started from the repository window's integrations page asks again.
+                // A clone started from the repository window's profiles page asks again.
                 windows.ShowRepository();
 
                 Assert.Same(first, windows.CurrentWindow);

@@ -13,6 +13,7 @@ using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Hosting;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -584,9 +585,12 @@ public sealed class AutoRefreshTests
             });
 
             IAutoRefreshService service = services.Get<IAutoRefreshService>();
-            IntegrationsPageViewModel page = services.Get<IntegrationsPageViewModel>();
+            await services.Get<IIdentityProfileStore>().SaveAsync(
+                IdentityProfile.Create("Work", new GitIdentity("Ada Lovelace", "ada@work.example")));
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
-            await page.ConnectAsync(new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
+            await page.ConnectAsync(page.Profiles[0], new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
             {
                 InstanceUrl = "https://github.com",
                 Token = "ghp_token",
@@ -601,7 +605,7 @@ public sealed class AutoRefreshTests
             await service.RequestRefreshAsync();
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Single(page.Accounts);
+            Assert.Single(page.Profiles[0].Integrations);
             Assert.Empty(provider.Queries);
         });
     }
