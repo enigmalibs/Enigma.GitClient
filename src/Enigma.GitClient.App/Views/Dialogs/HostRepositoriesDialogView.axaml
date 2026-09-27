@@ -1,0 +1,142 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.App.Controls"
+             xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.App.Views.Dialogs.HostRepositoriesDialogView"
+             x:DataType="vm:HostRepositoriesDialogViewModel"
+             Width="760"
+             Height="480">
+
+  <UserControl.Resources>
+
+    <DataTemplate x:Key="RepositoryRow" x:DataType="vm:HostRepositoryRowViewModel">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10" Margin="0,4">
+
+        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="faint"
+                       Text="{Binding Owner}"
+                       IsVisible="{Binding HasOwner}"
+                       VerticalAlignment="Center"
+                       FontSize="12" />
+            <TextBlock Text="{Binding Name}"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            <Border Classes="pill"
+                    Background="{DynamicResource EnigmaSelectionBrush}"
+                    IsVisible="{Binding IsPrivate}">
+              <TextBlock Text="private"
+                         FontSize="11"
+                         Classes="dim" />
+            </Border>
+          </StackPanel>
+
+          <TextBlock Classes="faint"
+                     Text="{Binding Description}"
+                     IsVisible="{Binding HasDescription}"
+                     FontSize="11"
+                     MaxWidth="480"
+                     HorizontalAlignment="Left"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="1"
+                   Classes="faint"
+                   Text="{Binding LastPushed}"
+                   IsVisible="{Binding HasLastPushed}"
+                   VerticalAlignment="Center"
+                   FontSize="11" />
+
+        <Button Grid.Column="2"
+                Classes="toolbar rowaction"
+                Command="{Binding OpenCommand}"
+                CommandParameter="{Binding}"
+                ToolTip.Tip="Open this repository on its host"
+                AutomationProperties.Name="Open on the host">
+          <ei:Icon Kind="ArrowSquareOut" Classes="row" />
+        </Button>
+
+        <Button Grid.Column="3"
+                Classes="choice"
+                Command="{Binding CloneCommand}"
+                CommandParameter="{Binding}"
+                ToolTip.Tip="Close this list and clone this repository"
+                AutomationProperties.Name="Clone this repository">
+          <TextBlock Text="Clone" />
+        </Button>
+      </Grid>
+    </DataTemplate>
+
+  </UserControl.Resources>
+
+  <!--
+    What one connected account can reach: filtered here, asked of the host by visibility, and opened
+    or cloned from its row. Clone closes the dialog first, so the clone's progress has the window.
+  -->
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+      <TextBlock Text="{Binding Title}"
+                 FontSize="15"
+                 FontWeight="SemiBold"
+                 TextTrimming="CharacterEllipsis"
+                 Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+
+        <TextBox Grid.Column="0"
+                 Text="{Binding Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="Filter these repositories"
+                 AutomationProperties.Name="Filter repositories" />
+
+        <!-- Which repositories the host is asked for, rather than a filter over what was already
+             fetched: a private-only list is a different request. -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsAllVisible, Mode=OneWay}"
+                        Command="{Binding ShowAllCommand}"
+                        ToolTip.Tip="Everything this account can see"
+                        AutomationProperties.Name="All repositories">
+            <TextBlock Text="All" FontSize="12" />
+          </ToggleButton>
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsPublicOnly, Mode=OneWay}"
+                        Command="{Binding ShowPublicCommand}"
+                        ToolTip.Tip="Only public repositories"
+                        AutomationProperties.Name="Public repositories">
+            <TextBlock Text="Public" FontSize="12" />
+          </ToggleButton>
+          <ToggleButton Classes="segment"
+                        IsChecked="{Binding IsPrivateOnly, Mode=OneWay}"
+                        Command="{Binding ShowPrivateCommand}"
+                        ToolTip.Tip="Only private repositories"
+                        AutomationProperties.Name="Private repositories">
+            <TextBlock Text="Private" FontSize="12" />
+          </ToggleButton>
+        </StackPanel>
+      </Grid>
+
+      <TextBlock Text="{Binding Summary}"
+                 FontSize="11"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    </StackPanel>
+
+    <Grid>
+      <controls:EmptyState IconKind="Folders"
+                           Title="No repositories"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding !HasRepositories}" />
+
+      <ListBox ItemsSource="{Binding Repositories}"
+               ItemTemplate="{StaticResource RepositoryRow}"
+               IsVisible="{Binding HasRepositories}"
+               Background="Transparent"
+               BorderThickness="0"
+               AutomationProperties.Name="Repositories on the host" />
+    </Grid>
+  </DockPanel>
+</UserControl>

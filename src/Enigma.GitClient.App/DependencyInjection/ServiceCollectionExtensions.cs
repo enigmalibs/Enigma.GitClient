@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IMergeOperations, MergeOperations>();
             services.AddSingleton<IBranchDropOperations, BranchDropOperations>();
             services.AddSingleton<IHostLinkService, HostLinkService>();
+            services.AddSingleton<IHostRepositoryBrowser, HostRepositoryBrowser>();
 
             services.AddTransient<StartWindow>();
             services.AddSingleton<StartWindowViewModel>();
@@ -116,6 +117,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
             services.AddTransient<AddHostAccountDialogView>();
+            services.AddTransient<HostRepositoriesDialogView>();
             services.AddTransient<IdentityProfileDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
