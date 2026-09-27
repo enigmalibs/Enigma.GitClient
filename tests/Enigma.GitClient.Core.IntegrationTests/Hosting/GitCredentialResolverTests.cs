@@ -126,6 +126,56 @@ public sealed class GitCredentialResolverTests : IAsyncLifetime
         Assert.Same(GitCredentials.None, await Resolver.ForRepositoryAsync(_handle, Cancellation));
     }
 
+    // ---------------------------------------------------------------- clone
+
+    [Fact]
+    public async Task AClonePickedFromAnIntegration_SignsInWithIt_WhateverTheIdentity()
+    {
+        IdentityProfile other = await AddProfileAsync(new GitIdentity("Someone Else", "someone@example.com"));
+        HostAccount picked = await ConnectAsync(other, HostKind.GitHub, "https://github.com");
+
+        GitCredentials credentials = await Resolver.ForCloneAsync("https://github.com/ada/engine.git", picked, Cancellation);
+
+        Assert.Equal(Token, Assert.Single(credentials.Credentials).Token.Reveal());
+    }
+
+    [Fact]
+    public async Task AClonePickedFromAnIntegration_OfAnotherHost_SignsNothingIn()
+    {
+        IdentityProfile work = await AddProfileAsync(Ada);
+        HostAccount picked = await ConnectAsync(work, HostKind.GitHub, "https://github.com");
+
+        Assert.True((await Resolver.ForCloneAsync("https://gitlab.com/ada/engine.git", picked, Cancellation)).IsEmpty);
+    }
+
+    [Fact]
+    public async Task ACloneFromAUrl_SignsInWithTheCurrentProfilesIntegration()
+    {
+        await _repository.GitAsync("config", "--global", "user.name", Ada.Name);
+        await _repository.GitAsync("config", "--global", "user.email", Ada.Email);
+
+        IdentityProfile work = await AddProfileAsync(Ada);
+        await ConnectAsync(work, HostKind.GitHub, "https://github.com");
+
+        GitCredentials credentials = await Resolver.ForCloneAsync("https://github.com/ada/engine.git", null, Cancellation);
+        GitCredentials ssh = await Resolver.ForCloneAsync("git@github.com:ada/engine.git", null, Cancellation);
+
+        Assert.Equal("https://github.com", Assert.Single(credentials.Credentials).Origin);
+        Assert.True(ssh.IsEmpty);
+    }
+
+    [Fact]
+    public async Task ACloneFromAUrl_WhenNoProfileIsCurrent_SignsNothingIn()
+    {
+        // The repository's own identity is Ada; the global one, which a clone goes by, is nobody.
+        IdentityProfile work = await AddProfileAsync(Ada);
+        await ConnectAsync(work, HostKind.GitHub, "https://github.com");
+
+        Assert.True((await Resolver.ForCloneAsync("https://github.com/ada/engine.git", null, Cancellation)).IsEmpty);
+    }
+
+    // ---------------------------------------------------------------- git's answer
+
     [Fact]
     public async Task WhatTheResolverGives_IsWhatGitAnswersWith()
     {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -16,6 +17,7 @@ using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
+using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -441,6 +443,47 @@ public sealed class ProfileIntegrationsTests
         });
     }
 
+    [Fact]
+    public void ARepositoryPickedInTheDialog_ClonesWithTheIntegrationItWasListedWith()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            FakeHostProvider provider = new();
+            provider.Returns(new HostRepositoryPage([]));
+            RecordingRepositoryService repositories = new();
+
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IRepositoryHostProvider>();
+                collection.AddSingleton<IRepositoryHostProvider>(provider);
+                collection.RemoveAll<IRepositoryService>();
+                collection.AddSingleton<IRepositoryService>(repositories);
+            });
+
+            ProfilesPageViewModel page = await PageAsync(services, ("Work", Work));
+            await ConnectAsync(services, page);
+
+            HostAccountRowViewModel row = Assert.Single(Profile(page, "Work").Integrations);
+            HostRepository picked = new(
+                "ada/engine", "engine", null, "main", "https://github.com/ada/engine.git",
+                "git@github.com:ada/engine.git", "https://github.com/ada/engine", IsPrivate: true);
+
+            services.Dialogs.OnShown = dialog =>
+            {
+                if (((Control)dialog.Content!).DataContext is HostRepositoriesDialogViewModel model)
+                {
+                    model.CloneCommand.Execute(new HostRepositoryRowViewModel(model, picked));
+                }
+            };
+
+            await row.BrowseCommand.ExecuteAsync(row);
+
+            CloneRequest request = Assert.Single(repositories.Clones);
+            Assert.Equal(picked.CloneUrl, request.Url);
+            Assert.Equal(row.Account.Id, request.Account?.Id);
+        });
+    }
+
     // ---------------------------------------------------------------- removing
 
     [Fact]
@@ -588,4 +631,27 @@ public sealed class ProfileIntegrationsTests
         => root.GetVisualDescendants()
             .OfType<T>()
             .Where(control => AutomationProperties.GetName(control) == name);
+
+    /// <summary>Records the clones asked for, and runs none.</summary>
+    private sealed class RecordingRepositoryService : IRepositoryService
+    {
+        public List<CloneRequest> Clones { get; } = [];
+
+        public Task<RepositoryHandle> CloneAsync(
+            CloneRequest request,
+            IProgress<CloneProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            Clones.Add(request);
+            throw new InvalidOperationException("Recorded, not cloned.");
+        }
+
+        public Task<RepositoryDiscoveryResult> OpenAsync(string path, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<RepositoryHandle> InitAsync(string path, string initialBranch = "main", CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public RemoteUrlValidation ValidateCloneUrl(string? url) => RemoteUrlValidator.Validate(url);
+    }
 }

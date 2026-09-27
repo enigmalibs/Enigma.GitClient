@@ -147,6 +147,9 @@ public sealed class SyncProgressDeliveryTests
     {
         public Task<GitCredentials> ForRepositoryAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
             => Task.FromResult(GitCredentials.None);
+
+        public Task<GitCredentials> ForCloneAsync(string url, HostAccount? account, CancellationToken cancellationToken = default)
+            => Task.FromResult(GitCredentials.None);
     }
 
     /// <summary>

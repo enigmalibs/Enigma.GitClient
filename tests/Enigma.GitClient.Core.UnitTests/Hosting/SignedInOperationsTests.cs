@@ -130,6 +130,9 @@ public sealed class SignedInOperationsTests
             AskedFor.Add(repository);
             return Task.FromResult(Answer);
         }
+
+        public Task<GitCredentials> ForCloneAsync(string url, HostAccount? account, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     /// <summary>Records every command and succeeds without running anything.</summary>
