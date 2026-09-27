@@ -107,7 +107,7 @@ public sealed class MergeOperations : IMergeOperations
                 .RunExclusiveAsync((handle, token) => _merges.MergeAsync(handle, request, token))
                 .ConfigureAwait(true);
 
-            await ReportAsync(outcome, source).ConfigureAwait(true);
+            Report(outcome, source);
 
             return outcome;
         }
@@ -121,7 +121,7 @@ public sealed class MergeOperations : IMergeOperations
                 FirstLine(exception.StandardError),
                 exception.StandardError);
 
-            await ReportAsync(failure, source).ConfigureAwait(true);
+            Report(failure, source);
 
             return failure;
         }
@@ -162,8 +162,7 @@ public sealed class MergeOperations : IMergeOperations
                 .RunExclusiveAsync((handle, token) => _merges.AbortAsync(handle, token))
                 .ConfigureAwait(true);
 
-            await ShowAsync("Merge abandoned", "The repository is back as it was.", InfoBarSeverity.Info)
-                .ConfigureAwait(true);
+            Show("Merge abandoned", "The repository is back as it was.", InfoBarSeverity.Info);
 
             return true;
         }
@@ -171,8 +170,7 @@ public sealed class MergeOperations : IMergeOperations
         {
             _logger.LogError(exception, "Abandoning the merge failed");
 
-            await ShowAsync("Could not abandon the merge", FirstLine(exception.StandardError), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Show("Could not abandon the merge", FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -196,23 +194,22 @@ public sealed class MergeOperations : IMergeOperations
                 .RunExclusiveAsync((handle, token) => _merges.ContinueAsync(handle, message, token))
                 .ConfigureAwait(true);
 
-            await ShowAsync(
+            Show(
                 "Merge committed",
                 $"{(sha.Length >= 7 ? sha[..7] : sha)} records the merge.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
 
             return true;
         }
         catch (GitOperationRefusedException refusal)
         {
-            await ShowAsync("Not ready to commit", refusal.Message, InfoBarSeverity.Warning).ConfigureAwait(true);
+            Show("Not ready to commit", refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Committing the merge failed");
 
-            await ShowAsync("Could not commit the merge", FirstLine(exception.StandardError), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Show("Could not commit the merge", FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -222,20 +219,24 @@ public sealed class MergeOperations : IMergeOperations
         return false;
     }
 
-    private Task ReportAsync(MergeOutcome outcome, string source)
-        => outcome.Kind switch
+    private void Report(MergeOutcome outcome, string source)
+    {
+        (string title, string message, InfoBarSeverity severity) = outcome.Kind switch
         {
-            MergeResultKind.Conflicted => ShowAsync(
+            MergeResultKind.Conflicted => (
                 "The merge stopped on conflicts",
                 $"{CountFiles(outcome.ConflictedPaths.Count)} to resolve before the merge can be committed.",
                 InfoBarSeverity.Warning),
 
-            MergeResultKind.Failed => ShowAsync($"Could not merge \"{source}\"", outcome.Message, InfoBarSeverity.Error),
+            MergeResultKind.Failed => ($"Could not merge \"{source}\"", outcome.Message, InfoBarSeverity.Error),
 
-            MergeResultKind.AlreadyUpToDate => ShowAsync("Nothing to merge", outcome.Message, InfoBarSeverity.Info),
+            MergeResultKind.AlreadyUpToDate => ("Nothing to merge", outcome.Message, InfoBarSeverity.Info),
 
-            _ => ShowAsync("Merged", outcome.Message, InfoBarSeverity.Success),
+            _ => ("Merged", outcome.Message, InfoBarSeverity.Success),
         };
+
+        Show(title, message, severity);
+    }
 
     private static string CountFiles(int files)
         => files == 1 ? "1 file" : $"{files.ToString(CultureInfo.CurrentCulture)} files";
@@ -255,11 +256,6 @@ public sealed class MergeOperations : IMergeOperations
         return "git reported no reason.";
     }
 
-    private Task ShowAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Show(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }

@@ -16,7 +16,15 @@ namespace Enigma.GitClient.App.UnitTests.Infrastructure;
 /// <param name="Title">The notification's title.</param>
 /// <param name="Message">The notification's message.</param>
 /// <param name="Severity">How serious it was.</param>
-public sealed record RecordedNotification(string Title, string Message, InfoBarSeverity Severity);
+/// <param name="DisplayDuration">
+/// How long the bar was to stay before closing itself, or <see langword="null"/> for a bar that stays
+/// until it is dismissed.
+/// </param>
+public sealed record RecordedNotification(
+    string Title,
+    string Message,
+    InfoBarSeverity Severity,
+    TimeSpan? DisplayDuration);
 
 /// <summary>
 /// An <see cref="IInfoBarService"/> that records instead of showing.
@@ -30,10 +38,29 @@ public sealed class RecordingInfoBarService : IInfoBarService
 {
     private readonly List<RecordedNotification> _shown = [];
 
+    private TaskCompletionSource? _open;
+
     /// <summary>
     /// Gets the notifications a page has raised, oldest first.
     /// </summary>
     public IReadOnlyList<RecordedNotification> Shown => _shown;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a shown bar stays open until <see cref="HideAsync"/>,
+    /// as the real one stays until it is closed.
+    /// </summary>
+    /// <remarks>
+    /// Off by default, so <see cref="ShowAsync"/> completes at once. On, the task it returns completes
+    /// only when the bar is hidden — every task handed out while the bar was open, as the real bar
+    /// completes them all when it closes. That is what lets a test prove the code under it does not
+    /// wait for a bar to be closed.
+    /// </remarks>
+    public bool HoldsOpen { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether a bar is being held open.
+    /// </summary>
+    public bool IsOpen => _open is not null;
 
     /// <summary>
     /// Gets the most recent notification, or <see langword="null"/> when nothing has been shown.
@@ -51,12 +78,30 @@ public sealed class RecordingInfoBarService : IInfoBarService
         InfoBar bar = new();
         configure?.Invoke(bar);
 
-        _shown.Add(new RecordedNotification(bar.Title ?? string.Empty, bar.Message ?? string.Empty, bar.Severity));
-        return Task.CompletedTask;
+        _shown.Add(new RecordedNotification(
+            bar.Title ?? string.Empty,
+            bar.Message ?? string.Empty,
+            bar.Severity,
+            bar.DisplayDuration));
+
+        if (!HoldsOpen)
+        {
+            return Task.CompletedTask;
+        }
+
+        _open ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        return _open.Task;
     }
 
     /// <inheritdoc />
-    public Task HideAsync() => Task.CompletedTask;
+    public Task HideAsync()
+    {
+        TaskCompletionSource? open = _open;
+        _open = null;
+        open?.TrySetResult();
+
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>

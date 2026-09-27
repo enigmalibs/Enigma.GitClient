@@ -114,7 +114,7 @@ public sealed class BranchDropOperations : IBranchDropOperations
 
         if (!CanDrop(request))
         {
-            await ExplainAsync(request).ConfigureAwait(true);
+            Explain(request);
             return false;
         }
 
@@ -132,17 +132,12 @@ public sealed class BranchDropOperations : IBranchDropOperations
         return outcome.ChangedAnything || !request.TargetIsCurrent;
     }
 
-    private Task ExplainAsync(BranchDropRequest request)
+    private void Explain(BranchDropRequest request)
     {
         string message = request.TargetIsRemote
             ? $"\"{request.Target}\" is on a remote. A remote branch is changed by pushing to it, not by merging into it here."
             : "A branch cannot be merged into itself.";
 
-        return _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = "Nothing to merge";
-            bar.Message = message;
-            bar.Severity = InfoBarSeverity.Info;
-        });
+        _infoBar.Notify("Nothing to merge", message, InfoBarSeverity.Info);
     }
 }
