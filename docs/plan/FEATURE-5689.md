@@ -1,6 +1,6 @@
 # FEATURE-5689 — Tool dialogs on the secondary surface
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5689.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-5689-secondary-dialog-background`
 **Run:** feature/2026-09-27-infobars-dialogs-diff-release
