@@ -441,6 +441,138 @@ public sealed class AutoRefreshTests
         });
     }
 
+    // ---------------------------------------------------------------- what moved between two refreshes
+
+    private static readonly RefBadgeItem OriginMain = new(GitRefKind.RemoteBranch, "origin/main", false);
+
+    [Fact]
+    public void TheHistory_RedrawsARemoteBranchAPushMovedSinceItWasDrawn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await InitBehindItsRemoteAsync(services, "pushed");
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            await context.OpenAsync(repository);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+            Assert.Contains(OriginMain, Row(history, "Add the readme").Refs);
+
+            int replaced = 0;
+            history.RowsReplaced += (_, _) => replaced++;
+
+            // What a push leaves behind: the remote-tracking branch moved, and the context re-read
+            // after it. The refresh that follows sees nothing move during its own fetch.
+            Git(repository, "push", "origin", "main");
+            await context.RefreshAsync();
+
+            await history.RefreshInPlaceAsync(referencesMoved: false);
+
+            Assert.Equal(1, replaced);
+            Assert.Contains(OriginMain, Row(history, "Pushed later").Refs);
+            Assert.DoesNotContain(OriginMain, Row(history, "Add the readme").Refs);
+
+            // Drawn from where the references are now: the next refresh has nothing to redraw.
+            CommitRowViewModel[] drawn = [.. history.Rows];
+
+            await history.RefreshInPlaceAsync(referencesMoved: false);
+
+            Assert.Equal(drawn, history.Rows);
+            Assert.Equal(1, replaced);
+        });
+    }
+
+    [Fact]
+    public void TheHistory_RedrawsATagFetchedSinceItWasDrawn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await InitBehindItsRemoteAsync(services, "tagged");
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            await context.OpenAsync(repository);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            // Someone tags the remote, and a fetch brings the tag.
+            Git(RemoteOf(services, "tagged"), "tag", "v1.0", "main");
+            Git(repository, "fetch", "--tags", "origin");
+            await context.RefreshAsync();
+
+            await history.RefreshInPlaceAsync(referencesMoved: false);
+
+            Assert.Contains(new RefBadgeItem(GitRefKind.Tag, "v1.0", false), Row(history, "Add the readme").Refs);
+        });
+    }
+
+    [Fact]
+    public void TheNextRefresh_RedrawsAPushMadeBetweenTwoRefreshes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildWindow();
+            RepositoryHandle repository = await InitBehindItsRemoteAsync(services, "between");
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+
+            _ = services.Get<ViewModels.MainWindowViewModel>();
+            await context.OpenAsync(repository);
+            services.Get<ScriptedSync>().RefreshAfter = context;
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            TaskCompletionSource redrawn = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            history.RowsReplaced += (_, _) => redrawn.TrySetResult();
+
+            // Pushed — and re-read — between two ticks.
+            Git(repository, "push", "origin", "main");
+            await context.RefreshAsync();
+
+            AutoRefreshResult tick = await services.Get<IAutoRefreshService>().RefreshNowAsync();
+            await redrawn.Task.WaitAsync(Patience);
+
+            Assert.False(tick.Changed);
+            Assert.Contains(OriginMain, Row(history, "Pushed later").Refs);
+        });
+    }
+
+    [Fact]
+    public void TheToolbarPush_RedrawsTheHistoryAtOnce()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildWindow();
+            RepositoryHandle repository = await InitBehindItsRemoteAsync(services, "toolbar");
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+
+            ViewModels.MainWindowViewModel shell = services.Get<ViewModels.MainWindowViewModel>();
+            await context.OpenAsync(repository);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            string selected = Row(history, "Add the readme").Sha;
+            history.SelectedRow = Row(history, "Add the readme");
+
+            // As the real push does: push, then re-read the references.
+            services.Get<ScriptedSync>().OnPush = async () =>
+            {
+                Git(repository, "push", "origin", "main");
+                await context.RefreshAsync();
+                return true;
+            };
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            Assert.Contains(OriginMain, Row(history, "Pushed later").Refs);
+            Assert.Equal(selected, history.SelectedRow?.Sha);
+            Assert.Equal(0, services.Get<ScriptedSync>().QuietFetches);
+            Assert.False(shell.IsBusy);
+        });
+    }
+
     // ---------------------------------------------------------------- the one refresh button
 
     /// <summary>
@@ -639,6 +771,31 @@ public sealed class AutoRefreshTests
         return repository;
     }
 
+    /// <summary>
+    /// A repository with a bare remote, <c>origin</c>, that has "Add the readme" but not "Pushed later":
+    /// <c>origin/main</c> is one commit behind <c>main</c>.
+    /// </summary>
+    private static async Task<RepositoryHandle> InitBehindItsRemoteAsync(TestServices services, string name)
+    {
+        RepositoryHandle repository = await InitAsync(services, name);
+
+        string remote = RemoteOf(services, name);
+        Directory.CreateDirectory(remote);
+        Git(remote, "init", "--bare");
+
+        Git(repository, "remote", "add", "origin", remote);
+        Git(repository, "push", "--set-upstream", "origin", "main");
+        Commit(repository, "src/later.txt", "later\n", "Pushed later");
+
+        return repository;
+    }
+
+    private static string RemoteOf(TestServices services, string name)
+        => Path.Combine(services.ConfigurationRoot, "remotes", name + ".git");
+
+    private static CommitRowViewModel Row(HistoryPageViewModel history, string subject)
+        => history.Rows.Single(row => row.Subject == subject);
+
     private static void Commit(RepositoryHandle repository, string path, string content, string message)
     {
         string full = Path.Combine(repository.WorkTreePath, path);
@@ -650,11 +807,14 @@ public sealed class AutoRefreshTests
     }
 
     private static void Git(RepositoryHandle repository, params string[] arguments)
+        => Git(repository.WorkTreePath, arguments);
+
+    private static void Git(string workingDirectory, params string[] arguments)
     {
         ProcessStartInfo start = new()
         {
             FileName = "git",
-            WorkingDirectory = repository.WorkTreePath,
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -697,6 +857,9 @@ public sealed class AutoRefreshTests
         /// <summary>Gets or sets a context to refresh after the fetch, as the real one does.</summary>
         public IRepositoryContext? RefreshAfter { get; set; }
 
+        /// <summary>Gets or sets what the toolbar's push does; unset, nobody may push.</summary>
+        public Func<Task<bool>>? OnPush { get; set; }
+
         public async Task<QuietFetchResult> FetchQuietlyAsync(CancellationToken cancellationToken = default)
         {
             QuietFetches++;
@@ -720,7 +883,7 @@ public sealed class AutoRefreshTests
 
         public Task<bool> PullAsync() => throw new NotSupportedException();
 
-        public Task<bool> PushAsync(bool setUpstream = false) => throw new NotSupportedException();
+        public Task<bool> PushAsync(bool setUpstream = false) => OnPush?.Invoke() ?? throw new NotSupportedException();
 
         public Task<bool> PullBranchAsync(string branch) => throw new NotSupportedException();
 

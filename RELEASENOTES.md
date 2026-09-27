@@ -1,5 +1,88 @@
 # Release notes
 
+## 3.0.0 — 2026-09-27
+
+A major release: git now signs in with your profile's integration. Connect an account under a profile
+once, and every fetch, pull, push and clone to that host works over HTTPS with nothing to set up in
+git. On those hosts the integration's token takes the place of your own credential helper, so a token
+that can only read no longer pushes there. That is why this is 3.0: read *Upgrading from 2.0* below.
+
+### Signing in
+
+- **Git signs in with the profile's integration.** In a repository that commits as a profile, every
+  network operation to an HTTPS remote on one of that profile's hosts signs in with the integration's
+  token: fetch, pull, push, a branch's fast-forward, the quiet background fetch, pushing or deleting a
+  tag on a remote, and deleting a remote branch.
+- **A clone signs in too.** It uses the integration you browsed the repository from, or else the
+  current profile's integration for that host. The current profile is the one matching your global
+  identity.
+- The token reaches that one git process through its environment. It is never on git's command line,
+  never written to git's configuration or to the repository, and never handed to a credential helper
+  that could store it.
+- On those hosts the integration's token replaces your own credential helper. Everywhere else,
+  nothing changes:
+  - SSH remotes keep using your SSH key;
+  - hosts that none of the profile's integrations cover keep using git's own credentials;
+  - a repository whose identity matches no profile works as before.
+- The token of an `https` integration is never sent to an `http://` remote.
+- When the profiles or a token cannot be read, git runs with its own credentials, and the log says
+  why.
+
+### Refused tokens
+
+- When the host refuses a profile's token, the message says so and names the scope a push needs: *The
+  host refused this profile's token. It may have expired, or not allow this: pushing needs write
+  access…* Replace the token on the Profiles page: disconnect the account and connect it again with a
+  new one.
+- When no token was used, the message points at the profile's integrations, the credential helper or
+  the SSH key instead.
+- An HTTP 401 or 403 from the host now reads as a refused sign-in. Before, it read as a network
+  problem.
+- **Connect an account** names the write scope a push needs for each host, and so does the README.
+
+### The history
+
+- The history follows the remote branches and tags on its own. After a push from the toolbar, the
+  remote branch's badge moves to the pushed commit straight away; before, it stayed where it was until
+  you pressed **Refresh**.
+- A pull or a fetch from the toolbar redraws the history as soon as it ends too, and only when
+  something moved: the selected commit and the scroll position stay where they were.
+- Whatever moved between two automatic refreshes — a remote branch, a tag, a branch — is redrawn by
+  the next one: every 15 seconds by default, as *Fetch and refresh automatically* on the Settings page
+  sets it. Before, the automatic refresh only noticed what its own fetch brought.
+
+### Upgrading from 2.0
+
+- **If you push over HTTPS with a token that can only read, replace it.** 2.0 asked for read-only
+  scopes, because git signed in on its own; 3.0 pushes with the token. Create one with write access:
+  - GitHub: **Contents: Read and write** for a fine-grained token, or the classic `repo` scope;
+  - GitLab: `write_repository` instead of `read_repository`;
+  - Azure DevOps: **Code: Read & write**.
+
+  Then, on the Profiles page, disconnect the account and connect it again with the new token. Until
+  you do, a push to that host is refused, with a message saying so.
+- **A fine-grained GitHub token signs in only to the repositories it was given.** Git no longer falls
+  back to your own credentials for the others on that host, so give the token every private
+  repository you work with under that profile.
+- Nothing to do if your GitHub token is a classic one with the `repo` scope, if your remotes use SSH,
+  or if you do not use profiles.
+- Nothing is migrated. `host-accounts.json`, `identity-profiles.json`, `settings.json` and the tokens
+  stay as 2.0 wrote them, so going back to 2.0 keeps them.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set.
+- The Avalonia set (Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and
+  Avalonia.Headless and Avalonia.Skia in the tests) is held back at **12.1.1**. That is the set
+  Enigma.Avalonia.Desktop 1.1.0 is built against. 12.1.3 is out; the set moves as a whole, as a
+  decision of its own.
+
+### Version
+
+- **3.0.0** is a major release under Semantic Versioning. On the hosts a profile covers, git now signs
+  in with the profile's token instead of your own credential helper. So an upgrade can refuse pushes
+  that 2.0 ran with a read-only token, until you replace it. The file formats are unchanged.
+
 ## 2.0.0 — 2026-09-27
 
 A major release. Your hosting integrations now belong to a profile, so each profile can have its

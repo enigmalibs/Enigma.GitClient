@@ -41,6 +41,15 @@ public interface IRepositoryHostProvider
     string TokenScopeHint { get; }
 
     /// <summary>
+    /// Gets the user name git sends over HTTPS with one of this host's tokens as the password.
+    /// </summary>
+    /// <remarks>
+    /// Each host documents its own: the token is what signs in, and the name only has to be one the host
+    /// accepts alongside it.
+    /// </remarks>
+    string GitUserName { get; }
+
+    /// <summary>
     /// Answers whether a remote address is one this provider handles, judged on the address alone.
     /// </summary>
     /// <param name="remote">The parsed remote address.</param>

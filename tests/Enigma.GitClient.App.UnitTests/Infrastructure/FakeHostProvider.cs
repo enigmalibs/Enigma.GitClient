@@ -23,6 +23,8 @@ internal sealed class FakeHostProvider : IRepositoryHostProvider
 
     public string TokenScopeHint => "A token with the 'repo' scope. No issue or pull-request scope is ever requested.";
 
+    public string GitUserName => "x-access-token";
+
     /// <summary>What validation answers, or the exception it throws instead.</summary>
     public HostIdentity Identity { get; set; } = new("octocat", "The Octocat");
 

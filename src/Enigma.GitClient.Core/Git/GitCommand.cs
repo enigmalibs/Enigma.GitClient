@@ -68,6 +68,36 @@ public sealed class GitCommand
     public string? StandardInput { get; }
 
     /// <summary>
+    /// Returns this invocation signing in with the given logins.
+    /// </summary>
+    /// <param name="credentials">The logins.</param>
+    /// <returns>
+    /// A new invocation with the credential configuration before every other argument — git takes its
+    /// global options in any order before the sub-command — and the helpers' variables in its
+    /// environment; this same invocation when there is no login.
+    /// </returns>
+    public GitCommand WithCredentials(GitCredentials credentials)
+    {
+        ArgumentNullException.ThrowIfNull(credentials);
+
+        if (credentials.IsEmpty)
+        {
+            return this;
+        }
+
+        List<string> arguments = [.. credentials.BuildConfigArguments(), .. _arguments];
+
+        Dictionary<string, string> environment = new(Environment, StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, string> entry in credentials.BuildEnvironment())
+        {
+            environment[entry.Key] = entry.Value;
+        }
+
+        return new GitCommand(WorkingDirectory, arguments, environment, StandardInput);
+    }
+
+    /// <summary>
     /// Renders the invocation with every credential redacted, for logs and error messages.
     /// </summary>
     /// <returns>A redacted, human-readable command line.</returns>

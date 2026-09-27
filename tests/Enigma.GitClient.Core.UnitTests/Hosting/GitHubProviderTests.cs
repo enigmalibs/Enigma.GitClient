@@ -81,8 +81,10 @@ public sealed class GitHubProviderTests
 
         Assert.Equal(HostKind.GitHub, provider.Kind);
         Assert.Equal("GitHub", provider.DisplayName);
+        Assert.Equal("x-access-token", provider.GitUserName);
         Assert.Equal(new Uri("https://github.com"), provider.DefaultBaseUri);
         Assert.Contains("repo", provider.TokenScopeHint, StringComparison.Ordinal);
+        Assert.Contains("read and write for the client to push", provider.TokenScopeHint, StringComparison.Ordinal);
         Assert.Contains("No issue or pull-request scope", provider.TokenScopeHint, StringComparison.Ordinal);
     }
 

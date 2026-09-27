@@ -107,8 +107,8 @@ public sealed record PushPermission
 /// ahead, which is what it did before profiles had integrations.
 /// </para>
 /// <para>
-/// The integration is the permission, not the credential: git keeps authenticating with its own
-/// credential helper or SSH key.
+/// This is the permission only. Signing in is <see cref="GitCredentialResolver"/>'s, which hands git
+/// the same integration's token over HTTPS.
 /// </para>
 /// </remarks>
 public static class ProfilePushRule
@@ -132,17 +132,7 @@ public static class ProfilePushRule
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(pushUrl);
 
-        IdentityProfile? profile = null;
-
-        // The first that matches, as the page marks the first one current.
-        foreach (IdentityProfile candidate in profiles)
-        {
-            if (candidate.Matches(identity))
-            {
-                profile = candidate;
-                break;
-            }
-        }
+        IdentityProfile? profile = IdentityProfile.FirstMatching(profiles, identity);
 
         if (profile is null)
         {
