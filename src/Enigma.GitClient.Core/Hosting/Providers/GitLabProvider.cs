@@ -55,6 +55,10 @@ public sealed class GitLabProvider : IRepositoryHostProvider
         + "merge-request scope is ever requested.";
 
     /// <inheritdoc />
+    /// <remarks>GitLab pairs <c>oauth2</c> with a token used as a git password, and accepts it for a personal one.</remarks>
+    public string GitUserName => "oauth2";
+
+    /// <inheritdoc />
     public bool MatchesRemote(RemoteUrl remote) => WellKnownHosts.Detect(remote) == HostKind.GitLab;
 
     /// <summary>

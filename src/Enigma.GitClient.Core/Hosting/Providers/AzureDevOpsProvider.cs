@@ -58,6 +58,10 @@ public sealed class AzureDevOpsProvider : IRepositoryHostProvider
         + "(https://dev.azure.com/your-organisation). No work-item or pull-request scope is ever requested.";
 
     /// <inheritdoc />
+    /// <remarks>Azure DevOps ignores the user name paired with a personal access token, as long as there is one.</remarks>
+    public string GitUserName => "pat";
+
+    /// <inheritdoc />
     public bool MatchesRemote(RemoteUrl remote) => WellKnownHosts.Detect(remote) == HostKind.AzureDevOps;
 
     /// <summary>

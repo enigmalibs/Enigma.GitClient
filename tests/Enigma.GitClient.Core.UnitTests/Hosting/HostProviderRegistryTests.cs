@@ -30,6 +30,8 @@ internal sealed class StubProvider : IRepositoryHostProvider
 
     public string TokenScopeHint => "a scope";
 
+    public string GitUserName => "git";
+
     /// <summary>A host this provider claims beyond the well-known table.</summary>
     public string? ExtraHost { get; }
 
