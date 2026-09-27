@@ -453,8 +453,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         {
             _logger.LogWarning("Reading the global git identity failed ({Kind})", exception.GetType().Name);
 
-            await ReportAsync("Could not read the git identity", Describe(exception), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not read the git identity", Describe(exception), InfoBarSeverity.Error);
         }
     }
 
@@ -474,8 +473,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         {
             _logger.LogWarning(exception, "Reading the identity profiles failed");
 
-            await ReportAsync("Could not read the identity profiles", exception.Message, InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not read the identity profiles", exception.Message, InfoBarSeverity.Error);
 
             return;
         }
@@ -537,8 +535,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         {
             _logger.LogWarning("Reading the repository's git identity failed ({Kind})", exception.GetType().Name);
 
-            await ReportAsync("Could not read this repository's identity", Describe(exception), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not read this repository's identity", Describe(exception), InfoBarSeverity.Error);
         }
     }
 
@@ -584,8 +581,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         if (await WriteGlobalAsync(typed).ConfigureAwait(true))
         {
-            await ReportAsync("Global identity saved", $"New commits are made as {typed}.", InfoBarSeverity.Success)
-                .ConfigureAwait(true);
+            Report("Global identity saved", $"New commits are made as {typed}.", InfoBarSeverity.Success);
         }
     }
 
@@ -619,8 +615,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
             // What was typed stays in the fields, so a retry is one click.
             _logger.LogWarning("Saving the global git identity failed ({Kind})", exception.GetType().Name);
 
-            await ReportAsync("Could not save the git identity", Describe(exception), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not save the git identity", Describe(exception), InfoBarSeverity.Error);
 
             return false;
         }
@@ -641,10 +636,10 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         if (await WriteGlobalAsync(row.Profile.Identity).ConfigureAwait(true))
         {
-            await ReportAsync(
+            Report(
                 $"Using {row.Label}",
                 $"New commits are made as {row.Summary}.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
         }
     }
 
@@ -709,14 +704,12 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         {
             _logger.LogWarning(exception, "Deleting an identity profile failed");
 
-            await ReportAsync("Could not delete the profile", exception.Message, InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not delete the profile", exception.Message, InfoBarSeverity.Error);
 
             return;
         }
 
-        await ReportAsync("Profile deleted", $"{row.Label} is no longer in the list.", InfoBarSeverity.Info)
-            .ConfigureAwait(true);
+        Report("Profile deleted", $"{row.Label} is no longer in the list.", InfoBarSeverity.Info);
 
         await LoadProfilesAsync().ConfigureAwait(true);
     }
@@ -782,13 +775,12 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         {
             _logger.LogWarning("Saving an identity profile failed ({Kind})", exception.GetType().Name);
 
-            await ReportAsync("Could not save the profile", Describe(exception), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not save the profile", Describe(exception), InfoBarSeverity.Error);
 
             return;
         }
 
-        await ReportAsync(title, $"{stored.Label}: {stored.Identity}.", InfoBarSeverity.Success).ConfigureAwait(true);
+        Report(title, $"{stored.Label}: {stored.Identity}.", InfoBarSeverity.Success);
         await LoadProfilesAsync().ConfigureAwait(true);
     }
 
@@ -811,10 +803,10 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         if (await WriteLocalAsync((repository, token) => _identity.SetLocalAsync(repository, typed, token), typed)
                 .ConfigureAwait(true))
         {
-            await ReportAsync(
+            Report(
                 $"{name} has its own identity",
                 $"Its commits are made as {typed}, whatever the global identity is.",
-                InfoBarSeverity.Success).ConfigureAwait(true);
+                InfoBarSeverity.Success);
         }
     }
 
@@ -829,12 +821,12 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         if (await WriteLocalAsync(_identity.RemoveLocalAsync, GitIdentity.Empty).ConfigureAwait(true))
         {
-            await ReportAsync(
+            Report(
                 $"{name} uses the global identity again",
                 IsGlobalUnset
                     ? "There is no global identity yet: set one above, or git refuses to commit here."
                     : $"Its commits are made as {GlobalIdentity}.",
-                InfoBarSeverity.Info).ConfigureAwait(true);
+                InfoBarSeverity.Info);
         }
     }
 
@@ -869,8 +861,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
             // What was typed stays in the fields, so a retry is one click.
             _logger.LogWarning("Writing the repository's git identity failed ({Kind})", exception.GetType().Name);
 
-            await ReportAsync("Could not change this repository's identity", Describe(exception), InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+            Report("Could not change this repository's identity", Describe(exception), InfoBarSeverity.Error);
 
             return false;
         }
@@ -930,11 +921,6 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         SaveLocalCommand.NotifyCanExecuteChanged();
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }

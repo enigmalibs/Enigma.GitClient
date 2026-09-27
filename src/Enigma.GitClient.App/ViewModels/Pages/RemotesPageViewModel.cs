@@ -342,8 +342,7 @@ public sealed class RemotesPageViewModel : PageViewModelBase
 
         if (done)
         {
-            await ReportAsync("Fetched", $"Everything \"{row.Name}\" had is here.", InfoBarSeverity.Success)
-                .ConfigureAwait(true);
+            Report("Fetched", $"Everything \"{row.Name}\" had is here.", InfoBarSeverity.Success);
         }
     }
 
@@ -430,18 +429,18 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         }
         catch (GitOperationRefusedException refusal)
         {
-            await ReportAsync(failureTitle, refusal.Message, InfoBarSeverity.Warning).ConfigureAwait(true);
+            Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (SyncException exception)
         {
-            await ReportAsync(failureTitle, exception.Failure.Message, InfoBarSeverity.Error).ConfigureAwait(true);
+            Report(failureTitle, exception.Failure.Message, InfoBarSeverity.Error);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            await ReportAsync(failureTitle, SyncErrorMapper.FirstMeaningfulLine(exception.StandardError),
-                InfoBarSeverity.Error).ConfigureAwait(true);
+            Report(failureTitle, SyncErrorMapper.FirstMeaningfulLine(exception.StandardError),
+                InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -455,11 +454,6 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         return false;
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }

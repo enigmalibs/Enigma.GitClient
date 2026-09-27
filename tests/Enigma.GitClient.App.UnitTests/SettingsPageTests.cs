@@ -228,6 +228,31 @@ public sealed class SettingsPageTests
     }
 
     [Fact]
+    public void Resetting_IsOverWhileItsReportIsStillOpen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+            page.Theme = ThemePreference.Dark;
+
+            // The report stays open until it is closed or its time is up; the reset is over at once.
+            services.InfoBar.HoldsOpen = true;
+            services.Dialogs.Script(DialogResult.Primary);
+
+            await page.ResetCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.Equal(AppSettings.Defaults, services.Get<ISettingsService>().Current);
+            Assert.True(services.InfoBar.IsOpen);
+
+            RecordedNotification note = services.InfoBar.Last!;
+            Assert.Equal("Preferences reset", note.Title);
+            Assert.Equal(TimeSpan.FromSeconds(5), note.DisplayDuration);
+        });
+    }
+
+    [Fact]
     public void APreferenceSurvivesARestart()
     {
         _fixture.RunAsync(async () =>
