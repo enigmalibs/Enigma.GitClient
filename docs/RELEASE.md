@@ -113,7 +113,7 @@ Windows has no installer: publish as in step 5 and run the result.
 
 ## Why there is no MSI profile
 
-`dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0 and
-1.1.0: the releases' packaging is the Linux installer. When a Windows installer is wanted, generate
+`dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0, 1.1.0
+and 2.0.0: the releases' packaging is the Linux installer. When a Windows installer is wanted, generate
 the **first** profile then — its `upgradeCode` is created once and reused verbatim in every later
 version, while `productId` is new each time.

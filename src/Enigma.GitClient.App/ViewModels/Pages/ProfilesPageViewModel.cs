@@ -12,25 +12,27 @@ using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
 /// <summary>
-/// One identity profile, as the identity page lists it.
+/// One identity profile, as the profiles page lists it.
 /// </summary>
-public sealed class IdentityProfileRowViewModel : ViewModelBase
+public sealed class ProfileRowViewModel : ViewModelBase
 {
-    private readonly IdentityPageViewModel _owner;
+    private readonly ProfilesPageViewModel _owner;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="owner">The page the row belongs to.</param>
     /// <param name="profile">The profile it stands for.</param>
-    public IdentityProfileRowViewModel(IdentityPageViewModel owner, IdentityProfile profile)
+    public ProfileRowViewModel(ProfilesPageViewModel owner, IdentityProfile profile)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(profile);
@@ -67,21 +69,47 @@ public sealed class IdentityProfileRowViewModel : ViewModelBase
     public bool IsNotCurrent => !IsCurrent;
 
     /// <summary>Gets the command that makes this profile the global identity.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> UseCommand => _owner.UseProfileCommand;
+    public AsyncRelayCommand<ProfileRowViewModel> UseCommand => _owner.UseProfileCommand;
 
     /// <summary>Gets the command that edits this profile.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> EditCommand => _owner.EditProfileCommand;
+    public AsyncRelayCommand<ProfileRowViewModel> EditCommand => _owner.EditProfileCommand;
 
     /// <summary>Gets the command that deletes this profile.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> RemoveCommand => _owner.RemoveProfileCommand;
+    public AsyncRelayCommand<ProfileRowViewModel> RemoveCommand => _owner.RemoveProfileCommand;
+
+    /// <summary>Gets the command that connects an account to this profile.</summary>
+    public AsyncRelayCommand<ProfileRowViewModel> ConnectCommand => _owner.ConnectAccountCommand;
+
+    /// <summary>Gets the accounts this profile is connected to, in the order they were added.</summary>
+    public ObservableCollection<HostAccountRowViewModel> Integrations { get; } = [];
+
+    /// <summary>Gets a value indicating whether the profile has any integration.</summary>
+    public bool HasIntegrations => Integrations.Count > 0;
+
+    /// <summary>
+    /// Replaces the integrations the row lists.
+    /// </summary>
+    /// <param name="rows">The profile's integrations.</param>
+    internal void ShowIntegrations(IEnumerable<HostAccountRowViewModel> rows)
+    {
+        Integrations.Clear();
+
+        foreach (HostAccountRowViewModel row in rows)
+        {
+            Integrations.Add(row);
+        }
+
+        OnPropertyChanged(nameof(HasIntegrations));
+    }
 
     /// <inheritdoc />
     public override string ToString() => $"{Label}: {Summary}";
 }
 
 /// <summary>
-/// ViewModel behind the identity page: the name and email git records on every commit, the
-/// profiles that switch them, and the identity the open repository sets for itself.
+/// ViewModel behind the profiles page: the name and email git records on every commit, the
+/// profiles that switch them and the hosting accounts each of them is connected to, and the identity
+/// the open repository sets for itself.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -99,17 +127,28 @@ public sealed class IdentityProfileRowViewModel : ViewModelBase
 /// in the start window — and its writes go through the repository's write lock like every other.
 /// </para>
 /// <para>
+/// Every integration belongs to one profile, and is connected, browsed and disconnected under it. An
+/// integration that belongs to none — connected before integrations belonged to profiles, or left
+/// behind by a profile deleted elsewhere — is listed apart, as an earlier integration, until it is
+/// moved into a profile. Nothing guesses whose it is.
+/// </para>
+/// <para>
 /// Names and emails are never logged: they identify a person. A failure is logged by what failed.
 /// </para>
 /// </remarks>
-public sealed class IdentityPageViewModel : PageViewModelBase
+public sealed class ProfilesPageViewModel : PageViewModelBase
 {
     private readonly IGitIdentityService _identity;
     private readonly IIdentityProfileStore _profiles;
+    private readonly IHostAccountService _accounts;
+    private readonly IHostProviderRegistry _registry;
+    private readonly IHostLinkService _links;
+    private readonly IHostRepositoryBrowser _browser;
+    private readonly RepositoriesPageViewModel _repositories;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly IServiceProvider _services;
-    private readonly ILogger<IdentityPageViewModel> _logger;
+    private readonly ILogger<ProfilesPageViewModel> _logger;
 
     /// <summary>
     /// Initialises a new instance.
@@ -117,22 +156,37 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="identity">Reads and writes git's identity.</param>
     /// <param name="profiles">Keeps the identity profiles.</param>
-    /// <param name="dialogs">Raises the profile dialog and the delete confirmation.</param>
+    /// <param name="accounts">Keeps the connected accounts and their tokens.</param>
+    /// <param name="registry">Finds the provider for an account.</param>
+    /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
+    /// <param name="browser">Lists an account's repositories in a dialog.</param>
+    /// <param name="repositories">Runs a clone, with its progress and its cancel.</param>
+    /// <param name="dialogs">Raises the profile and account dialogs and the confirmations.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="services">Resolves the dialog's view.</param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
-    public IdentityPageViewModel(
+    public ProfilesPageViewModel(
         IRepositoryContext repositoryContext,
         IGitIdentityService identity,
         IIdentityProfileStore profiles,
+        IHostAccountService accounts,
+        IHostProviderRegistry registry,
+        IHostLinkService links,
+        IHostRepositoryBrowser browser,
+        RepositoriesPageViewModel repositories,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         IServiceProvider services,
-        ILogger<IdentityPageViewModel> logger)
+        ILogger<ProfilesPageViewModel> logger)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(accounts);
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(browser);
+        ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(services);
@@ -140,6 +194,11 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         _identity = identity;
         _profiles = profiles;
+        _accounts = accounts;
+        _registry = registry;
+        _links = links;
+        _browser = browser;
+        _repositories = repositories;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _services = services;
@@ -147,16 +206,20 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         SaveGlobalCommand = new AsyncRelayCommand(OnSaveGlobalAsync, CanSaveGlobal);
         AddProfileCommand = new AsyncRelayCommand(OnAddProfileAsync, () => !IsBusy);
-        EditProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnEditProfileAsync);
-        RemoveProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnRemoveProfileAsync);
-        UseProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnUseProfileAsync);
+        EditProfileCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnEditProfileAsync);
+        RemoveProfileCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnRemoveProfileAsync);
+        UseProfileCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnUseProfileAsync);
         SaveLocalCommand = new AsyncRelayCommand(OnSaveLocalAsync, CanSaveLocal);
         RemoveLocalCommand = new AsyncRelayCommand(OnRemoveLocalAsync, () => !IsBusy && IsRepositoryOpen && HasLocalIdentity);
         CopyFromCurrentProfileCommand = new RelayCommand(OnCopyFromCurrentProfile, () => IsRepositoryOpen && HasCurrentProfile);
+        ConnectAccountCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnConnectAccountAsync, _ => CanConnectAccounts);
+        DisconnectAccountCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnDisconnectAccountAsync);
+        BrowseRepositoriesCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnBrowseRepositoriesAsync);
+        MoveAccountCommand = new AsyncRelayCommand<AccountMoveTargetViewModel>(OnMoveAccountAsync);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
-    public string Title => "Git identity";
+    public string Title => "Profiles";
 
     // ---------------------------------------------------------------- the global identity
 
@@ -239,7 +302,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     // ---------------------------------------------------------------- profiles
 
     /// <summary>Gets the identity profiles, in the order they were added.</summary>
-    public ObservableCollection<IdentityProfileRowViewModel> Profiles { get; } = [];
+    public ObservableCollection<ProfileRowViewModel> Profiles { get; } = [];
 
     /// <summary>Gets a value indicating whether there is any profile.</summary>
     public bool HasProfiles => Profiles.Count > 0;
@@ -268,13 +331,39 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     public AsyncRelayCommand AddProfileCommand { get; }
 
     /// <summary>Gets the command that edits a profile.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> EditProfileCommand { get; }
+    public AsyncRelayCommand<ProfileRowViewModel> EditProfileCommand { get; }
 
     /// <summary>Gets the command that deletes a profile, after asking.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> RemoveProfileCommand { get; }
+    public AsyncRelayCommand<ProfileRowViewModel> RemoveProfileCommand { get; }
 
     /// <summary>Gets the command that makes a profile the global identity.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> UseProfileCommand { get; }
+    public AsyncRelayCommand<ProfileRowViewModel> UseProfileCommand { get; }
+
+    // ---------------------------------------------------------------- integrations
+
+    /// <summary>
+    /// Gets the integrations that belong to no profile: connected before integrations belonged to
+    /// profiles, or left behind by a profile that no longer exists.
+    /// </summary>
+    public ObservableCollection<HostAccountRowViewModel> EarlierIntegrations { get; } = [];
+
+    /// <summary>Gets a value indicating whether there is any earlier integration to place.</summary>
+    public bool HasEarlierIntegrations => EarlierIntegrations.Count > 0;
+
+    /// <summary>Gets a value indicating whether this build can connect to any host at all.</summary>
+    public bool CanConnectAccounts => _registry.Providers.Count > 0;
+
+    /// <summary>Gets the command that connects an account to a profile.</summary>
+    public AsyncRelayCommand<ProfileRowViewModel> ConnectAccountCommand { get; }
+
+    /// <summary>Gets the command that disconnects an account, after asking.</summary>
+    public AsyncRelayCommand<HostAccountRowViewModel> DisconnectAccountCommand { get; }
+
+    /// <summary>Gets the command that lists an account's repositories, and clones the one picked.</summary>
+    public AsyncRelayCommand<HostAccountRowViewModel> BrowseRepositoriesCommand { get; }
+
+    /// <summary>Gets the command that gives an earlier integration to a profile.</summary>
+    public AsyncRelayCommand<AccountMoveTargetViewModel> MoveAccountCommand { get; }
 
     // ---------------------------------------------------------------- the repository's own identity
 
@@ -478,24 +567,94 @@ public sealed class IdentityPageViewModel : PageViewModelBase
             return;
         }
 
-        // Read first, replace after, as the integrations page does: an interleaved second load must
+        // Read first, replace after: an interleaved second load must
         // not show a profile twice.
-        List<IdentityProfileRowViewModel> rows = [];
+        List<ProfileRowViewModel> rows = [];
 
         foreach (IdentityProfile profile in profiles)
         {
-            rows.Add(new IdentityProfileRowViewModel(this, profile));
+            rows.Add(new ProfileRowViewModel(this, profile));
         }
 
         Profiles.Clear();
 
-        foreach (IdentityProfileRowViewModel row in rows)
+        foreach (ProfileRowViewModel row in rows)
         {
             Profiles.Add(row);
         }
 
         OnPropertyChanged(nameof(HasProfiles));
         UpdateCurrentProfile();
+
+        await LoadIntegrationsAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Reads the connected accounts again and puts each under its profile, or among the earlier
+    /// integrations when its profile is not in the list.
+    /// </summary>
+    /// <returns>A task that completes once every row shows what the store has.</returns>
+    public async Task LoadIntegrationsAsync()
+    {
+        IReadOnlyList<HostAccount> accounts;
+
+        try
+        {
+            accounts = await _accounts.GetAllAsync(RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (TokenProtectionException exception)
+        {
+            _logger.LogError(exception, "Reading the connected accounts failed");
+
+            Report("Could not read the connected accounts", exception.Message, InfoBarSeverity.Error);
+
+            return;
+        }
+
+        List<IdentityProfile> profiles = [];
+
+        foreach (ProfileRowViewModel row in Profiles)
+        {
+            profiles.Add(row.Profile);
+        }
+
+        List<HostAccountRowViewModel> earlier = [];
+
+        foreach (ProfileRowViewModel profile in Profiles)
+        {
+            List<HostAccountRowViewModel> own = [];
+
+            foreach (HostAccount account in accounts)
+            {
+                if (account.BelongsTo(profile.Profile.Id))
+                {
+                    own.Add(new HostAccountRowViewModel(this, account, _registry.Find(account.Kind)));
+                }
+            }
+
+            profile.ShowIntegrations(own);
+        }
+
+        foreach (HostAccount account in accounts)
+        {
+            if (!profiles.Exists(profile => account.BelongsTo(profile.Id)))
+            {
+                earlier.Add(new HostAccountRowViewModel(this, account, _registry.Find(account.Kind), profiles));
+            }
+        }
+
+        EarlierIntegrations.Clear();
+
+        foreach (HostAccountRowViewModel row in earlier)
+        {
+            EarlierIntegrations.Add(row);
+        }
+
+        OnPropertyChanged(nameof(HasEarlierIntegrations));
     }
 
     private async Task LoadLocalAsync()
@@ -553,7 +712,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     {
         IdentityProfile? current = null;
 
-        foreach (IdentityProfileRowViewModel row in Profiles)
+        foreach (ProfileRowViewModel row in Profiles)
         {
             row.IsCurrent = row.Profile.Matches(GlobalIdentity);
 
@@ -627,7 +786,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
     // ---------------------------------------------------------------- commands: profiles
 
-    private async Task OnUseProfileAsync(IdentityProfileRowViewModel? row)
+    private async Task OnUseProfileAsync(ProfileRowViewModel? row)
     {
         if (row is null)
         {
@@ -654,7 +813,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnEditProfileAsync(IdentityProfileRowViewModel? row)
+    private async Task OnEditProfileAsync(ProfileRowViewModel? row)
     {
         if (row is null)
         {
@@ -669,19 +828,27 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnRemoveProfileAsync(IdentityProfileRowViewModel? row)
+    private async Task OnRemoveProfileAsync(ProfileRowViewModel? row)
     {
         if (row is null)
         {
             return;
         }
 
+        string integrations = row.Integrations.Count switch
+        {
+            0 => string.Empty,
+            1 => $"\n\nIts integration, {row.Integrations[0].DisplayName}, is disconnected and its token deleted.",
+            _ => $"\n\nIts {row.Integrations.Count.ToString(System.Globalization.CultureInfo.CurrentCulture)} integrations are disconnected and their tokens deleted.",
+        };
+
         DialogResult answer = await _dialogs.ShowAsync(dialog =>
         {
             dialog.Title = "Delete this profile";
             dialog.Content =
                 $"Delete the profile {row.Label} ({row.Summary})?\n\n"
-                + "Only the profile goes: your git configuration keeps whatever identity it has.";
+                + "Your git configuration keeps whatever identity it has."
+                + integrations;
             dialog.PrimaryButtonText = "Delete";
             dialog.CloseButtonText = "Keep it";
             dialog.DefaultButton = DefaultButton.Close;
@@ -709,9 +876,35 @@ public sealed class IdentityPageViewModel : PageViewModelBase
             return;
         }
 
-        Report("Profile deleted", $"{row.Label} is no longer in the list.", InfoBarSeverity.Info);
+        // The profile first: should its accounts then fail to go, they show up as earlier
+        // integrations — visible, and still removable — rather than under a profile that is gone.
+        try
+        {
+            await _accounts.RemoveForProfileAsync(row.Profile.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+
+            Report("Profile deleted", $"{row.Label} is no longer in the list.", InfoBarSeverity.Info);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the application is closing.
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or TokenProtectionException)
+        {
+            _logger.LogWarning(exception, "Disconnecting a deleted profile's integrations failed");
+
+            Report(
+                "Could not disconnect the profile's integrations",
+                "They are listed under Earlier integrations, where they can be disconnected.",
+                InfoBarSeverity.Error);
+        }
 
         await LoadProfilesAsync().ConfigureAwait(true);
+
+        if (row.HasIntegrations)
+        {
+            await _links.RefreshAsync().ConfigureAwait(true);
+        }
     }
 
     /// <summary>
@@ -782,6 +975,246 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         Report(title, $"{stored.Label}: {stored.Identity}.", InfoBarSeverity.Success);
         await LoadProfilesAsync().ConfigureAwait(true);
+    }
+
+    // ---------------------------------------------------------------- commands: integrations
+
+    private async Task OnConnectAccountAsync(ProfileRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        AddHostAccountDialogViewModel model = new(_registry.Providers);
+
+        AddHostAccountDialogView view =
+            _services.GetService(typeof(AddHostAccountDialogView)) as AddHostAccountDialogView
+            ?? new AddHostAccountDialogView();
+
+        view.DataContext = model;
+
+        ContentDialog? shown = null;
+
+        void OnValidationChanged(object? sender, EventArgs e)
+        {
+            if (shown is not null)
+            {
+                shown.IsPrimaryButtonEnabled = model.IsValid;
+            }
+        }
+
+        model.ValidationChanged += OnValidationChanged;
+
+        try
+        {
+            DialogResult result = await _dialogs.ShowAsync(dialog =>
+            {
+                shown = dialog;
+                dialog.Title = $"Connect an account to {row.Label}";
+                dialog.Content = view;
+                dialog.PrimaryButtonText = "Connect";
+                dialog.CloseButtonText = "Cancel";
+                dialog.DefaultButton = DefaultButton.Primary;
+                dialog.IsPrimaryButtonEnabled = model.IsValid;
+            }).ConfigureAwait(true);
+
+            if (result != DialogResult.Primary || !model.IsValid)
+            {
+                return;
+            }
+        }
+        finally
+        {
+            model.ValidationChanged -= OnValidationChanged;
+        }
+
+        await ConnectAsync(row, model).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Validates a token against the host and, when the host accepts it, stores the account under a
+    /// profile.
+    /// </summary>
+    /// <param name="profile">The profile the account is for.</param>
+    /// <param name="model">The filled-in dialog.</param>
+    /// <returns>A task that completes once the account is connected, or the failure reported.</returns>
+    public async Task ConnectAsync(ProfileRowViewModel profile, AddHostAccountDialogViewModel model)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (model.SelectedProvider is not { } provider)
+        {
+            return;
+        }
+
+        HostAccount account = model.ToAccount();
+        SecretString token = model.ToToken();
+
+        IsBusy = true;
+
+        try
+        {
+            // The host is asked who the token belongs to before anything is stored: a token that
+            // does not work is a token worth refusing now rather than at the first listing.
+            HostIdentity identity = await provider
+                .ValidateCredentialAsync(account, token, RepositoryContext.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+            HostAccount named = new(
+                account.Id,
+                account.Kind,
+                account.BaseUri,
+                identity.UserName,
+                model.DisplayName.Trim().Length > 0 ? model.DisplayName.Trim() : identity.DisplayName,
+                profile.Profile.Id);
+
+            await _accounts.AddAsync(named, token, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+
+            Report(
+                $"Connected to {provider.DisplayName}",
+                $"{profile.Label} signs in as {identity.UserName}.",
+                InfoBarSeverity.Success);
+
+            await LoadIntegrationsAsync().ConfigureAwait(true);
+            await _links.RefreshAsync().ConfigureAwait(true);
+        }
+        catch (HostRateLimitException exception)
+        {
+            Report("Rate limited", HostRepositoriesDialogViewModel.Describe(exception), InfoBarSeverity.Warning);
+        }
+        catch (HostException exception)
+        {
+            // Never the token, and never the exception's own detail beyond its message: both have a
+            // habit of carrying the request that failed.
+            _logger.LogWarning("Connecting an account to {Host} was refused", provider.DisplayName);
+
+            Report($"{provider.DisplayName} refused the token", exception.Message, InfoBarSeverity.Error);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the application is closing.
+        }
+        catch (System.Net.Http.HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Reaching the host failed");
+
+            Report(
+                "Could not reach the host",
+                "Check the instance URL and the network connection.",
+                InfoBarSeverity.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task OnDisconnectAccountAsync(HostAccountRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = "Disconnect this account";
+            dialog.Content =
+                $"Disconnect {row.DisplayName} and delete its stored token?\n\n"
+                + "Nothing on the host is touched, and repositories you have already cloned keep working.";
+            dialog.PrimaryButtonText = "Disconnect";
+            dialog.CloseButtonText = "Keep it";
+            dialog.DefaultButton = DefaultButton.Close;
+        }).ConfigureAwait(true);
+
+        if (answer != DialogResult.Primary)
+        {
+            return;
+        }
+
+        try
+        {
+            await _accounts.RemoveAsync(row.Account.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or TokenProtectionException)
+        {
+            _logger.LogWarning(exception, "Disconnecting an account failed");
+
+            Report("Could not disconnect the account", exception.Message, InfoBarSeverity.Error);
+
+            return;
+        }
+
+        Report("Account disconnected", "Its token has been deleted.", InfoBarSeverity.Info);
+
+        await LoadIntegrationsAsync().ConfigureAwait(true);
+        await _links.RefreshAsync().ConfigureAwait(true);
+    }
+
+    private async Task OnBrowseRepositoriesAsync(HostAccountRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (await _browser.BrowseAsync(row.Account).ConfigureAwait(true) is not { } picked)
+        {
+            return;
+        }
+
+        await _repositories.RunCloneAsync(new CloneRequest
+        {
+            Url = picked.CloneUrl,
+            ParentDirectory = RepositoriesPageViewModel.DefaultParentDirectory(),
+            DirectoryName = CloneRequest.DeriveDirectoryName(picked.CloneUrl),
+        }).ConfigureAwait(true);
+    }
+
+    private async Task OnMoveAccountAsync(AccountMoveTargetViewModel? target)
+    {
+        if (target is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _accounts
+                    .AssignAsync(target.Account.Account.Id, target.Profile.Id, RepositoryContext.RepositoryLifetime)
+                    .ConfigureAwait(true))
+            {
+                // Disconnected in another window meanwhile: the list is what is out of date.
+                await LoadIntegrationsAsync().ConfigureAwait(true);
+                return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(exception, "Moving an account to a profile failed");
+
+            Report("Could not move the integration", exception.Message, InfoBarSeverity.Error);
+
+            return;
+        }
+
+        Report(
+            $"{target.Account.DisplayName} belongs to {target.Profile.Label}",
+            "It is listed under that profile now.",
+            InfoBarSeverity.Success);
+
+        await LoadIntegrationsAsync().ConfigureAwait(true);
     }
 
     // ---------------------------------------------------------------- commands: the repository

@@ -208,7 +208,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <remarks>
     /// It runs what the automatic refresh runs — a quiet fetch from every remote, then the repository's
     /// HEAD, references and status read again — and, because the reader asked, the history is redrawn
-    /// in place whether or not anything moved and the integrations page reads its repositories again.
+    /// in place whether or not anything moved.
     /// No page has a refresh button of its own: every one of them follows this.
     /// </remarks>
     public AsyncRelayCommand RefreshCommand { get; }

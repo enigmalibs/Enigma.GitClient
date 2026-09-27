@@ -73,10 +73,12 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ITagOperations, TagOperations>();
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
             services.AddSingleton<IResetOperations, ResetOperations>();
+            services.AddSingleton<IPushGuard, PushGuard>();
             services.AddSingleton<ISyncOperations, SyncOperations>();
             services.AddSingleton<IMergeOperations, MergeOperations>();
             services.AddSingleton<IBranchDropOperations, BranchDropOperations>();
             services.AddSingleton<IHostLinkService, HostLinkService>();
+            services.AddSingleton<IHostRepositoryBrowser, HostRepositoryBrowser>();
 
             services.AddTransient<StartWindow>();
             services.AddSingleton<StartWindowViewModel>();
@@ -90,8 +92,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
-            services.AddTransient<IdentityPageView>();
-            services.AddTransient<IntegrationsPageView>();
+            services.AddTransient<ProfilesPageView>();
             services.AddTransient<SettingsPageView>();
 
             services.AddSingleton<RepositoriesPageViewModel>();
@@ -101,8 +102,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
-            services.AddSingleton<IdentityPageViewModel>();
-            services.AddSingleton<IntegrationsPageViewModel>();
+            services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
 
             // Dialog views are transient: each showing gets a fresh control bound to a fresh
@@ -116,6 +116,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
             services.AddTransient<AddHostAccountDialogView>();
+            services.AddTransient<HostRepositoriesDialogView>();
             services.AddTransient<IdentityProfileDialogView>();
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll

@@ -7,6 +7,7 @@ using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Sync;
@@ -85,6 +86,7 @@ public sealed class SyncOperations : ISyncOperations
 {
     private readonly IRepositoryContext _context;
     private readonly ISyncService _sync;
+    private readonly IPushGuard _pushGuard;
     private readonly ISettingsService _settings;
     private readonly IOverlayService _overlay;
     private readonly IInfoBarService _infoBar;
@@ -97,12 +99,15 @@ public sealed class SyncOperations : ISyncOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="sync">Performs the transfer.</param>
+    /// <param name="pushGuard">Says whether the repository's profile may push to the remote.</param>
+    /// <param name="settings">Supplies the pull strategy.</param>
     /// <param name="overlay">Shows the progress.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public SyncOperations(
         IRepositoryContext context,
         ISyncService sync,
+        IPushGuard pushGuard,
         ISettingsService settings,
         IOverlayService overlay,
         IInfoBarService infoBar,
@@ -110,6 +115,7 @@ public sealed class SyncOperations : ISyncOperations
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(sync);
+        ArgumentNullException.ThrowIfNull(pushGuard);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(overlay);
         ArgumentNullException.ThrowIfNull(infoBar);
@@ -117,6 +123,7 @@ public sealed class SyncOperations : ISyncOperations
 
         _context = context;
         _sync = sync;
+        _pushGuard = pushGuard;
         _settings = settings;
         _overlay = overlay;
         _infoBar = infoBar;
@@ -147,7 +154,7 @@ public sealed class SyncOperations : ISyncOperations
             "The branch is up to date with its upstream.");
 
     /// <inheritdoc />
-    public Task<bool> PushAsync(bool setUpstream = false)
+    public async Task<bool> PushAsync(bool setUpstream = false)
     {
         PushRequest request = new()
         {
@@ -157,11 +164,17 @@ public sealed class SyncOperations : ISyncOperations
             PushTags = true,
         };
 
-        return RunAsync(
-            "Pushing",
-            (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
-            "Pushed",
-            "The remote has your commits.");
+        if (!await MayPushAsync(request.Remote).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        return await RunAsync(
+                "Pushing",
+                (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
+                "Pushed",
+                "The remote has your commits.")
+            .ConfigureAwait(true);
     }
 
     /// <inheritdoc />
@@ -226,6 +239,11 @@ public sealed class SyncOperations : ISyncOperations
             PushTags = true,
         };
 
+        if (!await MayPushAsync(request.Remote).ConfigureAwait(true))
+        {
+            return false;
+        }
+
         return await RunAsync(
                 $"Pushing {branch}",
                 (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
@@ -263,6 +281,63 @@ public sealed class SyncOperations : ISyncOperations
             _logger.LogDebug(exception, "The automatic fetch failed");
             return QuietFetchResult.Failed;
         }
+    }
+
+    /// <summary>
+    /// Asks whether the repository's profile may push to a remote, and says why not when it may not.
+    /// </summary>
+    /// <param name="remote">The remote's name.</param>
+    /// <returns><see langword="true"/> when the push may go ahead.</returns>
+    private async Task<bool> MayPushAsync(string? remote)
+    {
+        // Nothing open, or no remote named: the push itself reports that, as it always has.
+        if (_context.Repository is not { } repository || string.IsNullOrWhiteSpace(remote))
+        {
+            return true;
+        }
+
+        PushPermission permission;
+
+        try
+        {
+            permission = await _pushGuard.CheckAsync(repository, remote, _context.RepositoryLifetime).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+
+        if (permission.IsAllowed)
+        {
+            return true;
+        }
+
+        (string title, string message) = DescribeRefusal(permission);
+        Report(title, message, InfoBarSeverity.Warning);
+
+        return false;
+    }
+
+    /// <summary>
+    /// Says why a push was refused, and what to do about it.
+    /// </summary>
+    /// <param name="permission">The refusal.</param>
+    /// <returns>The notification's title and message.</returns>
+    internal static (string Title, string Message) DescribeRefusal(PushPermission permission)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+
+        if (permission.Reason == PushPermissionReason.CheckFailed || permission.Profile is not { } profile)
+        {
+            return (
+                "Nothing was pushed",
+                "The profile this repository commits as could not be checked. Try again, or look at the Profiles page.");
+        }
+
+        return (
+            $"{profile.Label} does not push to {permission.Target}",
+            $"Nothing was pushed: the profile {profile.Label} has no integration for {permission.Target}. "
+            + $"To push there, connect an account for it to {profile.Label} on the Profiles page.");
     }
 
     /// <summary>

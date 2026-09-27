@@ -13,6 +13,7 @@ using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Hosting;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -571,7 +572,7 @@ public sealed class AutoRefreshTests
     }
 
     [Fact]
-    public void TheIntegrationsPage_RereadsItsRepositoriesWhenAskedAndOnlyThen()
+    public void NoRefreshEverAsksAHostForItsRepositories()
     {
         _fixture.RunAsync(async () =>
         {
@@ -584,9 +585,12 @@ public sealed class AutoRefreshTests
             });
 
             IAutoRefreshService service = services.Get<IAutoRefreshService>();
-            IntegrationsPageViewModel page = services.Get<IntegrationsPageViewModel>();
+            await services.Get<IIdentityProfileStore>().SaveAsync(
+                IdentityProfile.Create("Work", new GitIdentity("Ada Lovelace", "ada@work.example")));
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
-            await page.ConnectAsync(new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
+            await page.ConnectAsync(page.Profiles[0], new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
             {
                 InstanceUrl = "https://github.com",
                 Token = "ghp_token",
@@ -594,20 +598,15 @@ public sealed class AutoRefreshTests
 
             await services.Get<IRepositoryContext>().OpenAsync(Handle("hosted"));
             await WaitUntilAsync(() => page.IsNotBusy);
-            int listed = provider.Queries.Count;
 
-            Assert.True(listed > 0, "connecting never listed the account's repositories");
-
-            // Every few seconds is the repository on disk, not the host's list.
+            // The repositories are listed in their dialog, when it opens, and nowhere else: calling a
+            // hosting API on every refresh would spend the account's rate limit for nothing.
             await service.RefreshNowAsync();
-            Dispatcher.UIThread.RunJobs();
-            Assert.Equal(listed, provider.Queries.Count);
-
-            // The reader pressing refresh is.
             await service.RequestRefreshAsync();
-            await WaitUntilAsync(() => provider.Queries.Count > listed);
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(listed + 1, provider.Queries.Count);
+            Assert.Single(page.Profiles[0].Integrations);
+            Assert.Empty(provider.Queries);
         });
     }
 
