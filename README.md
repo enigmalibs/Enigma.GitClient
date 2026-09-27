@@ -88,9 +88,13 @@ the host itself, and asks for the smallest scope that can list and clone reposit
 **A profile pushes only where one of its integrations leads.** When a repository's commits are made
 as a profile — its name and email, as git resolves them there — a push goes ahead only if that
 profile has an integration for the remote's host; a profile with no integration never pushes, to a
-host or to a folder. The integration is the permission, not the credential: git still signs in with
-its own credential helper or SSH key. A repository whose identity matches no profile pushes as it
-always did.
+host or to a folder. A repository whose identity matches no profile pushes as it always did.
+
+**The integration is also how git signs in.** Every fetch, pull and push — a tag's or a branch's
+included — to an HTTPS remote on the integration's host signs in with its token, with nothing to set
+up in git. The token is handed to that one git process through its environment, never through its
+command line, its configuration or a credential helper that could store it. SSH remotes keep using
+your SSH key, and hosts none of the profile's integrations cover keep using git's own credentials.
 
 An integration connected with a 1.x version belongs to no profile: it is listed under **Earlier
 integrations** on the Profiles page until you move it into the profile it is for.
@@ -121,7 +125,8 @@ to nothing else.
 ## Requirements
 
 - **git 2.20 or newer** on the `PATH` (the app drives the real `git` executable, so your existing
-  SSH keys, credential helpers and configuration all keep working)
+  SSH keys, credential helpers and configuration all keep working — an integration's token only takes
+  over HTTPS sign-in to its own host)
 - **.NET 10 SDK** to build. The Linux installer bundles the .NET runtime with the application by
   default; a framework-dependent build needs the .NET 10 runtime instead
 - Linux or Windows

@@ -81,7 +81,7 @@ deleting a tag, deleting a remote branch, and clone — with no credential helpe
 
 ## PHASE02 — Sync and remote pushes sign in
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6C81-PHASE02.md`
 **Branch:** `feature/feature-6c81-phase02-sync-signs-in`
 
 ### Steps
