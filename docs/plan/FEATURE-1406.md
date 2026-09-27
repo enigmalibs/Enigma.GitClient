@@ -65,7 +65,7 @@ code).
 
 ## PHASE02 — Accounts belong to a profile
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1406-PHASE02.md`
 **Branch:** `feature/feature-1406-phase02-accounts-in-profiles`
 
 ### Steps

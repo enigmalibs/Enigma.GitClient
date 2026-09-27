@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Hosting;
@@ -159,6 +160,121 @@ public sealed class HostAccountServiceTests : IDisposable
         await _accounts.UpdateAsync(account, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(await _accounts.GetTokenAsync(account, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task AnAccountKeepsTheProfileItBelongsToAcrossARestart()
+    {
+        HostAccount account = HostAccount.Create(HostKind.GitHub, new Uri("https://github.com"), "someone", "Work", "work-profile");
+
+        await _accounts.AddAsync(account, new SecretString("one"), TestContext.Current.CancellationToken);
+
+        AppPaths paths = new(_root);
+        HostAccount stored = Assert.Single(await new HostAccountService(paths, new FileTokenStore(paths))
+            .GetAllAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal("work-profile", stored.ProfileId);
+        Assert.True(stored.BelongsTo("work-profile"));
+        Assert.False(stored.BelongsTo("home-profile"));
+        Assert.False(stored.IsUnassigned);
+
+        string contents = File.ReadAllText(Path.Combine(_root, HostAccountService.FileName));
+        Assert.Contains("\"version\": 2", contents, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AVersionOneFileReadsAsAccountsThatBelongToNoProfile()
+    {
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(
+            Path.Combine(_root, HostAccountService.FileName),
+            """
+            {
+              "version": 1,
+              "accounts": [
+                {
+                  "id": "0123456789abcdef",
+                  "kind": 1,
+                  "baseUri": "https://github.com",
+                  "userName": "someone",
+                  "displayName": "Someone on GitHub"
+                }
+              ]
+            }
+            """);
+
+        HostAccount stored = Assert.Single(await _accounts.GetAllAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal("0123456789abcdef", stored.Id);
+        Assert.Equal("Someone on GitHub", stored.DisplayName);
+        Assert.Null(stored.ProfileId);
+        Assert.True(stored.IsUnassigned);
+        Assert.False(stored.BelongsTo(null));
+    }
+
+    [Fact]
+    public async Task AssigningGivesOneAccountToAProfileAndKeepsItsToken()
+    {
+        HostAccount earlier = Account();
+        HostAccount other = Account(HostKind.GitLab, "https://gitlab.com");
+
+        await _accounts.AddAsync(earlier, new SecretString("one"), TestContext.Current.CancellationToken);
+        await _accounts.AddAsync(other, new SecretString("two"), TestContext.Current.CancellationToken);
+
+        Assert.True(await _accounts.AssignAsync(earlier.Id, "work-profile", TestContext.Current.CancellationToken));
+
+        IReadOnlyList<HostAccount> stored = await _accounts.GetAllAsync(TestContext.Current.CancellationToken);
+
+        HostAccount moved = Assert.Single(stored, account => account.Id == earlier.Id);
+        Assert.Equal("work-profile", moved.ProfileId);
+        Assert.True(Assert.Single(stored, account => account.Id == other.Id).IsUnassigned);
+
+        // Same id, same key: the token did not have to move.
+        Assert.Equal("one", (await _accounts.GetTokenAsync(moved, TestContext.Current.CancellationToken))!.Reveal());
+    }
+
+    [Fact]
+    public async Task AssigningAnAccountThatIsNotThereSaysSo()
+        => Assert.False(await _accounts.AssignAsync("nothing", "work-profile", TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task RemovingAProfilesAccountsTakesOnlyThoseAndTheirTokens()
+    {
+        HostAccount work = HostAccount.Create(HostKind.GitHub, new Uri("https://github.com"), "a", "Work GitHub", "work-profile");
+        HostAccount workLab = HostAccount.Create(HostKind.GitLab, new Uri("https://gitlab.com"), "a", "Work GitLab", "work-profile");
+        HostAccount home = HostAccount.Create(HostKind.GitHub, new Uri("https://github.com"), "b", "Home GitHub", "home-profile");
+        HostAccount earlier = Account();
+
+        await _accounts.AddAsync(work, new SecretString("w1"), TestContext.Current.CancellationToken);
+        await _accounts.AddAsync(workLab, new SecretString("w2"), TestContext.Current.CancellationToken);
+        await _accounts.AddAsync(home, new SecretString("h"), TestContext.Current.CancellationToken);
+        await _accounts.AddAsync(earlier, new SecretString("e"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, await _accounts.RemoveForProfileAsync("work-profile", TestContext.Current.CancellationToken));
+
+        IReadOnlyList<HostAccount> left = await _accounts.GetAllAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new[] { home.Id, earlier.Id }, left.Select(account => account.Id));
+        Assert.Null(await _tokens.TryGetAsync(work.TokenKey, TestContext.Current.CancellationToken));
+        Assert.Null(await _tokens.TryGetAsync(workLab.TokenKey, TestContext.Current.CancellationToken));
+        Assert.Equal("h", (await _accounts.GetTokenAsync(home, TestContext.Current.CancellationToken))!.Reveal());
+
+        Assert.Equal(0, await _accounts.RemoveForProfileAsync("work-profile", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void GivingAnAccountToAnotherProfileKeepsEverythingElse()
+    {
+        HostAccount account = Account();
+        HostAccount moved = account.ForProfile("work-profile");
+
+        Assert.Equal(account.Id, moved.Id);
+        Assert.Equal(account.TokenKey, moved.TokenKey);
+        Assert.Equal(account.DisplayName, moved.DisplayName);
+        Assert.Equal("work-profile", moved.ProfileId);
+
+        // A blank profile is no profile.
+        Assert.True(moved.ForProfile("  ").IsUnassigned);
     }
 
     [Fact]
