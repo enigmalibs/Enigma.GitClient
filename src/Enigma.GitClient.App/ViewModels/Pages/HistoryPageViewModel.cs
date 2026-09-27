@@ -64,6 +64,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private bool _hasMore;
     private bool _refreshPending;
 
+    // Where HEAD and every reference were when the rows were last read: the badges and the lanes on
+    // screen are drawn from that, so a context that has read anything else since has something new.
+    private RepositoryStateStamp? _drawnStamp;
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
@@ -626,16 +630,25 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public event EventHandler? RowsReplaced;
 
     /// <summary>
-    /// Brings the history up to date after an automatic refresh — and does nothing at all when there
-    /// is nothing new to draw.
+    /// Brings the history up to date after an automatic refresh, or after a fetch, pull or push — and
+    /// does nothing at all when there is nothing new to draw.
     /// </summary>
-    /// <param name="referencesMoved">Whether HEAD or any reference moved in that refresh.</param>
+    /// <param name="referencesMoved">
+    /// Whether to redraw even if the references are those the rows were drawn from: HEAD or a
+    /// reference moved in that refresh, or the reader asked for it.
+    /// </param>
     /// <returns>A task that completes once the history is current.</returns>
     /// <remarks>
     /// <para>
     /// Nothing new is the common case — an automatic refresh runs every few seconds — and redrawing
-    /// then would throw the reader's place away for nothing. Besides the references, the one thing that
-    /// changes what the graph draws is whether there is uncommitted work, which is the row at its top.
+    /// then would throw the reader's place away for nothing. What changes what the graph draws is where
+    /// HEAD and the references are, compared with where they were when the rows were read, and whether
+    /// there is uncommitted work, which is the row at its top.
+    /// </para>
+    /// <para>
+    /// Compared with the rows, not with the refresh's own start: a push re-reads the references as it
+    /// ends, so by the next refresh the remote branch has already moved in the context, and only the
+    /// rows still show it where it was.
     /// </para>
     /// <para>
     /// When something did change, the same number of commits is read again, the selected commit is
@@ -652,10 +665,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
+        bool moved = referencesMoved || _drawnStamp != RepositoryStateStamp.Of(RepositoryContext);
         bool dirty = await IsWorkingTreeDirtyAsync(repository, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
         bool showsUncommitted = Rows.Count > 0 && Rows[0].IsUncommitted;
 
-        if (!referencesMoved && dirty == showsUncommitted)
+        if (!moved && dirty == showsUncommitted)
         {
             return;
         }
@@ -732,6 +746,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         RefColumnWidth = 0;
 
         NotifyEmptyState();
+
+        // Replaced by the first page's own once it arrives; kept when the read fails, so a history that
+        // cannot be read is not read again, and reported again, at every automatic refresh.
+        _drawnStamp = RepositoryStateStamp.Of(RepositoryContext);
 
         if (!IsRepositoryOpen)
         {
@@ -909,6 +927,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IReadOnlySet<string> excluded = ExcludedRefs();
         string headSha = RepositoryContext.Head?.Sha ?? string.Empty;
         DateTimeOffset now = DateTimeOffset.Now;
+
+        // The first page's badges are taken from the context as it is now, which is therefore what the
+        // rows show — even when the read began before the context had read the repository at all.
+        if (_query.Skip == 0)
+        {
+            _drawnStamp = RepositoryStateStamp.Of(RepositoryContext);
+        }
 
         for (int index = 0; index < page.Commits.Count; index++)
         {

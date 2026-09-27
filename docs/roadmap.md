@@ -172,3 +172,5 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Clone signs in                          | DONE   | (in FEATURE-6C81.md)      |
 | - PHASE04    | Token scopes and refused tokens         | DONE   | (in FEATURE-6C81.md)      |
 | FEATURE-5CD8 | Release 3.0.0                           | DONE   | docs/plan/FEATURE-5CD8.md |
+| BUG-6B9E     | Graph stays stale after a push          | DONE   | docs/plan/BUG-6B9E.md     |
+| FEATURE-2408 | Release 3.0.0 with the refresh fix      | DONE   | docs/plan/FEATURE-2408.md |
