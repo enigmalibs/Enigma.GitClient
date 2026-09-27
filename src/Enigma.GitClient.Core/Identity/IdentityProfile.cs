@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Enigma.GitClient.Core.Identity;
@@ -56,6 +57,28 @@ public sealed record IdentityProfile(string Id, string Label, string Name, strin
     /// <param name="identity">The identity git reported.</param>
     /// <returns><see langword="true"/> when the names are equal and the emails equal regardless of case.</returns>
     public bool Matches(GitIdentity? identity) => identity is { IsComplete: true } && Identity.IsSameAs(identity);
+
+    /// <summary>
+    /// Finds the profile an identity is: the first that matches it, as the Profiles page marks the first
+    /// one current.
+    /// </summary>
+    /// <param name="profiles">Every profile, in the order they were added.</param>
+    /// <param name="identity">The identity git reported.</param>
+    /// <returns>The profile, or <see langword="null"/> when none matches.</returns>
+    public static IdentityProfile? FirstMatching(IEnumerable<IdentityProfile> profiles, GitIdentity? identity)
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+
+        foreach (IdentityProfile candidate in profiles)
+        {
+            if (candidate.Matches(identity))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
 }
 
 /// <summary>

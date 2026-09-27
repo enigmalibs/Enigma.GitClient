@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 
@@ -111,19 +112,23 @@ public sealed class TagService : ITagService
 {
     private readonly IGitProcessRunner _runner;
     private readonly IGitCommandFactory _commandFactory;
+    private readonly IGitCredentialResolver _credentials;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="runner">Runs the commands.</param>
     /// <param name="commandFactory">Builds the commands.</param>
-    public TagService(IGitProcessRunner runner, IGitCommandFactory commandFactory)
+    /// <param name="credentials">Works out the integration a push to a remote signs in with.</param>
+    public TagService(IGitProcessRunner runner, IGitCommandFactory commandFactory, IGitCredentialResolver credentials)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(commandFactory);
+        ArgumentNullException.ThrowIfNull(credentials);
 
         _runner = runner;
         _commandFactory = commandFactory;
+        _credentials = credentials;
     }
 
     /// <inheritdoc />
@@ -201,7 +206,7 @@ public sealed class TagService : ITagService
 
         // The full ref name, not the short one: "git push --delete origin v1" would happily delete a
         // branch called v1 if the tag did not exist.
-        await RunAsync(repository, ["push", remote, "--delete", $"{GitTag.Prefix}{name}"], cancellationToken)
+        await RunOnRemoteAsync(repository, ["push", remote, "--delete", $"{GitTag.Prefix}{name}"], cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -216,7 +221,7 @@ public sealed class TagService : ITagService
         ArgumentException.ThrowIfNullOrWhiteSpace(remote);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        await RunAsync(repository, ["push", remote, $"{GitTag.Prefix}{name}"], cancellationToken)
+        await RunOnRemoteAsync(repository, ["push", remote, $"{GitTag.Prefix}{name}"], cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -286,6 +291,19 @@ public sealed class TagService : ITagService
         CancellationToken cancellationToken)
     {
         GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments);
+
+        await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RunOnRemoteAsync(
+        RepositoryHandle repository,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        GitCredentials credentials = await _credentials.ForRepositoryAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
+
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments).WithCredentials(credentials);
 
         await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
     }

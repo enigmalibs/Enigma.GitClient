@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 
@@ -152,19 +153,23 @@ public sealed class SyncService : ISyncService
 {
     private readonly IGitProcessRunner _runner;
     private readonly IGitCommandFactory _commandFactory;
+    private readonly IGitCredentialResolver _credentials;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="runner">Runs the commands and streams their progress.</param>
     /// <param name="commandFactory">Builds the commands.</param>
-    public SyncService(IGitProcessRunner runner, IGitCommandFactory commandFactory)
+    /// <param name="credentials">Works out the integration each transfer signs in with.</param>
+    public SyncService(IGitProcessRunner runner, IGitCommandFactory commandFactory, IGitCredentialResolver credentials)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(commandFactory);
+        ArgumentNullException.ThrowIfNull(credentials);
 
         _runner = runner;
         _commandFactory = commandFactory;
+        _credentials = credentials;
     }
 
     /// <summary>
@@ -363,7 +368,10 @@ public sealed class SyncService : ISyncService
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments);
+        GitCredentials credentials = await _credentials.ForRepositoryAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
+
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments).WithCredentials(credentials);
 
         ParsedChunks? chunks = progress is null ? null : new ParsedChunks(progress);
 
