@@ -264,7 +264,7 @@ public sealed class ToolDialogTests
     }
 
     [Fact]
-    public void TheToolDialog_IsDrawnOnTheWindowBackground_InBothThemes()
+    public void TheToolDialog_IsDrawnOnTheSecondaryDialogSurface_InBothThemes()
     {
         _fixture.RunAsync(async () =>
         {
@@ -278,6 +278,11 @@ public sealed class ToolDialogTests
 
             try
             {
+                // The library's own look for content laid out for the window's background — not a
+                // resource redefined on the host to get it.
+                Assert.Contains("secondary", window.ToolDialog.Classes);
+                Assert.False(window.ToolDialog.Resources.ContainsKey("EnigmaSurfaceHighBrush"));
+
                 Task showing = tools.ShowAsync(ToolDialog.Tags);
 
                 // Switched while the dialog is open: the card follows the theme, it is not a colour
@@ -287,7 +292,7 @@ public sealed class ToolDialogTests
                     application.RequestedThemeVariant = variant;
                     Settle(window);
 
-                    Assert.Equal(Colour(window, "EnigmaBackgroundColor"), CardColour(window.ToolDialog));
+                    Assert.Equal(Colour(window, "EnigmaDialogSecondaryBackgroundColor"), CardColour(window.ToolDialog));
                     Assert.NotEqual(Colour(window, "EnigmaSurfaceHighColor"), CardColour(window.ToolDialog));
                 }
 
@@ -324,6 +329,7 @@ public sealed class ToolDialogTests
 
                 Settle(window);
 
+                Assert.DoesNotContain("secondary", window.HostDialog.Classes);
                 Assert.Equal(Colour(window, "EnigmaSurfaceHighColor"), CardColour(window.HostDialog));
 
                 await window.HostDialog.HideAsync().WaitAsync(Patience);
@@ -356,13 +362,13 @@ public sealed class ToolDialogTests
             : throw new InvalidOperationException($"The theme has no colour {key}.");
 
     /// <summary>
-    /// The colour the dialog's card is painted in — the one border of its template with a shadow.
+    /// The colour the dialog's card is painted in — its template's <c>PART_Card</c>.
     /// </summary>
     private static Color CardColour(ContentDialog dialog)
     {
         Border card = dialog.GetVisualDescendants()
             .OfType<Border>()
-            .First(border => border.BoxShadow.Count > 0);
+            .Single(border => border.Name == "PART_Card" && ReferenceEquals(border.TemplatedParent, dialog));
 
         return Assert.IsAssignableFrom<ISolidColorBrush>(card.Background).Color;
     }

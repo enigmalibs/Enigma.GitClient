@@ -155,6 +155,6 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-A5D3 | Info bars that never block              | DONE   | docs/plan/FEATURE-A5D3.md |
 | - PHASE01    | The helper, in the operations           | DONE   | (in FEATURE-A5D3.md)      |
 | - PHASE02    | Every page on the helper                | DONE   | (in FEATURE-A5D3.md)      |
-| FEATURE-5689 | Tool dialogs on the secondary surface   | TODO   | docs/plan/FEATURE-5689.md |
+| FEATURE-5689 | Tool dialogs on the secondary surface   | DONE   | docs/plan/FEATURE-5689.md |
 | FEATURE-8EBF | Pastel, more visible diff colours       | TODO   | docs/plan/FEATURE-8EBF.md |
 | FEATURE-8F62 | Release 1.1.0                           | TODO   | docs/plan/FEATURE-8F62.md |
