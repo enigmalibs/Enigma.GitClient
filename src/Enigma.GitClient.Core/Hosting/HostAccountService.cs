@@ -58,6 +58,24 @@ public interface IHostAccountService
     Task<bool> RemoveAsync(string accountId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gives an account to a profile. Its token stays where it is.
+    /// </summary>
+    /// <param name="accountId">The account's id.</param>
+    /// <param name="profileId">The profile's id.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns><see langword="true"/> when there was an account to move.</returns>
+    Task<bool> AssignAsync(string accountId, string profileId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Disconnects every account of a profile and deletes their tokens — what deleting the profile
+    /// does to them.
+    /// </summary>
+    /// <param name="profileId">The profile's id.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>How many accounts were removed.</returns>
+    Task<int> RemoveForProfileAsync(string profileId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Reads an account's token.
     /// </summary>
     /// <param name="account">The account.</param>
@@ -76,7 +94,11 @@ public sealed class HostAccountService : IHostAccountService
     public const string FileName = "host-accounts.json";
 
     /// <summary>The schema version written into the file.</summary>
-    public const int CurrentVersion = 1;
+    /// <remarks>
+    /// 2 added each account's <c>profileId</c>. A version-1 file reads as accounts that belong to no
+    /// profile, and a 1.x build reads a version-2 file and ignores the field.
+    /// </remarks>
+    public const int CurrentVersion = 2;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -221,6 +243,78 @@ public sealed class HostAccountService : IHostAccountService
         await _tokens.DeleteAsync(removed.TokenKey, cancellationToken).ConfigureAwait(false);
 
         return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AssignAsync(
+        string accountId,
+        string profileId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(profileId);
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            List<HostAccount> accounts = [.. Read()];
+            int index = accounts.FindIndex(stored => string.Equals(stored.Id, accountId, StringComparison.Ordinal));
+
+            if (index < 0)
+            {
+                return false;
+            }
+
+            accounts[index] = accounts[index].ForProfile(profileId);
+
+            Write(accounts);
+
+            return true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<int> RemoveForProfileAsync(string profileId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(profileId);
+
+        List<HostAccount> removed = [];
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            List<HostAccount> accounts = [.. Read()];
+
+            removed.AddRange(accounts.FindAll(stored => stored.BelongsTo(profileId)));
+
+            if (removed.Count == 0)
+            {
+                return 0;
+            }
+
+            accounts.RemoveAll(stored => stored.BelongsTo(profileId));
+
+            Write(accounts);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        // After the list is written, as for a single account: a token left behind is a live
+        // credential nothing points at any more.
+        foreach (HostAccount account in removed)
+        {
+            await _tokens.DeleteAsync(account.TokenKey, cancellationToken).ConfigureAwait(false);
+        }
+
+        return removed.Count;
     }
 
     /// <inheritdoc />
