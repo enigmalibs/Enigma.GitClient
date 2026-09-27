@@ -1,6 +1,6 @@
 # FEATURE-1406 — Profiles that own their integrations
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-27-diff-profiles-release
@@ -43,7 +43,7 @@ code).
 
 ## PHASE01 — Identity becomes Profiles
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1406-PHASE01.md`
 **Branch:** `feature/feature-1406-phase01-profiles-page`
 
 ### Steps

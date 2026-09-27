@@ -3,8 +3,8 @@
              xmlns:ei="https://github.com/josueclement/Enigma.Icons"
              xmlns:controls="using:Enigma.Avalonia.Desktop.Controls"
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
-             x:Class="Enigma.GitClient.App.Views.Pages.IdentityPageView"
-             x:DataType="vm:IdentityPageViewModel">
+             x:Class="Enigma.GitClient.App.Views.Pages.ProfilesPageView"
+             x:DataType="vm:ProfilesPageViewModel">
 
   <UserControl.Styles>
     <!-- A profile's actions are a row's own actions, framed no more than a list row's are. -->
@@ -16,7 +16,7 @@
 
   <UserControl.Resources>
 
-    <DataTemplate x:Key="ProfileRow" x:DataType="vm:IdentityProfileRowViewModel">
+    <DataTemplate x:Key="ProfileRow" x:DataType="vm:ProfileRowViewModel">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10" Margin="0,4">
 
         <ei:Icon Grid.Column="0"

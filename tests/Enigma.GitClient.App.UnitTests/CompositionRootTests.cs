@@ -95,7 +95,7 @@ public sealed class CompositionRootTests
     [InlineData(typeof(BranchesPageViewModel))]
     [InlineData(typeof(TagsPageViewModel))]
     [InlineData(typeof(RemotesPageViewModel))]
-    [InlineData(typeof(IdentityPageViewModel))]
+    [InlineData(typeof(ProfilesPageViewModel))]
     [InlineData(typeof(IntegrationsPageViewModel))]
     [InlineData(typeof(SettingsPageViewModel))]
     public void Container_ResolvesEveryPageViewModel(Type viewModelType)
@@ -142,7 +142,7 @@ public sealed class CompositionRootTests
             provider.GetRequiredService<BranchesPageViewModel>(),
             provider.GetRequiredService<TagsPageViewModel>(),
             provider.GetRequiredService<RemotesPageViewModel>(),
-            provider.GetRequiredService<IdentityPageViewModel>(),
+            provider.GetRequiredService<ProfilesPageViewModel>(),
             provider.GetRequiredService<IntegrationsPageViewModel>(),
             provider.GetRequiredService<SettingsPageViewModel>(),
         ];

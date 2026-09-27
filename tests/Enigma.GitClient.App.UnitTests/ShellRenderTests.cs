@@ -112,7 +112,7 @@ public sealed class ShellRenderTests
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]
-    [InlineData(typeof(IdentityPageView))]
+    [InlineData(typeof(ProfilesPageView))]
     [InlineData(typeof(IntegrationsPageView))]
     [InlineData(typeof(SettingsPageView))]
     public void EveryPage_BuildsAndLaysOut(Type pageType)
@@ -202,7 +202,7 @@ public sealed class ShellRenderTests
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]
-    [InlineData(typeof(IdentityPageView))]
+    [InlineData(typeof(ProfilesPageView))]
     [InlineData(typeof(IntegrationsPageView))]
     [InlineData(typeof(SettingsPageView))]
     public void EveryPage_SizesItsToolbarIconsFromTheScale(Type pageType)
@@ -240,7 +240,7 @@ public sealed class ShellRenderTests
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]
-    [InlineData(typeof(IdentityPageView))]
+    [InlineData(typeof(ProfilesPageView))]
     [InlineData(typeof(IntegrationsPageView))]
     [InlineData(typeof(SettingsPageView))]
     public void NoPage_HasARefreshButtonOfItsOwn(Type pageType)

@@ -27,12 +27,12 @@ using Xunit;
 namespace Enigma.GitClient.App.UnitTests;
 
 /// <summary>
-/// The identity page: where it is reached from, the global name and email it reads from git and
+/// The profiles page: where it is reached from, the global name and email it reads from git and
 /// writes back, the profiles that switch them, and the open repository's own identity. Every test
 /// runs against the in-memory identity, never the developer's own.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
-public sealed class IdentityPageTests
+public sealed class ProfilesPageTests
 {
     private static readonly GitIdentity Ada = new("Ada Lovelace", "ada@example.com");
     private static readonly GitIdentity Work = new("Ada Lovelace", "ada@work.example");
@@ -46,29 +46,29 @@ public sealed class IdentityPageTests
 
     private readonly HeadlessAvaloniaFixture _fixture;
 
-    public IdentityPageTests(HeadlessAvaloniaFixture fixture) => _fixture = fixture;
+    public ProfilesPageTests(HeadlessAvaloniaFixture fixture) => _fixture = fixture;
 
     // ---------------------------------------------------------------- where it is
 
     [Fact]
-    public void TheStartWindowOpensTheIdentityPage()
+    public void TheStartWindowOpensTheProfilesPage()
     {
         _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
             StartWindowViewModel window = services.Get<StartWindowViewModel>();
 
-            window.StartNavigation.GoTo(StartPage.Identity);
+            window.StartNavigation.GoTo(StartPage.Profiles);
 
-            Assert.Equal(StartPage.Identity, window.StartNavigation.Current);
-            Assert.Equal("Identity", window.Navigation.SelectedItem?.Header);
-            IdentityPageView page = Assert.IsType<IdentityPageView>(window.Navigation.CurrentPage);
-            Assert.Same(services.Get<IdentityPageViewModel>(), page.DataContext);
+            Assert.Equal(StartPage.Profiles, window.StartNavigation.Current);
+            Assert.Equal("Profiles", window.Navigation.SelectedItem?.Header);
+            ProfilesPageView page = Assert.IsType<ProfilesPageView>(window.Navigation.CurrentPage);
+            Assert.Same(services.Get<ProfilesPageViewModel>(), page.DataContext);
         });
     }
 
     [Fact]
-    public void TheRepositoryWindowOpensTheSameIdentityPage()
+    public void TheRepositoryWindowOpensTheSameProfilesPage()
     {
         _fixture.Run(() =>
         {
@@ -76,11 +76,11 @@ public sealed class IdentityPageTests
             MainWindowViewModel window = services.Get<MainWindowViewModel>();
             IShellNavigation shell = services.Get<IShellNavigation>();
 
-            shell.GoTo(ShellPage.Identity);
+            shell.GoTo(ShellPage.Profiles);
 
-            Assert.Equal(ShellPage.Identity, shell.Current);
-            IdentityPageView page = Assert.IsType<IdentityPageView>(window.Navigation.CurrentPage);
-            Assert.Same(services.Get<IdentityPageViewModel>(), page.DataContext);
+            Assert.Equal(ShellPage.Profiles, shell.Current);
+            ProfilesPageView page = Assert.IsType<ProfilesPageView>(window.Navigation.CurrentPage);
+            Assert.Same(services.Get<ProfilesPageViewModel>(), page.DataContext);
         });
     }
 
@@ -94,7 +94,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.Equal("Ada Lovelace", page.GlobalName);
@@ -117,7 +117,7 @@ public sealed class IdentityPageTests
         {
             using TestServices services = TestServices.Build();
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.True(page.IsGlobalUnset);
@@ -137,7 +137,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Failure = new GitNotFoundException("git was not found.");
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.LoadAsync();
 
             RecordedNotification note = Assert.Single(services.InfoBar.Shown);
@@ -155,7 +155,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.GlobalName = "Ada King";
@@ -170,7 +170,7 @@ public sealed class IdentityPageTests
             // A page nobody typed on follows git entirely.
             using TestServices fresh = TestServices.Build();
             fresh.Identity.Global = Ada;
-            IdentityPageViewModel untouched = fresh.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel untouched = fresh.Get<ProfilesPageViewModel>();
             await untouched.OnAppearingAsync();
 
             fresh.Identity.Global = new GitIdentity("Someone Else", "else@example.com");
@@ -191,7 +191,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.GlobalName = "  Ada King Lovelace ";
@@ -225,7 +225,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.GlobalName = " Ada Lovelace  ";
@@ -243,7 +243,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.GlobalEmail = "ada at example.com";
@@ -268,7 +268,7 @@ public sealed class IdentityPageTests
         {
             using TestServices services = TestServices.Build();
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.GlobalName = "Ada Lovelace";
@@ -290,7 +290,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             services.Identity.Failure = FakeGitIdentityService.LockFailure();
@@ -321,9 +321,9 @@ public sealed class IdentityPageTests
             string.Empty,
             string.Empty);
 
-        Assert.Equal("git stopped with exit code 4.", IdentityPageViewModel.Describe(silent));
-        Assert.StartsWith("error:", IdentityPageViewModel.Describe(FakeGitIdentityService.LockFailure()), StringComparison.Ordinal);
-        Assert.Equal("Enter a name.", IdentityPageViewModel.Describe(new ArgumentException("Enter a name.", "identity")));
+        Assert.Equal("git stopped with exit code 4.", ProfilesPageViewModel.Describe(silent));
+        Assert.StartsWith("error:", ProfilesPageViewModel.Describe(FakeGitIdentityService.LockFailure()), StringComparison.Ordinal);
+        Assert.Equal("Enter a name.", ProfilesPageViewModel.Describe(new ArgumentException("Enter a name.", "identity")));
     }
 
     // ---------------------------------------------------------------- profiles
@@ -336,7 +336,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.False(page.HasProfiles);
@@ -361,7 +361,7 @@ public sealed class IdentityPageTests
             Assert.Equal("Personal", stored.Label);
             Assert.Equal(Ada, stored.Identity);
 
-            IdentityProfileRowViewModel row = Assert.Single(page.Profiles);
+            ProfileRowViewModel row = Assert.Single(page.Profiles);
             Assert.True(row.IsCurrent);
             Assert.Equal(stored, page.CurrentProfile);
             Assert.Contains(services.InfoBar.Shown, note => note.Title == "Profile added");
@@ -379,7 +379,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             List<bool> enabled = [];
@@ -417,7 +417,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             services.Dialogs.Result = DialogResult.None;
@@ -440,7 +440,7 @@ public sealed class IdentityPageTests
             IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             services.Dialogs.Result = DialogResult.Primary;
@@ -475,7 +475,7 @@ public sealed class IdentityPageTests
             IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             services.Dialogs.Script(DialogResult.Close, DialogResult.Primary);
@@ -510,7 +510,7 @@ public sealed class IdentityPageTests
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.True(page.Profiles[0].IsCurrent);
@@ -543,7 +543,7 @@ public sealed class IdentityPageTests
             services.Identity.Global = Ada;
             await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.Null(page.CurrentProfile);
@@ -568,7 +568,7 @@ public sealed class IdentityPageTests
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             services.Identity.Failure = FakeGitIdentityService.LockFailure();
@@ -594,7 +594,7 @@ public sealed class IdentityPageTests
 
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.Equal("Could not read the identity profiles", Assert.Single(services.InfoBar.Shown).Title);
@@ -646,7 +646,7 @@ public sealed class IdentityPageTests
             services.Identity.Global = Work;
             await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.False(page.IsRepositoryOpen);
@@ -670,7 +670,7 @@ public sealed class IdentityPageTests
             services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Work);
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.True(page.IsRepositoryOpen);
@@ -696,7 +696,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.False(page.HasLocalIdentity);
@@ -719,7 +719,7 @@ public sealed class IdentityPageTests
             services.Identity.Global = Home;
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.LocalName = " Ada Lovelace ";
@@ -757,7 +757,7 @@ public sealed class IdentityPageTests
             services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Work);
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             await page.RemoveLocalCommand.ExecuteAsync(null);
@@ -787,7 +787,7 @@ public sealed class IdentityPageTests
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             Assert.Equal("Work", page.CurrentProfile?.Label);
@@ -820,7 +820,7 @@ public sealed class IdentityPageTests
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             // No profile is git's identity: nothing to copy.
@@ -848,7 +848,7 @@ public sealed class IdentityPageTests
             IRepositoryContext context = services.Get<IRepositoryContext>();
             await context.OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             page.LocalName = "Half typed for work";
@@ -878,7 +878,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
             services.Identity.Failure = FakeGitIdentityService.LockFailure();
@@ -904,7 +904,7 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             await services.Get<IRepositoryContext>().OpenAsync(WorkRepository);
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             services.Identity.Failure = FakeGitIdentityService.LockFailure();
 
             await page.OnAppearingAsync();
@@ -923,10 +923,10 @@ public sealed class IdentityPageTests
             using TestServices services = TestServices.Build();
             services.Identity.Global = Ada;
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
-            IdentityPageView view = services.Get<IdentityPageView>();
+            ProfilesPageView view = services.Get<ProfilesPageView>();
             view.DataContext = page;
 
             Window window = new() { Content = view, Width = 1000, Height = 800 };
@@ -965,10 +965,10 @@ public sealed class IdentityPageTests
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
-            IdentityPageView view = services.Get<IdentityPageView>();
+            ProfilesPageView view = services.Get<ProfilesPageView>();
             view.DataContext = page;
 
             Window window = new() { Content = view, Width = 1000, Height = 900 };
@@ -1008,10 +1008,10 @@ public sealed class IdentityPageTests
             services.Identity.SetLocalDirectly(WorkRepository.WorkTreePath, Home);
             await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work));
 
-            IdentityPageViewModel page = services.Get<IdentityPageViewModel>();
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
 
-            IdentityPageView view = services.Get<IdentityPageView>();
+            ProfilesPageView view = services.Get<ProfilesPageView>();
             view.DataContext = page;
 
             Window window = new() { Content = view, Width = 1000, Height = 1100 };
