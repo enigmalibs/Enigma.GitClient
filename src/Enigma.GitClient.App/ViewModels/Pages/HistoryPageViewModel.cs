@@ -51,6 +51,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
+
+    // The row whose files the panel holds. They arrive after the row is selected, and until they do
+    // the panel still lists the previous row's — none of which may be shown against the new commit.
+    private CommitRowViewModel? _filesRow;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<HistoryPageViewModel> _logger;
 
@@ -301,13 +305,27 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <see cref="SelectedRow"/> alone, because the selection is also what "create a branch here"
     /// starts from and what the row highlight shows. Nothing but an explicit request opens it: a
     /// double-click on a row, or that row's menu.
+    /// <para>
+    /// It always opens on the commit's first file — never on the file that was selected before, in
+    /// another commit or the last time this one was open. When the files are still being read, the
+    /// first one is selected as they arrive.
+    /// </para>
     /// </remarks>
     public bool IsDiffViewOpen
     {
         get;
         set
         {
-            if (SetProperty(ref field, value) && !value && _refreshPending)
+            if (!SetProperty(ref field, value))
+            {
+                return;
+            }
+
+            if (value)
+            {
+                SelectFirstFile();
+            }
+            else if (_refreshPending)
             {
                 // What the automatic refresh found while the diffs had the page, drawn now that the
                 // graph is back.
@@ -1099,6 +1117,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         if (row is null || repository is null)
         {
             _diffTarget = null;
+            _filesRow = null;
             Files.Clear();
             Diff.Clear();
             return;
@@ -1122,8 +1141,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 return;
             }
 
+            // Another commit's list: nothing is carried over from the one before, not even a path
+            // both happen to have.
             Files.WorkTreePath = repository.WorkTreePath;
-            Files.SetFiles(files);
+            Files.SetFiles(files, keepSelection: false);
+            _filesRow = row;
+
+            if (IsDiffViewOpen)
+            {
+                SelectFirstFile();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1132,8 +1159,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Reading the files of {Commit} failed", row.Sha);
+            _filesRow = null;
             Files.Clear();
             Diff.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Selects the first file of the selected row, once the panel holds that row's files — which is
+    /// what the diff view opens on.
+    /// </summary>
+    private void SelectFirstFile()
+    {
+        if (_filesRow is not null && ReferenceEquals(_filesRow, SelectedRow))
+        {
+            Files.SelectFirstFile();
         }
     }
 

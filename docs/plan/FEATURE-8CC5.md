@@ -1,6 +1,6 @@
 # FEATURE-8CC5 — The first file, every time
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8CC5.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-8cc5-first-file-selected`
 **Run:** feature/2026-09-27-diff-profiles-release
