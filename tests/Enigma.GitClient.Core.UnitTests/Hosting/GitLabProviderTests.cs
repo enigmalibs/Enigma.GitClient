@@ -44,6 +44,7 @@ public sealed class GitLabProviderTests
         Assert.Equal("oauth2", provider.GitUserName);
         Assert.Equal(new Uri("https://gitlab.com"), provider.DefaultBaseUri);
         Assert.Contains("read_api", provider.TokenScopeHint, StringComparison.Ordinal);
+        Assert.Contains("write_repository", provider.TokenScopeHint, StringComparison.Ordinal);
         Assert.Contains("No issue or merge-request scope", provider.TokenScopeHint, StringComparison.Ordinal);
     }
 

@@ -54,8 +54,9 @@ public sealed class AzureDevOpsProvider : IRepositoryHostProvider
 
     /// <inheritdoc />
     public string TokenScopeHint =>
-        "A personal access token with 'Code: Read', and the organisation in the instance URL "
-        + "(https://dev.azure.com/your-organisation). No work-item or pull-request scope is ever requested.";
+        "A personal access token with 'Code: Read' — 'Code: Read & write' for the client to push — and the "
+        + "organisation in the instance URL (https://dev.azure.com/your-organisation). No work-item or "
+        + "pull-request scope is ever requested.";
 
     /// <inheritdoc />
     /// <remarks>Azure DevOps ignores the user name paired with a personal access token, as long as there is one.</remarks>

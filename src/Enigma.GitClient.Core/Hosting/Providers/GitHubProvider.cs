@@ -56,7 +56,8 @@ public sealed class GitHubProvider : IRepositoryHostProvider
     /// <inheritdoc />
     public string TokenScopeHint =>
         "A personal access token with the 'repo' scope (or, for a fine-grained token, read access to "
-        + "Contents and Metadata). No issue or pull-request scope is ever requested.";
+        + "Metadata and to Contents — read and write for the client to push). No issue or pull-request scope "
+        + "is ever requested.";
 
     /// <inheritdoc />
     /// <remarks>GitHub documents <c>x-access-token</c> for a token used as a git password.</remarks>
