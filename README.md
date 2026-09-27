@@ -10,8 +10,8 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 1.1** — notifications that never hold anything up (a success closes itself after
-> five seconds) and pastel diff colours you can see in both themes. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 2.0** — integrations belong to a profile, a profile without one never pushes, and
+> the diffs always open on the first file. Upgrading from 1.x: see [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -50,14 +50,16 @@ Two things matter more than everything else in this app:
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
 - Merge conflict resolution with a three-way view, per-hunk selection and a live preview of the
   file that will be written
-- Integrations with **GitHub**, **GitLab** and **Azure DevOps**: sign in with a personal access
-  token, browse and clone your repositories, and open a commit, branch or file on the host — on the
-  public instances and on self-hosted ones (GitHub Enterprise Server, self-hosted GitLab, Azure
-  DevOps Server)
-- A **Git identity** page, on the start window and in every repository window, to edit the
+- Integrations with **GitHub**, **GitLab** and **Azure DevOps**, connected under a profile: sign in
+  with a personal access token, browse and clone your repositories, and open a commit, branch or file
+  on the host — on the public instances and on self-hosted ones (GitHub Enterprise Server,
+  self-hosted GitLab, Azure DevOps Server)
+- A **Profiles** page, on the start window and in every repository window, to edit the
   global name and email git records on every commit, and profiles — work, personal — that switch
-  them in one click; in a repository's window, give that repository a name and email of its own
-  (copied from the current profile in one click), or remove them again
+  them in one click, each with the hosting accounts it is connected to — a profile pushes only to
+  the hosts it is connected to, so one without any integration stays local; in a repository's
+  window, give that repository a name and email of its own (copied from the current profile in one
+  click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
   font and context, the pull strategy and the path to git — every one of them applied without a
   restart
@@ -73,14 +75,25 @@ These are deliberate, permanent exclusions — not gaps waiting to be filled:
 
 ## Connecting a host
 
-Each integration signs in with a personal access token you create on the host itself, and asks for
-the smallest scope that can list and clone repositories:
+Integrations are connected under a profile, with **Connect an account** on the Profiles page, so
+each profile has accounts of its own. Each one signs in with a personal access token you create on
+the host itself, and asks for the smallest scope that can list and clone repositories:
 
 | Host | Scope to grant | Where to put the instance URL |
 |------|----------------|-------------------------------|
 | GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `https://github.com`, or your Enterprise Server's own address |
 | GitLab | `read_api` and `read_repository` | `https://gitlab.com`, or your instance's own address |
 | Azure DevOps | **Code: Read** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+
+**A profile pushes only where one of its integrations leads.** When a repository's commits are made
+as a profile — its name and email, as git resolves them there — a push goes ahead only if that
+profile has an integration for the remote's host; a profile with no integration never pushes, to a
+host or to a folder. The integration is the permission, not the credential: git still signs in with
+its own credential helper or SSH key. A repository whose identity matches no profile pushes as it
+always did.
+
+An integration connected with a 1.x version belongs to no profile: it is listed under **Earlier
+integrations** on the Profiles page until you move it into the profile it is for.
 
 No issue, work-item, merge-request or pull-request scope is ever requested, and the client never
 calls those APIs. Tokens are encrypted at rest — AES-GCM with a key protected by DPAPI on Windows
@@ -95,13 +108,13 @@ Everything the client remembers about you lives in one per-user directory —
 |------|---------------|
 | `settings.json` | Your preferences, as plain readable JSON |
 | `recent-repositories.json` | The repositories you have opened, and the ones you pinned |
-| `host-accounts.json` | The hosting accounts you connected — never their tokens |
+| `host-accounts.json` | The hosting accounts you connected, each under the profile it belongs to — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
 | `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
-repository's), and only when you save or remove a name and email or use a profile on the Identity
+repository's), and only when you save or remove a name and email or use a profile on the Profiles
 page — and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and
 to nothing else.
 

@@ -213,8 +213,17 @@ public sealed class ScriptedContentDialogService : IContentDialogService
         return Task.FromResult(_script.Count > 0 ? _script.Dequeue() : Result);
     }
 
+    /// <summary>
+    /// Gets how many times a dialog was closed by the code rather than by an answer.
+    /// </summary>
+    public int Hidden { get; private set; }
+
     /// <inheritdoc />
-    public Task HideAsync() => Task.CompletedTask;
+    public Task HideAsync()
+    {
+        Hidden++;
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>

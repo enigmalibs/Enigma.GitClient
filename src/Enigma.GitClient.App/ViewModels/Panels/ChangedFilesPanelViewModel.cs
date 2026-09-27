@@ -561,12 +561,19 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     public bool IsEmpty => Nodes.Count == 0;
 
     /// <summary>
-    /// Replaces the files the panel shows, keeping the selected path when it is still there.
+    /// Replaces the files the panel shows.
     /// </summary>
     /// <param name="files">The changed files.</param>
-    public void SetFiles(IReadOnlyList<ChangedFile> files)
+    /// <param name="keepSelection">
+    /// Whether the selected path stays selected when the new files still have it — right for a
+    /// refresh of the same change. <see langword="false"/> for another change altogether, whose list
+    /// starts with nothing selected.
+    /// </param>
+    public void SetFiles(IReadOnlyList<ChangedFile> files, bool keepSelection = true)
     {
         ArgumentNullException.ThrowIfNull(files);
+
+        string? keep = keepSelection ? SelectedFilePath : null;
 
         _files = files;
 
@@ -598,7 +605,31 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         OnPropertyChanged(nameof(FileCount));
         OnPropertyChanged(nameof(Summary));
 
-        Rebuild();
+        Rebuild(keep);
+    }
+
+    /// <summary>
+    /// Selects the first file the panel shows: the list's first row, or the tree's first file depth
+    /// first, with the directories above it opened so its row can be seen.
+    /// </summary>
+    /// <returns><see langword="true"/> when there was a file to select.</returns>
+    public bool SelectFirstFile()
+    {
+        List<ChangedFileNodeViewModel> ancestors = [];
+        ChangedFileNodeViewModel? first = FindFirstFile(Nodes, ancestors);
+
+        if (first is null)
+        {
+            return false;
+        }
+
+        foreach (ChangedFileNodeViewModel directory in ancestors)
+        {
+            directory.IsExpanded = true;
+        }
+
+        SelectedNode = first;
+        return true;
     }
 
     /// <summary>
@@ -650,10 +681,50 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         }
     }
 
-    private void Rebuild()
+    /// <summary>
+    /// Finds the first file row beneath some rows, depth first, collecting the directories on the way
+    /// down to it.
+    /// </summary>
+    /// <param name="nodes">The rows to search.</param>
+    /// <param name="ancestors">Receives the directories above the file, outermost first.</param>
+    /// <returns>The file row, or <see langword="null"/> when there is none.</returns>
+    private static ChangedFileNodeViewModel? FindFirstFile(
+        IEnumerable<ChangedFileNodeViewModel> nodes,
+        List<ChangedFileNodeViewModel> ancestors)
     {
-        string? previous = SelectedNode?.IsDirectory == false ? SelectedNode.Path : null;
+        foreach (ChangedFileNodeViewModel node in nodes)
+        {
+            if (!node.IsDirectory)
+            {
+                return node;
+            }
 
+            ancestors.Add(node);
+
+            if (FindFirstFile(node.Children, ancestors) is { } file)
+            {
+                return file;
+            }
+
+            ancestors.RemoveAt(ancestors.Count - 1);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets the path of the selected file, or <see langword="null"/> when no file is selected.
+    /// </summary>
+    private string? SelectedFilePath => SelectedNode?.IsDirectory == false ? SelectedNode.Path : null;
+
+    private void Rebuild() => Rebuild(SelectedFilePath);
+
+    /// <summary>
+    /// Builds the rows again, selecting a path when it is still shown.
+    /// </summary>
+    /// <param name="previous">The path to select again, or <see langword="null"/> for none.</param>
+    private void Rebuild(string? previous)
+    {
         List<ChangedFile> visible = [];
 
         foreach (ChangedFile file in _files)

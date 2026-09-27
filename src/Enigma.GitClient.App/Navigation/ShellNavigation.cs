@@ -24,11 +24,8 @@ public enum ShellPage
     /// <summary>The conflicts of a merge in progress, which is the only time it exists.</summary>
     Conflicts,
 
-    /// <summary>The name and email git records on a commit.</summary>
-    Identity,
-
-    /// <summary>Hosting integrations.</summary>
-    Integrations,
+    /// <summary>The profiles — the names and emails git records on a commit — and the global identity.</summary>
+    Profiles,
 
     /// <summary>Preferences.</summary>
     Settings,
@@ -118,8 +115,7 @@ public sealed class ShellNavigation : IShellNavigation
         // Built like the others, but held back until a merge conflicts.
         _conflicts = Build(ShellPage.Conflicts, "Conflicts", PhosphorIcon.GitMerge, typeof(ConflictResolutionPageView), typeof(ConflictResolutionPageViewModel));
 
-        Add(navigation.FooterItems, ShellPage.Identity, "Identity", PhosphorIcon.IdentificationCard, typeof(IdentityPageView), typeof(IdentityPageViewModel));
-        Add(navigation.FooterItems, ShellPage.Integrations, "Integrations", PhosphorIcon.GlobeSimple, typeof(IntegrationsPageView), typeof(IntegrationsPageViewModel));
+        Add(navigation.FooterItems, ShellPage.Profiles, "Profiles", PhosphorIcon.IdentificationCard, typeof(ProfilesPageView), typeof(ProfilesPageViewModel));
         Add(navigation.FooterItems, ShellPage.Settings, "Settings", PhosphorIcon.Gear, typeof(SettingsPageView), typeof(SettingsPageViewModel));
     }
 

@@ -19,11 +19,8 @@ public enum StartPage
     /// <summary>Recent repositories, and the open / clone / create actions.</summary>
     Repositories,
 
-    /// <summary>The name and email git records on a commit.</summary>
-    Identity,
-
-    /// <summary>Hosting integrations.</summary>
-    Integrations,
+    /// <summary>The profiles — the names and emails git records on a commit — and the global identity.</summary>
+    Profiles,
 
     /// <summary>Preferences.</summary>
     Settings,
@@ -90,8 +87,7 @@ public sealed class StartNavigation : IStartNavigation
             logger.LogError(e.Exception, "Navigation failed during {Phase}", e.Phase);
 
         Add(navigation.Items, StartPage.Repositories, "Repositories", PhosphorIcon.Folders, typeof(RepositoriesPageView), typeof(RepositoriesPageViewModel));
-        Add(navigation.FooterItems, StartPage.Identity, "Identity", PhosphorIcon.IdentificationCard, typeof(IdentityPageView), typeof(IdentityPageViewModel));
-        Add(navigation.FooterItems, StartPage.Integrations, "Integrations", PhosphorIcon.GlobeSimple, typeof(IntegrationsPageView), typeof(IntegrationsPageViewModel));
+        Add(navigation.FooterItems, StartPage.Profiles, "Profiles", PhosphorIcon.IdentificationCard, typeof(ProfilesPageView), typeof(ProfilesPageViewModel));
         Add(navigation.FooterItems, StartPage.Settings, "Settings", PhosphorIcon.Gear, typeof(SettingsPageView), typeof(SettingsPageViewModel));
     }
 

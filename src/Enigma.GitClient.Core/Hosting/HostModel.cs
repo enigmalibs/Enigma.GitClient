@@ -91,9 +91,16 @@ public static class WellKnownHosts
 /// An account on a repository host, as the client remembers it.
 /// </summary>
 /// <remarks>
+/// <para>
 /// It deliberately holds no token. The secret lives in <see cref="Security.ITokenStore"/> under
 /// <see cref="TokenKey"/>, so an account can be logged, serialised or shown in a dialog without any
 /// risk of taking the credential with it.
+/// </para>
+/// <para>
+/// An account belongs to one identity profile, which is what lets each profile have accounts of its
+/// own — and a profile with none stay local. An account connected before accounts belonged to
+/// profiles has no profile until the user gives it one.
+/// </para>
 /// </remarks>
 public sealed record HostAccount
 {
@@ -105,8 +112,17 @@ public sealed record HostAccount
     /// <param name="baseUri">The instance's root, such as <c>https://github.com</c>.</param>
     /// <param name="userName">The account's login on the host.</param>
     /// <param name="displayName">What to call it in the interface.</param>
+    /// <param name="profileId">
+    /// The identifier of the profile it belongs to, or <see langword="null"/> for none.
+    /// </param>
     [JsonConstructor]
-    public HostAccount(string id, HostKind kind, Uri baseUri, string userName, string displayName)
+    public HostAccount(
+        string id,
+        HostKind kind,
+        Uri baseUri,
+        string userName,
+        string displayName,
+        string? profileId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(baseUri);
@@ -116,6 +132,7 @@ public sealed record HostAccount
         BaseUri = baseUri;
         UserName = userName ?? string.Empty;
         DisplayName = string.IsNullOrWhiteSpace(displayName) ? baseUri.Host : displayName;
+        ProfileId = string.IsNullOrWhiteSpace(profileId) ? null : profileId;
     }
 
     /// <summary>Gets the account's stable identifier, which is also its token's key.</summary>
@@ -136,6 +153,16 @@ public sealed record HostAccount
     /// <summary>Gets what to call the account in the interface.</summary>
     public string DisplayName { get; }
 
+    /// <summary>
+    /// Gets the identifier of the profile the account belongs to, or <see langword="null"/> when it
+    /// belongs to none — an account connected before accounts belonged to profiles.
+    /// </summary>
+    public string? ProfileId { get; }
+
+    /// <summary>Gets a value indicating whether the account belongs to no profile.</summary>
+    [JsonIgnore]
+    public bool IsUnassigned => ProfileId is null;
+
     /// <summary>Gets the host name of <see cref="BaseUri"/>, lower-cased.</summary>
     [JsonIgnore]
     public string Host => BaseUri.Host.ToLowerInvariant();
@@ -151,8 +178,14 @@ public sealed record HostAccount
     /// <param name="baseUri">The instance's root.</param>
     /// <param name="userName">The account's login on the host.</param>
     /// <param name="displayName">What to call it, or empty for the host name.</param>
+    /// <param name="profileId">The profile it belongs to, or <see langword="null"/> for none.</param>
     /// <returns>The account.</returns>
-    public static HostAccount Create(HostKind kind, Uri baseUri, string userName, string? displayName = null)
+    public static HostAccount Create(
+        HostKind kind,
+        Uri baseUri,
+        string userName,
+        string? displayName = null,
+        string? profileId = null)
     {
         ArgumentNullException.ThrowIfNull(baseUri);
 
@@ -161,8 +194,25 @@ public sealed record HostAccount
             kind,
             baseUri,
             userName,
-            displayName ?? string.Empty);
+            displayName ?? string.Empty,
+            profileId);
     }
+
+    /// <summary>
+    /// Answers whether the account belongs to a profile.
+    /// </summary>
+    /// <param name="profileId">The profile's identifier.</param>
+    /// <returns><see langword="true"/> when it is that profile's.</returns>
+    public bool BelongsTo(string? profileId)
+        => ProfileId is not null && string.Equals(ProfileId, profileId, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Returns this account given to another profile, everything else — its token included — kept.
+    /// </summary>
+    /// <param name="profileId">The profile, or <see langword="null"/> for none.</param>
+    /// <returns>The account under that profile.</returns>
+    public HostAccount ForProfile(string? profileId)
+        => new(Id, Kind, BaseUri, UserName, DisplayName, profileId);
 
     /// <summary>
     /// Answers whether a remote address belongs to this account's instance.

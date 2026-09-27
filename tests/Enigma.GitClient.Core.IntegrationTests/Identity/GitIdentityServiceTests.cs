@@ -142,6 +142,52 @@ public sealed class GitIdentityServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetEffective_IsTheGlobalIdentityUntilTheRepositorySetsItsOwn()
+    {
+        await Identity.SetGlobalAsync(new GitIdentity("Global", "global@example.com"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            new GitIdentity("Global", "global@example.com"),
+            await Identity.GetEffectiveAsync(_handle, TestContext.Current.CancellationToken));
+
+        await Identity.SetLocalAsync(_handle, new GitIdentity("Work Me", "me@work.example"), TestContext.Current.CancellationToken);
+
+        // The repository's own wins, as it does on a commit.
+        Assert.Equal(
+            new GitIdentity("Work Me", "me@work.example"),
+            await Identity.GetEffectiveAsync(_handle, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task GetEffective_TakesEachKeyFromTheMostSpecificScopeThatSetsIt()
+    {
+        await Identity.SetGlobalAsync(new GitIdentity("Global", "global@example.com"), TestContext.Current.CancellationToken);
+        await _repository.GitAsync("config", "--local", "user.email", "me@work.example");
+
+        Assert.Equal(
+            new GitIdentity("Global", "me@work.example"),
+            await Identity.GetEffectiveAsync(_handle, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task GetEffective_FollowsAConditionalInclude()
+    {
+        // The usual way to commit as work in one folder and as yourself everywhere else.
+        string included = Path.Combine(Path.GetDirectoryName(GlobalConfigFile)!, "work.gitconfig");
+        await File.WriteAllTextAsync(included, "[user]\n\temail = included@work.example\n", TestContext.Current.CancellationToken);
+
+        string folder = _repository.Path.Replace('\\', '/').TrimEnd('/') + "/";
+        await File.WriteAllTextAsync(
+            GlobalConfigFile,
+            $"[user]\n\tname = Global\n\temail = global@example.com\n[includeIf \"gitdir:{folder}\"]\n\tpath = {included.Replace('\\', '/')}\n",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            new GitIdentity("Global", "included@work.example"),
+            await Identity.GetEffectiveAsync(_handle, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task RemoveLocal_LeavesTheRepositoryOnTheGlobalIdentity()
     {
         await Identity.SetGlobalAsync(new GitIdentity("Global", "global@example.com"), TestContext.Current.CancellationToken);

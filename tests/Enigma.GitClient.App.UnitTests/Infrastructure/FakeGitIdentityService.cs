@@ -79,6 +79,20 @@ public sealed class FakeGitIdentityService : IGitIdentityService
     }
 
     /// <inheritdoc />
+    /// <remarks>Each key from the repository's own identity when it sets one, else from the global one.</remarks>
+    public Task<GitIdentity> GetEffectiveAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ThrowIfFailing();
+
+        GitIdentity local = LocalOf(repository.WorkTreePath);
+
+        return Task.FromResult(new GitIdentity(
+            local.Name.Length > 0 ? local.Name : Global.Name,
+            local.Email.Length > 0 ? local.Email : Global.Email));
+    }
+
+    /// <inheritdoc />
     public Task SetLocalAsync(
         RepositoryHandle repository,
         GitIdentity identity,

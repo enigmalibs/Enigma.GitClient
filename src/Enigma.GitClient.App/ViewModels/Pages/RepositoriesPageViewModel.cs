@@ -482,7 +482,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// </summary>
     /// <returns>The absolute directory path.</returns>
     /// <remarks>
-    /// Public because the integrations page clones from a repository the user picked on a host,
+    /// Public because the profiles page clones from a repository the user picked on a host,
     /// with no dialog to choose a directory in.
     /// </remarks>
     public static string DefaultParentDirectory()

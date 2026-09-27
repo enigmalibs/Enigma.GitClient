@@ -378,6 +378,65 @@ public sealed class ChangedFilesPanelTests
         Assert.Null(panel.SelectedFile);
     }
 
+    [Fact]
+    public void Panel_SelectsTheFirstRowOfTheList()
+    {
+        ChangedFilesPanelViewModel panel = Loaded();
+        panel.SelectPath("assets/logo.png");
+
+        Assert.True(panel.SelectFirstFile());
+
+        Assert.Same(panel.Nodes[0], panel.SelectedNode);
+        Assert.Equal("README.md", panel.SelectedFile?.Path);
+    }
+
+    [Fact]
+    public void Panel_SelectsTheTreesFirstFileAndOpensTheDirectoriesAboveIt()
+    {
+        ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop())
+        {
+            ViewMode = ChangedFilesViewMode.Tree,
+            AutoExpandLimit = 0,
+        };
+
+        panel.SetFiles(SampleFiles());
+
+        ChangedFileNodeViewModel assets = panel.Nodes.Single(node => node.Label == "assets");
+        Assert.False(assets.IsExpanded);
+
+        Assert.True(panel.SelectFirstFile());
+
+        // The first file depth first — under the first directory, not the first root-level file —
+        // and the collapsed directory it sits in is opened, or the selected row could not be seen.
+        Assert.Equal("assets/logo.png", panel.SelectedFile?.Path);
+        Assert.True(assets.IsExpanded);
+        Assert.All(panel.Nodes.Where(node => node.IsDirectory && node != assets), node => Assert.False(node.IsExpanded));
+    }
+
+    [Fact]
+    public void Panel_HasNoFirstFileWhenItIsEmpty()
+    {
+        ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop());
+
+        Assert.False(panel.SelectFirstFile());
+        Assert.Null(panel.SelectedNode);
+    }
+
+    [Fact]
+    public void Panel_CanStartANewListWithNothingSelected()
+    {
+        ChangedFilesPanelViewModel panel = Loaded();
+        panel.SelectPath("README.md");
+
+        // The same change again keeps its selection, as a refresh should.
+        panel.SetFiles(SampleFiles());
+        Assert.Equal("README.md", panel.SelectedFile?.Path);
+
+        // Another change starts over, even though it has the same path.
+        panel.SetFiles(SampleFiles(), keepSelection: false);
+        Assert.Null(panel.SelectedNode);
+    }
+
     // ---------------------------------------------------------------- the row menu
 
     [Fact]
@@ -593,6 +652,109 @@ public sealed class ChangedFilesPanelTests
 
             Assert.True(page.Files.IsEmpty);
             Assert.Equal(0, page.Files.FileCount);
+        });
+    }
+
+    [Fact]
+    public void HistoryPage_OpensTheDiffsOnTheFirstFile()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            // Asked for straight away, before the commit's files have been read: they are selected
+            // as they arrive.
+            page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Rework the sources"));
+
+            await WaitUntilAsync(() => page.Files.SelectedFile is not null);
+
+            Assert.True(page.IsDiffViewOpen);
+            Assert.Same(page.Files.Nodes[0], page.Files.SelectedNode);
+            Assert.Equal("src/app/Program.cs", page.Files.SelectedFile?.Path);
+
+            await WaitUntilAsync(() => page.Diff.Title == "src/app/Program.cs");
+            Assert.Equal("src/app/Program.cs", page.Diff.Title);
+        });
+    }
+
+    [Fact]
+    public void HistoryPage_NeverCarriesTheSelectedFileToAnotherCommit()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Rework the sources"));
+            await WaitUntilAsync(() => page.Files.SelectedFile is not null);
+
+            // A file both commits touch: the first one deletes it, the second one added it.
+            Assert.True(page.Files.SelectPath("src/app/Removed.cs"));
+
+            CommitRowViewModel initial = page.Rows.Single(row => row.Subject == "Add the initial files");
+            page.RowCommands.ShowChanges.Execute(initial);
+
+            await WaitUntilAsync(() => page.Files.SelectedFile?.Path == "README.md");
+
+            Assert.Same(initial, page.SelectedRow);
+            Assert.Equal("README.md", page.Files.SelectedFile?.Path);
+        });
+    }
+
+    [Fact]
+    public void HistoryPage_ReopensTheSameCommitOnItsFirstFile()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            CommitRowViewModel row = page.Rows.Single(candidate => candidate.Subject == "Rework the sources");
+            page.RowCommands.ShowChanges.Execute(row);
+            await WaitUntilAsync(() => page.Files.SelectedFile is not null);
+
+            Assert.True(page.Files.SelectPath("src/app/Renamed.cs"));
+
+            page.CloseDiffViewCommand.Execute(null);
+            page.RowCommands.ShowChanges.Execute(row);
+
+            Assert.True(page.IsDiffViewOpen);
+            Assert.Equal("src/app/Program.cs", page.Files.SelectedFile?.Path);
+        });
+    }
+
+    [Fact]
+    public void HistoryPage_SelectsNoFileForARowWhoseDiffsAreNotOpen()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SelectedRow = page.Rows.Single(row => row.Subject == "Rework the sources");
+            await WaitForFilesAsync(page);
+
+            // Nobody is looking at a patch, so none is read.
+            Assert.False(page.IsDiffViewOpen);
+            Assert.Null(page.Files.SelectedNode);
+            Assert.Equal(string.Empty, page.Diff.Title);
         });
     }
 
@@ -877,6 +1039,14 @@ public sealed class ChangedFilesPanelTests
     private static async Task WaitForFilesAsync(HistoryPageViewModel page)
     {
         for (int attempt = 0; attempt < 200 && page.Files.FileCount == 0; attempt++)
+        {
+            await Task.Delay(10);
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (int attempt = 0; attempt < 300 && !condition(); attempt++)
         {
             await Task.Delay(10);
         }

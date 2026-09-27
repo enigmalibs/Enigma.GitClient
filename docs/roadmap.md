@@ -158,3 +158,11 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5689 | Tool dialogs on the secondary surface   | DONE   | docs/plan/FEATURE-5689.md |
 | FEATURE-8EBF | Pastel, more visible diff colours       | DONE   | docs/plan/FEATURE-8EBF.md |
 | FEATURE-8F62 | Release 1.1.0                           | DONE   | docs/plan/FEATURE-8F62.md |
+| FEATURE-8CC5 | The first file, every time              | DONE   | docs/plan/FEATURE-8CC5.md |
+| FEATURE-1406 | Profiles that own their integrations    | DONE   | docs/plan/FEATURE-1406.md |
+| - PHASE01    | Identity becomes Profiles               | DONE   | (in FEATURE-1406.md)      |
+| - PHASE02    | Accounts belong to a profile            | DONE   | (in FEATURE-1406.md)      |
+| - PHASE03    | Browse repositories in a dialog         | DONE   | (in FEATURE-1406.md)      |
+| - PHASE04    | Integrations inside each profile        | DONE   | (in FEATURE-1406.md)      |
+| - PHASE05    | A profile pushes only where it may      | DONE   | (in FEATURE-1406.md)      |
+| FEATURE-4AC8 | Release 2.0.0                           | DONE   | docs/plan/FEATURE-4AC8.md |
