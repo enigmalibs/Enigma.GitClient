@@ -38,6 +38,12 @@ public sealed class GitIdentityArgumentsTests
     }
 
     [Fact]
+    public void BuildEffectiveReadArguments_AsksEveryScopeAtOnce()
+        => Assert.Equal(
+            ["config", "-z", "--get-regexp", @"^user\.(name|email)$"],
+            GitIdentityService.BuildEffectiveReadArguments());
+
+    [Fact]
     public void BuildRemoveArguments_RemovesEveryLineOfTheKeyFromTheRepository()
         => Assert.Equal(
             ["config", "--local", "--unset-all", "user.email"],
@@ -54,6 +60,7 @@ public sealed class GitIdentityArgumentsTests
 
         // The forbidden-operation check reads every vector; none of these may trip it.
         Assert.NotNull(factory.Create(".", GitIdentityService.BuildReadArguments(GitConfigScope.Global)));
+        Assert.NotNull(factory.Create(".", GitIdentityService.BuildEffectiveReadArguments()));
         Assert.NotNull(factory.Create(".", GitIdentityService.BuildWriteArguments(GitConfigScope.Local, "user.email", "a@b")));
         Assert.NotNull(factory.Create(".", GitIdentityService.BuildRemoveArguments("user.name")));
     }

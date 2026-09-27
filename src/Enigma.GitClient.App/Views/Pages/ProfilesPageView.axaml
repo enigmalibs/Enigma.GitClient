@@ -153,10 +153,18 @@
                         IsVisible="{Binding HasIntegrations}"
                         AutomationProperties.Name="Integrations of this profile" />
 
-          <TextBlock Text="No integrations."
-                     IsVisible="{Binding !HasIntegrations}"
-                     FontSize="11"
+          <!-- A profile without integrations pushes nowhere: the push check refuses it. -->
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding !HasIntegrations}"
+                      ToolTip.Tip="Commits made as this profile stay on this machine until it is connected to the host they go to">
+            <ei:Icon Kind="LockSimple" Size="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <TextBlock Text="Local only — no integration, so this profile never pushes."
+                       FontSize="11"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+          </StackPanel>
 
           <Button Classes="toolbar"
                   HorizontalAlignment="Left"

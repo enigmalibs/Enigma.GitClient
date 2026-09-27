@@ -566,7 +566,7 @@ public sealed class ProfileIntegrationsTests
 
                 Assert.Contains("Work GitHub", texts);
                 Assert.Contains("earlier-account", texts);
-                Assert.Contains("No integrations.", texts);
+                Assert.Contains("Local only — no integration, so this profile never pushes.", texts);
                 Assert.Contains("Earlier integrations", texts);
 
                 // One Connect per profile; Browse and Disconnect on every integration; Move only on

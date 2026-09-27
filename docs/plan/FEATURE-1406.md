@@ -1,6 +1,6 @@
 # FEATURE-1406 — Profiles that own their integrations
 
-**Status:** IN PROGRESS
+**Status:** DONE — see `docs/done/FEATURE-1406-PHASE01.md` to `docs/done/FEATURE-1406-PHASE05.md`
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-27-diff-profiles-release
@@ -139,7 +139,7 @@ code).
 
 ## PHASE05 — A profile pushes only where it may
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1406-PHASE05.md`
 **Branch:** `feature/feature-1406-phase05-push-guard`
 
 ### Steps

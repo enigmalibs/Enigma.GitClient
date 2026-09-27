@@ -700,6 +700,162 @@ public sealed class RemotesAndSyncTests
         });
     }
 
+    // ---------------------------------------------------------------- the profile a push goes out under
+
+    private static readonly Core.Identity.GitIdentity WorkIdentity = new("Ada Lovelace", "ada@work.example");
+
+    /// <summary>
+    /// A commit the remote does not have yet, and a profile matching the identity the repository
+    /// commits with — which, with nothing local, is the global one.
+    /// </summary>
+    private static async Task<Core.Identity.IdentityProfile> WorkProfileAsync(TestServices services, World world)
+    {
+        Write(world.Local.WorkTreePath, "src/ours.txt", "from here\n");
+        await GitAsync(world.Local.WorkTreePath, "add", "--all");
+        await GitAsync(world.Local.WorkTreePath, "commit", "-m", "Work done here");
+
+        services.Identity.Global = WorkIdentity;
+
+        return await services.Get<Core.Identity.IIdentityProfileStore>()
+            .SaveAsync(Core.Identity.IdentityProfile.Create("Work", WorkIdentity));
+    }
+
+    [Fact]
+    public void Shell_NeverPushesUnderAProfileWithoutAnIntegrationForTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await WorkProfileAsync(services, world);
+
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            // The remote never saw the commit.
+            Assert.Equal("Add the readme", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+
+            RecordedNotification refusal = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal($"Work does not push to {world.OriginPath}", refusal.Title);
+            Assert.Contains("the profile Work has no integration", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("Profiles page", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, refusal.Severity);
+        });
+    }
+
+    [Fact]
+    public void History_NeverPushesABranchUnderAProfileWithoutAnIntegrationForTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await WorkProfileAsync(services, world);
+            await GitAsync(world.Local.WorkTreePath, "branch", "topic");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            Assert.False(await services.Get<ISyncOperations>().PushBranchAsync("topic"));
+
+            Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "branch", "--list", "topic"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title.StartsWith("Work does not push to", StringComparison.Ordinal));
+        });
+    }
+
+    [Fact]
+    public void Shell_PushesAsBeforeWhenTheRepositoryCommitsAsNoProfile()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await WorkProfileAsync(services, world);
+
+            // This repository commits as someone no profile describes.
+            services.Identity.SetLocalDirectly(world.Local.WorkTreePath, new Core.Identity.GitIdentity("Grace Hopper", "grace@example.com"));
+
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            Assert.Equal("Work done here", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Pushed");
+        });
+    }
+
+    [Fact]
+    public void PushGuard_LetsAProfilePushWhereItsIntegrationLeads()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            Core.Identity.IdentityProfile work = await WorkProfileAsync(services, world);
+
+            // Pushes go to GitHub while fetches still read the local directory: only the push URL
+            // decides.
+            await GitAsync(world.Local.WorkTreePath, "remote", "set-url", "--push", "origin", "git@github.com:contoso/project.git");
+
+            IPushGuard guard = services.Get<IPushGuard>();
+
+            Core.Hosting.PushPermission before = await guard.CheckAsync(world.Local, "origin");
+            Assert.False(before.IsAllowed);
+            Assert.Equal("github.com", before.Target);
+
+            await services.Get<Core.Hosting.IHostAccountService>().AddAsync(
+                Core.Hosting.HostAccount.Create(Core.Hosting.HostKind.GitHub, new Uri("https://github.com"), "ada", "Work GitHub", work.Id),
+                new Core.Security.SecretString("ghp_token"));
+
+            Core.Hosting.PushPermission after = await guard.CheckAsync(world.Local, "origin");
+            Assert.True(after.IsAllowed);
+            Assert.Equal(Core.Hosting.PushPermissionReason.Integration, after.Reason);
+            Assert.Equal("Work GitHub", after.Account?.DisplayName);
+        });
+    }
+
+    [Fact]
+    public void PushGuard_RefusesWhatItCannotCheck()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await WorkProfileAsync(services, world);
+
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            // git's configuration cannot be read, so nobody knows which profile this is.
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            Assert.Equal("Add the readme", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Nothing was pushed");
+        });
+    }
+
+    [Fact]
+    public void PushGuard_ReadsNothingButTheProfilesWhenThereAreNone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            // Were the identity read, this would throw: without profiles it is never asked.
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+
+            Core.Hosting.PushPermission permission = await services.Get<IPushGuard>().CheckAsync(world.Local, "origin");
+
+            Assert.True(permission.IsAllowed);
+            Assert.Equal(Core.Hosting.PushPermissionReason.NoProfile, permission.Reason);
+        });
+    }
+
     [Fact]
     public void Shell_PullsWhatArrivedElsewhere()
     {
