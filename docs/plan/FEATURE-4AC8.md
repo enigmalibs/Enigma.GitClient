@@ -1,6 +1,6 @@
 # FEATURE-4AC8 — Release 2.0.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-4AC8.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-4ac8-release-2-0-0`
 **Run:** feature/2026-09-27-diff-profiles-release

@@ -10,8 +10,8 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 1.1** — notifications that never hold anything up (a success closes itself after
-> five seconds) and pastel diff colours you can see in both themes. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 2.0** — integrations belong to a profile, a profile without one never pushes, and
+> the diffs always open on the first file. Upgrading from 1.x: see [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
