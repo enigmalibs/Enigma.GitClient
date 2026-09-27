@@ -1,6 +1,6 @@
 # BUG-6B9E — Graph stays stale after a push
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-6B9E.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-6b9e-graph-follows-refs`
 **Run:** bugfix/2026-09-27-remote-refresh-release
