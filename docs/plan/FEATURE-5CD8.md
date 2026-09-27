@@ -1,6 +1,6 @@
 # FEATURE-5CD8 — Release 3.0.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5CD8.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-5cd8-release-3-0-0`
 **Run:** feature/2026-09-27-release-3-0-0

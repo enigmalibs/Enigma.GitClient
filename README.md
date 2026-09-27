@@ -10,8 +10,9 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 2.0** — integrations belong to a profile, a profile without one never pushes, and
-> the diffs always open on the first file. Upgrading from 1.x: see [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 3.0** — git signs in with your profile's integration: every fetch, pull, push and
+> clone to its host over HTTPS, with nothing to set up in git. Pushing needs a token with write access.
+> Upgrading from 2.0: see [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
