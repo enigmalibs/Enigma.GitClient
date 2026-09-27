@@ -110,7 +110,7 @@ deleting a tag, deleting a remote branch, and clone — with no credential helpe
 
 ## PHASE03 — Clone signs in
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6C81-PHASE03.md`
 **Branch:** `feature/feature-6c81-phase03-clone-signs-in`
 
 ### Steps

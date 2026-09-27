@@ -27,6 +27,18 @@ public interface IGitCredentialResolver
     /// owns; <see cref="GitCredentials.None"/> when there is none, and git keeps its own.
     /// </returns>
     Task<GitCredentials> ForRepositoryAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Works out the login for a clone, which has no repository — and so no identity of its own — yet.
+    /// </summary>
+    /// <param name="url">The address cloned from.</param>
+    /// <param name="account">
+    /// The integration the repository was picked from, or <see langword="null"/> for the current
+    /// profile's — the one matching the global identity — that owns the address.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the reads.</param>
+    /// <returns>The login, or <see cref="GitCredentials.None"/> when the address gets none.</returns>
+    Task<GitCredentials> ForCloneAsync(string url, HostAccount? account, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -131,6 +143,54 @@ public sealed class GitCredentialResolver : IGitCredentialResolver
             return GitCredentials.None;
         }
     }
+
+    /// <inheritdoc />
+    public async Task<GitCredentials> ForCloneAsync(
+        string url,
+        HostAccount? account,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+
+        try
+        {
+            if (account is not null)
+            {
+                // Picked from that integration's own listing: its token is the one the user chose.
+                return await BuildAsync(ToList(ProfileCredentialRule.ForAccount(account, url)), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            IReadOnlyList<IdentityProfile> profiles = await _profiles.GetAllAsync(cancellationToken).ConfigureAwait(false);
+
+            if (profiles.Count == 0)
+            {
+                return GitCredentials.None;
+            }
+
+            GitIdentity identity = await _identity.GetGlobalAsync(cancellationToken).ConfigureAwait(false);
+
+            if (IdentityProfile.FirstMatching(profiles, identity) is not { } profile)
+            {
+                return GitCredentials.None;
+            }
+
+            IReadOnlyList<HostAccount> accounts = await _accounts.GetAllAsync(cancellationToken).ConfigureAwait(false);
+
+            return await BuildAsync(ToList(ProfileCredentialRule.ForProfile(profile, accounts, url)), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or GitCommandException or GitNotFoundException
+                                              or TokenProtectionException)
+        {
+            _logger.LogWarning(exception, "The integration a clone would sign in with could not be read; git keeps its own credentials");
+
+            return GitCredentials.None;
+        }
+    }
+
+    private static IReadOnlyList<HostSignIn> ToList(HostSignIn? signIn) => signIn is null ? [] : [signIn];
 
     private async Task<GitCredentials> BuildAsync(IReadOnlyList<HostSignIn> signIns, CancellationToken cancellationToken)
     {

@@ -92,7 +92,8 @@ host or to a folder. A repository whose identity matches no profile pushes as it
 
 **The integration is also how git signs in.** Every fetch, pull and push — a tag's or a branch's
 included — to an HTTPS remote on the integration's host signs in with its token, with nothing to set
-up in git. The token is handed to that one git process through its environment, never through its
+up in git; so does a clone, with the integration you browsed the repository from, or else the current
+profile's. The token is handed to that one git process through its environment, never through its
 command line, its configuration or a credential helper that could store it. SSH remotes keep using
 your SSH key, and hosts none of the profile's integrations cover keep using git's own credentials.
 

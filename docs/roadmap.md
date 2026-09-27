@@ -169,5 +169,5 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6C81 | Git signs in with the profile's token   | IN PROGRESS | docs/plan/FEATURE-6C81.md |
 | - PHASE01    | Credential helper for git               | DONE        | (in FEATURE-6C81.md)      |
 | - PHASE02    | Sync and remote pushes sign in          | DONE        | (in FEATURE-6C81.md)      |
-| - PHASE03    | Clone signs in                          | TODO        | (in FEATURE-6C81.md)      |
+| - PHASE03    | Clone signs in                          | DONE        | (in FEATURE-6C81.md)      |
 | - PHASE04    | Token scopes and refused tokens         | TODO        | (in FEATURE-6C81.md)      |
