@@ -6,9 +6,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.IntegrationTests.Infrastructure;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Security;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace Enigma.GitClient.Core.IntegrationTests.Repositories;
@@ -150,6 +154,35 @@ public sealed class RepositoryServiceTests : IAsyncLifetime
         // may still be arriving; the first and last are the ones the service raises directly.
         Assert.NotEmpty(reports);
         Assert.Equal(CloneStage.Starting, reports[0].Stage);
+    }
+
+    [Fact]
+    public async Task CloneAsync_SignsInForTheCloneOnly_AndWritesNoCredentialIntoTheNewRepository()
+    {
+        TemporaryRepository source = await CreateSourceAsync();
+        HostAccount account = HostAccount.Create(HostKind.GitHub, new Uri("https://github.com"), "ada");
+        RecordingCredentials credentials = new();
+
+        using CoreTestHost host = CoreTestHost.CreateWithServices(_workspace, services =>
+        {
+            services.RemoveAll<IGitCredentialResolver>();
+            services.AddSingleton<IGitCredentialResolver>(credentials);
+        });
+
+        RepositoryHandle clone = await host.GetRequiredService<IRepositoryService>().CloneAsync(
+            new CloneRequest { Url = source.Path, ParentDirectory = _workspace.RootPath, DirectoryName = "signed", Account = account },
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        (string url, HostAccount? asked) = Assert.Single(credentials.Clones);
+        Assert.Equal(source.Path, url);
+        Assert.Same(account, asked);
+
+        string configuration = await File.ReadAllTextAsync(
+            System.IO.Path.Combine(clone.GitDirectory, "config"), TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("credential", configuration, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(RecordingCredentials.Token, configuration, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -337,5 +370,26 @@ public sealed class RepositoryServiceTests : IAsyncLifetime
 
         // The whole of standard error is still accumulated, whatever the chunking did.
         Assert.Contains("Cloning into", result.StandardError, StringComparison.Ordinal);
+    }
+
+    /// <summary>Signs every clone in to github.com, and remembers what it was asked.</summary>
+    private sealed class RecordingCredentials : IGitCredentialResolver
+    {
+        public const string Token = "ghp_0123456789abcdefghijklmnopqrstuvwxyz";
+
+        public List<(string Url, HostAccount? Account)> Clones { get; } = [];
+
+        public Task<GitCredentials> ForRepositoryAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+            => Task.FromResult(GitCredentials.None);
+
+        public Task<GitCredentials> ForCloneAsync(string url, HostAccount? account, CancellationToken cancellationToken = default)
+        {
+            Clones.Add((url, account));
+
+            Assert.True(GitHostCredential.TryCreate(
+                new Uri("https://github.com"), "x-access-token", new SecretString(Token), out GitHostCredential? credential));
+
+            return Task.FromResult(GitCredentials.For([credential!]));
+        }
     }
 }

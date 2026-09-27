@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Sync;
 using Xunit;
@@ -37,7 +38,7 @@ public sealed class SyncProgressDeliveryTests
     public async Task Fetch_DeliversEveryReportOnTheThreadThatProducedIt()
     {
         Recorder recorder = new();
-        SyncService service = new(new ReportingRunner(Chunks), new StubCommandFactory());
+        SyncService service = new(new ReportingRunner(Chunks), new StubCommandFactory(), new NoCredentials());
 
         int reporting = Environment.CurrentManagedThreadId;
 
@@ -55,7 +56,7 @@ public sealed class SyncProgressDeliveryTests
     public async Task Fetch_KeepsTheReportsInTheOrderGitWroteThem()
     {
         Recorder recorder = new();
-        SyncService service = new(new ReportingRunner(Chunks), new StubCommandFactory());
+        SyncService service = new(new ReportingRunner(Chunks), new StubCommandFactory(), new NoCredentials());
 
         await service.FetchAsync(Handle(), "origin", progress: recorder, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -72,7 +73,7 @@ public sealed class SyncProgressDeliveryTests
     public async Task Fetch_WithoutAProgressRunsAllTheSame()
     {
         ReportingRunner runner = new(Chunks);
-        SyncService service = new(runner, new StubCommandFactory());
+        SyncService service = new(runner, new StubCommandFactory(), new NoCredentials());
 
         await service.FetchAsync(Handle(), "origin", cancellationToken: TestContext.Current.CancellationToken);
 
@@ -137,6 +138,18 @@ public sealed class SyncProgressDeliveryTests
 
         public GitCommand CreateWithInput(string workingDirectory, string standardInput, IEnumerable<string> arguments)
             => new(workingDirectory, [.. arguments], standardInput: standardInput);
+    }
+
+    /// <summary>
+    /// Signs nothing in, as a repository without profiles does.
+    /// </summary>
+    private sealed class NoCredentials : IGitCredentialResolver
+    {
+        public Task<GitCredentials> ForRepositoryAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+            => Task.FromResult(GitCredentials.None);
+
+        public Task<GitCredentials> ForCloneAsync(string url, HostAccount? account, CancellationToken cancellationToken = default)
+            => Task.FromResult(GitCredentials.None);
     }
 
     /// <summary>

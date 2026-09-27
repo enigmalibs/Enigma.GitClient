@@ -166,3 +166,8 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE04    | Integrations inside each profile        | DONE   | (in FEATURE-1406.md)      |
 | - PHASE05    | A profile pushes only where it may      | DONE   | (in FEATURE-1406.md)      |
 | FEATURE-4AC8 | Release 2.0.0                           | DONE   | docs/plan/FEATURE-4AC8.md |
+| FEATURE-6C81 | Git signs in with the profile's token   | DONE   | docs/plan/FEATURE-6C81.md |
+| - PHASE01    | Credential helper for git               | DONE   | (in FEATURE-6C81.md)      |
+| - PHASE02    | Sync and remote pushes sign in          | DONE   | (in FEATURE-6C81.md)      |
+| - PHASE03    | Clone signs in                          | DONE   | (in FEATURE-6C81.md)      |
+| - PHASE04    | Token scopes and refused tokens         | DONE   | (in FEATURE-6C81.md)      |

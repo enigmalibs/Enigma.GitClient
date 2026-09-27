@@ -41,6 +41,23 @@ public sealed class CoreTestHost : IDisposable
         return new CoreTestHost(CoreTestHostFactory.BuildServices(workspace, configure).BuildServiceProvider());
     }
 
+    /// <summary>
+    /// Builds a host whose registrations a test changes — to stand a double in for one service.
+    /// </summary>
+    /// <param name="workspace">The workspace supplying the environment.</param>
+    /// <param name="configureServices">Changes the registrations before the container is built.</param>
+    /// <returns>The host.</returns>
+    public static CoreTestHost CreateWithServices(GitWorkspace workspace, Action<ServiceCollection> configureServices)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        ArgumentNullException.ThrowIfNull(configureServices);
+
+        ServiceCollection services = CoreTestHostFactory.BuildServices(workspace, configure: null);
+        configureServices(services);
+
+        return new CoreTestHost(services.BuildServiceProvider());
+    }
+
     /// <inheritdoc />
     public void Dispose() => _provider.Dispose();
 }

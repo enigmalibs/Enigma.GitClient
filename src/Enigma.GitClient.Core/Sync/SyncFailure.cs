@@ -116,25 +116,47 @@ public sealed class SyncException : Exception
 public static class SyncErrorMapper
 {
     /// <summary>
+    /// What a refused integration token is told, with the scopes each host needs for a push.
+    /// </summary>
+    public const string RefusedTokenMessage =
+        "The host refused this profile's token. It may have expired, or not allow this: pushing needs write "
+        + "access — Contents: read and write for a fine-grained GitHub token (or the classic 'repo' scope), "
+        + "'write_repository' on GitLab, 'Code: Read & write' on Azure DevOps. On the Profiles page, disconnect "
+        + "the account and connect it again with a new token, then try again.";
+
+    /// <summary>
+    /// What refused credentials are told when no integration signed in.
+    /// </summary>
+    public const string RefusedCredentialsMessage =
+        "The remote refused your credentials. Connect an account for this host to the profile on the Profiles "
+        + "page, or check the credential helper or the SSH key this remote uses, then try again.";
+
+    /// <summary>
     /// Classifies a failure.
     /// </summary>
     /// <param name="standardError">Everything git wrote to standard error.</param>
     /// <param name="standardOutput">Everything git wrote to standard output.</param>
+    /// <param name="usedHostToken">
+    /// Whether the command signed in with a profile integration's token, which is then what an
+    /// authentication failure is about.
+    /// </param>
     /// <returns>The classified failure.</returns>
-    public static SyncFailure Map(string standardError, string standardOutput = "")
+    public static SyncFailure Map(string standardError, string standardOutput = "", bool usedHostToken = false)
     {
         ArgumentNullException.ThrowIfNull(standardError);
         ArgumentNullException.ThrowIfNull(standardOutput);
 
         string text = $"{standardError}\n{standardOutput}";
 
+        // A 401 or 403 is the host saying no to the credentials — or to what they allow — and must win
+        // over the "unable to access" that git words it with, which reads as a network problem.
         if (Contains(text, "could not read Username", "Authentication failed", "Permission denied (publickey",
-                "terminal prompts disabled", "invalid username or password", "Support for password authentication was removed"))
+                "terminal prompts disabled", "invalid username or password", "Support for password authentication was removed",
+                "The requested URL returned error: 401", "The requested URL returned error: 403", "remote: Permission to"))
         {
             return new SyncFailure(
                 SyncFailureKind.Authentication,
-                "The remote refused your credentials. Check the credential helper or the SSH key this remote uses, "
-                + "then try again.",
+                usedHostToken ? RefusedTokenMessage : RefusedCredentialsMessage,
                 standardError);
         }
 

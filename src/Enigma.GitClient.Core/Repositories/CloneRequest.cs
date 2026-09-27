@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Enigma.GitClient.Core.Hosting;
 
 namespace Enigma.GitClient.Core.Repositories;
 
@@ -42,6 +43,12 @@ public sealed record CloneRequest
     /// Gets the name of the remote the clone creates.
     /// </summary>
     public string RemoteName { get; init; } = "origin";
+
+    /// <summary>
+    /// Gets the integration the repository was picked from, whose token the clone signs in with, or
+    /// <see langword="null"/> to use the current profile's integration for the URL's host.
+    /// </summary>
+    public HostAccount? Account { get; init; }
 
     /// <summary>
     /// Gets the absolute path the clone will occupy.

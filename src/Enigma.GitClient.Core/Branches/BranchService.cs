@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 
@@ -169,6 +170,7 @@ public sealed class BranchService : IBranchService
     private readonly IGitProcessRunner _runner;
     private readonly IGitCommandFactory _commandFactory;
     private readonly IRefReader _refReader;
+    private readonly IGitCredentialResolver _credentials;
 
     /// <summary>
     /// Initialises a new instance.
@@ -176,15 +178,22 @@ public sealed class BranchService : IBranchService
     /// <param name="runner">Runs the commands.</param>
     /// <param name="commandFactory">Builds the commands.</param>
     /// <param name="refReader">Reads the current head, for the guards.</param>
-    public BranchService(IGitProcessRunner runner, IGitCommandFactory commandFactory, IRefReader refReader)
+    /// <param name="credentials">Works out the integration a push to a remote signs in with.</param>
+    public BranchService(
+        IGitProcessRunner runner,
+        IGitCommandFactory commandFactory,
+        IRefReader refReader,
+        IGitCredentialResolver credentials)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(commandFactory);
         ArgumentNullException.ThrowIfNull(refReader);
+        ArgumentNullException.ThrowIfNull(credentials);
 
         _runner = runner;
         _commandFactory = commandFactory;
         _refReader = refReader;
+        _credentials = credentials;
     }
 
     /// <inheritdoc />
@@ -282,7 +291,14 @@ public sealed class BranchService : IBranchService
         ArgumentException.ThrowIfNullOrWhiteSpace(remote);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        await RunAsync(repository, ["push", remote, "--delete", name], cancellationToken).ConfigureAwait(false);
+        GitCredentials credentials = await _credentials.ForRepositoryAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
+
+        GitCommand command = _commandFactory
+            .Create(repository.WorkTreePath, ["push", remote, "--delete", name])
+            .WithCredentials(credentials);
+
+        await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

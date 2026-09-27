@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Core.Repositories;
@@ -17,6 +18,7 @@ public sealed class RepositoryService : IRepositoryService
     private readonly IGitProcessRunner _runner;
     private readonly IGitCommandFactory _commandFactory;
     private readonly IRepositoryLocator _locator;
+    private readonly IGitCredentialResolver _credentials;
     private readonly ILogger<RepositoryService> _logger;
 
     /// <summary>
@@ -25,21 +27,25 @@ public sealed class RepositoryService : IRepositoryService
     /// <param name="runner">Runs the commands.</param>
     /// <param name="commandFactory">Builds the commands.</param>
     /// <param name="locator">Discovers the repository once it exists.</param>
+    /// <param name="credentials">Works out the integration a clone signs in with.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public RepositoryService(
         IGitProcessRunner runner,
         IGitCommandFactory commandFactory,
         IRepositoryLocator locator,
+        IGitCredentialResolver credentials,
         ILogger<RepositoryService> logger)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(commandFactory);
         ArgumentNullException.ThrowIfNull(locator);
+        ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(logger);
 
         _runner = runner;
         _commandFactory = commandFactory;
         _locator = locator;
+        _credentials = credentials;
         _logger = logger;
     }
 
@@ -103,6 +109,10 @@ public sealed class RepositoryService : IRepositoryService
             throw new ArgumentException($"'{target}' already exists and is not empty.", nameof(request));
         }
 
+        GitCredentials credentials = await _credentials
+            .ForCloneAsync(validation.NormalisedUrl, request.Account, cancellationToken)
+            .ConfigureAwait(false);
+
         Directory.CreateDirectory(request.ParentDirectory);
 
         progress?.Report(CloneProgress.Starting);
@@ -129,7 +139,8 @@ public sealed class RepositoryService : IRepositoryService
         arguments.Add(validation.NormalisedUrl);
         arguments.Add(target);
 
-        GitCommand command = _commandFactory.Create(request.ParentDirectory, arguments);
+        // The -c pairs sign this one process in; git clone writes none of them into the new repository.
+        GitCommand command = _commandFactory.Create(request.ParentDirectory, arguments).WithCredentials(credentials);
 
         Progress<string>? relay = progress is null
             ? null
