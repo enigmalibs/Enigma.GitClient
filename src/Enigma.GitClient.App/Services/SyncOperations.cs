@@ -183,11 +183,10 @@ public sealed class SyncOperations : ISyncOperations
 
         if (local.UpstreamShortName is not { Length: > 0 } upstream || local.Tracking.IsUpstreamGone)
         {
-            await ReportAsync(
-                    $"Nothing to pull into \"{branch}\"",
-                    $"\"{branch}\" has no upstream to pull from. Give it one with \"Set upstream\" in the branches, or push it once.",
-                    InfoBarSeverity.Info)
-                .ConfigureAwait(true);
+            Report(
+                $"Nothing to pull into \"{branch}\"",
+                $"\"{branch}\" has no upstream to pull from. Give it one with \"Set upstream\" in the branches, or push it once.",
+                InfoBarSeverity.Info);
             return false;
         }
 
@@ -333,33 +332,31 @@ public sealed class SyncOperations : ISyncOperations
                 .RunExclusiveAsync((handle, token) => operation(handle, progress, token), true, cancellation.Token)
                 .ConfigureAwait(true);
 
-            await ReportAsync(successTitle, successMessage, InfoBarSeverity.Success).ConfigureAwait(true);
+            Report(successTitle, successMessage, InfoBarSeverity.Success);
             return true;
         }
         catch (OperationCanceledException)
         {
-            await ReportAsync($"{title} cancelled", "The transfer was stopped.", InfoBarSeverity.Info)
-                .ConfigureAwait(true);
+            Report($"{title} cancelled", "The transfer was stopped.", InfoBarSeverity.Info);
         }
         catch (SyncException exception)
         {
             _logger.LogWarning(exception, "{Title} failed: {Kind}", title, exception.Failure.Kind);
 
-            await ReportAsync(
+            Report(
                 $"{title} failed",
                 explain?.Invoke(exception.Failure) ?? exception.Failure.Message,
 
                 // A failure the user can fix themselves is a warning; one that needs their
                 // credentials or their host configuration is an error.
-                exception.Failure.IsRecoverableLocally ? InfoBarSeverity.Warning : InfoBarSeverity.Error)
-                .ConfigureAwait(true);
+                exception.Failure.IsRecoverableLocally ? InfoBarSeverity.Warning : InfoBarSeverity.Error);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title} failed", title);
 
-            await ReportAsync($"{title} failed", SyncErrorMapper.FirstMeaningfulLine(exception.StandardError),
-                InfoBarSeverity.Error).ConfigureAwait(true);
+            Report($"{title} failed", SyncErrorMapper.FirstMeaningfulLine(exception.StandardError),
+                InfoBarSeverity.Error);
         }
         finally
         {
@@ -391,11 +388,6 @@ public sealed class SyncOperations : ISyncOperations
         }
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }

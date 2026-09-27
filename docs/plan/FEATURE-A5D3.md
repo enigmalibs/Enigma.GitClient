@@ -1,6 +1,6 @@
 # FEATURE-A5D3 — Info bars that never block
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-27-infobars-dialogs-diff-release
@@ -57,7 +57,7 @@ It uses the timed info bars of **Enigma.Avalonia.Desktop 1.1.0**.
 
 ## PHASE01 — The helper, in the operations
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A5D3-PHASE01.md`
 **Branch:** `feature/feature-a5d3-phase01-non-blocking-operations`
 
 ### Steps

@@ -250,34 +250,33 @@ public sealed class CheckoutOperations : ICheckoutOperations
 
             if (result.Stashed)
             {
-                await ReportAsync(
+                Report(
                     "Changes stashed",
                     "Your uncommitted work is on the stash and can be restored from there.",
-                    InfoBarSeverity.Info).ConfigureAwait(true);
+                    InfoBarSeverity.Info);
             }
             else if (result.IsDetached)
             {
-                await ReportAsync(
+                Report(
                     "HEAD is detached",
                     $"The repository is on {result.Head.DisplayName}. Create a branch before committing.",
-                    InfoBarSeverity.Warning).ConfigureAwait(true);
+                    InfoBarSeverity.Warning);
             }
 
             return true;
         }
         catch (GitOperationRefusedException refusal)
         {
-            await ReportAsync($"Could not check out \"{name}\"", refusal.Message, InfoBarSeverity.Warning)
-                .ConfigureAwait(true);
+            Report($"Could not check out \"{name}\"", refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Checking out {Revision} failed", revision);
 
-            await ReportAsync(
+            Report(
                 $"Could not check out \"{name}\"",
                 FirstLine(exception.StandardError),
-                InfoBarSeverity.Error).ConfigureAwait(true);
+                InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -301,11 +300,6 @@ public sealed class CheckoutOperations : ICheckoutOperations
         return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
     }
 
-    private Task ReportAsync(string title, string message, InfoBarSeverity severity)
-        => _infoBar.ShowAsync(bar =>
-        {
-            bar.Title = title;
-            bar.Message = message;
-            bar.Severity = severity;
-        });
+    private void Report(string title, string message, InfoBarSeverity severity)
+        => _infoBar.Notify(title, message, severity);
 }
