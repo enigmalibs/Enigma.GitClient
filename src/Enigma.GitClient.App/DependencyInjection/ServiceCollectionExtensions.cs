@@ -90,7 +90,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
-            services.AddTransient<IdentityPageView>();
+            services.AddTransient<ProfilesPageView>();
             services.AddTransient<IntegrationsPageView>();
             services.AddTransient<SettingsPageView>();
 
@@ -101,7 +101,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
-            services.AddSingleton<IdentityPageViewModel>();
+            services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<IntegrationsPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
 

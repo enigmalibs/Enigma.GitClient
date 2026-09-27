@@ -19,18 +19,18 @@ using Microsoft.Extensions.Logging;
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
 /// <summary>
-/// One identity profile, as the identity page lists it.
+/// One identity profile, as the profiles page lists it.
 /// </summary>
-public sealed class IdentityProfileRowViewModel : ViewModelBase
+public sealed class ProfileRowViewModel : ViewModelBase
 {
-    private readonly IdentityPageViewModel _owner;
+    private readonly ProfilesPageViewModel _owner;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="owner">The page the row belongs to.</param>
     /// <param name="profile">The profile it stands for.</param>
-    public IdentityProfileRowViewModel(IdentityPageViewModel owner, IdentityProfile profile)
+    public ProfileRowViewModel(ProfilesPageViewModel owner, IdentityProfile profile)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(profile);
@@ -67,20 +67,20 @@ public sealed class IdentityProfileRowViewModel : ViewModelBase
     public bool IsNotCurrent => !IsCurrent;
 
     /// <summary>Gets the command that makes this profile the global identity.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> UseCommand => _owner.UseProfileCommand;
+    public AsyncRelayCommand<ProfileRowViewModel> UseCommand => _owner.UseProfileCommand;
 
     /// <summary>Gets the command that edits this profile.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> EditCommand => _owner.EditProfileCommand;
+    public AsyncRelayCommand<ProfileRowViewModel> EditCommand => _owner.EditProfileCommand;
 
     /// <summary>Gets the command that deletes this profile.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> RemoveCommand => _owner.RemoveProfileCommand;
+    public AsyncRelayCommand<ProfileRowViewModel> RemoveCommand => _owner.RemoveProfileCommand;
 
     /// <inheritdoc />
     public override string ToString() => $"{Label}: {Summary}";
 }
 
 /// <summary>
-/// ViewModel behind the identity page: the name and email git records on every commit, the
+/// ViewModel behind the profiles page: the name and email git records on every commit, the
 /// profiles that switch them, and the identity the open repository sets for itself.
 /// </summary>
 /// <remarks>
@@ -102,14 +102,14 @@ public sealed class IdentityProfileRowViewModel : ViewModelBase
 /// Names and emails are never logged: they identify a person. A failure is logged by what failed.
 /// </para>
 /// </remarks>
-public sealed class IdentityPageViewModel : PageViewModelBase
+public sealed class ProfilesPageViewModel : PageViewModelBase
 {
     private readonly IGitIdentityService _identity;
     private readonly IIdentityProfileStore _profiles;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly IServiceProvider _services;
-    private readonly ILogger<IdentityPageViewModel> _logger;
+    private readonly ILogger<ProfilesPageViewModel> _logger;
 
     /// <summary>
     /// Initialises a new instance.
@@ -121,14 +121,14 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="services">Resolves the dialog's view.</param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
-    public IdentityPageViewModel(
+    public ProfilesPageViewModel(
         IRepositoryContext repositoryContext,
         IGitIdentityService identity,
         IIdentityProfileStore profiles,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         IServiceProvider services,
-        ILogger<IdentityPageViewModel> logger)
+        ILogger<ProfilesPageViewModel> logger)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(identity);
@@ -147,16 +147,16 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         SaveGlobalCommand = new AsyncRelayCommand(OnSaveGlobalAsync, CanSaveGlobal);
         AddProfileCommand = new AsyncRelayCommand(OnAddProfileAsync, () => !IsBusy);
-        EditProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnEditProfileAsync);
-        RemoveProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnRemoveProfileAsync);
-        UseProfileCommand = new AsyncRelayCommand<IdentityProfileRowViewModel>(OnUseProfileAsync);
+        EditProfileCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnEditProfileAsync);
+        RemoveProfileCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnRemoveProfileAsync);
+        UseProfileCommand = new AsyncRelayCommand<ProfileRowViewModel>(OnUseProfileAsync);
         SaveLocalCommand = new AsyncRelayCommand(OnSaveLocalAsync, CanSaveLocal);
         RemoveLocalCommand = new AsyncRelayCommand(OnRemoveLocalAsync, () => !IsBusy && IsRepositoryOpen && HasLocalIdentity);
         CopyFromCurrentProfileCommand = new RelayCommand(OnCopyFromCurrentProfile, () => IsRepositoryOpen && HasCurrentProfile);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
-    public string Title => "Git identity";
+    public string Title => "Profiles";
 
     // ---------------------------------------------------------------- the global identity
 
@@ -239,7 +239,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     // ---------------------------------------------------------------- profiles
 
     /// <summary>Gets the identity profiles, in the order they were added.</summary>
-    public ObservableCollection<IdentityProfileRowViewModel> Profiles { get; } = [];
+    public ObservableCollection<ProfileRowViewModel> Profiles { get; } = [];
 
     /// <summary>Gets a value indicating whether there is any profile.</summary>
     public bool HasProfiles => Profiles.Count > 0;
@@ -268,13 +268,13 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     public AsyncRelayCommand AddProfileCommand { get; }
 
     /// <summary>Gets the command that edits a profile.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> EditProfileCommand { get; }
+    public AsyncRelayCommand<ProfileRowViewModel> EditProfileCommand { get; }
 
     /// <summary>Gets the command that deletes a profile, after asking.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> RemoveProfileCommand { get; }
+    public AsyncRelayCommand<ProfileRowViewModel> RemoveProfileCommand { get; }
 
     /// <summary>Gets the command that makes a profile the global identity.</summary>
-    public AsyncRelayCommand<IdentityProfileRowViewModel> UseProfileCommand { get; }
+    public AsyncRelayCommand<ProfileRowViewModel> UseProfileCommand { get; }
 
     // ---------------------------------------------------------------- the repository's own identity
 
@@ -480,16 +480,16 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
         // Read first, replace after, as the integrations page does: an interleaved second load must
         // not show a profile twice.
-        List<IdentityProfileRowViewModel> rows = [];
+        List<ProfileRowViewModel> rows = [];
 
         foreach (IdentityProfile profile in profiles)
         {
-            rows.Add(new IdentityProfileRowViewModel(this, profile));
+            rows.Add(new ProfileRowViewModel(this, profile));
         }
 
         Profiles.Clear();
 
-        foreach (IdentityProfileRowViewModel row in rows)
+        foreach (ProfileRowViewModel row in rows)
         {
             Profiles.Add(row);
         }
@@ -553,7 +553,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
     {
         IdentityProfile? current = null;
 
-        foreach (IdentityProfileRowViewModel row in Profiles)
+        foreach (ProfileRowViewModel row in Profiles)
         {
             row.IsCurrent = row.Profile.Matches(GlobalIdentity);
 
@@ -627,7 +627,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
 
     // ---------------------------------------------------------------- commands: profiles
 
-    private async Task OnUseProfileAsync(IdentityProfileRowViewModel? row)
+    private async Task OnUseProfileAsync(ProfileRowViewModel? row)
     {
         if (row is null)
         {
@@ -654,7 +654,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnEditProfileAsync(IdentityProfileRowViewModel? row)
+    private async Task OnEditProfileAsync(ProfileRowViewModel? row)
     {
         if (row is null)
         {
@@ -669,7 +669,7 @@ public sealed class IdentityPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnRemoveProfileAsync(IdentityProfileRowViewModel? row)
+    private async Task OnRemoveProfileAsync(ProfileRowViewModel? row)
     {
         if (row is null)
         {
