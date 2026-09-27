@@ -87,7 +87,7 @@ code).
 
 ## PHASE03 — Browse repositories in a dialog
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1406-PHASE03.md`
 **Branch:** `feature/feature-1406-phase03-browse-dialog`
 
 ### Steps

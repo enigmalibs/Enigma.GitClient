@@ -162,7 +162,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-1406 | Profiles that own their integrations    | IN PROGRESS | docs/plan/FEATURE-1406.md |
 | - PHASE01    | Identity becomes Profiles               | DONE        | (in FEATURE-1406.md)      |
 | - PHASE02    | Accounts belong to a profile            | DONE        | (in FEATURE-1406.md)      |
-| - PHASE03    | Browse repositories in a dialog         | TODO        | (in FEATURE-1406.md)      |
+| - PHASE03    | Browse repositories in a dialog         | DONE        | (in FEATURE-1406.md)      |
 | - PHASE04    | Integrations inside each profile        | TODO        | (in FEATURE-1406.md)      |
 | - PHASE05    | A profile pushes only where it may      | TODO        | (in FEATURE-1406.md)      |
 | FEATURE-4AC8 | Release 2.0.0                           | TODO        | docs/plan/FEATURE-4AC8.md |

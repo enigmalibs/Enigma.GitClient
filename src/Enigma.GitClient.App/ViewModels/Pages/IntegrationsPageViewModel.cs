@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
-using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
@@ -79,75 +77,16 @@ public sealed class HostAccountRowViewModel : ViewModelBase
     /// <summary>Gets the command that disconnects the account.</summary>
     public AsyncRelayCommand<HostAccountRowViewModel> RemoveCommand => _owner.RemoveAccountCommand;
 
+    /// <summary>Gets the command that lists the account's repositories in a dialog.</summary>
+    public AsyncRelayCommand<HostAccountRowViewModel> BrowseCommand => _owner.BrowseCommand;
+
     /// <inheritdoc />
     public override string ToString() => $"{HostName} {DisplayName}";
 }
 
 /// <summary>
-/// One repository on a host, as the integrations page lists it.
-/// </summary>
-public sealed class HostRepositoryRowViewModel : ViewModelBase
-{
-    private readonly IntegrationsPageViewModel _owner;
-
-    /// <summary>
-    /// Initialises a new instance.
-    /// </summary>
-    /// <param name="owner">The page the row belongs to.</param>
-    /// <param name="repository">The repository it stands for.</param>
-    public HostRepositoryRowViewModel(IntegrationsPageViewModel owner, HostRepository repository)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        ArgumentNullException.ThrowIfNull(repository);
-
-        _owner = owner;
-        Repository = repository;
-    }
-
-    /// <summary>Gets the repository this row stands for.</summary>
-    public HostRepository Repository { get; }
-
-    /// <summary>Gets the repository's own name.</summary>
-    public string Name => Repository.Name;
-
-    /// <summary>Gets the owner, shown above the name.</summary>
-    public string Owner => Repository.Owner;
-
-    /// <summary>Gets a value indicating whether there is an owner to show.</summary>
-    public bool HasOwner => Owner.Length > 0;
-
-    /// <summary>Gets what the host says the repository is.</summary>
-    public string Description => Repository.Description ?? string.Empty;
-
-    /// <summary>Gets a value indicating whether there is a description to show.</summary>
-    public bool HasDescription => Description.Length > 0;
-
-    /// <summary>Gets a value indicating whether the repository is private.</summary>
-    public bool IsPrivate => Repository.IsPrivate;
-
-    /// <summary>Gets the branch a clone will land on.</summary>
-    public string DefaultBranch => Repository.DefaultBranch;
-
-    /// <summary>Gets how long ago it was last pushed to.</summary>
-    public string LastPushed
-        => Repository.LastPushed is { } moment ? Formatting.RelativeTime.Format(moment) : string.Empty;
-
-    /// <summary>Gets a value indicating whether the host said when it was last pushed to.</summary>
-    public bool HasLastPushed => LastPushed.Length > 0;
-
-    /// <summary>Gets the command that clones this repository.</summary>
-    public AsyncRelayCommand<HostRepositoryRowViewModel> CloneCommand => _owner.CloneCommand;
-
-    /// <summary>Gets the command that opens this repository's page on its host.</summary>
-    public AsyncRelayCommand<HostRepositoryRowViewModel> OpenCommand => _owner.OpenRepositoryCommand;
-
-    /// <inheritdoc />
-    public override string ToString() => Repository.FullName;
-}
-
-/// <summary>
-/// ViewModel behind the integrations page: the connected accounts, and the repositories they can
-/// reach.
+/// ViewModel behind the integrations page: the connected accounts, each opening the repositories it
+/// can reach in a dialog.
 /// </summary>
 /// <remarks>
 /// Repositories and clone links only — no issues, no pull requests. That is the product's scope and
@@ -155,25 +94,15 @@ public sealed class HostRepositoryRowViewModel : ViewModelBase
 /// </remarks>
 public sealed class IntegrationsPageViewModel : PageViewModelBase
 {
-    /// <summary>
-    /// How many pages of repositories are fetched before the listing stops asking for more.
-    /// </summary>
-    /// <remarks>
-    /// A hundred per page: ten pages is a thousand repositories, which is past the point where a
-    /// list is how anyone finds anything. The search box filters what has been read.
-    /// </remarks>
-    public const int PageLimit = 10;
-
     private readonly IHostAccountService _accounts;
     private readonly IHostProviderRegistry _registry;
     private readonly IHostLinkService _links;
+    private readonly IHostRepositoryBrowser _browser;
     private readonly RepositoriesPageViewModel _repositories;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly IServiceProvider _services;
     private readonly ILogger<IntegrationsPageViewModel> _logger;
-
-    private readonly List<HostRepositoryRowViewModel> _all = [];
 
     /// <summary>
     /// Initialises a new instance.
@@ -181,42 +110,40 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="accounts">The connected accounts and their tokens.</param>
     /// <param name="registry">Finds the provider for an account.</param>
-    /// <param name="links">Opens a repository's page in a browser.</param>
+    /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
+    /// <param name="browser">Lists an account's repositories in a dialog.</param>
     /// <param name="repositories">Runs the clone, with its progress and its cancel.</param>
     /// <param name="dialogs">Raises the connect and disconnect dialogs.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="services">Resolves the dialog's view.</param>
-    /// <param name="autoRefresh">
-    /// Says when the reader pressed the toolbar's refresh, which re-reads the selected account's
-    /// repositories too: this page has no refresh button of its own.
-    /// </param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
     public IntegrationsPageViewModel(
         IRepositoryContext repositoryContext,
         IHostAccountService accounts,
         IHostProviderRegistry registry,
         IHostLinkService links,
+        IHostRepositoryBrowser browser,
         RepositoriesPageViewModel repositories,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         IServiceProvider services,
-        IAutoRefreshService autoRefresh,
         ILogger<IntegrationsPageViewModel> logger)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(browser);
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(autoRefresh);
         ArgumentNullException.ThrowIfNull(logger);
 
         _accounts = accounts;
         _registry = registry;
         _links = links;
+        _browser = browser;
         _repositories = repositories;
         _dialogs = dialogs;
         _infoBar = infoBar;
@@ -225,15 +152,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
 
         AddAccountCommand = new AsyncRelayCommand(OnAddAccountAsync, () => CanAddAccount);
         RemoveAccountCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnRemoveAccountAsync);
-        CloneCommand = new AsyncRelayCommand<HostRepositoryRowViewModel>(OnCloneAsync);
-        OpenRepositoryCommand = new AsyncRelayCommand<HostRepositoryRowViewModel>(OnOpenRepositoryAsync);
-        ClearSearchCommand = new RelayCommand(() => Search = string.Empty, () => Search.Length > 0);
-
-        ShowAllCommand = new RelayCommand(() => Visibility = HostVisibility.All);
-        ShowPublicCommand = new RelayCommand(() => Visibility = HostVisibility.Public);
-        ShowPrivateCommand = new RelayCommand(() => Visibility = HostVisibility.Private);
-
-        autoRefresh.Refreshed += OnRefreshed;
+        BrowseCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnBrowseAsync);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -242,85 +161,11 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
     /// <summary>Gets the connected accounts.</summary>
     public ObservableCollection<HostAccountRowViewModel> Accounts { get; } = [];
 
-    /// <summary>Gets the repositories of the selected account, filtered by the search box.</summary>
-    public ObservableCollection<HostRepositoryRowViewModel> Repositories { get; } = [];
-
-    /// <summary>
-    /// Gets or sets the account whose repositories are shown.
-    /// </summary>
-    public HostAccountRowViewModel? SelectedAccount
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(HasSelectedAccount));
-                _ = LoadRepositoriesAsync();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets the text the repository list is filtered by.
-    /// </summary>
-    public string Search
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                ClearSearchCommand.NotifyCanExecuteChanged();
-                ApplyFilter();
-            }
-        }
-    } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets which repositories the host is asked for.
-    /// </summary>
-    public HostVisibility Visibility
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(IsAllVisible));
-                OnPropertyChanged(nameof(IsPublicOnly));
-                OnPropertyChanged(nameof(IsPrivateOnly));
-
-                _ = LoadRepositoriesAsync();
-            }
-        }
-    } = HostVisibility.All;
-
-    /// <summary>Gets a value indicating whether every repository is listed.</summary>
-    public bool IsAllVisible => Visibility == HostVisibility.All;
-
-    /// <summary>Gets a value indicating whether only public repositories are listed.</summary>
-    public bool IsPublicOnly => Visibility == HostVisibility.Public;
-
-    /// <summary>Gets a value indicating whether only private repositories are listed.</summary>
-    public bool IsPrivateOnly => Visibility == HostVisibility.Private;
-
     /// <summary>Gets a value indicating whether any account is connected.</summary>
     public bool HasAccounts => Accounts.Count > 0;
 
-    /// <summary>Gets a value indicating whether an account is selected.</summary>
-    public bool HasSelectedAccount => SelectedAccount is not null;
-
     /// <summary>Gets a value indicating whether this build can connect to anything at all.</summary>
     public bool CanAddAccount => _registry.Providers.Count > 0;
-
-    /// <summary>Gets a value indicating whether there is anything in the repository list.</summary>
-    public bool HasRepositories => Repositories.Count > 0;
-
-    /// <summary>
-    /// Gets the sentence describing the repository list, which is where a truncated listing says so.
-    /// </summary>
-    public string Summary { get; private set => SetProperty(ref field, value); } = string.Empty;
 
     /// <summary>Gets the sentence shown while the page has nothing to display.</summary>
     public string EmptyMessage =>
@@ -333,23 +178,8 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
     /// <summary>Gets the command that disconnects one.</summary>
     public AsyncRelayCommand<HostAccountRowViewModel> RemoveAccountCommand { get; }
 
-    /// <summary>Gets the command that clones a repository.</summary>
-    public AsyncRelayCommand<HostRepositoryRowViewModel> CloneCommand { get; }
-
-    /// <summary>Gets the command that opens a repository's page on its host.</summary>
-    public AsyncRelayCommand<HostRepositoryRowViewModel> OpenRepositoryCommand { get; }
-
-    /// <summary>Gets the command that empties the search box.</summary>
-    public RelayCommand ClearSearchCommand { get; }
-
-    /// <summary>Gets the command that lists everything the account can see.</summary>
-    public RelayCommand ShowAllCommand { get; }
-
-    /// <summary>Gets the command that lists only public repositories.</summary>
-    public RelayCommand ShowPublicCommand { get; }
-
-    /// <summary>Gets the command that lists only private repositories.</summary>
-    public RelayCommand ShowPrivateCommand { get; }
+    /// <summary>Gets the command that lists an account's repositories, and clones the one picked.</summary>
+    public AsyncRelayCommand<HostAccountRowViewModel> BrowseCommand { get; }
 
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
@@ -379,8 +209,6 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
             accounts = [];
         }
 
-        string? previous = SelectedAccount?.Account.Id;
-
         List<HostAccountRowViewModel> rows = [];
 
         foreach (HostAccount account in accounts)
@@ -398,166 +226,6 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         }
 
         OnPropertyChanged(nameof(HasAccounts));
-
-        SelectedAccount = Find(rows, previous);
-    }
-
-    /// <summary>
-    /// Re-reads the selected account's repositories.
-    /// </summary>
-    /// <returns>A task that completes once the list is up to date.</returns>
-    public async Task LoadRepositoriesAsync()
-    {
-        _all.Clear();
-        Repositories.Clear();
-        Summary = string.Empty;
-        OnPropertyChanged(nameof(HasRepositories));
-
-        if (SelectedAccount is not { Provider: { } provider } row)
-        {
-            return;
-        }
-
-        IsBusy = true;
-
-        try
-        {
-            SecretString? token = await _accounts
-                .GetTokenAsync(row.Account, RepositoryContext.RepositoryLifetime)
-                .ConfigureAwait(true);
-
-            if (token is null)
-            {
-                Report(
-                    "No token for this account",
-                    "Disconnect it and connect it again.",
-                    InfoBarSeverity.Warning);
-
-                return;
-            }
-
-            List<HostRepositoryRowViewModel> loaded = [];
-            string? cursor = null;
-            bool truncated = false;
-
-            for (int page = 0; page < PageLimit; page++)
-            {
-                HostRepositoryPage current = await provider
-                    .ListRepositoriesAsync(
-                        row.Account,
-                        token,
-                        new HostRepositoryQuery(Visibility: Visibility, Cursor: cursor),
-                        RepositoryContext.RepositoryLifetime)
-                    .ConfigureAwait(true);
-
-                foreach (HostRepository repository in current.Repositories)
-                {
-                    loaded.Add(new HostRepositoryRowViewModel(this, repository));
-                }
-
-                cursor = current.NextCursor;
-
-                if (cursor is null)
-                {
-                    break;
-                }
-
-                truncated = page == PageLimit - 1;
-            }
-
-            _all.AddRange(loaded);
-
-            Summary = truncated
-                ? $"{Count(loaded.Count)}, and there are more. Narrow the search on the host if what you want is missing."
-                : Count(loaded.Count);
-
-            ApplyFilter();
-        }
-        catch (HostRateLimitException exception)
-        {
-            Report("Rate limited", Describe(exception), InfoBarSeverity.Warning);
-        }
-        catch (HostException exception)
-        {
-            _logger.LogError(exception, "Listing repositories failed");
-
-            Report("Could not list the repositories", exception.Message, InfoBarSeverity.Error);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected when the repository changes under the read.
-        }
-        catch (System.Net.Http.HttpRequestException exception)
-        {
-            // No answer at all: a wrong instance URL, no network, or a certificate the machine does
-            // not trust. The host never got to refuse anything, so it is reported separately.
-            _logger.LogWarning(exception, "Reaching the host failed");
-
-            Report(
-                "Could not reach the host",
-                "Check the instance URL and the network connection.",
-                InfoBarSeverity.Error);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>
-    /// Describes a rate limit in words that say when, rather than "try again later".
-    /// </summary>
-    /// <param name="exception">The rate limit.</param>
-    /// <returns>The sentence.</returns>
-    public static string Describe(HostRateLimitException exception)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
-
-        if (exception.RetryAfter is not { } wait)
-        {
-            return exception.Message;
-        }
-
-        int minutes = (int)Math.Ceiling(wait.TotalMinutes);
-
-        return minutes <= 1
-            ? exception.Message + " It should lift within a minute."
-            : $"{exception.Message} It should lift in about {minutes.ToString(CultureInfo.CurrentCulture)} minutes.";
-    }
-
-    private static HostAccountRowViewModel? Find(List<HostAccountRowViewModel> rows, string? id)
-    {
-        if (id is not null)
-        {
-            foreach (HostAccountRowViewModel row in rows)
-            {
-                if (string.Equals(row.Account.Id, id, StringComparison.Ordinal))
-                {
-                    return row;
-                }
-            }
-        }
-
-        return rows.Count > 0 ? rows[0] : null;
-    }
-
-    private void ApplyFilter()
-    {
-        string term = Search.Trim();
-
-        Repositories.Clear();
-
-        foreach (HostRepositoryRowViewModel row in _all)
-        {
-            if (term.Length == 0
-                || row.Repository.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
-                || row.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
-            {
-                Repositories.Add(row);
-            }
-        }
-
-        OnPropertyChanged(nameof(HasRepositories));
     }
 
     // ---------------------------------------------------------------- commands
@@ -656,7 +324,7 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         }
         catch (HostRateLimitException exception)
         {
-            Report("Rate limited", Describe(exception), InfoBarSeverity.Warning);
+            Report("Rate limited", HostRepositoriesDialogViewModel.Describe(exception), InfoBarSeverity.Warning);
         }
         catch (HostException exception)
         {
@@ -707,46 +375,25 @@ public sealed class IntegrationsPageViewModel : PageViewModelBase
         await _links.RefreshAsync().ConfigureAwait(true);
     }
 
-    /// <summary>
-    /// Re-reads the selected account's repositories when the reader pressed refresh. Only then: the
-    /// periodic refresh is about the repository on disk, and calling a hosting API every few seconds
-    /// for a list nobody asked to see again would spend the account's rate limit for nothing.
-    /// </summary>
-    private void OnRefreshed(object? sender, AutoRefreshResult result)
-    {
-        if (result.Requested && HasAccounts)
-        {
-            _ = LoadRepositoriesAsync();
-        }
-    }
-
-    private async Task OnCloneAsync(HostRepositoryRowViewModel? row)
+    private async Task OnBrowseAsync(HostAccountRowViewModel? row)
     {
         if (row is null)
         {
             return;
         }
 
+        if (await _browser.BrowseAsync(row.Account).ConfigureAwait(true) is not { } picked)
+        {
+            return;
+        }
+
         await _repositories.RunCloneAsync(new CloneRequest
         {
-            Url = row.Repository.CloneUrl,
+            Url = picked.CloneUrl,
             ParentDirectory = RepositoriesPageViewModel.DefaultParentDirectory(),
-            DirectoryName = CloneRequest.DeriveDirectoryName(row.Repository.CloneUrl),
+            DirectoryName = CloneRequest.DeriveDirectoryName(picked.CloneUrl),
         }).ConfigureAwait(true);
     }
-
-    private async Task OnOpenRepositoryAsync(HostRepositoryRowViewModel? row)
-    {
-        if (row is not null)
-        {
-            await _links.OpenAsync(row.Repository.WebUrl).ConfigureAwait(true);
-        }
-    }
-
-    private static string Count(int repositories)
-        => repositories == 1
-            ? "1 repository"
-            : $"{repositories.ToString(CultureInfo.CurrentCulture)} repositories";
 
     private void Report(string title, string message, InfoBarSeverity severity)
         => _infoBar.Notify(title, message, severity);

@@ -571,7 +571,7 @@ public sealed class AutoRefreshTests
     }
 
     [Fact]
-    public void TheIntegrationsPage_RereadsItsRepositoriesWhenAskedAndOnlyThen()
+    public void NoRefreshEverAsksAHostForItsRepositories()
     {
         _fixture.RunAsync(async () =>
         {
@@ -594,20 +594,15 @@ public sealed class AutoRefreshTests
 
             await services.Get<IRepositoryContext>().OpenAsync(Handle("hosted"));
             await WaitUntilAsync(() => page.IsNotBusy);
-            int listed = provider.Queries.Count;
 
-            Assert.True(listed > 0, "connecting never listed the account's repositories");
-
-            // Every few seconds is the repository on disk, not the host's list.
+            // The repositories are listed in their dialog, when it opens, and nowhere else: calling a
+            // hosting API on every refresh would spend the account's rate limit for nothing.
             await service.RefreshNowAsync();
-            Dispatcher.UIThread.RunJobs();
-            Assert.Equal(listed, provider.Queries.Count);
-
-            // The reader pressing refresh is.
             await service.RequestRefreshAsync();
-            await WaitUntilAsync(() => provider.Queries.Count > listed);
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(listed + 1, provider.Queries.Count);
+            Assert.Single(page.Accounts);
+            Assert.Empty(provider.Queries);
         });
     }
 
