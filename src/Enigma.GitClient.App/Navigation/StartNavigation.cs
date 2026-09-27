@@ -22,9 +22,6 @@ public enum StartPage
     /// <summary>The profiles — the names and emails git records on a commit — and the global identity.</summary>
     Profiles,
 
-    /// <summary>Hosting integrations.</summary>
-    Integrations,
-
     /// <summary>Preferences.</summary>
     Settings,
 }
@@ -91,7 +88,6 @@ public sealed class StartNavigation : IStartNavigation
 
         Add(navigation.Items, StartPage.Repositories, "Repositories", PhosphorIcon.Folders, typeof(RepositoriesPageView), typeof(RepositoriesPageViewModel));
         Add(navigation.FooterItems, StartPage.Profiles, "Profiles", PhosphorIcon.IdentificationCard, typeof(ProfilesPageView), typeof(ProfilesPageViewModel));
-        Add(navigation.FooterItems, StartPage.Integrations, "Integrations", PhosphorIcon.GlobeSimple, typeof(IntegrationsPageView), typeof(IntegrationsPageViewModel));
         Add(navigation.FooterItems, StartPage.Settings, "Settings", PhosphorIcon.Gear, typeof(SettingsPageView), typeof(SettingsPageViewModel));
     }
 

@@ -50,13 +50,13 @@ Two things matter more than everything else in this app:
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
 - Merge conflict resolution with a three-way view, per-hunk selection and a live preview of the
   file that will be written
-- Integrations with **GitHub**, **GitLab** and **Azure DevOps**: sign in with a personal access
-  token, browse and clone your repositories, and open a commit, branch or file on the host — on the
-  public instances and on self-hosted ones (GitHub Enterprise Server, self-hosted GitLab, Azure
-  DevOps Server)
+- Integrations with **GitHub**, **GitLab** and **Azure DevOps**, connected under a profile: sign in
+  with a personal access token, browse and clone your repositories, and open a commit, branch or file
+  on the host — on the public instances and on self-hosted ones (GitHub Enterprise Server,
+  self-hosted GitLab, Azure DevOps Server)
 - A **Profiles** page, on the start window and in every repository window, to edit the
   global name and email git records on every commit, and profiles — work, personal — that switch
-  them in one click; in a repository's window, give that repository a name and email of its own
+  them in one click, each with the hosting accounts it is connected to; in a repository's window, give that repository a name and email of its own
   (copied from the current profile in one click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
   font and context, the pull strategy and the path to git — every one of them applied without a
@@ -73,14 +73,18 @@ These are deliberate, permanent exclusions — not gaps waiting to be filled:
 
 ## Connecting a host
 
-Each integration signs in with a personal access token you create on the host itself, and asks for
-the smallest scope that can list and clone repositories:
+Integrations are connected under a profile, with **Connect an account** on the Profiles page, so
+each profile has accounts of its own. Each one signs in with a personal access token you create on
+the host itself, and asks for the smallest scope that can list and clone repositories:
 
 | Host | Scope to grant | Where to put the instance URL |
 |------|----------------|-------------------------------|
 | GitHub | `repo` — or, for a fine-grained token, read access to **Contents** and **Metadata** | `https://github.com`, or your Enterprise Server's own address |
 | GitLab | `read_api` and `read_repository` | `https://gitlab.com`, or your instance's own address |
 | Azure DevOps | **Code: Read** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
+
+An integration connected with a 1.x version belongs to no profile: it is listed under **Earlier
+integrations** on the Profiles page until you move it into the profile it is for.
 
 No issue, work-item, merge-request or pull-request scope is ever requested, and the client never
 calls those APIs. Tokens are encrypted at rest — AES-GCM with a key protected by DPAPI on Windows
@@ -95,7 +99,7 @@ Everything the client remembers about you lives in one per-user directory —
 |------|---------------|
 | `settings.json` | Your preferences, as plain readable JSON |
 | `recent-repositories.json` | The repositories you have opened, and the ones you pinned |
-| `host-accounts.json` | The hosting accounts you connected — never their tokens |
+| `host-accounts.json` | The hosting accounts you connected, each under the profile it belongs to — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
 | `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
 | `hidden-branches.json` | The branches you hid from the history, per repository |

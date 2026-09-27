@@ -92,7 +92,6 @@ public static class ServiceCollectionExtensions
             services.AddTransient<RemotesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
             services.AddTransient<ProfilesPageView>();
-            services.AddTransient<IntegrationsPageView>();
             services.AddTransient<SettingsPageView>();
 
             services.AddSingleton<RepositoriesPageViewModel>();
@@ -103,7 +102,6 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
-            services.AddSingleton<IntegrationsPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
 
             // Dialog views are transient: each showing gets a fresh control bound to a fresh
