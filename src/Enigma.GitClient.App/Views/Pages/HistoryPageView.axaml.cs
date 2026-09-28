@@ -267,6 +267,13 @@ public partial class HistoryPageView : UserControl
             return;
         }
 
+        // The commit details dialog is opened from inside the diffs, and a dialog does not take the
+        // focus: its Escape would otherwise put the diffs away under it.
+        if (this.IsBehindOpenDialog)
+        {
+            return;
+        }
+
         page.IsDiffViewOpen = false;
         e.Handled = true;
     }

@@ -1,6 +1,6 @@
 # FEATURE-FC7E — History: commit details, discard all
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-changes-commit-details-release
@@ -44,7 +44,7 @@
 ## PHASE01 — A commit details dialog
 
 **Branch:** `feature/feature-fc7e-phase01-commit-details`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-FC7E-PHASE01.md`
 
 ### Steps
 

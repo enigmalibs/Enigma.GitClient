@@ -575,57 +575,49 @@
             Background="{DynamicResource EnigmaBackgroundBrush}">
       <DockPanel Name="DiffPageBody">
 
-        <!-- Which commit this is, and the way back to the graph. -->
+        <!--
+          The way back to the graph, the way to the commit's details, and which commit this is — on
+          one line. The author, the date, the hash and the description are in the details dialog, as
+          text to select, rather than in a header that grew to four lines for them.
+        -->
         <Border DockPanel.Dock="Top"
                 Background="{DynamicResource EnigmaSurfaceBrush}"
                 BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="12,8">
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
 
             <Button Grid.Column="0"
                     Name="LeaveDiffView"
                     Classes="toolbar back"
-                    VerticalAlignment="Top"
+                    VerticalAlignment="Center"
                     Command="{Binding CloseDiffViewCommand}"
                     ToolTip.Tip="Back to the history"
                     AutomationProperties.Name="Back to the history">
               <ei:Icon Kind="ArrowLeft" Classes="toolbar" />
             </Button>
 
-            <StackPanel Grid.Column="1" Spacing="4">
+            <Button Grid.Column="1"
+                    Name="ShowCommitDetails"
+                    Classes="toolbar"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding HasSelectedCommit}"
+                    Command="{Binding ShowCommitDetailsCommand}"
+                    ToolTip.Tip="Commit details"
+                    AutomationProperties.Name="Show the commit's details">
+              <ei:Icon Kind="Article" Classes="toolbar" />
+            </Button>
 
-              <TextBlock Name="DiffSubject"
-                         Text="{Binding SelectedSubject}"
-                         FontSize="14"
-                         FontWeight="SemiBold"
-                         TextTrimming="CharacterEllipsis"
-                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
-
-              <StackPanel Orientation="Horizontal"
-                          Spacing="12"
-                          IsVisible="{Binding HasSelectedCommit}">
-                <TextBlock Classes="dim"
-                           Text="{Binding SelectedAuthor}"
-                           FontSize="12"
-                           TextTrimming="CharacterEllipsis" />
-                <TextBlock Classes="faint"
-                           Text="{Binding SelectedDate}"
-                           FontSize="12" />
-                <TextBlock Classes="monospace faint"
-                           Text="{Binding SelectedSha}"
-                           FontSize="12"
-                           TextTrimming="CharacterEllipsis" />
-              </StackPanel>
-
-              <TextBlock Classes="dim"
-                         Text="{Binding SelectedBody}"
-                         IsVisible="{Binding HasSelectedBody}"
-                         FontSize="12"
-                         TextWrapping="Wrap"
-                         MaxLines="3"
-                         TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+            <TextBlock Grid.Column="2"
+                       Name="DiffSubject"
+                       Text="{Binding SelectedSubject}"
+                       ToolTip.Tip="{Binding SelectedSubject}"
+                       VerticalAlignment="Center"
+                       Margin="4,0,0,0"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
           </Grid>
         </Border>
 
