@@ -7,6 +7,7 @@ using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Reset;
 using Enigma.GitClient.Core.Stashes;
+using Enigma.Icons.Phosphor;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
@@ -304,7 +305,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 return entries;
             }
 
-            entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this));
+            entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this, PhosphorIcon.GitDiff));
 
             // A stash is not a commit anyone builds on: GitKraken offers it its own three actions and
             // nothing else, and branching from or resetting to git's record of it is a trap.
@@ -313,10 +314,10 @@ public sealed class CommitRowViewModel : ViewModelBase
                 if (commands.Stashes is { } stash)
                 {
                     entries.Add(HistoryMenuEntry.Separator);
-                    entries.Add(new HistoryMenuEntry("Apply stash", stash.Apply, this));
-                    entries.Add(new HistoryMenuEntry("Pop stash", stash.Pop, this));
+                    entries.Add(new HistoryMenuEntry("Apply stash", stash.Apply, this, PhosphorIcon.TrayArrowUp));
+                    entries.Add(new HistoryMenuEntry("Pop stash", stash.Pop, this, PhosphorIcon.ArrowCounterClockwise));
                     entries.Add(HistoryMenuEntry.Separator);
-                    entries.Add(new HistoryMenuEntry("Delete stash…", stash.Drop, this));
+                    entries.Add(new HistoryMenuEntry("Delete stash…", stash.Drop, this, PhosphorIcon.Trash));
                 }
 
                 AddCopyEntries(entries, commands);
@@ -326,14 +327,14 @@ public sealed class CommitRowViewModel : ViewModelBase
 
             if (IsUncommitted && commands.Stashes is { } stashes)
             {
-                entries.Add(new HistoryMenuEntry("Stash all changes…", stashes.StashAll, this));
+                entries.Add(new HistoryMenuEntry("Stash all changes…", stashes.StashAll, this, PhosphorIcon.Archive));
             }
 
             entries.Add(HistoryMenuEntry.Separator);
-            entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this));
-            entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this));
+            entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this, PhosphorIcon.GitBranch));
+            entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this, PhosphorIcon.Tag));
             entries.Add(HistoryMenuEntry.Separator);
-            entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this));
+            entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this, PhosphorIcon.SignIn));
 
             // Named after the branch they move, so on a detached HEAD there is nothing to name and
             // nothing to offer.
@@ -342,8 +343,8 @@ public sealed class CommitRowViewModel : ViewModelBase
                 HistoryResetRequest request = new(this, current);
 
                 entries.Add(HistoryMenuEntry.Separator);
-                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request));
-                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request));
+                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request, PhosphorIcon.ArrowUUpLeft));
+                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request, PhosphorIcon.ArrowUUpLeft));
             }
 
             if (Branches.Count > 0 && commands.Branches is { } branchCommands)
@@ -354,7 +355,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 {
                     if (branch.CanSetAsMergeSource)
                     {
-                        entries.Add(new HistoryMenuEntry(branch.SetAsMergeSourceHeader, branchCommands.SetAsMergeSource, branch));
+                        entries.Add(new HistoryMenuEntry(branch.SetAsMergeSourceHeader, branchCommands.SetAsMergeSource, branch, PhosphorIcon.Target));
                     }
                 }
 
@@ -362,7 +363,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 {
                     if (branch.CanMergeInto)
                     {
-                        entries.Add(new HistoryMenuEntry(branch.MergeIntoHeader, branchCommands.MergeInto, branch));
+                        entries.Add(new HistoryMenuEntry(branch.MergeIntoHeader, branchCommands.MergeInto, branch, PhosphorIcon.GitMerge));
                     }
                 }
             }
@@ -370,7 +371,7 @@ public sealed class CommitRowViewModel : ViewModelBase
             if (CanOpenOnHost && commands.OpenOnHost is { } openOnHost)
             {
                 entries.Add(HistoryMenuEntry.Separator);
-                entries.Add(new HistoryMenuEntry(HostLabel, openOnHost, this));
+                entries.Add(new HistoryMenuEntry(HostLabel, openOnHost, this, PhosphorIcon.ArrowSquareOut));
             }
 
             AddCopyEntries(entries, commands);
@@ -391,8 +392,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         }
 
         entries.Add(HistoryMenuEntry.Separator);
-        entries.Add(new HistoryMenuEntry("Copy short commit hash", copy, ShortSha));
-        entries.Add(new HistoryMenuEntry("Copy full commit hash", copy, Sha));
+        entries.Add(new HistoryMenuEntry("Copy short commit hash", copy, ShortSha, PhosphorIcon.Copy));
+        entries.Add(new HistoryMenuEntry("Copy full commit hash", copy, Sha, PhosphorIcon.Copy));
     }
 
     /// <summary>

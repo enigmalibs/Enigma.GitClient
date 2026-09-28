@@ -1,6 +1,6 @@
 # FEATURE-5860 — Context menus that do more
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-stash-menus-release
@@ -93,7 +93,7 @@
 ## PHASE04 — Icons on the important operations
 
 **Branch:** `feature/feature-5860-phase04-menu-icons`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5860-PHASE04.md`
 
 ### Steps
 

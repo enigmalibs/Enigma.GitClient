@@ -25,29 +25,57 @@
             <MenuItem Header="{Binding Actions.PrimaryLabel}"
                       IsVisible="{Binding HasActions}"
                       Command="{Binding Actions.Primary}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="{Binding Actions.PrimaryIcon}" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="{Binding Actions.SecondaryLabel}"
                       IsVisible="{Binding HasSecondaryAction}"
                       Command="{Binding Actions.Secondary}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="{Binding Actions.SecondaryIcon}" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <Separator IsVisible="{Binding HasActions}" />
             <MenuItem Header="Open file"
                       Command="{Binding OpenFileCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="FileText" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="Show in file manager"
                       Command="{Binding RevealFileCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="FolderOpen" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="{Binding HostLinkLabel}"
                       IsVisible="{Binding HasHostLink}"
                       Command="{Binding OpenOnHostCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="ArrowSquareOut" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Copy path"
                       Command="{Binding CopyPathCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="Copy" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="Copy file name"
                       Command="{Binding CopyNameCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="Copy" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
           </ContextMenu>
         </Grid.ContextMenu>
 

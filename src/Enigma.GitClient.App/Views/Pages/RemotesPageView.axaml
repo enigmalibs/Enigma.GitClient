@@ -76,14 +76,26 @@
                 <ContextMenu>
                   <MenuItem Header="Fetch"
                             Command="{Binding FetchCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="ArrowsDownUp" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <Separator />
                   <MenuItem Header="Edit…"
                             Command="{Binding EditCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="PencilSimple" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <MenuItem Header="Remove…"
                             Command="{Binding RemoveCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="Trash" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                 </ContextMenu>
               </Border.ContextMenu>
 

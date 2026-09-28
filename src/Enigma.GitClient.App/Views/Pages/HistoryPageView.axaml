@@ -330,6 +330,16 @@
                         <Setter Property="Header" Value="{Binding Header}" />
                         <Setter Property="Command" Value="{Binding Command}" />
                         <Setter Property="CommandParameter" Value="{Binding Parameter}" />
+                        <!-- A template, so every item gets a glyph of its own: one control cannot be
+                             the icon of several items. -->
+                        <Setter Property="Icon">
+                          <Template>
+                            <ei:Icon x:DataType="vm:HistoryMenuEntry"
+                                     Kind="{Binding IconKind}"
+                                     IsVisible="{Binding HasIcon}"
+                                     Classes="menu" />
+                          </Template>
+                        </Setter>
                       </ControlTheme>
                     </ContextMenu.ItemContainerTheme>
                   </ContextMenu>
@@ -378,45 +388,85 @@
                           <ContextMenu>
                             <MenuItem Header="{Binding CheckoutHeader}"
                                       Command="{Binding Commands.Checkout}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="SignIn" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator />
                             <MenuItem Header="{Binding SetAsMergeSourceHeader}"
                                       IsVisible="{Binding CanSetAsMergeSource}"
                                       Command="{Binding Commands.SetAsMergeSource}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Target" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="Clear the merge source"
                                       IsVisible="{Binding IsMergeSource}"
-                                      Command="{Binding Commands.ClearMergeSource}" />
+                                      Command="{Binding Commands.ClearMergeSource}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="X" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding MergeIntoHeader}"
                                       IsVisible="{Binding CanMergeInto}"
                                       Command="{Binding Commands.MergeInto}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="GitMerge" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding FastForwardIntoHeader}"
                                       IsVisible="{Binding CanMergeInto}"
                                       Command="{Binding Commands.FastForwardInto}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="FastForward" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding MergeIntoCurrentHeader}"
                                       IsVisible="{Binding CanMergeIntoCurrent}"
                                       Command="{Binding Commands.MergeIntoCurrent}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="GitMerge" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator IsVisible="{Binding CanSynchronise}" />
                             <MenuItem Header="{Binding PullHeader}"
                                       IsVisible="{Binding CanSynchronise}"
                                       Command="{Binding Commands.Pull}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="ArrowDown" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding PushHeader}"
                                       IsVisible="{Binding CanSynchronise}"
                                       Command="{Binding Commands.Push}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="ArrowUp" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator />
                             <MenuItem Header="{Binding DeleteHeader}"
                                       Command="{Binding Commands.Delete}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Trash" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator IsVisible="{Binding CanCopyName}" />
                             <MenuItem Header="Copy branch name"
                                       IsVisible="{Binding CanCopyName}"
                                       Command="{Binding Commands.Copy}"
-                                      CommandParameter="{Binding Name}" />
+                                      CommandParameter="{Binding Name}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Copy" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                           </ContextMenu>
                         </controls:RefBadge.ContextMenu>
                       </controls:RefBadge>
@@ -430,7 +480,11 @@
                           <ContextMenu>
                             <MenuItem Header="Copy tag name"
                                       Command="{Binding Copy}"
-                                      CommandParameter="{Binding Name}" />
+                                      CommandParameter="{Binding Name}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Copy" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                           </ContextMenu>
                         </controls:RefBadge.ContextMenu>
                       </controls:RefBadge>

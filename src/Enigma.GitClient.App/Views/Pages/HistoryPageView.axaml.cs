@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.Icons.Phosphor;
 
 namespace Enigma.GitClient.App.Views.Pages;
 
@@ -406,17 +407,30 @@ public partial class HistoryPageView : UserControl
                     Header = drop.MergeHeader,
                     Command = page?.MergeDropCommand,
                     CommandParameter = drop,
+                    Icon = MenuIcon(PhosphorIcon.GitMerge),
                 },
                 new MenuItem
                 {
                     Header = drop.FastForwardHeader,
                     Command = page?.FastForwardDropCommand,
                     CommandParameter = drop,
+                    Icon = MenuIcon(PhosphorIcon.FastForward),
                 },
             },
         };
 
         DropMenu.Open(target);
+    }
+
+    /// <summary>
+    /// A menu item's glyph, as the menus written in XAML draw theirs.
+    /// </summary>
+    internal static Enigma.Icons.Avalonia.Icon MenuIcon(PhosphorIcon kind)
+    {
+        Enigma.Icons.Avalonia.Icon icon = new() { Kind = kind };
+        icon.Classes.Add("menu");
+
+        return icon;
     }
 
     private HistoryBranchDrop? DropFor(RefBadge? badge)
