@@ -1,6 +1,6 @@
 # FEATURE-6DDD — Release 3.1.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6DDD.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-6ddd-release-3-1-0`
 **Run:** bugfix/2026-09-28-history-stash-menus-release

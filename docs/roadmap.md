@@ -193,4 +193,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Select the line in the history          | DONE   | (in FEATURE-5860.md)      |
 | - PHASE04    | Icons on the important operations       | DONE   | (in FEATURE-5860.md)      |
 | BUG-28E4     | Untracked file diff is empty            | DONE   | docs/plan/BUG-28E4.md     |
-| FEATURE-6DDD | Release 3.1.0                           | TODO   | docs/plan/FEATURE-6DDD.md |
+| FEATURE-6DDD | Release 3.1.0                           | DONE   | docs/plan/FEATURE-6DDD.md |
