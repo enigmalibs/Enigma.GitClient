@@ -53,6 +53,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IStashService _stashes;
     private readonly IStashOperations _stashOperations;
     private readonly ISystemInterop _interop;
+    private readonly ICommitDetailsDialogService _details;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -100,6 +101,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="syncOperations">Pulls and pushes a branch from its badge.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
+    /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
@@ -121,6 +123,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IHiddenBranches hidden,
         IStashService stashes,
         IStashOperations stashOperations,
+        ICommitDetailsDialogService details,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -142,6 +145,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(hidden);
         ArgumentNullException.ThrowIfNull(stashes);
         ArgumentNullException.ThrowIfNull(stashOperations);
+        ArgumentNullException.ThrowIfNull(details);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -163,6 +167,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _stashes = stashes;
         _stashOperations = stashOperations;
         _interop = interop;
+        _details = details;
 
         // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
         CopyCommand = new AsyncRelayCommand<string>(
@@ -245,6 +250,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _logger = logger;
 
         CloseDiffViewCommand = new RelayCommand(() => IsDiffViewOpen = false);
+        ShowCommitDetailsCommand = new AsyncRelayCommand(() => OnShowDetailsAsync(SelectedRow), () => SelectedRow?.Commit is not null);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
@@ -460,26 +466,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
     public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
 
-    /// <summary>Gets the selected commit's full SHA.</summary>
-    public string SelectedSha => SelectedRow?.Sha ?? string.Empty;
-
-    /// <summary>Gets the selected commit's author.</summary>
-    public string SelectedAuthor => SelectedRow?.Commit?.Author.ToString() ?? string.Empty;
-
-    /// <summary>Gets when the selected commit was authored, in full.</summary>
-    public string SelectedDate => SelectedRow?.AbsoluteDate ?? string.Empty;
-
-    /// <summary>Gets the selected commit's message body, empty when it has none.</summary>
-    public string SelectedBody => SelectedRow?.Commit?.Body ?? string.Empty;
-
-    /// <summary>Gets a value indicating whether there is a body to show.</summary>
-    public bool HasSelectedBody => SelectedBody.Length > 0;
-
     /// <summary>
-    /// Gets a value indicating whether the details pane has a commit to describe, as opposed to the
-    /// uncommitted-changes row or nothing at all.
+    /// Gets a value indicating whether the selection is a commit there are details of, as opposed to
+    /// the uncommitted-changes row or nothing at all.
     /// </summary>
     public bool HasSelectedCommit => SelectedRow?.Commit is not null;
+
+    /// <summary>
+    /// Gets the command that shows the selected commit's details — its title, description, author,
+    /// date and hash — from the diff view's header.
+    /// </summary>
+    /// <remarks>
+    /// The header carries the subject alone, on one line: everything else about the commit is here,
+    /// one click away, as text to select and copy.
+    /// </remarks>
+    public AsyncRelayCommand ShowCommitDetailsCommand { get; }
 
     /// <summary>
     /// Gets or sets how many commits a page holds.
@@ -1838,12 +1839,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private void NotifySelectedCommitDetails()
     {
         OnPropertyChanged(nameof(SelectedSubject));
-        OnPropertyChanged(nameof(SelectedSha));
-        OnPropertyChanged(nameof(SelectedAuthor));
-        OnPropertyChanged(nameof(SelectedDate));
-        OnPropertyChanged(nameof(SelectedBody));
-        OnPropertyChanged(nameof(HasSelectedBody));
         OnPropertyChanged(nameof(HasSelectedCommit));
+        ShowCommitDetailsCommand.NotifyCanExecuteChanged();
     }
 
     private void NotifyEmptyState()
@@ -1852,6 +1849,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(EmptyMessage));
         OnPropertyChanged(nameof(HasUncommittedChanges));
         StashCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Shows a line's commit in the details dialog. The uncommitted line has none, and shows nothing.
+    /// </summary>
+    private async Task OnShowDetailsAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is { } commit)
+        {
+            await _details.ShowAsync(commit).ConfigureAwait(true);
+        }
     }
 
     // ---------------------------------------------------------------- the stash
