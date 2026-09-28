@@ -579,6 +579,25 @@
   </Style>
 
   <!--
+    A question asked as plain text goes onto as many lines as it needs. Left to itself, the dialog's
+    content presenter draws a string on one line, and the card is bounded (DialogMaxWidth), so a long
+    question — the discard of the uncommitted work, a tag or a branch with a long name — was cut at
+    the card's edge. Wrap, not WrapWithOverflow: a word with no break in it, a path or a long name, is
+    broken too rather than left to run past the edge.
+
+    A template for strings, not TextWrapping on the presenter: that property is inherited, and would
+    have made every text block of every dialog's own view wrap — the tools' lists and the forms lay
+    out their own text. A view given as the content is used as it is, and never goes through this.
+  -->
+  <Style Selector="contentDialog|ContentDialog">
+    <Setter Property="ContentTemplate">
+      <DataTemplate DataType="x:String" x:DataType="x:String">
+        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+      </DataTemplate>
+    </Setter>
+  </Style>
+
+  <!--
     A question whose answer throws work away confirms in red. The class is put on the dialog host for
     that one question and taken off again (ContentDialogServiceExtensions.ConfirmDestructiveAsync):
     the host is shared by every dialog of the window, and its service does not reset its classes.
