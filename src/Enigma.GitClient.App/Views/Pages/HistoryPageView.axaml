@@ -412,6 +412,25 @@
                             <MenuItem Header="{Binding DeleteHeader}"
                                       Command="{Binding Commands.Delete}"
                                       CommandParameter="{Binding}" />
+                            <Separator IsVisible="{Binding CanCopyName}" />
+                            <MenuItem Header="Copy branch name"
+                                      IsVisible="{Binding CanCopyName}"
+                                      Command="{Binding Commands.Copy}"
+                                      CommandParameter="{Binding Name}" />
+                          </ContextMenu>
+                        </controls:RefBadge.ContextMenu>
+                      </controls:RefBadge>
+                    </DataTemplate>
+
+                    <!-- A tag brings a menu of its own too: its name, to copy. -->
+                    <DataTemplate DataType="vm:HistoryTagViewModel" x:DataType="vm:HistoryTagViewModel">
+                      <controls:RefBadge Kind="{Binding Badge.Kind}"
+                                         Text="{Binding Name}">
+                        <controls:RefBadge.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Copy tag name"
+                                      Command="{Binding Copy}"
+                                      CommandParameter="{Binding Name}" />
                           </ContextMenu>
                         </controls:RefBadge.ContextMenu>
                       </controls:RefBadge>

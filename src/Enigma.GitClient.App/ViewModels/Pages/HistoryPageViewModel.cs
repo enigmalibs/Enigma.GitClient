@@ -52,6 +52,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IHiddenBranches _hidden;
     private readonly IStashService _stashes;
     private readonly IStashOperations _stashOperations;
+    private readonly ISystemInterop _interop;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -161,6 +162,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _hidden.Changed += (_, _) => OnHiddenBranchesChanged();
         _stashes = stashes;
         _stashOperations = stashOperations;
+        _interop = interop;
+
+        // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
+        CopyCommand = new AsyncRelayCommand<string>(
+            text => _interop.CopyTextAsync(text!),
+            text => !string.IsNullOrEmpty(text));
 
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
@@ -184,7 +191,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<HistoryBranchViewModel>(OnPullBranchAsync, branch => branch?.CanSynchronise == true),
             new AsyncRelayCommand<HistoryBranchViewModel>(OnPushBranchAsync, branch => branch?.CanSynchronise == true),
             () => MergeSource,
-            () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null);
+            () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null,
+            CopyCommand);
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -209,7 +217,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 new AsyncRelayCommand<CommitRowViewModel>(_ => OnStashAsync(), row => row is { IsUncommitted: true }),
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.ApplyAsync), IsStashLine),
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.PopAsync), IsStashLine),
-                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)));
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)),
+            CopyCommand);
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -519,6 +528,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// which is what there is to stash.
     /// </summary>
     public bool HasUncommittedChanges => Rows.Count > 0 && Rows[0].IsUncommitted;
+
+    /// <summary>
+    /// Gets the command that copies a hash or a name to the clipboard, which the line's and the
+    /// badges' menus run with the text as their parameter.
+    /// </summary>
+    public AsyncRelayCommand<string> CopyCommand { get; }
 
     /// <summary>
     /// Gets the command that puts every uncommitted change on the stash, from the toolbar.

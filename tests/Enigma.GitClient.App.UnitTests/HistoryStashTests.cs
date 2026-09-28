@@ -209,7 +209,7 @@ public sealed class HistoryStashTests
             CommitRowViewModel line = Assert.Single(page.Rows, row => row.IsStash);
 
             Assert.Equal(
-                ["Show what it changed", "Apply stash", "Pop stash", "Delete stash…"],
+                ["Show what it changed", "Apply stash", "Pop stash", "Delete stash…", "Copy short commit hash", "Copy full commit hash"],
                 line.MenuEntries.Where(entry => !entry.IsSeparator).Select(entry => entry.Header));
 
             // An ordinary commit keeps its own menu, with nothing of the stash's.
