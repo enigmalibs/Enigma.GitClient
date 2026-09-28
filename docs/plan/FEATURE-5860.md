@@ -50,7 +50,7 @@
 ## PHASE02 — Copy names and hashes from the history
 
 **Branch:** `feature/feature-5860-phase02-copy-items`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5860-PHASE02.md`
 
 ### Steps
 

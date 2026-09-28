@@ -38,7 +38,8 @@ public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Pull,
     AsyncRelayCommand<HistoryBranchViewModel> Push,
     Func<MergeSource?> CurrentSource,
-    Func<string?> CurrentBranch);
+    Func<string?> CurrentBranch,
+    AsyncRelayCommand<string>? Copy = null);
 
 /// <summary>
 /// One branch on a history line: the badge it is drawn as, and the menu that badge opens.
@@ -152,6 +153,9 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     /// <summary>Gets what the delete item says.</summary>
     public string DeleteHeader => $"Delete \"{Name}\"…";
 
+    /// <summary>Gets a value indicating whether the badge's menu can copy the branch's name.</summary>
+    public bool CanCopyName => Commands.Copy is not null;
+
     /// <summary>Gets a value indicating whether the branch can be deleted: not while it is checked out.</summary>
     public bool CanDelete => !IsCurrent;
 
@@ -168,6 +172,21 @@ public sealed class HistoryBranchViewModel : ViewModelBase
         OnPropertyChanged(nameof(MergeIntoHeader));
         OnPropertyChanged(nameof(FastForwardIntoHeader));
     }
+
+    /// <inheritdoc />
+    public override string ToString() => Name;
+}
+
+/// <summary>
+/// A tag's badge on a history line: the one reference on a line that brings a menu of its own besides
+/// the branches — what the tag is called, to copy.
+/// </summary>
+/// <param name="Badge">The badge as drawn.</param>
+/// <param name="Copy">Copies a text to the clipboard.</param>
+public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<string> Copy)
+{
+    /// <summary>Gets the tag's name, as the badge shows it.</summary>
+    public string Name => Badge.Name;
 
     /// <inheritdoc />
     public override string ToString() => Name;

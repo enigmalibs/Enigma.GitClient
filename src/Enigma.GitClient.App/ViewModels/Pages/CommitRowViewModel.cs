@@ -60,7 +60,8 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<HistoryResetRequest>? ResetSoft = null,
     AsyncRelayCommand<HistoryResetRequest>? ResetHard = null,
     Func<string?>? CurrentBranch = null,
-    HistoryStashCommands? Stashes = null);
+    HistoryStashCommands? Stashes = null,
+    AsyncRelayCommand<string>? Copy = null);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -158,7 +159,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Row = row;
         Stash = stash;
         Refs = Project(refs, stash);
-        (Branches, Badges) = BuildBranches(Refs, commands?.Branches);
+        (Branches, Badges) = BuildBranches(Refs, commands?.Branches, commands?.Copy);
         IsHead = isHead;
 
         Subject = commit.Subject;
@@ -318,6 +319,8 @@ public sealed class CommitRowViewModel : ViewModelBase
                     entries.Add(new HistoryMenuEntry("Delete stash…", stash.Drop, this));
                 }
 
+                AddCopyEntries(entries, commands);
+
                 return entries;
             }
 
@@ -370,8 +373,26 @@ public sealed class CommitRowViewModel : ViewModelBase
                 entries.Add(new HistoryMenuEntry(HostLabel, openOnHost, this));
             }
 
+            AddCopyEntries(entries, commands);
+
             return entries;
         }
+    }
+
+    /// <summary>
+    /// The line's hash, short or whole, to the clipboard — for a commit, not for the uncommitted line,
+    /// which has none.
+    /// </summary>
+    private void AddCopyEntries(List<HistoryMenuEntry> entries, HistoryRowCommands commands)
+    {
+        if (Commit is null || commands.Copy is not { } copy)
+        {
+            return;
+        }
+
+        entries.Add(HistoryMenuEntry.Separator);
+        entries.Add(new HistoryMenuEntry("Copy short commit hash", copy, ShortSha));
+        entries.Add(new HistoryMenuEntry("Copy full commit hash", copy, Sha));
     }
 
     /// <summary>
@@ -507,7 +528,8 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     private static (IReadOnlyList<HistoryBranchViewModel> Branches, IReadOnlyList<object> Badges) BuildBranches(
         IReadOnlyList<RefBadgeItem> refs,
-        HistoryBranchCommands? commands)
+        HistoryBranchCommands? commands,
+        AsyncRelayCommand<string>? copy)
     {
         if (refs.Count == 0)
         {
@@ -524,6 +546,10 @@ public sealed class CommitRowViewModel : ViewModelBase
                 HistoryBranchViewModel branch = new(badge, commands);
                 branches.Add(branch);
                 badges.Add(branch);
+            }
+            else if (copy is not null && badge.Kind == GitRefKind.Tag)
+            {
+                badges.Add(new HistoryTagViewModel(badge, copy));
             }
             else
             {
