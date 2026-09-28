@@ -119,19 +119,21 @@
                     BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="14,7">
-              <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+              <!-- On the row's border, whose background is what the pointer hits: a grid with no brush is
+                   not hit-testable between its children, so the menu used to open only over the text. -->
+              <Border.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Check out (detaches HEAD)"
+                            Command="{Binding CheckoutCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="Delete…"
+                            Command="{Binding DeleteCommand}"
+                            CommandParameter="{Binding}" />
+                </ContextMenu>
+              </Border.ContextMenu>
 
-                <Grid.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="Check out (detaches HEAD)"
-                              Command="{Binding CheckoutCommand}"
-                              CommandParameter="{Binding}" />
-                    <Separator />
-                    <MenuItem Header="Delete…"
-                              Command="{Binding DeleteCommand}"
-                              CommandParameter="{Binding}" />
-                  </ContextMenu>
-                </Grid.ContextMenu>
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
 
                 <ei:Icon Grid.Column="0"
                          Kind="Tag"
