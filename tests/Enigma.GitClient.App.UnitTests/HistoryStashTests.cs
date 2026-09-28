@@ -138,6 +138,115 @@ public sealed class HistoryStashTests
         });
     }
 
+    // ---------------------------------------------------------------- stashing from the history
+
+    [Fact]
+    public void TheToolbarsStash_IsOfferedOnlyWithUncommittedChanges_AndDrawsTheNewStash()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            HistoryPageViewModel page = await OpenAsync(services, repository);
+            Assert.False(page.HasUncommittedChanges);
+            Assert.False(page.StashCommand.CanExecute(null));
+
+            Write(repository, "app.txt", "edited\n");
+            await page.ReloadAsync();
+
+            Assert.True(page.HasUncommittedChanges);
+            Assert.True(page.StashCommand.CanExecute(null));
+
+            services.Dialogs.OnShown = dialog =>
+                ((Enigma.GitClient.App.ViewModels.Dialogs.StashDialogViewModel)
+                    ((Enigma.GitClient.App.Views.Dialogs.StashDialogView)dialog.Content!).DataContext!).Message = "From the toolbar";
+            services.Dialogs.Result = Enigma.Avalonia.Desktop.Controls.ContentDialog.DialogResult.Primary;
+
+            await page.StashCommand.ExecuteAsync(null);
+
+            Assert.False(page.HasUncommittedChanges);
+            CommitRowViewModel line = Assert.Single(page.Rows, row => row.IsStash);
+            Assert.Equal("On main: From the toolbar", line.Subject);
+        });
+    }
+
+    [Fact]
+    public void TheUncommittedLinesMenu_OffersToStashEverything()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "app.txt", "edited\n");
+
+            HistoryPageViewModel page = await OpenAsync(services, repository);
+            CommitRowViewModel uncommitted = page.Rows[0];
+            Assert.True(uncommitted.IsUncommitted);
+
+            HistoryMenuEntry stash = uncommitted.MenuEntries.Single(entry => entry.Header == "Stash all changes…");
+            services.Dialogs.Result = Enigma.Avalonia.Desktop.Controls.ContentDialog.DialogResult.Primary;
+
+            Assert.True(stash.Command!.CanExecute(stash.Parameter));
+            await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)stash.Command).ExecuteAsync(stash.Parameter);
+
+            Assert.False(page.HasUncommittedChanges);
+            Assert.Single(page.Rows, row => row.IsStash);
+        });
+    }
+
+    [Fact]
+    public void AStashLinesMenu_OffersTheStashsOwnActionsAndNoCommitAction()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "app.txt", "edited\n");
+            Git(repository, "stash", "push", "-m", "Work");
+
+            HistoryPageViewModel page = await OpenAsync(services, repository);
+            CommitRowViewModel line = Assert.Single(page.Rows, row => row.IsStash);
+
+            Assert.Equal(
+                ["Show what it changed", "Apply stash", "Pop stash", "Delete stash…"],
+                line.MenuEntries.Where(entry => !entry.IsSeparator).Select(entry => entry.Header));
+
+            // An ordinary commit keeps its own menu, with nothing of the stash's.
+            CommitRowViewModel commit = page.Rows.First(row => !row.IsStash);
+            Assert.Contains(commit.MenuEntries, entry => entry.Header == "Create branch here…");
+            Assert.DoesNotContain(commit.MenuEntries, entry => entry.Header.EndsWith("stash", StringComparison.Ordinal));
+        });
+    }
+
+    [Theory]
+    [InlineData("Apply stash", true, true)]
+    [InlineData("Pop stash", true, false)]
+    [InlineData("Delete stash…", false, false)]
+    public void AStashLinesAction_RunsAndRedrawsTheHistory(string header, bool changesComeBack, bool stashIsKept)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "app.txt", "edited\n");
+            Git(repository, "stash", "push", "-m", "Work");
+
+            HistoryPageViewModel page = await OpenAsync(services, repository);
+            CommitRowViewModel line = Assert.Single(page.Rows, row => row.IsStash);
+            HistoryMenuEntry action = line.MenuEntries.Single(entry => entry.Header == header);
+
+            // Only the delete asks; it is confirmed here.
+            services.Dialogs.Result = Enigma.Avalonia.Desktop.Controls.ContentDialog.DialogResult.Primary;
+
+            await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)action.Command!).ExecuteAsync(action.Parameter);
+
+            Assert.Equal(changesComeBack, page.HasUncommittedChanges);
+            Assert.Equal(stashIsKept ? 1 : 0, page.Rows.Count(row => row.IsStash));
+            Assert.Equal(changesComeBack ? "edited\n" : "two\n", File.ReadAllText(Path.Combine(repository.WorkTreePath, "app.txt")));
+        });
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static async Task<HistoryPageViewModel> OpenAsync(TestServices services, RepositoryHandle repository)

@@ -114,6 +114,17 @@
           <!-- The secondary pages, over the history: the graph is where the work is done, and these
                are what it is done with. -->
           <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <!-- The uncommitted work, put aside: the stash then appears in the graph as a line of
+                 its own, which is where it is applied, popped or deleted. -->
+            <Button Name="StashChanges"
+                    Classes="toolbar"
+                    Margin="0,0,8,0"
+                    Command="{Binding StashCommand}"
+                    ToolTip.Tip="Stash all changes"
+                    ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="Stash all changes">
+              <ei:Icon Kind="Archive" Classes="toolbar" />
+            </Button>
             <Button Name="OpenBranches"
                     Classes="toolbar"
                     Command="{Binding OpenBranchesCommand}"
