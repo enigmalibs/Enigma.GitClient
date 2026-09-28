@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
@@ -410,6 +411,52 @@ public sealed class RepositoriesPageTests
             finally
             {
                 application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
+    public void EmptyPage_CentresItsEmptyStateOnThePage()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.ReloadRecentAsync();
+
+            Assert.False(model.HasRecent);
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            // The start window's own size.
+            Window window = new() { Content = page, Width = 1100, Height = 720 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+
+                EmptyState empty = page.GetVisualDescendants().OfType<EmptyState>().Single();
+                Assert.True(empty.IsVisible);
+
+                // The empty state has the page's whole width below the header, not the width of its
+                // text against the left edge.
+                Assert.Equal(page.Bounds.Width, empty.Bounds.Width, tolerance: 1.0);
+
+                // And what it says sits in the middle of that area, both ways.
+                StackPanel content = empty.GetVisualDescendants().OfType<StackPanel>().First();
+                Point centre = content.TranslatePoint(new Point(content.Bounds.Width / 2, content.Bounds.Height / 2), empty)
+                    ?? throw new InvalidOperationException("The empty state's content is not under it.");
+
+                Assert.Equal(empty.Bounds.Width / 2, centre.X, tolerance: 1.0);
+                Assert.Equal(empty.Bounds.Height / 2, centre.Y, tolerance: 1.0);
+            }
+            finally
+            {
+                window.Close();
             }
         });
     }
