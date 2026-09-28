@@ -285,28 +285,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
     } = string.Empty;
 
-    /// <summary>
-    /// Gets or sets a value indicating whether the commit replaces the current tip.
-    /// </summary>
-    public bool Amend
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(CommitButtonText));
-                CommitCommand.NotifyCanExecuteChanged();
-                _ = OnAmendChangedAsync();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a sign-off trailer is appended.
-    /// </summary>
-    public bool SignOff { get; set => SetProperty(ref field, value); }
-
     /// <summary>Gets the message's first line, which git records as the subject.</summary>
     public string Subject
     {
@@ -345,9 +323,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             return false;
         }
     }
-
-    /// <summary>Gets what the commit button says, which changes for an amend.</summary>
-    public string CommitButtonText => Amend ? "Amend commit" : "Commit";
 
     /// <summary>Gets a value indicating whether anything is staged.</summary>
     public bool HasStaged => _current.Staged.Count > 0;
@@ -522,7 +497,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         base.OnRepositoryChanged();
 
         Message = string.Empty;
-        Amend = false;
 
         _ = RefreshAsync();
     }
@@ -590,34 +564,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     private bool CanCommit()
     {
-        if (!IsRepositoryOpen || Message.Trim().Length == 0 || HasConflicts)
-        {
-            return false;
-        }
-
-        // An amend has something to record even with nothing staged: the message itself.
-        return HasStaged || Amend;
-    }
-
-    private async Task OnAmendChangedAsync()
-    {
-        RepositoryHandle? repository = RepositoryContext.Repository;
-
-        if (!Amend || repository is null || Message.Trim().Length > 0)
-        {
-            return;
-        }
-
-        try
-        {
-            Message = await _commits
-                .GetLastCommitMessageAsync(repository, RepositoryContext.RepositoryLifetime)
-                .ConfigureAwait(true);
-        }
-        catch (GitCommandException exception)
-        {
-            _logger.LogWarning(exception, "Reading the last commit message failed");
-        }
+        return IsRepositoryOpen && Message.Trim().Length > 0 && !HasConflicts && HasStaged;
     }
 
     // ---------------------------------------------------------------- commands
@@ -710,12 +657,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             return;
         }
 
-        CommitRequest request = new()
-        {
-            Message = Message,
-            Amend = Amend,
-            SignOff = SignOff,
-        };
+        CommitRequest request = new() { Message = Message };
 
         string sha = string.Empty;
 
@@ -729,10 +671,9 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
 
         Message = string.Empty;
-        Amend = false;
 
         Report(
-            Amend ? "Commit amended" : "Committed",
+            "Committed",
             $"{(sha.Length >= 7 ? sha[..7] : sha)} · {FirstLine(request.Message)}",
             InfoBarSeverity.Success);
     }

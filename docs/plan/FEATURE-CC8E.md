@@ -1,6 +1,6 @@
 # FEATURE-CC8E — Changes: way back, discards, commit box
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-changes-commit-details-release
@@ -115,7 +115,7 @@
 ## PHASE03 — No Amend, no Sign off
 
 **Branch:** `feature/feature-cc8e-phase03-no-amend-signoff`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-CC8E-PHASE03.md`
 
 ### Steps
 

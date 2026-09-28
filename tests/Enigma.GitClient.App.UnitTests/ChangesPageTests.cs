@@ -547,76 +547,34 @@ public sealed class ChangesPageTests
         });
     }
 
-    [Fact]
-    public void Page_CanSignOffTheCommit()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildRepositoryAsync(services);
-
-            Write(repository, "src/app.txt", "one\ntwo changed\n");
-
-            ChangesPageViewModel page = await OpenAsync(services, repository);
-            await page.StageAllCommand.ExecuteAsync(null);
-
-            page.SignOff = true;
-            page.Message = "Signed work";
-
-            await page.CommitCommand.ExecuteAsync(null);
-
-            Assert.Contains(
-                "Signed-off-by:",
-                await ReadGitAsync(repository, "log", "-1", "--format=%B"),
-                StringComparison.Ordinal);
-        });
-    }
-
-    [Fact]
-    public void Page_PrefillsTheMessageWhenAmendIsTurnedOn()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            ChangesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
-
-            page.Amend = true;
-
-            await WaitUntilAsync(() => page.Message.Length > 0);
-
-            Assert.Equal("Add the initial files", page.Message);
-            Assert.Equal("Amend commit", page.CommitButtonText);
-
-            // An amend has something to record even with nothing staged: the message itself.
-            Assert.True(page.CommitCommand.CanExecute(null));
-        });
-    }
-
-    [Fact]
-    public void Page_AmendsTheLastCommitInPlace()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildRepositoryAsync(services);
-
-            ChangesPageViewModel page = await OpenAsync(services, repository);
-
-            page.Amend = true;
-            await WaitUntilAsync(() => page.Message.Length > 0);
-
-            page.Message = "Say it better";
-
-            await page.CommitCommand.ExecuteAsync(null);
-
-            Assert.Equal("Say it better", await ReadGitAsync(repository, "log", "-1", "--format=%s"));
-
-            // Amending replaced the only commit there was, so the history is still one deep.
-            Assert.Equal("1", await ReadGitAsync(repository, "rev-list", "--count", "HEAD"));
-        });
-    }
-
     // ---------------------------------------------------------------- the message guides
+
+    [Fact]
+    public void CommitBox_HasNoAmendAndNoSignOff()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "README.md", "# edited\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            (Window window, ChangesPageView view) = Show(services, page);
+
+            try
+            {
+                // Nothing to tick: the box records a new commit and nothing else.
+                Assert.Empty(view.GetVisualDescendants().OfType<CheckBox>());
+
+                Button commit = view.GetVisualDescendants().OfType<Button>().Single(button => ReferenceEquals(button.Command, page.CommitCommand));
+                Assert.Equal("Commit", commit.Content);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
 
     [Theory]
     [InlineData("Short and sweet", false)]
