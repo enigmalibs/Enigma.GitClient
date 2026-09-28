@@ -43,6 +43,30 @@ public enum FilesView
 }
 
 /// <summary>
+/// What a list of references — the branches, the tags — is ordered by.
+/// </summary>
+public enum RefSortKey
+{
+    /// <summary>By name, alphabetically.</summary>
+    Name,
+
+    /// <summary>By the date of the commit each one points at.</summary>
+    Date,
+}
+
+/// <summary>
+/// Which way a list is ordered.
+/// </summary>
+public enum SortDirection
+{
+    /// <summary>A to Z, oldest first.</summary>
+    Ascending,
+
+    /// <summary>Z to A, newest first.</summary>
+    Descending,
+}
+
+/// <summary>
 /// How a diff is drawn.
 /// </summary>
 public enum DiffView
@@ -214,6 +238,20 @@ public sealed record AppSettings
     /// </remarks>
     public int AutoRefreshSeconds { get; init; } = 15;
 
+    // ---------------------------------------------------------------- lists
+
+    /// <summary>
+    /// Gets what the branches dialog orders its lines by, within each group.
+    /// </summary>
+    /// <remarks>
+    /// By date, newest first, unless the reader chose otherwise. A file written before this setting
+    /// existed reads as the default, so no schema migration is needed.
+    /// </remarks>
+    public RefSortKey BranchSortKey { get; init; } = RefSortKey.Date;
+
+    /// <summary>Gets which way the branches dialog orders its lines.</summary>
+    public SortDirection BranchSortDirection { get; init; } = SortDirection.Descending;
+
     /// <summary>
     /// Returns these settings with every value forced into a range the application can use.
     /// </summary>
@@ -245,5 +283,7 @@ public sealed record AppSettings
             FilesView = Enum.IsDefined(FilesView) ? FilesView : FilesView.List,
             DiffView = Enum.IsDefined(DiffView) ? DiffView : Defaults.DiffView,
             Pull = Enum.IsDefined(Pull) ? Pull : PullStrategy.Merge,
+            BranchSortKey = Enum.IsDefined(BranchSortKey) ? BranchSortKey : RefSortKey.Date,
+            BranchSortDirection = Enum.IsDefined(BranchSortDirection) ? BranchSortDirection : SortDirection.Descending,
         };
 }

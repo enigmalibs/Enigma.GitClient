@@ -242,7 +242,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
@@ -262,7 +262,31 @@
                  VerticalAlignment="Center"
                  AutomationProperties.Name="Filter branches" />
 
-        <Button Grid.Column="2"
+        <!-- The order of the lines within each group: by name or by date, and which way. -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="Sort by"
+                     VerticalAlignment="Center"
+                     FontSize="12"
+                     Classes="dim" />
+          <ComboBox Name="SortKey"
+                    ItemsSource="{Binding SortKeys}"
+                    SelectedItem="{Binding SortKey, Mode=TwoWay}"
+                    MinWidth="90"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Sort the branches by" />
+          <Button Name="SortDirection"
+                  Classes="toolbar"
+                  Command="{Binding ToggleSortDirectionCommand}"
+                  ToolTip.Tip="{Binding SortDirectionTip}"
+                  AutomationProperties.Name="{Binding SortDirectionTip}">
+            <Panel>
+              <ei:Icon Kind="SortAscending" Classes="toolbar" IsVisible="{Binding !IsSortDescending}" />
+              <ei:Icon Kind="SortDescending" Classes="toolbar" IsVisible="{Binding IsSortDescending}" />
+            </Panel>
+          </Button>
+        </StackPanel>
+
+        <Button Grid.Column="3"
                 Classes="toolbar"
                 Command="{Binding CreateBranchCommand}"
                 ToolTip.Tip="Create a branch"
