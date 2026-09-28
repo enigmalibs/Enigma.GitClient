@@ -6,6 +6,7 @@ using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Reset;
+using Enigma.GitClient.Core.Stashes;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
@@ -124,6 +125,7 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Whether the row shows the date itself rather than how long ago it was. Both are always
     /// built: the one that is not shown is the tooltip.
     /// </param>
+    /// <param name="stash">The stash entry the commit records, when it is one.</param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
@@ -131,7 +133,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         bool isHead,
         DateTimeOffset now,
         HistoryRowCommands? commands = null,
-        bool absoluteDates = false)
+        bool absoluteDates = false,
+        StashEntry? stash = null)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
@@ -139,7 +142,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commands = commands;
         Commit = commit;
         Row = row;
-        Refs = Project(refs);
+        Stash = stash;
+        Refs = Project(refs, stash);
         (Branches, Badges) = BuildBranches(Refs, commands?.Branches);
         IsHead = isHead;
 
@@ -174,6 +178,18 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Gets the commit, or <see langword="null"/> for the uncommitted-changes row.
     /// </summary>
     public GitCommit? Commit { get; }
+
+    /// <summary>
+    /// Gets the stash entry this line is, or <see langword="null"/> for any other commit.
+    /// </summary>
+    /// <remarks>
+    /// A stash is one line, as GitKraken draws it: the commit git records the entry as, carrying a
+    /// badge with the stash's icon and the entry's name.
+    /// </remarks>
+    public StashEntry? Stash { get; }
+
+    /// <summary>Gets a value indicating whether this line is a stash entry.</summary>
+    public bool IsStash => Stash is not null;
 
     /// <summary>
     /// Gets the graph segment this row draws.
@@ -482,14 +498,21 @@ public sealed class CommitRowViewModel : ViewModelBase
         return (branches.Count == 0 ? NoBranches : branches, badges);
     }
 
-    private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs)
+    private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs, StashEntry? stash)
     {
-        if (refs is null || refs.Count == 0)
+        if ((refs is null || refs.Count == 0) && stash is null)
         {
             return NoRefs;
         }
 
-        List<RefBadgeItem> items = new(refs.Count);
+        refs ??= [];
+
+        List<RefBadgeItem> items = new(refs.Count + 1);
+
+        if (stash is not null)
+        {
+            items.Add(new RefBadgeItem(GitRefKind.Stash, stash.Reference, false));
+        }
 
         foreach (GitRef reference in refs)
         {

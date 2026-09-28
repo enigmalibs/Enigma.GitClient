@@ -66,6 +66,56 @@ public sealed class CommitLogArgumentsTests
         Assert.DoesNotContain(arguments, argument => argument.StartsWith("--exclude", System.StringComparison.Ordinal));
     }
 
+    // ---------------------------------------------------------------- included revisions
+
+    [Fact]
+    public void AnIncludedRevision_IsWalkedAfterAll_AndBeforeThePathTerminator()
+    {
+        List<string> arguments = CommitLogReader.BuildArguments(
+            new CommitLogQuery
+            {
+                ExcludedRefs = ["refs/heads/topic"],
+                IncludedRevisions = ["46bb6daa0d1b347cff5e84b0b34da97bcc28c22e", "e371551"],
+            },
+            take: 10);
+
+        int all = arguments.IndexOf("--all");
+
+        Assert.Equal(
+            ["--exclude=refs/heads/topic", "--all", "46bb6daa0d1b347cff5e84b0b34da97bcc28c22e", "e371551", "--"],
+            arguments.Skip(all - 1).Take(5));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("abc")]
+    [InlineData("--all")]
+    [InlineData("-n1")]
+    [InlineData("main")]
+    [InlineData("stash@{1}")]
+    [InlineData("abc123..def456")]
+    [InlineData("46bb6da ")]
+    public void AnIncludedRevisionThatIsNotAnObjectName_IsLeftOut(string revision)
+    {
+        List<string> arguments = CommitLogReader.BuildArguments(
+            new CommitLogQuery { IncludedRevisions = [revision, "abcdef0"] },
+            take: 10);
+
+        int all = arguments.IndexOf("--all");
+
+        Assert.Equal(["--all", "abcdef0", "--"], arguments.Skip(all).Take(3));
+    }
+
+    [Fact]
+    public void AnotherScope_IgnoresTheIncludedRevisions()
+    {
+        List<string> arguments = CommitLogReader.BuildArguments(
+            new CommitLogQuery { Scope = CommitLogScope.Head, IncludedRevisions = ["abcdef0"] },
+            take: 10);
+
+        Assert.DoesNotContain("abcdef0", arguments);
+    }
+
     [Fact]
     public void TheCount_LeavesOutTheSameRefs()
     {
