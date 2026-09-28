@@ -1,6 +1,6 @@
 # BUG-29C8 — History column titles lack a margin
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-29C8.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-29c8-column-title-margins`
 **Run:** bugfix/2026-09-28-history-tag-push-release
