@@ -5,18 +5,30 @@
              xmlns:panels="using:Enigma.GitClient.App.Views.Panels"
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
              x:Class="Enigma.GitClient.App.Views.Pages.ChangesPageView"
-             x:DataType="vm:ChangesPageViewModel">
+             x:DataType="vm:ChangesPageViewModel"
+             Focusable="True">
   <DockPanel>
 
-    <!-- Toolbar: where HEAD is, how far it is from its upstream, and a refresh. -->
+    <!-- Toolbar: the way back to the graph, where HEAD is, and how far it is from its upstream. -->
     <Border DockPanel.Dock="Top"
             Background="{DynamicResource EnigmaSurfaceBrush}"
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="10">
 
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+        <!-- Where the history's diff view has its own: the same way back, in the same place. -->
+        <Button Grid.Column="0"
+                Name="BackToHistory"
+                Classes="toolbar back"
+                VerticalAlignment="Center"
+                Command="{Binding BackToHistoryCommand}"
+                ToolTip.Tip="Back to the history"
+                AutomationProperties.Name="Back to the history">
+          <ei:Icon Kind="ArrowLeft" Classes="toolbar" />
+        </Button>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="FileText" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
@@ -26,7 +38,7 @@
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
         </StackPanel>
 
-        <Border Grid.Column="1"
+        <Border Grid.Column="2"
                 Classes="pill"
                 Background="{DynamicResource EnigmaSelectionBrush}"
                 VerticalAlignment="Center">
@@ -40,7 +52,7 @@
           </StackPanel>
         </Border>
 
-        <TextBlock Grid.Column="2"
+        <TextBlock Grid.Column="3"
                    Text="{Binding TrackingSummary}"
                    IsVisible="{Binding HasTrackingSummary}"
                    VerticalAlignment="Center"

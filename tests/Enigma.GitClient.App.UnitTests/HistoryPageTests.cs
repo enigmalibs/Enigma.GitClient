@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -1946,6 +1947,36 @@ public sealed class HistoryPageTests
             // Nothing was clicked: the page moved the focus itself, which is what makes the first
             // Escape work.
             Assert.True(diffPage.IsFocused, "the diff view did not take the focus when it opened");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_BackButtonIsTheBlueOne()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.Activate.Execute(model.Rows.First(row => row.Commit is not null));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Button back = view.FindControl<Button>("LeaveDiffView")
+                ?? throw new InvalidOperationException("The diff view has no back button.");
+
+            Assert.Contains("back", back.Classes);
+
+            ContentPresenter presenter = back.GetVisualDescendants()
+                .OfType<ContentPresenter>()
+                .First(candidate => candidate.Name == "PART_ContentPresenter");
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("ActionAccentBrush", application.ActualThemeVariant, out object? blue));
+            Assert.Same(blue, presenter.Background);
 
             window.Close();
         });

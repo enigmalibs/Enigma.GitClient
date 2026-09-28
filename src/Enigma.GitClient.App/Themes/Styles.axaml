@@ -95,6 +95,35 @@
   </Style>
 
   <!--
+    The way back from a page that stands in for the history — the diffs over the graph, the working
+    directory — painted in the application's blue with a white arrow, so it is the first thing the eye
+    finds on the page. After the toolbar's own states on purpose: in Avalonia the later style wins, and
+    these have to win in every one of them.
+  -->
+  <Style Selector="Button.toolbar.back">
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.back /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.back:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentHoverBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.back:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentPressedBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <!--
     A toolbar button on a line of a list or a tree is a row's own action (see below), and a frame
     around it on every row of a list is noise: there it is its glyph alone, as it always was, with
     the padding it always had.

@@ -177,6 +177,8 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         CommitCommand = new AsyncRelayCommand(OnCommitAsync, CanCommit);
 
+        BackToHistoryCommand = new RelayCommand(() => HistoryRequested?.Invoke(this, EventArgs.Empty));
+
         StashAllCommand = new AsyncRelayCommand(OnStashAllAsync, () => HasUnstaged || HasStaged);
         ApplyStashCommand = new AsyncRelayCommand<StashRowViewModel>(
             row => RunStashAsync(row, _stashOperations.ApplyAsync),
@@ -207,6 +209,22 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the page's title, shown in its header.</summary>
     public string Title => "Working directory";
+
+    /// <summary>
+    /// Raised when the reader asks to go back to the history, so the shell can take them there.
+    /// </summary>
+    /// <remarks>
+    /// An event rather than the navigation service, for the reason
+    /// <see cref="HistoryPageViewModel.WorkingDirectoryRequested"/> is one: the shell's navigation
+    /// builds the page ViewModels, so a page holding it would be asking to be constructed by something
+    /// it is constructing.
+    /// </remarks>
+    public event EventHandler? HistoryRequested;
+
+    /// <summary>
+    /// Gets the command that goes back to the history: the page's back button, and Escape.
+    /// </summary>
+    public RelayCommand BackToHistoryCommand { get; }
 
     /// <summary>Gets the panel holding everything that is not staged.</summary>
     public ChangedFilesPanelViewModel Unstaged { get; }

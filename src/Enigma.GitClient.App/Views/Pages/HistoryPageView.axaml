@@ -585,7 +585,7 @@
 
             <Button Grid.Column="0"
                     Name="LeaveDiffView"
-                    Classes="toolbar"
+                    Classes="toolbar back"
                     VerticalAlignment="Top"
                     Command="{Binding CloseDiffViewCommand}"
                     ToolTip.Tip="Back to the history"

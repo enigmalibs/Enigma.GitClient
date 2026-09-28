@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -726,6 +727,203 @@ public sealed class ChangesPageTests
 
             Assert.Equal(ShellPage.Changes, services.Get<IShellNavigation>().Current);
         });
+    }
+
+    [Fact]
+    public void BackButton_TakesYouToTheHistory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            // Building the shell is what wires the page's way back to the navigation.
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            Assert.NotNull(shell);
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            IShellNavigation navigation = services.Get<IShellNavigation>();
+            navigation.GoTo(ShellPage.Changes);
+
+            Assert.True(page.BackToHistoryCommand.CanExecute(null));
+            page.BackToHistoryCommand.Execute(null);
+
+            Assert.Equal(ShellPage.History, navigation.Current);
+        });
+    }
+
+    [Fact]
+    public void BackButton_IsTheBlueOneAtTheHeadOfTheToolbar()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "README.md", "# edited\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            int requested = 0;
+            page.HistoryRequested += (_, _) => requested++;
+
+            (Window window, ChangesPageView view) = Show(services, page);
+
+            try
+            {
+                Button back = view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "BackToHistory");
+
+                Assert.Contains("back", back.Classes);
+                Assert.Same(page.BackToHistoryCommand, back.Command);
+
+                // First in the header, before the page's title.
+                TextBlock title = view.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text == page.Title);
+                Assert.True(
+                    (back.TranslatePoint(default, view)?.X ?? double.MaxValue) < (title.TranslatePoint(default, view)?.X ?? 0),
+                    "the back button is not before the title");
+
+                Point middle = back.TranslatePoint(new Point(back.Bounds.Width / 2, back.Bounds.Height / 2), window) ?? default;
+                window.MouseDown(middle, MouseButton.Left);
+                window.MouseUp(middle, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(1, requested);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Escape_GoesBackToTheHistoryWithoutAClickFirst()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "README.md", "# edited\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            int requested = 0;
+            page.HistoryRequested += (_, _) => requested++;
+
+            (Window window, ChangesPageView view) = Show(services, page);
+
+            try
+            {
+                // Nothing was clicked: the page took the focus when it was shown.
+                Assert.True(view.IsKeyboardFocusWithin, "the page did not take the focus when it was shown");
+
+                window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(1, requested);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Escape_GoesBackFromInsideTheCommitMessageAndKeepsIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "README.md", "# edited\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            page.Message = "Half a thought";
+            int requested = 0;
+            page.HistoryRequested += (_, _) => requested++;
+
+            (Window window, ChangesPageView view) = Show(services, page);
+
+            try
+            {
+                // A TextBox is exactly the kind of control that swallows a key it is offered.
+                TextBox message = view.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "MessageBox");
+                message.Focus();
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(message.IsFocused);
+
+                window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(1, requested);
+                Assert.Equal("Half a thought", page.Message);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Escape_LeavesAQuestionAskedOverThePageAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "README.md", "# edited\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            int requested = 0;
+            page.HistoryRequested += (_, _) => requested++;
+
+            ChangesPageView view = services.Get<ChangesPageView>();
+            view.DataContext = page;
+
+            // As the window hosts it: the dialog over the page, which keeps the focus.
+            ContentDialog dialog = new() { Title = "Discard everything", CloseButtonText = "Cancel" };
+            Window window = new() { Content = new Panel { Children = { view, dialog } }, Width = 1200, Height = 700 };
+            window.Show();
+
+            try
+            {
+                Settle(window);
+                _ = dialog.ShowAsync();
+                Settle(window);
+
+                Assert.True(view.IsKeyboardFocusWithin);
+
+                window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(0, requested);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private static (Window Window, ChangesPageView View) Show(TestServices services, ChangesPageViewModel page)
+    {
+        ChangesPageView view = services.Get<ChangesPageView>();
+        view.DataContext = page;
+
+        Window window = new() { Content = view, Width = 1200, Height = 700 };
+        window.Show();
+        Settle(window);
+
+        return (window, view);
+    }
+
+    private static void Settle(Window window)
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     // ---------------------------------------------------------------- rendering

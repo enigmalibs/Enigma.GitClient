@@ -1,6 +1,6 @@
 # FEATURE-CC8E — Changes: way back, discards, commit box
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-changes-commit-details-release
@@ -43,7 +43,7 @@
 ## PHASE01 — Back to the history, in blue
 
 **Branch:** `feature/feature-cc8e-phase01-back-to-history`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-CC8E-PHASE01.md`
 
 ### Steps
 
