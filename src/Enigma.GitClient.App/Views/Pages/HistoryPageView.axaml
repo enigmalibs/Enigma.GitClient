@@ -351,8 +351,9 @@
                   The badges are a column of their own: one width for the whole page, handed to
                   every row, exactly as the graph cell takes GraphColumnWidth. An Auto column is
                   measured per row, which is what used to put the subject at a different x on every
-                  line that carried a badge. They are shown here and dragged nowhere: merging one
-                  branch into another by dropping it is the branches page's gesture.
+                  line that carried a badge. A branch badge can be dragged onto another branch's:
+                  the page runs that gesture itself (HistoryPageView.axaml.cs) and offers the merge
+                  at the drop.
                 -->
                 <ItemsControl Grid.Column="1"
                               Name="RefStrip"

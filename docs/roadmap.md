@@ -183,7 +183,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | One line per stash in the history       | DONE   | (in FEATURE-2074.md)      |
 | - PHASE02    | Stash operations aware of conflicts     | DONE   | (in FEATURE-2074.md)      |
 | - PHASE03    | Stashing from the history               | DONE   | (in FEATURE-2074.md)      |
-| FEATURE-7762 | Drag a branch to merge it               | TODO   | docs/plan/FEATURE-7762.md |
+| FEATURE-7762 | Drag a branch to merge it               | DONE   | docs/plan/FEATURE-7762.md |
 | FEATURE-3E5D | Sort branches and tags                  | TODO   | docs/plan/FEATURE-3E5D.md |
 | - PHASE01    | Sorting the branches                    | TODO   | (in FEATURE-3E5D.md)      |
 | - PHASE02    | Sorting the tags                        | TODO   | (in FEATURE-3E5D.md)      |

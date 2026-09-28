@@ -213,6 +213,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
+        // "Merge" records a merge commit even when a fast-forward would do; "fast-forward only" beside
+        // it is how a branch is moved without one — the two items of the drop menu.
+        MergeDropCommand = new AsyncRelayCommand<HistoryBranchDrop>(
+            drop => OnDropAsync(drop, Core.Merging.FastForwardMode.Never),
+            drop => drop?.CanDrop == true);
+        FastForwardDropCommand = new AsyncRelayCommand<HistoryBranchDrop>(
+            drop => OnDropAsync(drop, Core.Merging.FastForwardMode.Only),
+            drop => drop?.CanDrop == true);
+
         Files = new ChangedFilesPanelViewModel(interop, settings)
         {
             // The file is opened at the commit that is selected, which is the only reference that
@@ -515,6 +524,18 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the command that puts every uncommitted change on the stash, from the toolbar.
     /// </summary>
     public AsyncRelayCommand StashCommand { get; }
+
+    /// <summary>
+    /// Gets the command a branch badge dropped onto another runs to merge the dragged branch into the
+    /// one it was dropped on, always recording a merge commit.
+    /// </summary>
+    public AsyncRelayCommand<HistoryBranchDrop> MergeDropCommand { get; }
+
+    /// <summary>
+    /// Gets the command a branch badge dropped onto another runs to move the branch it was dropped on
+    /// forward to the dragged one, refusing when the two have diverged.
+    /// </summary>
+    public AsyncRelayCommand<HistoryBranchDrop> FastForwardDropCommand { get; }
 
     /// <summary>
     /// Gets a value indicating whether the history is still reading something it will draw: its
@@ -1553,6 +1574,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Merges a branch into the one checked out — the question the row's menu used to be able to ask of
     /// only one branch per line.
     /// </summary>
+    private async Task OnDropAsync(HistoryBranchDrop? drop, Core.Merging.FastForwardMode fastForward)
+    {
+        if (drop is not { CanDrop: true })
+        {
+            return;
+        }
+
+        if (await _dropOperations.DropAsync(drop.Request, fastForward).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
     private async Task OnMergeIntoCurrentAsync(HistoryBranchViewModel? branch)
     {
         if (branch is null || !branch.CanMergeIntoCurrent || BranchCommands.CurrentBranch() is not { } current)
