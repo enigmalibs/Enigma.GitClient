@@ -168,8 +168,16 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
 
-          <!-- The graph column is titled by what it draws; a word in it would only be ellipsised. -->
-          <Panel Grid.Column="0" Width="{Binding GraphColumnWidth}" />
+          <!-- The graph is a column like the others: titled, and resized from its own grip. Until
+               that grip is dragged, the column follows the lanes in view. -->
+          <Panel Grid.Column="0" Width="{Binding Columns.GraphWidth}">
+            <TextBlock Classes="columnheader" Text="Graph" />
+            <Thumb Name="GraphGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Right"
+                   Margin="0,0,-5,0"
+                   AutomationProperties.Name="Resize the graph column" />
+          </Panel>
 
           <Panel Grid.Column="1" Width="{Binding Columns.RefsWidth}">
             <TextBlock Classes="columnheader" Text="Refs" />
@@ -316,8 +324,11 @@
                   </ContextMenu>
                 </Grid.ContextMenu>
 
+                <!-- Clipped: a graph column the reader made narrower than its lanes ends at its
+                     edge instead of drawing over the badges. -->
                 <graph:CommitGraphCell Grid.Column="0"
-                                       Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).GraphColumnWidth}"
+                                       Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.GraphWidth}"
+                                       ClipToBounds="True"
                                        Row="{Binding Row}"
                                        IsHead="{Binding IsHead}"
                                        IsUncommitted="{Binding IsUncommitted}"

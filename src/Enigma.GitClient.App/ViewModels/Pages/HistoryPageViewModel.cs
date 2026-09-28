@@ -514,7 +514,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             if (SetProperty(ref field, value))
             {
-                Columns.GraphWidth = value;
+                // Offered, not imposed, as the badge column's is: once the reader has dragged the
+                // graph's grip, the width is theirs.
+                Columns.SeedGraphWidth(value);
             }
         }
     }
