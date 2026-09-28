@@ -173,7 +173,108 @@ public sealed class RefListSortTests
         });
     }
 
+    // ---------------------------------------------------------------- the tags
+
+    [Fact]
+    public void TheTags_AreNewestFirstByDefault()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenTagsAsync(services);
+
+            Assert.Equal(RefSortKey.Date, page.SortKey);
+            Assert.Equal(SortDirection.Descending, page.SortDirection);
+            Assert.Equal(["a3-march", "V2-february", "v2b-february", "v1-january"], TagNames(page));
+        });
+    }
+
+    [Theory]
+    [InlineData(RefSortKey.Date, SortDirection.Ascending, "v1-january,V2-february,v2b-february,a3-march")]
+    [InlineData(RefSortKey.Name, SortDirection.Ascending, "a3-march,v1-january,V2-february,v2b-february")]
+    [InlineData(RefSortKey.Name, SortDirection.Descending, "v2b-february,V2-february,v1-january,a3-march")]
+    public void TheTags_FollowTheOrderChosen(RefSortKey key, SortDirection direction, string expected)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenTagsAsync(services);
+
+            page.SortKey = key;
+            page.SortDirection = direction;
+
+            Assert.Equal(expected.Split(','), TagNames(page));
+        });
+    }
+
+    [Fact]
+    public void TheTagOrder_IsRemembered_ApartFromTheBranches()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenTagsAsync(services);
+
+            page.ToggleSortDirectionCommand.Execute(null);
+            page.SortKey = RefSortKey.Name;
+
+            AppSettings saved = services.Get<ISettingsService>().Current;
+            Assert.Equal(RefSortKey.Name, saved.TagSortKey);
+            Assert.Equal(SortDirection.Ascending, saved.TagSortDirection);
+            Assert.Equal(RefSortKey.Date, saved.BranchSortKey);
+
+            TagsPageViewModel later = ActivatorUtilities.CreateInstance<TagsPageViewModel>(services.Provider);
+            Assert.Equal(RefSortKey.Name, later.SortKey);
+            Assert.Equal(SortDirection.Ascending, later.SortDirection);
+            Assert.Equal(RefSortKey.Date, services.Get<BranchesPageViewModel>().SortKey);
+        });
+    }
+
+    [Fact]
+    public void TheTagsHeader_HasTheSortControls()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenTagsAsync(services);
+
+            TagsPageView view = services.Get<TagsPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 500 };
+            window.Show();
+
+            try
+            {
+                ComboBox key = view.FindControl<ComboBox>("SortKey")
+                    ?? throw new InvalidOperationException("The tags page has no sort box.");
+                Button direction = view.FindControl<Button>("SortDirection")
+                    ?? throw new InvalidOperationException("The tags page has no direction button.");
+
+                Assert.Equal(RefSortKey.Date, key.SelectedItem);
+                Assert.Same(page.ToggleSortDirectionCommand, direction.Command);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    private static string[] TagNames(TagsPageViewModel page) => [.. page.Tags.Select(row => row.Name)];
+
+    private static async Task<TagsPageViewModel> OpenTagsAsync(TestServices services)
+    {
+        RepositoryHandle repository = await BuildRepositoryAsync(services);
+        await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+        TagsPageViewModel page = services.Get<TagsPageViewModel>();
+        await page.OnAppearingAsync();
+
+        return page;
+    }
 
     private static string[] Names(BranchesPageViewModel page, string group)
         => [.. page.Groups.Single(candidate => candidate.Title == group).Rows.Select(row => row.Name)];
