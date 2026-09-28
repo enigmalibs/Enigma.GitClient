@@ -205,4 +205,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | A commit details dialog                 | DONE   | (in FEATURE-FC7E.md)      |
 | - PHASE02    | Details from the line's menu            | DONE   | (in FEATURE-FC7E.md)      |
 | - PHASE03    | Discard from the uncommitted line       | DONE   | (in FEATURE-FC7E.md)      |
-| FEATURE-10AA | Release 4.0.0                           | TODO   | docs/plan/FEATURE-10AA.md |
+| FEATURE-10AA | Release 4.0.0                           | DONE   | docs/plan/FEATURE-10AA.md |
