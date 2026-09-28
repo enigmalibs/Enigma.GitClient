@@ -1,5 +1,93 @@
 # Release notes
 
+## 4.0.0 — 2026-09-28
+
+A major release. A commit's details open in a dialog, as text you can select, and the diff view's
+header shrinks to one line. The Changes page gets a blue way back to the history, Escape included.
+Every discard is red and asks one plain question, and the history's uncommitted line can discard all
+the uncommitted work at once. About opens from the start window's home. It also fixes the start
+page's empty state and the file lines' menus. The Changes page no longer amends or signs off a commit,
+and that is why this is 4.0: read *Upgrading from 3.x* below.
+
+### Commit details
+
+- **The diff view's header is one line:** the way back, a details button, and the commit's subject.
+  The author, the date, the hash and the description no longer stretch it to four lines.
+- **The details button opens *Commit details*,** which shows:
+  - the title and the description;
+  - the author's name and email;
+  - the date, followed by how long ago it was in parentheses;
+  - the full hash.
+
+  Every value is text you can select and copy; none of it is a text box.
+- **Show commit details** is on every history line that is a commit, stashes included, right after
+  **Show what it changed**. It opens the same dialog for that line's commit.
+
+### The Changes page
+
+- **A back button** at the head of the page's header returns to the history. So does **Escape**,
+  from anywhere on the page, the commit message included (what you typed is kept).
+- **Both back buttons are blue:** the Changes page's and the diff view's. A white arrow on the
+  application's blue is the first thing the eye finds.
+- **The commit box has no *Amend* and no *Sign off* any more.** It records a new commit from what is
+  staged, and nothing else.
+
+### Discarding
+
+- **Discard everything** is red for as long as there is something to discard, and looks like any
+  disabled button when there is not.
+- **It asks one plain question:** "Throw away every change in *N files*? This cannot be undone." There
+  is no repository name to type any more. The confirm button is red, and *Cancel* is the default.
+- **Every discard confirms in red,** a one-file discard included. The window's other questions keep
+  their usual colours.
+- **Discard uncommitted files…** on the history's uncommitted line, beside **Stash all changes…**,
+  throws every uncommitted change away:
+  - staged or not, untracked files included, back to the last commit;
+  - a staged rename is undone;
+  - files git ignores stay.
+
+  It asks first, in red, naming how many files. It is not offered before the first commit, or while
+  a merge or another operation is in progress — *Abandon the merge* is the way out of one.
+
+### The start window
+
+- **About** opens from the Info button at the end of the Repositories page's header, as it does from
+  the repository window's toolbar.
+
+### Fixes
+
+- **"No repositories yet" is centred** on the start page. It used to sit against the left edge.
+- **A file line's menu opens wherever the line is right-clicked:** its padding, its right end and, in
+  the tree, its indentation. That covers the Changes page's *Not staged* and *Staged* lists and the
+  diff view's file list. Before, it opened only over the line's text.
+
+### Upgrading from 3.x
+
+- **Amending and signing off now need git itself.** The Changes page's *Amend* and *Sign off* are gone:
+  - use `git commit --amend` to replace the last commit;
+  - use `git commit --signoff` (or `-s`) to add a `Signed-off-by` trailer.
+
+  Nothing else in the way you commit changes.
+- **Discard everything no longer asks for the repository's name.** One click on its red confirm button
+  discards; *Cancel* stays the default.
+- Nothing is migrated. `settings.json`, `host-accounts.json`, `identity-profiles.json` and the tokens
+  stay as 3.1 wrote them, so going back to 3.1 keeps them.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set.
+- The Avalonia set (Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and
+  Avalonia.Headless and Avalonia.Skia in the tests) is still held back at **12.1.1**. That is the set
+  Enigma.Avalonia.Desktop 1.1.0 is built against. 12.1.3 is out; the set moves as a whole, as a
+  decision of its own.
+
+### Version
+
+- **4.0.0** is a major release under Semantic Versioning. It removes functionality, *Amend* and *Sign
+  off*, which stops the workflow of anyone who used them until they switch to git for it. As for 2.0.0
+  and 3.0.0, an upgrade that can stop an existing workflow is a major one. Everything else in it is
+  new, backward-compatible functionality and fixes, and nothing that is stored changes.
+
 ## 3.1.0 — 2026-09-28
 
 A minor release. Stashes are handled in the history the way GitKraken does it, one branch can be

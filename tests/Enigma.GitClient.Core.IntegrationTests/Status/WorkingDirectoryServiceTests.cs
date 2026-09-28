@@ -292,6 +292,66 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task DiscardAllAsync_PutsEveryKindOfUncommittedChangeBack()
+    {
+        // Modified; staged, then modified again; a staged new file; a staged rename; untracked, as a
+        // file and as a directory; and a file git ignores, which is not uncommitted work.
+        _repository.WriteFile("src/app.txt", "staged change\n");
+        await Staging.StageAllAsync(_handle, TestContext.Current.CancellationToken);
+        _repository.WriteFile("src/app.txt", "and an unstaged one\n");
+
+        _repository.WriteFile("src/new.txt", "staged, never committed\n");
+        await _repository.GitAsync("add", "src/new.txt");
+        await _repository.GitAsync("mv", "README.md", "READ-ME.md");
+
+        _repository.WriteFile("notes.txt", "never committed\n");
+        _repository.WriteFile("scratch/deep/draft.txt", "never committed either\n");
+
+        File.AppendAllText(Path.Combine(_repository.Path, ".git", "info", "exclude"), "build.log\n");
+        _repository.WriteFile("build.log", "ignored\n");
+
+        await Staging.DiscardAllAsync(_handle, TestContext.Current.CancellationToken);
+
+        Assert.True((await ReadAsync()).IsClean);
+
+        Assert.Equal("one\ntwo\n", File.ReadAllText(_repository.GetPath("src/app.txt")));
+        Assert.False(File.Exists(_repository.GetPath("src/new.txt")));
+
+        // The rename is undone both ways: the old name back, the new one gone.
+        Assert.Equal("# one\n", File.ReadAllText(_repository.GetPath("README.md")));
+        Assert.False(File.Exists(_repository.GetPath("READ-ME.md")));
+
+        Assert.False(File.Exists(_repository.GetPath("notes.txt")));
+        Assert.False(Directory.Exists(_repository.GetPath("scratch")));
+
+        Assert.Equal("ignored\n", File.ReadAllText(_repository.GetPath("build.log")));
+
+        // Nothing was committed or moved: HEAD is where it was.
+        Assert.Equal(_firstSha, await _repository.ResolveAsync("HEAD"));
+    }
+
+    [Fact]
+    public async Task DiscardAllAsync_WorksOnACommitWithNoFilesInIt()
+    {
+        TemporaryRepository empty = await _workspace.InitRepositoryAsync("empty");
+        await empty.GitAsync("commit", "--allow-empty", "-m", "Start with nothing");
+
+        empty.WriteFile("staged.txt", "staged\n");
+        await empty.GitAsync("add", "staged.txt");
+        empty.WriteFile("untracked.txt", "untracked\n");
+
+        RepositoryHandle handle = (await _host.GetRequiredService<IRepositoryLocator>()
+            .DiscoverAsync(empty.Path, TestContext.Current.CancellationToken)).Repository!;
+
+        // "restore -- ." has nothing to match in an empty tree and refuses; this must not.
+        await Staging.DiscardAllAsync(handle, TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(empty.GetPath("staged.txt")));
+        Assert.False(File.Exists(empty.GetPath("untracked.txt")));
+        Assert.Empty(await empty.GitLinesAsync("status", "--porcelain"));
+    }
+
+    [Fact]
     public async Task RemoveAsync_StopsTrackingAFileAndCanLeaveItOnDisk()
     {
         await Staging.RemoveAsync(
@@ -391,24 +451,6 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CommitAsync_AmendReplacesTheTipRatherThanAddingToIt()
-    {
-        _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
-        await Staging.StageAllAsync(_handle, TestContext.Current.CancellationToken);
-
-        string sha = await Commits.CommitAsync(
-            _handle,
-            new CommitRequest { Message = "Say it better", Amend = true },
-            TestContext.Current.CancellationToken);
-
-        Assert.NotEqual(_firstSha, sha);
-        Assert.Equal("Say it better", await _repository.GitLineAsync("log", "-1", "--format=%s"));
-
-        // The amended commit replaced the only one there was, so the history is still one deep.
-        Assert.Single(await _repository.GitLinesAsync("log", "--format=%H"));
-    }
-
-    [Fact]
     public async Task CommitAsync_CanRecordAnotherAuthor()
     {
         _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
@@ -424,20 +466,6 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CommitAsync_CanSignOff()
-    {
-        _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
-        await Staging.StageAllAsync(_handle, TestContext.Current.CancellationToken);
-
-        await Commits.CommitAsync(
-            _handle,
-            new CommitRequest { Message = "Signed work", SignOff = true },
-            TestContext.Current.CancellationToken);
-
-        Assert.Contains("Signed-off-by:", await _repository.GitAsync("log", "-1", "--format=%B"), StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task CommitAsync_CanStageEverythingItself()
     {
         _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
@@ -448,14 +476,6 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
 
         Assert.True((await ReadAsync()).IsClean);
-    }
-
-    [Fact]
-    public async Task GetLastCommitMessageAsync_ReadsWhatAnAmendWouldStartFrom()
-    {
-        Assert.Equal("Add the initial files", await Commits.GetLastCommitMessageAsync(
-            _handle,
-            TestContext.Current.CancellationToken));
     }
 
     [Theory]

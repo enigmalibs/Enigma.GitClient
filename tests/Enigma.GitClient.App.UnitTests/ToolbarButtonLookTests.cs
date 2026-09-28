@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels;
@@ -250,6 +251,116 @@ public sealed class ToolbarButtonLookTests
             AssertEnabledLook(theme, GlyphOf(theme));
 
             window.Close();
+        });
+    }
+
+    /// <summary>
+    /// Asserts the look of a way back: the application's blue behind a white glyph, and no frame.
+    /// </summary>
+    private static void AssertBackLook(TemplatedControl button, Icon icon, string background = "ActionAccentBrush")
+    {
+        ContentPresenter presenter = Presenter(button);
+
+        Assert.Same(Brush(background), presenter.Background);
+        Assert.Same(Brush("ActionAccentForegroundBrush"), icon.Foreground);
+        Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(presenter.BorderBrush).Color);
+    }
+
+    [Fact]
+    public void ABackButton_IsBlueWithAWhiteGlyph_UnderThePointerToo()
+    {
+        _fixture.Run(() =>
+        {
+            Icon icon = new() { Kind = PhosphorIcon.ArrowLeft, Classes = { "toolbar" } };
+            Button button = new() { Classes = { "toolbar", "back" }, Content = icon };
+            Window window = Show(button);
+
+            AssertBackLook(button, icon);
+
+            // The toolbar's own hover would put its grey plate and its frame back; this one stays blue.
+            ((IPseudoClasses)button.Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            AssertBackLook(button, icon, "ActionAccentHoverBrush");
+
+            ((IPseudoClasses)button.Classes).Set(":pressed", true);
+            window.UpdateLayout();
+
+            AssertBackLook(button, icon, "ActionAccentPressedBrush");
+
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public void TheBackBlue_IsDefinedInBothThemes(string variant)
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant theme = variant == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+
+            foreach (string key in new[] { "ActionAccentColor", "ActionAccentHoverColor", "ActionAccentPressedColor" })
+            {
+                Assert.True(application.TryFindResource(key, theme, out object? colour), $"{key} ({variant})");
+                Assert.IsType<Color>(colour);
+            }
+        });
+    }
+
+    [Fact]
+    public void ADangerButton_IsRedWithAWhiteGlyph_AndPlainWhenItCannotBePressed()
+    {
+        _fixture.Run(() =>
+        {
+            Icon icon = new() { Kind = PhosphorIcon.TrashSimple, Classes = { "toolbar" } };
+            Button button = new() { Classes = { "toolbar", "danger" }, Content = icon };
+            Window window = Show(button);
+
+            ContentPresenter presenter = Presenter(button);
+
+            Assert.Same(Brush("ActionDangerBrush"), presenter.Background);
+            Assert.Same(Brush("ActionDangerForegroundBrush"), icon.Foreground);
+
+            ((IPseudoClasses)button.Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+            Assert.Same(Brush("ActionDangerHoverBrush"), presenter.Background);
+
+            ((IPseudoClasses)button.Classes).Set(":pressed", true);
+            window.UpdateLayout();
+            Assert.Same(Brush("ActionDangerPressedBrush"), presenter.Background);
+
+            ((IPseudoClasses)button.Classes).Set(":pointerover", false);
+            ((IPseudoClasses)button.Classes).Set(":pressed", false);
+
+            // Nothing to lose: the ordinary disabled toolbar button, not a red one that does nothing.
+            button.IsEnabled = false;
+            window.UpdateLayout();
+
+            Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color);
+            AssertDisabledLook(button, icon);
+
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public void TheDangerRed_IsDefinedInBothThemes(string variant)
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant theme = variant == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+
+            foreach (string key in new[] { "ActionDangerColor", "ActionDangerHoverColor", "ActionDangerPressedColor", "ActionDangerForegroundColor" })
+            {
+                Assert.True(application.TryFindResource(key, theme, out object? colour), $"{key} ({variant})");
+                Assert.IsType<Color>(colour);
+            }
         });
     }
 }

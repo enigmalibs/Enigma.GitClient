@@ -194,3 +194,15 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE04    | Icons on the important operations       | DONE   | (in FEATURE-5860.md)      |
 | BUG-28E4     | Untracked file diff is empty            | DONE   | docs/plan/BUG-28E4.md     |
 | FEATURE-6DDD | Release 3.1.0                           | DONE   | docs/plan/FEATURE-6DDD.md |
+| BUG-EEC1     | Start page empty state not centred      | DONE   | docs/plan/BUG-EEC1.md     |
+| FEATURE-49E4 | About in the start window               | DONE   | docs/plan/FEATURE-49E4.md |
+| BUG-A303     | File line menus only open on the text   | DONE   | docs/plan/BUG-A303.md     |
+| FEATURE-CC8E | Changes: way back, discards, commit box | DONE   | docs/plan/FEATURE-CC8E.md |
+| - PHASE01    | Back to the history, in blue            | DONE   | (in FEATURE-CC8E.md)      |
+| - PHASE02    | Red discards, one plain question        | DONE   | (in FEATURE-CC8E.md)      |
+| - PHASE03    | No Amend, no Sign off                   | DONE   | (in FEATURE-CC8E.md)      |
+| FEATURE-FC7E | History: commit details, discard all    | DONE   | docs/plan/FEATURE-FC7E.md |
+| - PHASE01    | A commit details dialog                 | DONE   | (in FEATURE-FC7E.md)      |
+| - PHASE02    | Details from the line's menu            | DONE   | (in FEATURE-FC7E.md)      |
+| - PHASE03    | Discard from the uncommitted line       | DONE   | (in FEATURE-FC7E.md)      |
+| FEATURE-10AA | Release 4.0.0                           | DONE   | docs/plan/FEATURE-10AA.md |

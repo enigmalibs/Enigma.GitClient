@@ -49,6 +49,15 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// Reads the name of the branch HEAD is on, or <see langword="null"/> when it is detached or unborn —
 /// which is what the two reset items are called after, and whether they are offered at all.
 /// </param>
+/// <param name="Stashes">The stash's commands, for the stash lines and the uncommitted line.</param>
+/// <param name="Copy">Puts a hash on the clipboard.</param>
+/// <param name="ShowDetails">
+/// Shows the line's commit — its title, description, author, date and hash — in the details dialog,
+/// the one the diff view's header opens.
+/// </param>
+/// <param name="DiscardUncommitted">
+/// Throws every uncommitted change away, after asking in red; offered on the uncommitted line.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -62,7 +71,9 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<HistoryResetRequest>? ResetHard = null,
     Func<string?>? CurrentBranch = null,
     HistoryStashCommands? Stashes = null,
-    AsyncRelayCommand<string>? Copy = null);
+    AsyncRelayCommand<string>? Copy = null,
+    AsyncRelayCommand<CommitRowViewModel>? ShowDetails = null,
+    AsyncRelayCommand<CommitRowViewModel>? DiscardUncommitted = null);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -307,6 +318,13 @@ public sealed class CommitRowViewModel : ViewModelBase
 
             entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this, PhosphorIcon.GitDiff));
 
+            // Every line that is a commit — a stash is one too, with a message and an author — and
+            // not the uncommitted line, which has neither.
+            if (Commit is not null && commands.ShowDetails is { } details)
+            {
+                entries.Add(new HistoryMenuEntry("Show commit details", details, this, PhosphorIcon.Article));
+            }
+
             // A stash is not a commit anyone builds on: GitKraken offers it its own three actions and
             // nothing else, and branching from or resetting to git's record of it is a trap.
             if (IsStash)
@@ -328,6 +346,12 @@ public sealed class CommitRowViewModel : ViewModelBase
             if (IsUncommitted && commands.Stashes is { } stashes)
             {
                 entries.Add(new HistoryMenuEntry("Stash all changes…", stashes.StashAll, this, PhosphorIcon.Archive));
+            }
+
+            // Beside the stash, which is the way to put the same work aside and keep it.
+            if (IsUncommitted && commands.DiscardUncommitted is { } discard)
+            {
+                entries.Add(new HistoryMenuEntry("Discard uncommitted files…", discard, this, PhosphorIcon.Trash));
             }
 
             entries.Add(HistoryMenuEntry.Separator);

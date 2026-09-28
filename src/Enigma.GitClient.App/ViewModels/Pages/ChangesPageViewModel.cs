@@ -5,13 +5,10 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
-using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Panels;
-using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Commits;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
@@ -177,6 +174,8 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         CommitCommand = new AsyncRelayCommand(OnCommitAsync, CanCommit);
 
+        BackToHistoryCommand = new RelayCommand(() => HistoryRequested?.Invoke(this, EventArgs.Empty));
+
         StashAllCommand = new AsyncRelayCommand(OnStashAllAsync, () => HasUnstaged || HasStaged);
         ApplyStashCommand = new AsyncRelayCommand<StashRowViewModel>(
             row => RunStashAsync(row, _stashOperations.ApplyAsync),
@@ -207,6 +206,22 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the page's title, shown in its header.</summary>
     public string Title => "Working directory";
+
+    /// <summary>
+    /// Raised when the reader asks to go back to the history, so the shell can take them there.
+    /// </summary>
+    /// <remarks>
+    /// An event rather than the navigation service, for the reason
+    /// <see cref="HistoryPageViewModel.WorkingDirectoryRequested"/> is one: the shell's navigation
+    /// builds the page ViewModels, so a page holding it would be asking to be constructed by something
+    /// it is constructing.
+    /// </remarks>
+    public event EventHandler? HistoryRequested;
+
+    /// <summary>
+    /// Gets the command that goes back to the history: the page's back button, and Escape.
+    /// </summary>
+    public RelayCommand BackToHistoryCommand { get; }
 
     /// <summary>Gets the panel holding everything that is not staged.</summary>
     public ChangedFilesPanelViewModel Unstaged { get; }
@@ -270,28 +285,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
     } = string.Empty;
 
-    /// <summary>
-    /// Gets or sets a value indicating whether the commit replaces the current tip.
-    /// </summary>
-    public bool Amend
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(CommitButtonText));
-                CommitCommand.NotifyCanExecuteChanged();
-                _ = OnAmendChangedAsync();
-            }
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a sign-off trailer is appended.
-    /// </summary>
-    public bool SignOff { get; set => SetProperty(ref field, value); }
-
     /// <summary>Gets the message's first line, which git records as the subject.</summary>
     public string Subject
     {
@@ -330,9 +323,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             return false;
         }
     }
-
-    /// <summary>Gets what the commit button says, which changes for an amend.</summary>
-    public string CommitButtonText => Amend ? "Amend commit" : "Commit";
 
     /// <summary>Gets a value indicating whether anything is staged.</summary>
     public bool HasStaged => _current.Staged.Count > 0;
@@ -507,7 +497,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         base.OnRepositoryChanged();
 
         Message = string.Empty;
-        Amend = false;
 
         _ = RefreshAsync();
     }
@@ -575,34 +564,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     private bool CanCommit()
     {
-        if (!IsRepositoryOpen || Message.Trim().Length == 0 || HasConflicts)
-        {
-            return false;
-        }
-
-        // An amend has something to record even with nothing staged: the message itself.
-        return HasStaged || Amend;
-    }
-
-    private async Task OnAmendChangedAsync()
-    {
-        RepositoryHandle? repository = RepositoryContext.Repository;
-
-        if (!Amend || repository is null || Message.Trim().Length > 0)
-        {
-            return;
-        }
-
-        try
-        {
-            Message = await _commits
-                .GetLastCommitMessageAsync(repository, RepositoryContext.RepositoryLifetime)
-                .ConfigureAwait(true);
-        }
-        catch (GitCommandException exception)
-        {
-            _logger.LogWarning(exception, "Reading the last commit message failed");
-        }
+        return IsRepositoryOpen && Message.Trim().Length > 0 && !HasConflicts && HasStaged;
     }
 
     // ---------------------------------------------------------------- commands
@@ -636,10 +598,11 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         IReadOnlyList<string> paths = PathsOf(node);
 
-        bool confirmed = await ConfirmAsync(
+        bool confirmed = await _dialogs.ConfirmDestructiveAsync(
             "Discard changes",
             $"Throw away the changes to {Count(paths.Count)}? This cannot be undone.\n\n"
-            + string.Join('\n', paths)).ConfigureAwait(true);
+            + string.Join('\n', paths),
+            "Discard").ConfigureAwait(true);
 
         if (!confirmed)
         {
@@ -653,9 +616,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     private async Task OnDiscardAllAsync()
     {
-        RepositoryHandle? repository = RepositoryContext.Repository;
-
-        if (repository is null)
+        if (RepositoryContext.Repository is null)
         {
             return;
         }
@@ -672,52 +633,14 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             return;
         }
 
-        string name = System.IO.Path.GetFileName(repository.WorkTreePath.TrimEnd(
-            System.IO.Path.DirectorySeparatorChar,
-            System.IO.Path.AltDirectorySeparatorChar));
+        // A plain question, confirmed in red: a hand can still click by accident, but the harmless
+        // button is the default and the button that loses the work says so in its colour.
+        bool confirmed = await _dialogs.ConfirmDestructiveAsync(
+            "Discard everything",
+            $"Throw away every change in {Count(paths.Count)}? This cannot be undone.",
+            "Discard everything").ConfigureAwait(true);
 
-        // The one genuinely unrecoverable bulk action in the client, so it asks for the repository's
-        // name to be typed rather than for a click. A click is something a hand does by accident.
-        ConfirmTextDialogViewModel model = new(
-            $"This throws away every change in {Count(paths.Count)} and cannot be undone.",
-            name,
-            "Type the repository's name to confirm");
-
-        ConfirmTextDialogView view = new() { DataContext = model };
-
-        ContentDialog? shown = null;
-
-        void OnChanged(object? sender, EventArgs e)
-        {
-            if (shown is not null)
-            {
-                shown.IsPrimaryButtonEnabled = model.IsConfirmed;
-            }
-        }
-
-        model.ConfirmationChanged += OnChanged;
-
-        DialogResult result;
-
-        try
-        {
-            result = await _dialogs.ShowAsync(dialog =>
-            {
-                shown = dialog;
-                dialog.Title = "Discard everything";
-                dialog.Content = view;
-                dialog.PrimaryButtonText = "Discard everything";
-                dialog.CloseButtonText = "Cancel";
-                dialog.DefaultButton = DefaultButton.Close;
-                dialog.IsPrimaryButtonEnabled = false;
-            }).ConfigureAwait(true);
-        }
-        finally
-        {
-            model.ConfirmationChanged -= OnChanged;
-        }
-
-        if (result != DialogResult.Primary || !model.IsConfirmed)
+        if (!confirmed)
         {
             return;
         }
@@ -734,12 +657,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             return;
         }
 
-        CommitRequest request = new()
-        {
-            Message = Message,
-            Amend = Amend,
-            SignOff = SignOff,
-        };
+        CommitRequest request = new() { Message = Message };
 
         string sha = string.Empty;
 
@@ -753,10 +671,9 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
 
         Message = string.Empty;
-        Amend = false;
 
         Report(
-            Amend ? "Commit amended" : "Committed",
+            "Committed",
             $"{(sha.Length >= 7 ? sha[..7] : sha)} · {FirstLine(request.Message)}",
             InfoBarSeverity.Success);
     }
@@ -919,22 +836,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         int newline = text.IndexOf('\n', StringComparison.Ordinal);
 
         return (newline < 0 ? text : text[..newline]).TrimEnd('\r');
-    }
-
-    private async Task<bool> ConfirmAsync(string title, string message, string confirmText = "Discard")
-    {
-        DialogResult result = await _dialogs.ShowAsync(dialog =>
-        {
-            dialog.Title = title;
-            dialog.Content = message;
-            dialog.PrimaryButtonText = confirmText;
-            dialog.CloseButtonText = "Cancel";
-
-            // The harmless button is the default, as everywhere something can be lost.
-            dialog.DefaultButton = DefaultButton.Close;
-        }).ConfigureAwait(true);
-
-        return result == DialogResult.Primary;
     }
 
     private async Task<bool> RunAsync(
