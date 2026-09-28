@@ -1,6 +1,6 @@
 # FEATURE-FC7E — History: commit details, discard all
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-changes-commit-details-release
@@ -107,7 +107,7 @@
 ## PHASE03 — Discard from the uncommitted line
 
 **Branch:** `feature/feature-fc7e-phase03-discard-uncommitted`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-FC7E-PHASE03.md`
 
 ### Steps
 

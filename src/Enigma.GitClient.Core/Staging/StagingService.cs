@@ -71,6 +71,28 @@ public interface IStagingService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Throws every uncommitted change away: the index and the work tree go back to HEAD, and every
+    /// untracked file and directory is deleted.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the working tree is clean.</returns>
+    /// <remarks>
+    /// <para>
+    /// The whole tree at once rather than <see cref="DiscardAsync"/> over every path the status lists.
+    /// That one sorts paths by the index, so a staged rename's old name — no longer in the index —
+    /// would be taken for an untracked file and never come back. Going back to HEAD as a whole puts
+    /// the old name back, drops the new one, and drops staged additions with it.
+    /// </para>
+    /// <para>
+    /// Ignored files stay: they are not uncommitted work, only files git was told to look away from.
+    /// Unrecoverable, like <see cref="DiscardAsync"/>, so nothing here asks either. It needs a commit
+    /// to go back to: before the first one, git refuses and the refusal is the command's failure.
+    /// </para>
+    /// </remarks>
+    Task DiscardAllAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Stops tracking a file, optionally leaving it on disk.
     /// </summary>
     /// <param name="repository">The repository to write to.</param>
@@ -184,6 +206,21 @@ public sealed class StagingService : IStagingService
                 tracked,
                 cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task DiscardAllAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        // "reset --hard" rather than "restore --source=HEAD -- .": a commit with an empty tree gives
+        // "." nothing to match, and restore refuses where reset has nothing to do.
+        await RunAsync(repository, ["reset", "--hard", "--quiet", "HEAD", "--"], cancellationToken)
+            .ConfigureAwait(false);
+
+        // Untracked files and directories, never the ignored ones: no -x.
+        await RunAsync(repository, ["clean", "--force", "-d", "--quiet", "--", "."], cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <inheritdoc />
