@@ -203,6 +203,6 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | No Amend, no Sign off                   | DONE        | (in FEATURE-CC8E.md)      |
 | FEATURE-FC7E | History: commit details, discard all    | IN PROGRESS | docs/plan/FEATURE-FC7E.md |
 | - PHASE01    | A commit details dialog                 | DONE        | (in FEATURE-FC7E.md)      |
-| - PHASE02    | Details from the line's menu            | TODO        | (in FEATURE-FC7E.md)      |
+| - PHASE02    | Details from the line's menu            | DONE        | (in FEATURE-FC7E.md)      |
 | - PHASE03    | Discard from the uncommitted line       | TODO        | (in FEATURE-FC7E.md)      |
 | FEATURE-10AA | Release 4.0.0                           | TODO        | docs/plan/FEATURE-10AA.md |

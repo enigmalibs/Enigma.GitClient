@@ -1,15 +1,21 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Dialogs;
+using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.History;
+using Enigma.GitClient.Core.Repositories;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -150,5 +156,120 @@ public sealed class CommitDetailsDialogTests
                 window.Close();
             }
         });
+    }
+
+    // ---------------------------------------------------------------- from a line's menu
+
+    [Fact]
+    public void ALinesMenu_OffersTheDetailsRightAfterTheChanges_OnCommitsAndStashesOnly()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            HistoryPageViewModel page = await OpenAsync(services);
+
+            static string[] Headers(CommitRowViewModel row)
+                => [.. row.MenuEntries.Where(entry => !entry.IsSeparator).Select(entry => entry.Header)];
+
+            CommitRowViewModel commit = page.Rows.First(row => row.Commit is not null && !row.IsStash);
+            CommitRowViewModel stash = Assert.Single(page.Rows, row => row.IsStash);
+            CommitRowViewModel uncommitted = Assert.Single(page.Rows, row => row.IsUncommitted);
+
+            Assert.Equal(["Show what it changed", "Show commit details"], Headers(commit).Take(2));
+            Assert.Equal(["Show what it changed", "Show commit details"], Headers(stash).Take(2));
+            Assert.DoesNotContain("Show commit details", Headers(uncommitted));
+
+            HistoryMenuEntry entry = commit.MenuEntries.Single(candidate => candidate.Header == "Show commit details");
+            Assert.Equal(PhosphorIcon.Article, entry.Icon);
+        });
+    }
+
+    [Fact]
+    public void ALinesMenu_ShowsThatLinesCommit_WhicheverLineIsSelected()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            HistoryPageViewModel page = await OpenAsync(services);
+
+            CommitRowViewModel[] commits = [.. page.Rows.Where(row => row.Commit is not null && !row.IsStash)];
+            page.SelectedRow = commits[0];
+
+            // The reader right-clicks another line than the one selected.
+            CommitRowViewModel clicked = commits[1];
+            HistoryMenuEntry entry = clicked.MenuEntries.Single(candidate => candidate.Header == "Show commit details");
+
+            Assert.True(entry.Command!.CanExecute(entry.Parameter));
+            await ((IAsyncRelayCommand)entry.Command).ExecuteAsync(entry.Parameter);
+
+            ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
+            CommitDetailsViewModel details = Assert.IsType<CommitDetailsViewModel>(Assert.IsType<CommitDetailsView>(dialog.Content).DataContext);
+
+            Assert.Equal(clicked.Sha, details.Sha);
+            Assert.Equal("Add the readme", details.Subject);
+            Assert.Equal("Ada Lovelace <ada@example.com>", details.Author);
+        });
+    }
+
+    /// <summary>
+    /// Two commits, a stash on top of them, and uncommitted work: every kind of line the history has.
+    /// </summary>
+    private static async Task<HistoryPageViewModel> OpenAsync(TestServices services)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        RepositoryHandle repository = await services.Get<IRepositoryService>()
+            .InitAsync(Path.Combine(root, "details"), "main");
+
+        File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# one\n");
+        Git(repository, "add", "--all");
+        Git(repository, "commit", "-m", "Add the readme");
+
+        File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# two\n");
+        Git(repository, "commit", "-a", "-m", "Say it twice", "-m", "Because once was not enough.");
+
+        File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# stashed\n");
+        Git(repository, "stash", "push", "-m", "Work");
+
+        File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# uncommitted\n");
+
+        await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+        HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+        await page.ReloadAsync();
+
+        return page;
+    }
+
+    private static void Git(RepositoryHandle repository, params string[] arguments)
+    {
+        ProcessStartInfo startInfo = new()
+        {
+            FileName = "git",
+            WorkingDirectory = repository.WorkTreePath,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        startInfo.Environment["GIT_AUTHOR_NAME"] = "Ada Lovelace";
+        startInfo.Environment["GIT_AUTHOR_EMAIL"] = "ada@example.com";
+        startInfo.Environment["GIT_COMMITTER_NAME"] = "Ada Lovelace";
+        startInfo.Environment["GIT_COMMITTER_EMAIL"] = "ada@example.com";
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using Process process = Process.Start(startInfo)!;
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"git {string.Join(' ', arguments)} failed: {error}");
+        }
     }
 }
