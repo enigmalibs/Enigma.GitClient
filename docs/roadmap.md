@@ -212,4 +212,4 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | The placeholder says 1.0.0              | DONE   | (in FEATURE-A2A2.md)      |
 | - PHASE02    | Pushing one tag to the remote           | DONE   | (in FEATURE-A2A2.md)      |
 | - PHASE03    | Push from the badge and the dialog      | DONE   | (in FEATURE-A2A2.md)      |
-| FEATURE-A349 | Release 4.1.0                           | TODO   | docs/plan/FEATURE-A349.md |
+| FEATURE-A349 | Release 4.1.0                           | DONE   | docs/plan/FEATURE-A349.md |

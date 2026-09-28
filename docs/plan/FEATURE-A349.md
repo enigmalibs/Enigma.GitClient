@@ -1,6 +1,6 @@
 # FEATURE-A349 — Release 4.1.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A349.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-a349-release-4-1-0`
 **Run:** bugfix/2026-09-28-history-tag-push-release
