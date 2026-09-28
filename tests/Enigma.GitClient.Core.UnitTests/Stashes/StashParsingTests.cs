@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Stashes;
 using Xunit;
 
@@ -163,5 +164,33 @@ public sealed class StashParsingTests
         // tab they certainly can.
         Assert.Contains("%x1f", StashService.FormatTemplate, StringComparison.Ordinal);
         Assert.DoesNotContain(":", StashService.FormatTemplate, StringComparison.Ordinal);
+    }
+
+    // ---------------------------------------------------------------- conflicts
+
+    [Fact]
+    public void IsConflict_ReadsTheMergesOwnReport()
+    {
+        GitResult conflicted = new(
+            1,
+            "Auto-merging a.txt\nCONFLICT (content): Merge conflict in a.txt\n",
+            "The stash entry is kept in case you need it again.\n",
+            TimeSpan.Zero);
+
+        Assert.True(StashService.IsConflict(conflicted));
+    }
+
+    [Fact]
+    public void IsConflict_IsFalseForARefusal_AndForASuccess()
+    {
+        GitResult refused = new(
+            1,
+            string.Empty,
+            "error: Your local changes to the following files would be overwritten by merge:\n\ta.txt\nAborting\n",
+            TimeSpan.Zero);
+        GitResult applied = new(0, "CONFLICT (content) mentioned in a message\n", string.Empty, TimeSpan.Zero);
+
+        Assert.False(StashService.IsConflict(refused));
+        Assert.False(StashService.IsConflict(applied));
     }
 }

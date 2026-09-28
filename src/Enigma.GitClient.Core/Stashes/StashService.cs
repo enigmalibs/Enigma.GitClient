@@ -36,6 +36,21 @@ public sealed record StashEntry(int Index, string Sha, string Message, string Br
 }
 
 /// <summary>
+/// How bringing a stash entry back into the work tree went.
+/// </summary>
+public enum StashApplyResult
+{
+    /// <summary>Every change applied cleanly.</summary>
+    Applied,
+
+    /// <summary>
+    /// The changes are in the work tree, but some files conflicted and are left to resolve; git keeps
+    /// the entry, even for a pop, so the work is still there.
+    /// </summary>
+    Conflicted,
+}
+
+/// <summary>
 /// Manages the stash: putting work aside and getting it back.
 /// </summary>
 public interface IStashService
@@ -74,17 +89,27 @@ public interface IStashService
     /// <param name="repository">The repository to write to.</param>
     /// <param name="index">The entry's position.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
-    /// <returns>A task that completes once the changes are in the work tree.</returns>
-    Task ApplyAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default);
+    /// <returns>Whether the changes applied cleanly or left conflicts to resolve.</returns>
+    /// <exception cref="GitCommandException">
+    /// git refused, and nothing changed: work in the tree that the entry would overwrite, say.
+    /// </exception>
+    Task<StashApplyResult> ApplyAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Applies an entry and removes it.
+    /// Applies an entry and removes it — unless it conflicted, when git keeps it.
     /// </summary>
     /// <param name="repository">The repository to write to.</param>
     /// <param name="index">The entry's position.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
-    /// <returns>A task that completes once the changes are in the work tree and the entry is gone.</returns>
-    Task PopAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default);
+    /// <returns>
+    /// <see cref="StashApplyResult.Applied"/> once the changes are in the work tree and the entry is
+    /// gone; <see cref="StashApplyResult.Conflicted"/> when they are in with conflicts and the entry
+    /// is still there.
+    /// </returns>
+    /// <exception cref="GitCommandException">
+    /// git refused, and nothing changed: the entry is kept.
+    /// </exception>
+    Task<StashApplyResult> PopAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Throws an entry away.
@@ -332,12 +357,33 @@ public sealed class StashService : IStashService
     }
 
     /// <inheritdoc />
-    public Task ApplyAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default)
-        => RunAsync(repository, ["stash", "apply", Reference(index)], cancellationToken);
+    public Task<StashApplyResult> ApplyAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default)
+        => BringBackAsync(repository, "apply", index, cancellationToken);
 
     /// <inheritdoc />
-    public Task PopAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default)
-        => RunAsync(repository, ["stash", "pop", Reference(index)], cancellationToken);
+    public Task<StashApplyResult> PopAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default)
+        => BringBackAsync(repository, "pop", index, cancellationToken);
+
+    /// <summary>
+    /// Answers whether a failed apply or pop is one that conflicted — the changes are in, some files
+    /// are left to resolve — rather than one git refused outright.
+    /// </summary>
+    /// <param name="result">What git answered.</param>
+    /// <returns><see langword="true"/> when it reported a conflict.</returns>
+    /// <remarks>
+    /// Both exit with 1. What tells them apart is the merge's own report, one <c>CONFLICT (…)</c> line
+    /// per file, which a refusal — local changes the entry would overwrite, an untracked file in the
+    /// way — never prints: it stops before merging anything. git runs with <c>LC_ALL=C</c> here, so
+    /// the words are git's own.
+    /// </remarks>
+    public static bool IsConflict(GitResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        return !result.IsSuccess
+            && (result.StandardOutput.Contains("CONFLICT (", StringComparison.Ordinal)
+                || result.StandardError.Contains("CONFLICT (", StringComparison.Ordinal));
+    }
 
     /// <inheritdoc />
     public Task DropAsync(RepositoryHandle repository, int index, CancellationToken cancellationToken = default)
@@ -403,6 +449,27 @@ public sealed class StashService : IStashService
         ArgumentOutOfRangeException.ThrowIfNegative(index);
 
         return $"stash@{{{index.ToString(CultureInfo.InvariantCulture)}}}";
+    }
+
+    private async Task<StashApplyResult> BringBackAsync(
+        RepositoryHandle repository,
+        string verb,
+        int index,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, ["stash", verb, Reference(index)]);
+        GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken).ConfigureAwait(false);
+
+        if (result.IsSuccess)
+        {
+            return StashApplyResult.Applied;
+        }
+
+        return IsConflict(result)
+            ? StashApplyResult.Conflicted
+            : throw new GitCommandException(command, result.ExitCode, result.StandardError, result.StandardOutput);
     }
 
     private static DateTimeOffset ParseDate(string value)

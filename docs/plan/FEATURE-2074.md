@@ -76,7 +76,7 @@ And draw each stash as GitKraken does: **one** line, carrying the stash icon.
 ## PHASE02 — Stash operations that know about conflicts
 
 **Branch:** `feature/feature-2074-phase02-stash-operations`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2074-PHASE02.md`
 
 ### Steps
 
