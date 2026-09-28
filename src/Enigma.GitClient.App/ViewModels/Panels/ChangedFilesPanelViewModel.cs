@@ -35,12 +35,14 @@ public enum ChangedFilesViewMode
 /// <param name="SecondaryLabel">What the second action is called, or <see langword="null"/>.</param>
 /// <param name="Secondary">The second action, or <see langword="null"/>.</param>
 /// <param name="PrimaryIcon">The Phosphor icon name shown on the first action's button.</param>
+/// <param name="SecondaryIcon">The Phosphor icon name the row's menu shows beside the second action.</param>
 public sealed record ChangedFileRowActions(
     string PrimaryLabel,
     AsyncRelayCommand<ChangedFileNodeViewModel> Primary,
     string? SecondaryLabel = null,
     AsyncRelayCommand<ChangedFileNodeViewModel>? Secondary = null,
-    string PrimaryIcon = "Plus");
+    string PrimaryIcon = "Plus",
+    string SecondaryIcon = "TrashSimple");
 
 /// <summary>
 /// One row of the changed-files panel, in either shape.

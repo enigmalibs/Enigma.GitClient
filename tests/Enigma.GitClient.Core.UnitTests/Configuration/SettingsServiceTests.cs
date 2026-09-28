@@ -191,6 +191,68 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(0, (await second.LoadAsync(TestContext.Current.CancellationToken)).AutoRefreshSeconds);
     }
 
+    // ---------------------------------------------------------------- list orders
+
+    [Fact]
+    public void TheBranches_AreNewestFirstByDefault()
+    {
+        Assert.Equal(RefSortKey.Date, AppSettings.Defaults.BranchSortKey);
+        Assert.Equal(SortDirection.Descending, AppSettings.Defaults.BranchSortDirection);
+    }
+
+    [Fact]
+    public async Task TheBranchOrder_SurvivesARestart_AndAnOlderFileGetsTheDefault()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, $"{{ \"version\": {AppSettings.CurrentVersion.ToString(CultureInfo.InvariantCulture)} }}");
+
+        using (SettingsService first = Build())
+        {
+            AppSettings loaded = await first.LoadAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(RefSortKey.Date, loaded.BranchSortKey);
+
+            first.Update(current => current with { BranchSortKey = RefSortKey.Name, BranchSortDirection = SortDirection.Ascending });
+            await first.FlushAsync(TestContext.Current.CancellationToken);
+        }
+
+        using SettingsService second = Build();
+        AppSettings reloaded = await second.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(RefSortKey.Name, reloaded.BranchSortKey);
+        Assert.Equal(SortDirection.Ascending, reloaded.BranchSortDirection);
+    }
+
+    [Fact]
+    public async Task TheTagOrder_IsItsOwn_AndSurvivesARestart()
+    {
+        Assert.Equal(RefSortKey.Date, AppSettings.Defaults.TagSortKey);
+        Assert.Equal(SortDirection.Descending, AppSettings.Defaults.TagSortDirection);
+
+        using (SettingsService first = Build())
+        {
+            first.Update(current => current with { TagSortKey = RefSortKey.Name });
+            await first.FlushAsync(TestContext.Current.CancellationToken);
+        }
+
+        using SettingsService second = Build();
+        AppSettings reloaded = await second.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(RefSortKey.Name, reloaded.TagSortKey);
+        Assert.Equal(RefSortKey.Date, reloaded.BranchSortKey);
+        Assert.Equal(RefSortKey.Date, (reloaded with { TagSortKey = (RefSortKey)9 }).Normalised().TagSortKey);
+    }
+
+    [Fact]
+    public void AnOrderThisBuildDoesNotHave_FallsBackToNewestFirst()
+    {
+        AppSettings odd = AppSettings.Defaults with { BranchSortKey = (RefSortKey)42, BranchSortDirection = (SortDirection)7 };
+
+        AppSettings normalised = odd.Normalised();
+
+        Assert.Equal(RefSortKey.Date, normalised.BranchSortKey);
+        Assert.Equal(SortDirection.Descending, normalised.BranchSortDirection);
+    }
+
     [Fact]
     public async Task TheFileIsReadableByAPersonAndNamesItsVersion()
     {

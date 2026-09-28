@@ -44,6 +44,22 @@ public sealed record CommitLogQuery
     public IReadOnlyList<string> ExcludedRefs { get; init; } = [];
 
     /// <summary>
+    /// Gets commits to walk from as well as every reference, when <see cref="Scope"/> is
+    /// <see cref="CommitLogScope.AllRefs"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What a reference does not reach: a stash entry older than the newest is only in the stash's
+    /// reflog, which <c>--all</c> does not walk.
+    /// </para>
+    /// <para>
+    /// Only object names — four to sixty-four hexadecimal digits — are used, so an entry can never be
+    /// read by git as an option or as a range. Other scopes ignore the list.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> IncludedRevisions { get; init; } = [];
+
+    /// <summary>
     /// Gets how many commits to skip before the page starts.
     /// </summary>
     public int Skip { get; init; }

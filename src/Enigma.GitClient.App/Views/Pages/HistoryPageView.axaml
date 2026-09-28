@@ -114,6 +114,17 @@
           <!-- The secondary pages, over the history: the graph is where the work is done, and these
                are what it is done with. -->
           <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+            <!-- The uncommitted work, put aside: the stash then appears in the graph as a line of
+                 its own, which is where it is applied, popped or deleted. -->
+            <Button Name="StashChanges"
+                    Classes="toolbar"
+                    Margin="0,0,8,0"
+                    Command="{Binding StashCommand}"
+                    ToolTip.Tip="Stash all changes"
+                    ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="Stash all changes">
+              <ei:Icon Kind="Archive" Classes="toolbar" />
+            </Button>
             <Button Name="OpenBranches"
                     Classes="toolbar"
                     Command="{Binding OpenBranchesCommand}"
@@ -168,8 +179,16 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
 
-          <!-- The graph column is titled by what it draws; a word in it would only be ellipsised. -->
-          <Panel Grid.Column="0" Width="{Binding GraphColumnWidth}" />
+          <!-- The graph is a column like the others: titled, and resized from its own grip. Until
+               that grip is dragged, the column follows the lanes in view. -->
+          <Panel Grid.Column="0" Width="{Binding Columns.GraphWidth}">
+            <TextBlock Classes="columnheader" Text="Graph" />
+            <Thumb Name="GraphGrip"
+                   Classes="columngrip"
+                   HorizontalAlignment="Right"
+                   Margin="0,0,-5,0"
+                   AutomationProperties.Name="Resize the graph column" />
+          </Panel>
 
           <Panel Grid.Column="1" Width="{Binding Columns.RefsWidth}">
             <TextBlock Classes="columnheader" Text="Refs" />
@@ -311,13 +330,26 @@
                         <Setter Property="Header" Value="{Binding Header}" />
                         <Setter Property="Command" Value="{Binding Command}" />
                         <Setter Property="CommandParameter" Value="{Binding Parameter}" />
+                        <!-- A template, so every item gets a glyph of its own: one control cannot be
+                             the icon of several items. -->
+                        <Setter Property="Icon">
+                          <Template>
+                            <ei:Icon x:DataType="vm:HistoryMenuEntry"
+                                     Kind="{Binding IconKind}"
+                                     IsVisible="{Binding HasIcon}"
+                                     Classes="menu" />
+                          </Template>
+                        </Setter>
                       </ControlTheme>
                     </ContextMenu.ItemContainerTheme>
                   </ContextMenu>
                 </Grid.ContextMenu>
 
+                <!-- Clipped: a graph column the reader made narrower than its lanes ends at its
+                     edge instead of drawing over the badges. -->
                 <graph:CommitGraphCell Grid.Column="0"
-                                       Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).GraphColumnWidth}"
+                                       Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.GraphWidth}"
+                                       ClipToBounds="True"
                                        Row="{Binding Row}"
                                        IsHead="{Binding IsHead}"
                                        IsUncommitted="{Binding IsUncommitted}"
@@ -329,8 +361,9 @@
                   The badges are a column of their own: one width for the whole page, handed to
                   every row, exactly as the graph cell takes GraphColumnWidth. An Auto column is
                   measured per row, which is what used to put the subject at a different x on every
-                  line that carried a badge. They are shown here and dragged nowhere: merging one
-                  branch into another by dropping it is the branches page's gesture.
+                  line that carried a badge. A branch badge can be dragged onto another branch's:
+                  the page runs that gesture itself (HistoryPageView.axaml.cs) and offers the merge
+                  at the drop.
                 -->
                 <ItemsControl Grid.Column="1"
                               Name="RefStrip"
@@ -355,40 +388,103 @@
                           <ContextMenu>
                             <MenuItem Header="{Binding CheckoutHeader}"
                                       Command="{Binding Commands.Checkout}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="SignIn" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator />
                             <MenuItem Header="{Binding SetAsMergeSourceHeader}"
                                       IsVisible="{Binding CanSetAsMergeSource}"
                                       Command="{Binding Commands.SetAsMergeSource}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Target" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="Clear the merge source"
                                       IsVisible="{Binding IsMergeSource}"
-                                      Command="{Binding Commands.ClearMergeSource}" />
+                                      Command="{Binding Commands.ClearMergeSource}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="X" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding MergeIntoHeader}"
                                       IsVisible="{Binding CanMergeInto}"
                                       Command="{Binding Commands.MergeInto}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="GitMerge" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding FastForwardIntoHeader}"
                                       IsVisible="{Binding CanMergeInto}"
                                       Command="{Binding Commands.FastForwardInto}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="FastForward" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding MergeIntoCurrentHeader}"
                                       IsVisible="{Binding CanMergeIntoCurrent}"
                                       Command="{Binding Commands.MergeIntoCurrent}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="GitMerge" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator IsVisible="{Binding CanSynchronise}" />
                             <MenuItem Header="{Binding PullHeader}"
                                       IsVisible="{Binding CanSynchronise}"
                                       Command="{Binding Commands.Pull}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="ArrowDown" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <MenuItem Header="{Binding PushHeader}"
                                       IsVisible="{Binding CanSynchronise}"
                                       Command="{Binding Commands.Push}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="ArrowUp" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                             <Separator />
                             <MenuItem Header="{Binding DeleteHeader}"
                                       Command="{Binding Commands.Delete}"
-                                      CommandParameter="{Binding}" />
+                                      CommandParameter="{Binding}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Trash" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator IsVisible="{Binding CanCopyName}" />
+                            <MenuItem Header="Copy branch name"
+                                      IsVisible="{Binding CanCopyName}"
+                                      Command="{Binding Commands.Copy}"
+                                      CommandParameter="{Binding Name}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Copy" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                          </ContextMenu>
+                        </controls:RefBadge.ContextMenu>
+                      </controls:RefBadge>
+                    </DataTemplate>
+
+                    <!-- A tag brings a menu of its own too: its name, to copy. -->
+                    <DataTemplate DataType="vm:HistoryTagViewModel" x:DataType="vm:HistoryTagViewModel">
+                      <controls:RefBadge Kind="{Binding Badge.Kind}"
+                                         Text="{Binding Name}">
+                        <controls:RefBadge.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Copy tag name"
+                                      Command="{Binding Copy}"
+                                      CommandParameter="{Binding Name}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="Copy" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
                           </ContextMenu>
                         </controls:RefBadge.ContextMenu>
                       </controls:RefBadge>
@@ -444,6 +540,23 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+
+        <!--
+          The loader: the history is still reading what it will draw — its commits, or, just after an
+          opening, the references its badges come from. Laid over the top of the list rather than
+          docked above it, so appearing and disappearing never moves a row: an automatic refresh that
+          redraws the graph must not make it jump.
+        -->
+        <ProgressBar Name="LoadingBar"
+                     IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     VerticalAlignment="Top"
+                     HorizontalAlignment="Stretch"
+                     Height="3"
+                     MinHeight="3"
+                     MinWidth="0"
+                     IsHitTestVisible="False"
+                     AutomationProperties.Name="Loading the history" />
       </Panel>
     </DockPanel>
 

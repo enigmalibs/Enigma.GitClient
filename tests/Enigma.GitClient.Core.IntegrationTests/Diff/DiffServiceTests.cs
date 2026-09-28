@@ -7,6 +7,7 @@ using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.IntegrationTests.Infrastructure;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Status;
 using Xunit;
 
 namespace Enigma.GitClient.Core.IntegrationTests.Diff;
@@ -340,6 +341,71 @@ public sealed class DiffServiceTests : IAsyncLifetime
             _handle, DiffTarget.WorkingTree(), "src/app.txt", null, TestContext.Current.CancellationToken);
 
         Assert.NotNull(patch);
+        Assert.Equal(1, patch!.AddedLines);
+    }
+
+    // ---------------------------------------------------------------- a file git does not track yet
+
+    private async Task<ChangedFile> UntrackedAsync(string path)
+    {
+        WorkingTreeStatus status = await _host.GetRequiredService<IStatusService>()
+            .GetStatusAsync(_handle, false, TestContext.Current.CancellationToken);
+
+        ChangedFile file = status.Untracked.Single(candidate => candidate.Path == path);
+        Assert.True(file.IsUntracked);
+
+        return file;
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetPatchAsync_ShowsAnUntrackedFileAsEveryLineAdded(bool workingTree)
+    {
+        _repository.WriteFile("src/fresh.txt", "first\nsecond\nthird\n");
+        ChangedFile file = await UntrackedAsync("src/fresh.txt");
+
+        FilePatch? patch = await Service.GetPatchAsync(
+            _handle,
+            workingTree ? DiffTarget.WorkingTree() : DiffTarget.Uncommitted(),
+            file,
+            null,
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(patch);
+        Assert.Equal(FileChangeKind.Added, patch!.ChangeKind);
+        Assert.Equal("src/fresh.txt", patch.NewPath);
+        Assert.Equal(3, patch.AddedLines);
+        Assert.Equal(0, patch.RemovedLines);
+        Assert.Equal(["first", "second", "third"], patch.Hunks.Single().Lines.Select(line => line.Text));
+        Assert.All(patch.Hunks.Single().Lines, line => Assert.Equal(DiffLineKind.Added, line.Kind));
+    }
+
+    [Fact]
+    public async Task GetPatchAsync_ReportsAnUntrackedBinaryFileAsBinary()
+    {
+        File.WriteAllBytes(_repository.GetPath("image.bin"), [0, 1, 2, 0, 255]);
+        ChangedFile file = await UntrackedAsync("image.bin");
+
+        FilePatch? patch = await Service.GetPatchAsync(
+            _handle, DiffTarget.WorkingTree(), file, null, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(patch);
+        Assert.True(patch!.IsBinary);
+    }
+
+    [Fact]
+    public async Task GetPatchAsync_ForAStagedNewFile_IsStillTheIndexsPatch()
+    {
+        _repository.WriteFile("src/staged.txt", "in the index\n");
+        await _repository.GitAsync("add", "src/staged.txt");
+
+        ChangedFile file = (await FilesAsync(DiffTarget.Staged())).Single(candidate => candidate.Path == "src/staged.txt");
+        Assert.False(file.IsUntracked);
+
+        FilePatch? patch = await Service.GetPatchAsync(
+            _handle, DiffTarget.Staged(), file, null, TestContext.Current.CancellationToken);
+
         Assert.Equal(1, patch!.AddedLines);
     }
 

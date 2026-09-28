@@ -100,6 +100,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     private readonly IStagingService _staging;
     private readonly ICommitService _commits;
     private readonly IStashService _stashes;
+    private readonly IStashOperations _stashOperations;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<ChangesPageViewModel> _logger;
@@ -114,7 +115,8 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     /// <param name="status">Reads what has changed.</param>
     /// <param name="staging">Moves changes into and out of the index.</param>
     /// <param name="commits">Records the commit.</param>
-    /// <param name="stashes">Puts work aside and brings it back.</param>
+    /// <param name="stashes">Lists the stash and reads an entry's contents.</param>
+    /// <param name="stashOperations">Puts work aside and brings it back, as the history does.</param>
     /// <param name="interop">Backs the file panels' own row menus.</param>
     /// <param name="diff">Shows the selected file's diff.</param>
     /// <param name="dialogs">Raises the confirmations.</param>
@@ -126,6 +128,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         IStagingService staging,
         ICommitService commits,
         IStashService stashes,
+        IStashOperations stashOperations,
         ISystemInterop interop,
         ISettingsService settings,
         DiffViewerViewModel diff,
@@ -138,6 +141,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(staging);
         ArgumentNullException.ThrowIfNull(commits);
         ArgumentNullException.ThrowIfNull(stashes);
+        ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diff);
@@ -149,6 +153,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         _staging = staging;
         _commits = commits;
         _stashes = stashes;
+        _stashOperations = stashOperations;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _logger = logger;
@@ -174,12 +179,14 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         StashAllCommand = new AsyncRelayCommand(OnStashAllAsync, () => HasUnstaged || HasStaged);
         ApplyStashCommand = new AsyncRelayCommand<StashRowViewModel>(
-            row => RunStashAsync(row, (handle, index, token) => _stashes.ApplyAsync(handle, index, token), "apply"),
+            row => RunStashAsync(row, _stashOperations.ApplyAsync),
             row => row is not null);
         PopStashCommand = new AsyncRelayCommand<StashRowViewModel>(
-            row => RunStashAsync(row, (handle, index, token) => _stashes.PopAsync(handle, index, token), "restore"),
+            row => RunStashAsync(row, _stashOperations.PopAsync),
             row => row is not null);
-        DropStashCommand = new AsyncRelayCommand<StashRowViewModel>(OnDropStashAsync, row => row is not null);
+        DropStashCommand = new AsyncRelayCommand<StashRowViewModel>(
+            row => RunStashAsync(row, _stashOperations.DropAsync),
+            row => row is not null);
 
         StashFiles = new ChangedFilesPanelViewModel(interop, settings);
         StashFiles.SelectionChanged += (_, _) => ShowStashFile();
@@ -758,63 +765,51 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     // ---------------------------------------------------------------- the stash
 
+    // The stash's own questions and messages are the stash operations': this page asks for them and
+    // re-reads what it shows afterwards, exactly as the history does.
+
     private async Task OnStashAllAsync()
     {
-        await RunAsync(
-            async (handle, token) =>
+        if (!IsRepositoryOpen)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            if (await _stashOperations.StashAsync().ConfigureAwait(true))
             {
-                bool stashed = await _stashes
-                    .PushAsync(handle, null, true, false, null, token)
-                    .ConfigureAwait(true);
-
-                if (!stashed)
-                {
-                    throw new GitOperationRefusedException("There was nothing to put aside.");
-                }
-            },
-            "Could not stash").ConfigureAwait(true);
+                await RefreshAsync().ConfigureAwait(true);
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
-    private async Task RunStashAsync(
-        StashRowViewModel? row,
-        Func<RepositoryHandle, int, CancellationToken, Task> operation,
-        string verb)
+    private async Task RunStashAsync(StashRowViewModel? row, Func<StashEntry, Task<bool>> operation)
     {
-        if (row is null)
+        if (row is null || !IsRepositoryOpen)
         {
             return;
         }
 
-        int index = row.Entry.Index;
+        IsBusy = true;
 
-        await RunAsync(
-            (handle, token) => operation(handle, index, token),
-            $"Could not {verb} the stash").ConfigureAwait(true);
-    }
-
-    private async Task OnDropStashAsync(StashRowViewModel? row)
-    {
-        if (row is null)
+        try
         {
-            return;
+            if (await operation(row.Entry).ConfigureAwait(true))
+            {
+                await RefreshAsync().ConfigureAwait(true);
+            }
         }
-
-        // Dropping is the only stash action that loses the work for good.
-        bool confirmed = await ConfirmAsync(
-            "Drop stash",
-            $"Throw away \"{row.Message}\"? The work it holds cannot be recovered.",
-            "Drop").ConfigureAwait(true);
-
-        if (!confirmed)
+        finally
         {
-            return;
+            IsBusy = false;
         }
-
-        int index = row.Entry.Index;
-
-        await RunAsync(
-            (handle, token) => _stashes.DropAsync(handle, index, token),
-            "Could not drop the stash").ConfigureAwait(true);
     }
 
     /// <summary>

@@ -487,12 +487,14 @@ public partial class BranchesPageView : UserControl
                     Header = drop.MergeHeader,
                     Command = Page?.MergeDropCommand,
                     CommandParameter = drop,
+                    Icon = HistoryPageView.MenuIcon(Enigma.Icons.Phosphor.PhosphorIcon.GitMerge),
                 },
                 new MenuItem
                 {
                     Header = drop.FastForwardHeader,
                     Command = Page?.FastForwardDropCommand,
                     CommandParameter = drop,
+                    Icon = HistoryPageView.MenuIcon(Enigma.Icons.Phosphor.PhosphorIcon.FastForward),
                 },
                 new Separator(),
                 new MenuItem
@@ -500,6 +502,7 @@ public partial class BranchesPageView : UserControl
                     Header = drop.ReversedHeader,
                     Command = Page?.MergeReversedDropCommand,
                     CommandParameter = drop,
+                    Icon = HistoryPageView.MenuIcon(Enigma.Icons.Phosphor.PhosphorIcon.GitMerge),
                 },
             },
         };

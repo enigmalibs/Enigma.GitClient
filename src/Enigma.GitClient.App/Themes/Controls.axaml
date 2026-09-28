@@ -145,6 +145,11 @@
     <Style Selector="^.mergesource">
       <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
     </Style>
+
+    <!-- Where a branch dragged in the history would land: a ring, legible over any badge colour. -->
+    <Style Selector="^.droptarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+    </Style>
   </ControlTheme>
 
   <!--

@@ -6,6 +6,8 @@ using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Reset;
+using Enigma.GitClient.Core.Stashes;
+using Enigma.Icons.Phosphor;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
@@ -58,7 +60,22 @@ public sealed record HistoryRowCommands(
     HistoryBranchCommands? Branches = null,
     AsyncRelayCommand<HistoryResetRequest>? ResetSoft = null,
     AsyncRelayCommand<HistoryResetRequest>? ResetHard = null,
-    Func<string?>? CurrentBranch = null);
+    Func<string?>? CurrentBranch = null,
+    HistoryStashCommands? Stashes = null,
+    AsyncRelayCommand<string>? Copy = null);
+
+/// <summary>
+/// The stash's commands, as the history's lines offer them.
+/// </summary>
+/// <param name="StashAll">Puts every uncommitted change on the stash; offered on the uncommitted line.</param>
+/// <param name="Apply">Brings a stash line's changes back and keeps it.</param>
+/// <param name="Pop">Brings a stash line's changes back and removes it, unless they conflict.</param>
+/// <param name="Drop">Deletes a stash line's entry, after asking.</param>
+public sealed record HistoryStashCommands(
+    AsyncRelayCommand<CommitRowViewModel> StashAll,
+    AsyncRelayCommand<CommitRowViewModel> Apply,
+    AsyncRelayCommand<CommitRowViewModel> Pop,
+    AsyncRelayCommand<CommitRowViewModel> Drop);
 
 /// <summary>
 /// What a reset item of a history line's menu asks for: the line, and the branch the item was named
@@ -124,6 +141,7 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Whether the row shows the date itself rather than how long ago it was. Both are always
     /// built: the one that is not shown is the tooltip.
     /// </param>
+    /// <param name="stash">The stash entry the commit records, when it is one.</param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
@@ -131,7 +149,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         bool isHead,
         DateTimeOffset now,
         HistoryRowCommands? commands = null,
-        bool absoluteDates = false)
+        bool absoluteDates = false,
+        StashEntry? stash = null)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
@@ -139,8 +158,9 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commands = commands;
         Commit = commit;
         Row = row;
-        Refs = Project(refs);
-        (Branches, Badges) = BuildBranches(Refs, commands?.Branches);
+        Stash = stash;
+        Refs = Project(refs, stash);
+        (Branches, Badges) = BuildBranches(Refs, commands?.Branches, commands?.Copy);
         IsHead = isHead;
 
         Subject = commit.Subject;
@@ -174,6 +194,18 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Gets the commit, or <see langword="null"/> for the uncommitted-changes row.
     /// </summary>
     public GitCommit? Commit { get; }
+
+    /// <summary>
+    /// Gets the stash entry this line is, or <see langword="null"/> for any other commit.
+    /// </summary>
+    /// <remarks>
+    /// A stash is one line, as GitKraken draws it: the commit git records the entry as, carrying a
+    /// badge with the stash's icon and the entry's name.
+    /// </remarks>
+    public StashEntry? Stash { get; }
+
+    /// <summary>Gets a value indicating whether this line is a stash entry.</summary>
+    public bool IsStash => Stash is not null;
 
     /// <summary>
     /// Gets the graph segment this row draws.
@@ -273,12 +305,36 @@ public sealed class CommitRowViewModel : ViewModelBase
                 return entries;
             }
 
-            entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this));
+            entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this, PhosphorIcon.GitDiff));
+
+            // A stash is not a commit anyone builds on: GitKraken offers it its own three actions and
+            // nothing else, and branching from or resetting to git's record of it is a trap.
+            if (IsStash)
+            {
+                if (commands.Stashes is { } stash)
+                {
+                    entries.Add(HistoryMenuEntry.Separator);
+                    entries.Add(new HistoryMenuEntry("Apply stash", stash.Apply, this, PhosphorIcon.TrayArrowUp));
+                    entries.Add(new HistoryMenuEntry("Pop stash", stash.Pop, this, PhosphorIcon.ArrowCounterClockwise));
+                    entries.Add(HistoryMenuEntry.Separator);
+                    entries.Add(new HistoryMenuEntry("Delete stash…", stash.Drop, this, PhosphorIcon.Trash));
+                }
+
+                AddCopyEntries(entries, commands);
+
+                return entries;
+            }
+
+            if (IsUncommitted && commands.Stashes is { } stashes)
+            {
+                entries.Add(new HistoryMenuEntry("Stash all changes…", stashes.StashAll, this, PhosphorIcon.Archive));
+            }
+
             entries.Add(HistoryMenuEntry.Separator);
-            entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this));
-            entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this));
+            entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this, PhosphorIcon.GitBranch));
+            entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this, PhosphorIcon.Tag));
             entries.Add(HistoryMenuEntry.Separator);
-            entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this));
+            entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this, PhosphorIcon.SignIn));
 
             // Named after the branch they move, so on a detached HEAD there is nothing to name and
             // nothing to offer.
@@ -287,8 +343,8 @@ public sealed class CommitRowViewModel : ViewModelBase
                 HistoryResetRequest request = new(this, current);
 
                 entries.Add(HistoryMenuEntry.Separator);
-                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request));
-                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request));
+                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request, PhosphorIcon.ArrowUUpLeft));
+                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request, PhosphorIcon.ArrowUUpLeft));
             }
 
             if (Branches.Count > 0 && commands.Branches is { } branchCommands)
@@ -299,7 +355,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 {
                     if (branch.CanSetAsMergeSource)
                     {
-                        entries.Add(new HistoryMenuEntry(branch.SetAsMergeSourceHeader, branchCommands.SetAsMergeSource, branch));
+                        entries.Add(new HistoryMenuEntry(branch.SetAsMergeSourceHeader, branchCommands.SetAsMergeSource, branch, PhosphorIcon.Target));
                     }
                 }
 
@@ -307,7 +363,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 {
                     if (branch.CanMergeInto)
                     {
-                        entries.Add(new HistoryMenuEntry(branch.MergeIntoHeader, branchCommands.MergeInto, branch));
+                        entries.Add(new HistoryMenuEntry(branch.MergeIntoHeader, branchCommands.MergeInto, branch, PhosphorIcon.GitMerge));
                     }
                 }
             }
@@ -315,11 +371,29 @@ public sealed class CommitRowViewModel : ViewModelBase
             if (CanOpenOnHost && commands.OpenOnHost is { } openOnHost)
             {
                 entries.Add(HistoryMenuEntry.Separator);
-                entries.Add(new HistoryMenuEntry(HostLabel, openOnHost, this));
+                entries.Add(new HistoryMenuEntry(HostLabel, openOnHost, this, PhosphorIcon.ArrowSquareOut));
             }
+
+            AddCopyEntries(entries, commands);
 
             return entries;
         }
+    }
+
+    /// <summary>
+    /// The line's hash, short or whole, to the clipboard — for a commit, not for the uncommitted line,
+    /// which has none.
+    /// </summary>
+    private void AddCopyEntries(List<HistoryMenuEntry> entries, HistoryRowCommands commands)
+    {
+        if (Commit is null || commands.Copy is not { } copy)
+        {
+            return;
+        }
+
+        entries.Add(HistoryMenuEntry.Separator);
+        entries.Add(new HistoryMenuEntry("Copy short commit hash", copy, ShortSha, PhosphorIcon.Copy));
+        entries.Add(new HistoryMenuEntry("Copy full commit hash", copy, Sha, PhosphorIcon.Copy));
     }
 
     /// <summary>
@@ -455,7 +529,8 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     private static (IReadOnlyList<HistoryBranchViewModel> Branches, IReadOnlyList<object> Badges) BuildBranches(
         IReadOnlyList<RefBadgeItem> refs,
-        HistoryBranchCommands? commands)
+        HistoryBranchCommands? commands,
+        AsyncRelayCommand<string>? copy)
     {
         if (refs.Count == 0)
         {
@@ -473,6 +548,10 @@ public sealed class CommitRowViewModel : ViewModelBase
                 branches.Add(branch);
                 badges.Add(branch);
             }
+            else if (copy is not null && badge.Kind == GitRefKind.Tag)
+            {
+                badges.Add(new HistoryTagViewModel(badge, copy));
+            }
             else
             {
                 badges.Add(badge);
@@ -482,14 +561,21 @@ public sealed class CommitRowViewModel : ViewModelBase
         return (branches.Count == 0 ? NoBranches : branches, badges);
     }
 
-    private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs)
+    private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs, StashEntry? stash)
     {
-        if (refs is null || refs.Count == 0)
+        if ((refs is null || refs.Count == 0) && stash is null)
         {
             return NoRefs;
         }
 
-        List<RefBadgeItem> items = new(refs.Count);
+        refs ??= [];
+
+        List<RefBadgeItem> items = new(refs.Count + 1);
+
+        if (stash is not null)
+        {
+            items.Add(new RefBadgeItem(GitRefKind.Stash, stash.Reference, false));
+        }
 
         foreach (GitRef reference in refs)
         {

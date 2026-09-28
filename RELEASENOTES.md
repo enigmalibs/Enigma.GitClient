@@ -1,5 +1,82 @@
 # Release notes
 
+## 3.1.0 — 2026-09-28
+
+A minor release. Stashes are handled in the history the way GitKraken does it, one branch can be
+merged into another by dragging it there, the branch and tag lists can be sorted, and every context
+menu gains icons and does more. It also fixes badges that arrived late, Azure DevOps sign-in, and the
+diff of a new file. Nothing is removed, and `settings.json` only gains keys.
+
+### Stashes
+
+- **Every stash is one line in the history,** as GitKraken draws it. The line sits at the stash itself
+  (the commit `git stash list` names), branches off the commit it was made on, and carries a stash
+  badge naming its entry: `stash@{0}`, `stash@{1}`, …
+  - git's own bookkeeping commits for a stash ("index on …", "untracked files on …") are no longer
+    lines of their own;
+  - older entries are drawn too, not only the newest.
+- **Stash from the history:** the **Stash** button in its toolbar, or **Stash all changes…** on the
+  uncommitted line. A dialog asks for an optional message. Untracked files go with the stash.
+- **A stash line's menu:**
+  - **Apply stash** brings the changes back and keeps the stash;
+  - **Pop stash** brings them back and removes the stash. If they conflict with your files, the stash
+    is kept, and you are told so;
+  - **Delete stash…** asks first, with the harmless button as the default.
+- A pop or an apply that git refuses, because uncommitted work would be overwritten, changes nothing
+  and says why.
+- The Changes page's stash list behaves the same way and uses the same words.
+
+### The history
+
+- **The branch and tag badges appear as soon as git has named them.** Before, opening a repository
+  with many branches could draw the lines first and the badges only at the next automatic refresh.
+- **A loader** runs along the top of the history while it is still reading its commits or, just after
+  opening, its references.
+- **The graph is a column like the others:** titled, and resized from its grip. Until you drag it, it
+  follows the lanes in view.
+- **Drag a branch badge onto another** to merge it there. The menu at the drop names both branches in
+  full: `Merge "feature" into "main"` or `Merge "feature" into "main", fast-forward only`. Escape
+  cancels the drag.
+
+### Branches and tags
+
+- **Sort the branches dialog and the tags dialog** by name or by date, ascending or descending.
+  - Newest first by default: a branch by its tip commit, a tag by the commit it tags.
+  - Each list remembers its own choice.
+- **Select in the history** on a branch's or a tag's line closes the dialog and selects that commit's
+  line, reading further into the history if it is not loaded yet.
+
+### Menus
+
+- The menus of the branches, tags and remotes lines, of changed files and of stashes open wherever the
+  line is right-clicked, not only over its text.
+- **Copy branch name** on a branch badge, **Copy tag name** on a tag badge, and **Copy short commit
+  hash** / **Copy full commit hash** on a commit's line.
+- Every menu item that does something has an icon for its kind of action.
+
+### Fixes
+
+- **Azure DevOps:** connecting an account no longer fails with "Azure DevOps answered 400 Bad Request".
+  The identity check now asks for the preview version of the API that only exists as a preview.
+- **The diff of a new file on the Changes page** shows every line as added (nothing on the left,
+  everything green on the right), as a commit's added file does. Before, it said "This change touches
+  no lines of text".
+
+### Dependencies
+
+- No package had an update outside the Avalonia set.
+- The Avalonia set (Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and
+  Avalonia.Headless and Avalonia.Skia in the tests) is held back at **12.1.1**. That is the set
+  Enigma.Avalonia.Desktop 1.1.0 is built against. 12.1.3 is out; the set moves as a whole, as a
+  decision of its own.
+
+### Version
+
+- **3.1.0** is a minor release under Semantic Versioning: new, backward-compatible features and fixes.
+  `settings.json` gains `branchSortKey`, `branchSortDirection`, `tagSortKey` and `tagSortDirection`.
+  An older file reads them as the defaults, and 3.0 ignores them. Nothing else changes in what is
+  stored.
+
 ## 3.0.0 — 2026-09-27
 
 A major release: git now signs in with your profile's integration. Connect an account under a profile

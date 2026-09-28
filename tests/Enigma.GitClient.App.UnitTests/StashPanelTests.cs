@@ -127,6 +127,9 @@ public sealed class StashPanelTests
 
             Assert.True(page.StashAllCommand.CanExecute(null));
 
+            // The stash dialog asks what to call the entry; stashing is its primary button.
+            services.Dialogs.Result = DialogResult.Primary;
+
             await page.StashAllCommand.ExecuteAsync(null);
 
             Assert.True(page.IsClean);
