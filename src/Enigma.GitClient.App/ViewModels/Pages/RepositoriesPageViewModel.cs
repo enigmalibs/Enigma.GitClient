@@ -34,6 +34,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IRepositoryOpener _opener;
     private readonly IAppWindows _windows;
     private readonly IInstanceLauncher _launcher;
+    private readonly IAboutDialogService _about;
     private readonly IServiceProvider _services;
     private readonly ILogger<RepositoriesPageViewModel> _logger;
 
@@ -52,6 +53,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="opener">Opens a repository by path, the same way the command line does.</param>
     /// <param name="windows">Swaps this window for the repository window once a repository is open.</param>
     /// <param name="launcher">Starts another instance on a repository, for working on two at once.</param>
+    /// <param name="about">Shows the About dialog from the header, as the repository window's toolbar does.</param>
     /// <param name="services">Resolves the dialog views.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public RepositoriesPageViewModel(
@@ -65,6 +67,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IRepositoryOpener opener,
         IAppWindows windows,
         IInstanceLauncher launcher,
+        IAboutDialogService about,
         IServiceProvider services,
         ILogger<RepositoriesPageViewModel> logger)
         : base(repositoryContext)
@@ -78,6 +81,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(opener);
         ArgumentNullException.ThrowIfNull(windows);
         ArgumentNullException.ThrowIfNull(launcher);
+        ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -90,6 +94,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _opener = opener;
         _windows = windows;
         _launcher = launcher;
+        _about = about;
         _services = services;
         _logger = logger;
 
@@ -101,6 +106,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ForgetRecentCommand = new AsyncRelayCommand<RecentRepository>(OnForgetRecentAsync);
         TogglePinCommand = new AsyncRelayCommand<RecentRepository>(OnTogglePinAsync);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
+        OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
     }
 
     /// <summary>
@@ -136,6 +142,12 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that pins or unpins a repository.</summary>
     public AsyncRelayCommand<RecentRepository> TogglePinCommand { get; }
+
+    /// <summary>
+    /// Gets the command that shows the About dialog. The start window has no toolbar of its own, and
+    /// this page's header is where it keeps its actions.
+    /// </summary>
+    public AsyncRelayCommand OpenAboutCommand { get; }
 
     /// <summary>Gets the command that cancels a clone in progress.</summary>
     public RelayCommand CancelCloneCommand { get; }

@@ -1,6 +1,6 @@
 # FEATURE-49E4 — About in the start window
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-49E4.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-49e4-about-on-start`
 **Run:** bugfix/2026-09-28-changes-commit-details-release
