@@ -223,7 +223,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.ApplyAsync), IsStashLine),
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.PopAsync), IsStashLine),
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)),
-            CopyCommand);
+            CopyCommand,
+            ShowDetails: new AsyncRelayCommand<CommitRowViewModel>(OnShowDetailsAsync, row => row?.Commit is not null));
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 

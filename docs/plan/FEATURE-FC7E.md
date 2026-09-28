@@ -86,7 +86,7 @@
 ## PHASE02 — Details from the line's menu
 
 **Branch:** `feature/feature-fc7e-phase02-details-in-menu`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-FC7E-PHASE02.md`
 
 ### Steps
 
