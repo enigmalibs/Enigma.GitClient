@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -19,6 +20,7 @@ using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Reset;
+using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Microsoft.Extensions.Logging;
 
@@ -48,6 +50,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
     private readonly IHiddenBranches _hidden;
+    private readonly IStashService _stashes;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -73,6 +76,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     // CatchUpWithTheFirstState.
     private bool _drawnWithoutState;
     private bool _walkedWithoutState;
+
+    // The stash as the last reload read it, by the commit each entry is recorded as, and the other
+    // commits git records an entry with — its index and its untracked files — found as the pages
+    // arrive. A stash is drawn as one line, as GitKraken draws it: those commits are git's
+    // bookkeeping, not history anyone made.
+    private IReadOnlyList<StashEntry> _stashList = [];
+    private Dictionary<string, StashEntry> _stashBySha = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _stashHelpers = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initialises a new instance.
@@ -106,6 +117,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IInfoBarService infoBar,
         IToolDialogService tools,
         IHiddenBranches hidden,
+        IStashService stashes,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -125,6 +137,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(hidden);
+        ArgumentNullException.ThrowIfNull(stashes);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -143,6 +156,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tools = tools;
         _hidden = hidden;
         _hidden.Changed += (_, _) => OnHiddenBranchesChanged();
+        _stashes = stashes;
 
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
@@ -684,6 +698,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         bool moved = referencesMoved || _drawnStamp != RepositoryStateStamp.Of(RepositoryContext);
+
+        // Dropping an older stash entry moves no reference: only the stash's own list says so.
+        if (!moved)
+        {
+            IReadOnlyList<StashEntry> stashes = await ReadStashesAsync(repository, RepositoryContext.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+            moved = !stashes.Select(entry => entry.Sha).SequenceEqual(_stashList.Select(entry => entry.Sha), StringComparer.Ordinal);
+        }
+
         bool dirty = await IsWorkingTreeDirtyAsync(repository, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
         bool showsUncommitted = Rows.Count > 0 && Rows[0].IsUncommitted;
 
@@ -763,6 +787,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         HasMore = false;
         RefColumnWidth = 0;
         _drawnWithoutState = false;
+        _stashHelpers.Clear();
 
         NotifyEmptyState();
 
@@ -915,12 +940,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             bool dirty = includeUncommittedRow
                 && await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true);
 
+            // The stash is read with the first page and kept for the pages after it, so every page of
+            // one reading walks from the same entries.
+            IReadOnlyList<StashEntry>? stashes = _query.Skip == 0
+                ? await ReadStashesAsync(repository, cancellation.Token).ConfigureAwait(true)
+                : null;
+
             // A newer load may have taken over while git answered. Cancelling cannot take back an answer
             // git had already given, and the newer load has cleared the rows and adds its own
             // uncommitted row: this one must add nothing to its list.
             if (cancellation.IsCancellationRequested)
             {
                 return;
+            }
+
+            if (stashes is not null)
+            {
+                UseStashes(stashes);
             }
 
             if (dirty)
@@ -932,8 +968,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             // is always read with the set the reader sees now, and a change reloads from the top.
             _walkedWithoutState = RepositoryContext.Head is null;
 
+            // Every stash entry is walked from its own commit: --all reaches only the newest, through
+            // refs/stash, and the older ones live in that reference's log.
+            CommitLogQuery query = _query with
+            {
+                ExcludedRefs = [.. ExcludedRefs()],
+                IncludedRevisions = [.. _stashList.Select(entry => entry.Sha)],
+            };
+
             CommitLogPage page = await _reader
-                .GetPageAsync(repository, _query with { ExcludedRefs = [.. ExcludedRefs()] }, cancellation.Token)
+                .GetPageAsync(repository, query, cancellation.Token)
                 .ConfigureAwait(true);
 
             // The repository may have been swapped while the read was in flight.
@@ -989,8 +1033,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     private void AppendPage(CommitLogPage page)
     {
+        RefDecorationIndex decorations = RepositoryContext.Decorations;
+        IReadOnlyList<GitCommit> commits = FoldStashes(page.Commits, decorations);
+
         GraphLayoutResult layout = CommitGraphLayout.Build(
-            GraphCommitInput.From(page.Commits),
+            GraphCommitInput.From(commits),
             _layoutCarry,
             new GraphLayoutOptions
             {
@@ -1003,7 +1050,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         _layoutCarry = layout.State;
 
-        RefDecorationIndex decorations = RepositoryContext.Decorations;
         IReadOnlySet<string> excluded = ExcludedRefs();
         string headSha = RepositoryContext.Head?.Sha ?? string.Empty;
         DateTimeOffset now = DateTimeOffset.Now;
@@ -1018,18 +1064,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         // No state at all is not "no reference": it is a context that has not read them yet.
         _drawnWithoutState |= RepositoryContext.Head is null;
 
-        for (int index = 0; index < page.Commits.Count; index++)
+        for (int index = 0; index < commits.Count; index++)
         {
-            GitCommit commit = page.Commits[index];
+            GitCommit commit = commits[index];
 
             Rows.Add(new CommitRowViewModel(
                 commit,
                 layout.Rows[index],
-                WithoutHidden(decorations.GetRefs(commit.Sha), excluded),
+                WithoutStashRef(WithoutHidden(decorations.GetRefs(commit.Sha), excluded)),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
                 now,
                 RowCommands,
-                _absoluteDates));
+                _absoluteDates,
+                _stashBySha.GetValueOrDefault(commit.Sha)));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
@@ -1040,6 +1087,98 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         // The rows that just arrived have never been looked at by the search.
         MarkMatches();
+    }
+
+    /// <summary>
+    /// Reads the stash, which is never worth interrupting the history for: a stash that cannot be
+    /// read is drawn as no stash.
+    /// </summary>
+    private async Task<IReadOnlyList<StashEntry>> ReadStashesAsync(RepositoryHandle repository, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _stashes.ListAsync(repository, cancellationToken).ConfigureAwait(true);
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogWarning(exception, "The stash of {Repository} could not be read", repository.WorkTreePath);
+            return [];
+        }
+    }
+
+    private void UseStashes(IReadOnlyList<StashEntry> stashes)
+    {
+        _stashList = stashes;
+        _stashBySha = new Dictionary<string, StashEntry>(StringComparer.Ordinal);
+
+        foreach (StashEntry entry in stashes)
+        {
+            _stashBySha.TryAdd(entry.Sha, entry);
+        }
+    }
+
+    /// <summary>
+    /// A page's commits as the graph draws them: each stash entry is one commit off the commit it was
+    /// made on, and the commits git records it with besides — its index, its untracked files — are
+    /// not lines of their own.
+    /// </summary>
+    /// <remarks>
+    /// git records a stash as a merge of the commit it was made on, a commit of the index and, with
+    /// untracked files, a root commit holding them. The log always reads a commit before its parents,
+    /// so an entry is met before those commits are, whichever page they fall on. One that a reference
+    /// happens to point at is kept: that reference's badge has to be drawn somewhere.
+    /// </remarks>
+    private IReadOnlyList<GitCommit> FoldStashes(IReadOnlyList<GitCommit> commits, RefDecorationIndex decorations)
+    {
+        if (_stashBySha.Count == 0 && _stashHelpers.Count == 0)
+        {
+            return commits;
+        }
+
+        List<GitCommit> folded = new(commits.Count);
+
+        foreach (GitCommit commit in commits)
+        {
+            if (_stashBySha.ContainsKey(commit.Sha))
+            {
+                for (int parent = 1; parent < commit.ParentShas.Count; parent++)
+                {
+                    _stashHelpers.Add(commit.ParentShas[parent]);
+                }
+
+                folded.Add(commit.ParentShas.Count > 1
+                    ? new GitCommit(commit.Sha, [commit.ParentShas[0]], commit.Author, commit.Committer, commit.Subject, commit.Body)
+                    : commit);
+
+                continue;
+            }
+
+            if (_stashHelpers.Contains(commit.Sha) && decorations.GetRefs(commit.Sha).Count == 0)
+            {
+                continue;
+            }
+
+            folded.Add(commit);
+        }
+
+        return folded;
+    }
+
+    /// <summary>
+    /// A row's badges without <c>refs/stash</c>: every stash line carries a badge naming its own entry,
+    /// the newest included.
+    /// </summary>
+    private static IReadOnlyList<GitRef> WithoutStashRef(IReadOnlyList<GitRef> refs)
+    {
+        foreach (GitRef reference in refs)
+        {
+            if (reference.Kind == GitRefKind.Stash)
+            {
+                return [.. refs.Where(candidate => candidate.Kind != GitRefKind.Stash)];
+            }
+        }
+
+        return refs;
     }
 
     /// <summary>

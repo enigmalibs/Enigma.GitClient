@@ -243,6 +243,15 @@ public sealed class CommitLogReader : ICommitLogReader
                 }
 
                 arguments.Add("--all");
+
+                foreach (string revision in query.IncludedRevisions)
+                {
+                    if (IsObjectName(revision))
+                    {
+                        arguments.Add(revision);
+                    }
+                }
+
                 break;
             case CommitLogScope.Revision when !string.IsNullOrWhiteSpace(query.Revision):
                 arguments.Add(query.Revision);
@@ -269,6 +278,13 @@ public sealed class CommitLogReader : ICommitLogReader
         => reference is { Length: > 5 }
            && reference.StartsWith("refs/", StringComparison.Ordinal)
            && reference.AsSpan().IndexOfAny("*?[ \t\n") < 0;
+
+    /// <summary>
+    /// Answers whether an entry of <see cref="CommitLogQuery.IncludedRevisions"/> is an object name,
+    /// which git can only read as the one commit it names.
+    /// </summary>
+    private static bool IsObjectName(string? revision)
+        => revision is { Length: >= 4 and <= 64 } && revision.AsSpan().IndexOfAnyExcept("0123456789abcdefABCDEF") < 0;
 
     private static bool IsEmptyHistory(string standardError)
     {
