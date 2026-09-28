@@ -1,6 +1,6 @@
 # FEATURE-3E5D — Sort branches and tags
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-stash-menus-release
@@ -49,7 +49,7 @@ descending. The default is by date, descending (newest first).
 ## PHASE02 — Sorting the tags
 
 **Branch:** `feature/feature-3e5d-phase02-sort-tags`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3E5D-PHASE02.md`
 
 ### Steps
 

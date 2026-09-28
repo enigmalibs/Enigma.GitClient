@@ -92,6 +92,9 @@ public sealed class TagsPageTests
 
     private static async Task<TagsPageViewModel> OpenAsync(TestServices services, RepositoryHandle repository)
     {
+        // These tests are about the rows, not their order, and find them among the realised ones.
+        services.OrderListsByName();
+
         await services.Get<IRepositoryContext>().OpenAsync(repository);
 
         TagsPageViewModel page = services.Get<TagsPageViewModel>();

@@ -253,6 +253,14 @@ public sealed record AppSettings
     public SortDirection BranchSortDirection { get; init; } = SortDirection.Descending;
 
     /// <summary>
+    /// Gets what the tags dialog orders its lines by: its own choice, apart from the branches'.
+    /// </summary>
+    public RefSortKey TagSortKey { get; init; } = RefSortKey.Date;
+
+    /// <summary>Gets which way the tags dialog orders its lines.</summary>
+    public SortDirection TagSortDirection { get; init; } = SortDirection.Descending;
+
+    /// <summary>
     /// Returns these settings with every value forced into a range the application can use.
     /// </summary>
     /// <returns>The clamped settings.</returns>
@@ -285,5 +293,7 @@ public sealed record AppSettings
             Pull = Enum.IsDefined(Pull) ? Pull : PullStrategy.Merge,
             BranchSortKey = Enum.IsDefined(BranchSortKey) ? BranchSortKey : RefSortKey.Date,
             BranchSortDirection = Enum.IsDefined(BranchSortDirection) ? BranchSortDirection : SortDirection.Descending,
+            TagSortKey = Enum.IsDefined(TagSortKey) ? TagSortKey : RefSortKey.Date,
+            TagSortDirection = Enum.IsDefined(TagSortDirection) ? TagSortDirection : SortDirection.Descending,
         };
 }
