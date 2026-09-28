@@ -14,6 +14,8 @@ using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.Icons.Avalonia;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -49,7 +51,7 @@ public sealed class HistoryCopyTests
     }
 
     [Fact]
-    public void ATagBadge_HasAMenuThatCopiesTheTagsName()
+    public void ATagBadge_HasAMenuThatPushesTheTagAndCopiesItsName()
     {
         _fixture.RunAsync(async () =>
         {
@@ -74,7 +76,20 @@ public sealed class HistoryCopyTests
                 ContextMenu menu = Assert.IsType<ContextMenu>(badge.ContextMenu);
                 menu.Open(badge);
 
-                MenuItem item = Assert.Single(menu.GetLogicalDescendants().OfType<MenuItem>());
+                // The branch badge's shape: the push first, a separator, the copy last.
+                Control[] items = [.. menu.Items.OfType<Control>()];
+                Assert.Equal(3, items.Length);
+
+                MenuItem push = Assert.IsType<MenuItem>(items[0]);
+                Assert.Equal("Push \"v1.0\"", push.Header);
+                Assert.True(push.IsVisible);
+                Assert.Equal(PhosphorIcon.ArrowUp, Assert.IsType<Icon>(push.Icon).Kind);
+                Assert.Same(tag.Push, push.Command);
+                Assert.Equal("v1.0", push.CommandParameter);
+
+                Assert.IsType<Separator>(items[1]);
+
+                MenuItem item = Assert.IsType<MenuItem>(items[2]);
                 Assert.Equal("Copy tag name", item.Header);
 
                 await ((IAsyncRelayCommand)item.Command!).ExecuteAsync(item.CommandParameter);

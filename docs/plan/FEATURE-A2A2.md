@@ -1,6 +1,6 @@
 # FEATURE-A2A2 — Tags: bare placeholder, push from menus
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-tag-push-release
@@ -109,7 +109,7 @@
 ## PHASE03 — Push from the badge and the dialog
 
 **Branch:** `feature/feature-a2a2-phase03-push-tag-menus`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A2A2-PHASE03.md`
 
 ### Steps
 

@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
@@ -810,6 +811,82 @@ public sealed class RemotesAndSyncTests
 
             Assert.Equal("1.0.0", await ReadGitAsync(upstreamPath, "tag", "--list"));
             Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "tag", "--list"));
+        });
+    }
+
+    [Fact]
+    public void History_ATagBadgePushesThatTag()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "tag", "-a", "1.0.0", "-m", "First release");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            HistoryTagViewModel tag = history.Rows.SelectMany(row => row.Badges).OfType<HistoryTagViewModel>().Single();
+            Assert.True(tag.CanPush);
+            Assert.Equal("Push \"1.0.0\"", tag.PushHeader);
+
+            await tag.Push!.ExecuteAsync(tag.Name);
+
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Pushed");
+        });
+    }
+
+    [Fact]
+    public void TagsDialog_ARowsMenuPushesThatRowsTag()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+            await GitAsync(world.Local.WorkTreePath, "tag", "2.0.0");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            TagsPageViewModel page = services.Get<TagsPageViewModel>();
+            await page.OnAppearingAsync();
+
+            TagsPageView view = services.Get<TagsPageView>();
+            view.DataContext = page;
+            Window window = new() { Content = view, Width = 1000, Height = 600 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+
+                Border line = view.GetVisualDescendants()
+                    .OfType<Border>()
+                    .Single(border => border.ContextMenu is not null && border.DataContext is TagRowViewModel { Name: "1.0.0" });
+                ContextMenu menu = line.ContextMenu!;
+                menu.Open(line);
+
+                // Right after the checkout, before the delete and its separator.
+                string?[] headers = [.. menu.Items.OfType<MenuItem>().Select(item => item.Header as string)];
+                Assert.Equal(["Select in the history", "Check out (detaches HEAD)", "Push to the remote", "Delete…"], headers);
+
+                MenuItem push = menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == "Push to the remote");
+                Assert.True(push.IsVisible);
+
+                await ((IAsyncRelayCommand)push.Command!).ExecuteAsync(push.CommandParameter);
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            // That row's tag, and not the other one.
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
         });
     }
 

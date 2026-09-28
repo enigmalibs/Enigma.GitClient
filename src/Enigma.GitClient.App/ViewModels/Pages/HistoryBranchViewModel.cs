@@ -180,14 +180,21 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
 /// <summary>
 /// A tag's badge on a history line: the one reference on a line that brings a menu of its own besides
-/// the branches — what the tag is called, to copy.
+/// the branches — pushing the tag to the remote, and what it is called, to copy.
 /// </summary>
 /// <param name="Badge">The badge as drawn.</param>
 /// <param name="Copy">Copies a text to the clipboard.</param>
-public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<string> Copy)
+/// <param name="Push">Pushes a tag, by its name, to the remote; the push is not offered without it.</param>
+public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<string> Copy, AsyncRelayCommand<string>? Push = null)
 {
     /// <summary>Gets the tag's name, as the badge shows it.</summary>
     public string Name => Badge.Name;
+
+    /// <summary>Gets a value indicating whether the badge's menu can push the tag.</summary>
+    public bool CanPush => Push is not null;
+
+    /// <summary>Gets what the push item says: the branch badge's words, for a tag.</summary>
+    public string PushHeader => $"Push \"{Name}\"";
 
     /// <inheritdoc />
     public override string ToString() => Name;

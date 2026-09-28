@@ -478,12 +478,22 @@
                       </controls:RefBadge>
                     </DataTemplate>
 
-                    <!-- A tag brings a menu of its own too: its name, to copy. -->
+                    <!-- A tag brings a menu of its own too: pushing it to the remote, on its own, and
+                         its name, to copy — the branch badge's shape, actions first. -->
                     <DataTemplate DataType="vm:HistoryTagViewModel" x:DataType="vm:HistoryTagViewModel">
                       <controls:RefBadge Kind="{Binding Badge.Kind}"
                                          Text="{Binding Name}">
                         <controls:RefBadge.ContextMenu>
                           <ContextMenu>
+                            <MenuItem Header="{Binding PushHeader}"
+                                      IsVisible="{Binding CanPush}"
+                                      Command="{Binding Push}"
+                                      CommandParameter="{Binding Name}">
+                              <MenuItem.Icon>
+                                <ei:Icon Kind="ArrowUp" Classes="menu" />
+                              </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator IsVisible="{Binding CanPush}" />
                             <MenuItem Header="Copy tag name"
                                       Command="{Binding Copy}"
                                       CommandParameter="{Binding Name}">
