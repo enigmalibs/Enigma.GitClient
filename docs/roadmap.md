@@ -199,7 +199,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-A303     | File line menus only open on the text   | DONE        | docs/plan/BUG-A303.md     |
 | FEATURE-CC8E | Changes: way back, discards, commit box | IN PROGRESS | docs/plan/FEATURE-CC8E.md |
 | - PHASE01    | Back to the history, in blue            | DONE        | (in FEATURE-CC8E.md)      |
-| - PHASE02    | Red discards, one plain question        | TODO        | (in FEATURE-CC8E.md)      |
+| - PHASE02    | Red discards, one plain question        | DONE        | (in FEATURE-CC8E.md)      |
 | - PHASE03    | No Amend, no Sign off                   | TODO        | (in FEATURE-CC8E.md)      |
 | FEATURE-FC7E | History: commit details, discard all    | TODO        | docs/plan/FEATURE-FC7E.md |
 | - PHASE01    | A commit details dialog                 | TODO        | (in FEATURE-FC7E.md)      |

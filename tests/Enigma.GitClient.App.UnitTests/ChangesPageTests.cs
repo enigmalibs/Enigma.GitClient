@@ -17,7 +17,6 @@ using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views.Pages;
@@ -378,7 +377,7 @@ public sealed class ChangesPageTests
     }
 
     [Fact]
-    public void Page_MakesDiscardAllTypeTheRepositorysName()
+    public void Page_AsksOnePlainRedQuestionBeforeDiscardingEverything()
     {
         _fixture.RunAsync(async () =>
         {
@@ -390,32 +389,27 @@ public sealed class ChangesPageTests
 
             ChangesPageViewModel page = await OpenAsync(services, repository);
 
-            ConfirmTextDialogViewModel? model = null;
-
-            services.Dialogs.OnShown = dialog =>
-            {
-                if (dialog.Content is Control { DataContext: ConfirmTextDialogViewModel typed })
-                {
-                    model = typed;
-                }
-            };
-
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
             services.Dialogs.Result = DialogResult.Close;
 
             await page.DiscardAllCommand.ExecuteAsync(null);
 
-            Assert.NotNull(model);
+            // One question, and a plain one: a sentence and two buttons, nothing to type.
+            ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
+            string message = Assert.IsType<string>(dialog.Content);
 
-            // The repository's own directory name, typed exactly — a click is something a hand does
-            // by accident, and this is the one action nothing can undo.
-            Assert.Equal("work", model!.Expected);
-            Assert.False(model.IsConfirmed);
+            Assert.Equal("Discard everything", dialog.Title);
+            Assert.Contains("2 files", message, StringComparison.Ordinal);
+            Assert.Contains("cannot be undone", message, StringComparison.Ordinal);
+            Assert.Equal("Discard everything", dialog.PrimaryButtonText);
+            Assert.Equal("Cancel", dialog.CloseButtonText);
+            Assert.Equal(DefaultButton.Close, dialog.DefaultButton);
+            Assert.True(dialog.IsPrimaryButtonEnabled);
 
-            model.Typed = "wor";
-            Assert.False(model.IsConfirmed);
-
-            model.Typed = "work";
-            Assert.True(model.IsConfirmed);
+            // Red while it was asked, and only then.
+            Assert.True(redWhileAsked, "the confirm button was not red");
+            Assert.DoesNotContain(ContentDialogServiceExtensions.DangerClass, dialog.Classes);
 
             // Cancelled, so both files are still there.
             Assert.Equal("ruined\n", File.ReadAllText(Path.Combine(repository.WorkTreePath, "src", "app.txt")));
@@ -424,7 +418,7 @@ public sealed class ChangesPageTests
     }
 
     [Fact]
-    public void Page_DiscardsEverythingOnceTheNameIsTyped()
+    public void Page_DiscardsEverythingOnceConfirmed()
     {
         _fixture.RunAsync(async () =>
         {
@@ -436,14 +430,6 @@ public sealed class ChangesPageTests
 
             ChangesPageViewModel page = await OpenAsync(services, repository);
 
-            services.Dialogs.OnShown = dialog =>
-            {
-                if (dialog.Content is Control { DataContext: ConfirmTextDialogViewModel model })
-                {
-                    model.Typed = model.Expected;
-                }
-            };
-
             services.Dialogs.Result = DialogResult.Primary;
 
             await page.DiscardAllCommand.ExecuteAsync(null);
@@ -451,6 +437,57 @@ public sealed class ChangesPageTests
             Assert.Equal("one\ntwo\n", File.ReadAllText(Path.Combine(repository.WorkTreePath, "src", "app.txt")));
             Assert.False(File.Exists(Path.Combine(repository.WorkTreePath, "notes.txt")));
             Assert.True(page.IsClean);
+        });
+    }
+
+    [Fact]
+    public void Page_ConfirmsAOneFileDiscardInRedToo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            Write(repository, "src/app.txt", "ruined\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
+            services.Dialogs.Result = DialogResult.Close;
+
+            await page.DiscardCommand.ExecuteAsync(Row(page.Unstaged, "src/app.txt"));
+
+            Assert.True(redWhileAsked, "the confirm button was not red");
+            Assert.Equal("Discard", services.Dialogs.Last!.PrimaryButtonText);
+            Assert.DoesNotContain(ContentDialogServiceExtensions.DangerClass, services.Dialogs.Last.Classes);
+        });
+    }
+
+    [Fact]
+    public void DiscardEverythingButton_IsRedWhileThereIsSomethingToLose()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Write(repository, "README.md", "# edited\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+            (Window window, ChangesPageView view) = Show(services, page);
+
+            try
+            {
+                Button discard = view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "DiscardAll");
+
+                Assert.Contains("danger", discard.Classes);
+                Assert.Same(page.DiscardAllCommand, discard.Command);
+                Assert.True(discard.IsEffectivelyEnabled);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 

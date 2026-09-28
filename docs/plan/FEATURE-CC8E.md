@@ -75,7 +75,7 @@
 ## PHASE02 — Red discards, one plain question
 
 **Branch:** `feature/feature-cc8e-phase02-red-discards`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-CC8E-PHASE02.md`
 
 ### Steps
 
