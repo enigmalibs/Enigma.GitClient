@@ -3,6 +3,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Refs;
+using Enigma.Icons.Phosphor;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
@@ -38,7 +39,8 @@ public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Pull,
     AsyncRelayCommand<HistoryBranchViewModel> Push,
     Func<MergeSource?> CurrentSource,
-    Func<string?> CurrentBranch);
+    Func<string?> CurrentBranch,
+    AsyncRelayCommand<string>? Copy = null);
 
 /// <summary>
 /// One branch on a history line: the badge it is drawn as, and the menu that badge opens.
@@ -152,6 +154,9 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     /// <summary>Gets what the delete item says.</summary>
     public string DeleteHeader => $"Delete \"{Name}\"…";
 
+    /// <summary>Gets a value indicating whether the badge's menu can copy the branch's name.</summary>
+    public bool CanCopyName => Commands.Copy is not null;
+
     /// <summary>Gets a value indicating whether the branch can be deleted: not while it is checked out.</summary>
     public bool CanDelete => !IsCurrent;
 
@@ -174,14 +179,60 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 }
 
 /// <summary>
+/// A tag's badge on a history line: the one reference on a line that brings a menu of its own besides
+/// the branches — what the tag is called, to copy.
+/// </summary>
+/// <param name="Badge">The badge as drawn.</param>
+/// <param name="Copy">Copies a text to the clipboard.</param>
+public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<string> Copy)
+{
+    /// <summary>Gets the tag's name, as the badge shows it.</summary>
+    public string Name => Badge.Name;
+
+    /// <inheritdoc />
+    public override string ToString() => Name;
+}
+
+/// <summary>
+/// One branch badge of the history dropped onto another: the dragged branch is merged into the one it
+/// was dropped on.
+/// </summary>
+/// <param name="Source">The branch that was dragged, whose commits are brought over.</param>
+/// <param name="Target">The branch it was dropped on, which is written to.</param>
+public sealed record HistoryBranchDrop(HistoryBranchViewModel Source, HistoryBranchViewModel Target)
+{
+    /// <summary>Gets the merge the drop asks for.</summary>
+    public BranchDropRequest Request => new(Source.Name, Source.IsRemote, Target.Name, Target.IsRemote, Target.IsCurrent);
+
+    /// <summary>
+    /// Gets a value indicating whether the drop can be merged: onto a local branch, and not onto the
+    /// branch itself.
+    /// </summary>
+    public bool CanDrop => BranchDropOperations.CanDrop(Request);
+
+    /// <summary>Gets the merge's menu item, both branches named in full.</summary>
+    public string MergeHeader => $"Merge \"{Source.Name}\" into \"{Target.Name}\"";
+
+    /// <summary>Gets the fast-forward's menu item, both branches named in full.</summary>
+    public string FastForwardHeader => $"Merge \"{Source.Name}\" into \"{Target.Name}\", fast-forward only";
+}
+
+/// <summary>
 /// One item of a history line's menu, as data: the line's menu is built when it opens, because what
 /// it offers depends on the branches on the line and on the page's merge source.
 /// </summary>
 /// <param name="Header">What the item says; <c>-</c> draws a separator.</param>
 /// <param name="Command">What it runs.</param>
 /// <param name="Parameter">What it runs it with.</param>
-public sealed record HistoryMenuEntry(string Header, ICommand? Command = null, object? Parameter = null)
+/// <param name="Icon">The glyph drawn beside it, one per kind of action.</param>
+public sealed record HistoryMenuEntry(string Header, ICommand? Command = null, object? Parameter = null, PhosphorIcon? Icon = null)
 {
+    /// <summary>Gets a value indicating whether the item draws a glyph.</summary>
+    public bool HasIcon => Icon is not null;
+
+    /// <summary>Gets the glyph to draw, for a binding that cannot take an absent one.</summary>
+    public PhosphorIcon IconKind => Icon ?? PhosphorIcon.Circle;
+
     /// <summary>A separator.</summary>
     public static readonly HistoryMenuEntry Separator = new("-");
 

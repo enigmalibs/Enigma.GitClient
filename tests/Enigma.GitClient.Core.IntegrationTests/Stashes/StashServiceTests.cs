@@ -188,8 +188,9 @@ public sealed class StashServiceTests : IAsyncLifetime
         _repository.WriteFile("src/app.txt", "one\ntwo edited\n");
         await Stashes.PushAsync(_handle, "work", cancellationToken: TestContext.Current.CancellationToken);
 
-        await Stashes.ApplyAsync(_handle, 0, TestContext.Current.CancellationToken);
+        StashApplyResult result = await Stashes.ApplyAsync(_handle, 0, TestContext.Current.CancellationToken);
 
+        Assert.Equal(StashApplyResult.Applied, result);
         Assert.Equal("one\ntwo edited\n", File.ReadAllText(_repository.GetPath("src/app.txt")));
         Assert.Single(await ListAsync());
     }
@@ -200,8 +201,9 @@ public sealed class StashServiceTests : IAsyncLifetime
         _repository.WriteFile("src/app.txt", "one\ntwo edited\n");
         await Stashes.PushAsync(_handle, "work", cancellationToken: TestContext.Current.CancellationToken);
 
-        await Stashes.PopAsync(_handle, 0, TestContext.Current.CancellationToken);
+        StashApplyResult result = await Stashes.PopAsync(_handle, 0, TestContext.Current.CancellationToken);
 
+        Assert.Equal(StashApplyResult.Applied, result);
         Assert.Equal("one\ntwo edited\n", File.ReadAllText(_repository.GetPath("src/app.txt")));
         Assert.Empty(await ListAsync());
     }
@@ -233,15 +235,50 @@ public sealed class StashServiceTests : IAsyncLifetime
         _repository.WriteFile("src/app.txt", "one\ncommitted version\n");
         await _repository.CommitAllAsync("Change the same line");
 
-        await Assert.ThrowsAsync<GitCommandException>(
-            () => Stashes.PopAsync(_handle, 0, TestContext.Current.CancellationToken));
+        // Not a failure: the changes are in, with a conflict to resolve.
+        StashApplyResult result = await Stashes.PopAsync(_handle, 0, TestContext.Current.CancellationToken);
+
+        Assert.Equal(StashApplyResult.Conflicted, result);
 
         WorkingTreeStatus status = await StatusAsync();
 
         Assert.True(status.HasConflicts);
         Assert.Equal("src/app.txt", Assert.Single(status.Conflicted).Path);
 
-        // A failed pop keeps the entry: the work is still recoverable.
+        // A conflicted pop keeps the entry: the work is still recoverable.
+        Assert.Single(await ListAsync());
+    }
+
+    [Fact]
+    public async Task ApplyAsync_ReportsAConflict_AndKeepsTheEntry()
+    {
+        _repository.WriteFile("src/app.txt", "one\nstashed version\n");
+        await Stashes.PushAsync(_handle, "work", cancellationToken: TestContext.Current.CancellationToken);
+
+        _repository.WriteFile("src/app.txt", "one\ncommitted version\n");
+        await _repository.CommitAllAsync("Change the same line");
+
+        StashApplyResult result = await Stashes.ApplyAsync(_handle, 0, TestContext.Current.CancellationToken);
+
+        Assert.Equal(StashApplyResult.Conflicted, result);
+        Assert.True((await StatusAsync()).HasConflicts);
+        Assert.Single(await ListAsync());
+    }
+
+    [Fact]
+    public async Task PopAsync_ThatGitRefuses_ChangesNothingAndKeepsTheEntry()
+    {
+        _repository.WriteFile("src/app.txt", "one\nstashed version\n");
+        await Stashes.PushAsync(_handle, "work", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Uncommitted work on the file the entry changes: git will not overwrite it.
+        _repository.WriteFile("src/app.txt", "one\nlocal edit\n");
+
+        await Assert.ThrowsAsync<GitCommandException>(
+            () => Stashes.PopAsync(_handle, 0, TestContext.Current.CancellationToken));
+
+        Assert.Equal("one\nlocal edit\n", File.ReadAllText(_repository.GetPath("src/app.txt")));
+        Assert.False((await StatusAsync()).HasConflicts);
         Assert.Single(await ListAsync());
     }
 

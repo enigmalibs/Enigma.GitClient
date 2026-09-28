@@ -154,6 +154,23 @@ public sealed class TestServices : IDisposable
     /// </summary>
     public ScriptedContentDialogService Dialogs => (ScriptedContentDialogService)Get<IContentDialogService>();
 
+    /// <summary>
+    /// Orders the branches and tags dialogs by name, A to Z, instead of newest first.
+    /// </summary>
+    /// <remarks>
+    /// For a test about something other than the order that looks a line up among the ones a small
+    /// window has realised: the commits a test makes land in the same second or not, so newest first
+    /// is an order that changes from one run to the next.
+    /// </remarks>
+    public void OrderListsByName()
+        => Get<ISettingsService>().Update(current => current with
+        {
+            BranchSortKey = RefSortKey.Name,
+            BranchSortDirection = SortDirection.Ascending,
+            TagSortKey = RefSortKey.Name,
+            TagSortDirection = SortDirection.Ascending,
+        });
+
     /// <inheritdoc />
     public void Dispose()
     {

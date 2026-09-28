@@ -96,7 +96,7 @@ public sealed class AzureDevOpsProviderTests
         HttpRequestMessage request = Assert.Single(handler.Requests);
 
         Assert.Equal(
-            new Uri("https://dev.azure.com/contoso/_apis/connectionData?api-version=7.1"),
+            new Uri("https://dev.azure.com/contoso/_apis/connectionData?api-version=7.1-preview"),
             request.RequestUri);
 
         // Basic with an empty user name and the token as the password.

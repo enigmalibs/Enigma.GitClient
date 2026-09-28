@@ -10,15 +10,16 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 3.0** — git signs in with your profile's integration: every fetch, pull, push and
-> clone to its host over HTTPS, with nothing to set up in git. Pushing needs a token with write access.
-> Upgrading from 2.0: see [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 3.1** — stashes in the history, one line each as GitKraken draws them: stash,
+> apply, pop and delete from the graph. Drag one branch onto another to merge it, sort the branches
+> and tags by name or date, and find icons and copy items in every menu. See
+> [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
 - Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
-- History list with a column header you can resize, and a search that highlights what it
-  found instead of hiding everything else
+- History list with a column header you can resize — the graph's included — and a search that
+  highlights what it found instead of hiding everything else
 - Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
   brings and its badge leave the graph, the history says how many branches it is leaving out, and
   the choice is remembered for the repository
@@ -35,20 +36,26 @@ Two things matter more than everything else in this app:
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
   drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
   the list scrolls while you hold a branch near its edge
+- Sort the branches and the tags by name or by date, either way — newest first unless you choose
+  otherwise, and remembered; select a branch's or a tag's line in the history from its menu
 - Tag management — create (lightweight or annotated) and delete
 - Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
   line's menu
 - Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
   staged; hard discards them, after naming the files it takes
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
-  into any other local branch the same way
+  into any other local branch the same way — or drag one branch badge onto another, and pick the
+  merge or the fast-forward
 - Every merge the app offers records a merge commit, even when the branch could simply be
   fast-forwarded; the fast-forward-only merges are the way to move a branch without one
 - Create, clone and open repositories from a start window with a recent-repositories list; the
   repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
   straight away
 - Working directory: status, stage/unstage, discard and commit
-- Remotes: fetch, pull (merge only), push (with `--force-with-lease`), and stash
+- Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
+- Stashes in the graph, one line each at the stash itself: stash your uncommitted work from the
+  history's toolbar, then apply, pop or delete a stash from its line — a pop that conflicts keeps
+  the stash, as git does
 - Merge conflict resolution with a three-way view, per-hunk selection and a live preview of the
   file that will be written
 - Integrations with **GitHub**, **GitLab** and **Azure DevOps**, connected under a profile: sign in

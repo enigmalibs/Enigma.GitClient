@@ -6,11 +6,13 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// A column of the history list that the reader can resize.
 /// </summary>
 /// <remarks>
-/// The graph and the message are not here: the graph's width is the number of lanes it has to draw,
-/// and the message is the column that takes whatever the others leave.
+/// The message is not here: it is the column that takes whatever the others leave.
 /// </remarks>
 public enum HistoryColumn
 {
+    /// <summary>The commit graph.</summary>
+    Graph,
+
     /// <summary>The branch and tag badges.</summary>
     Refs,
 
@@ -54,8 +56,13 @@ public sealed class HistoryColumnLayout : ViewModelBase
     private const int Gaps = 5;
 
     /// <summary>
-    /// Gets the width the graph column needs, which is the lane count rather than a preference.
+    /// Gets or sets the graph column's width.
     /// </summary>
+    /// <remarks>
+    /// Measured from the lanes in view (<see cref="SeedGraphWidth"/>) until the reader drags its grip,
+    /// exactly as the badge column is: from then on it is theirs, and lanes past it are clipped at the
+    /// column's edge rather than drawn over the badges.
+    /// </remarks>
     public double GraphWidth
     {
         get;
@@ -183,11 +190,13 @@ public sealed class HistoryColumnLayout : ViewModelBase
     /// <returns>Its minimum width.</returns>
     /// <remarks>
     /// The badge column's is zero: a history with nothing decorated asks for no column at all, and
-    /// a floor would spend width on a column with nothing in it.
+    /// a floor would spend width on a column with nothing in it. The graph keeps room for one lane
+    /// and its padding, so a dragged-away graph still shows where the line's commit is.
     /// </remarks>
     public static double MinimumWidth(HistoryColumn column)
         => column switch
         {
+            HistoryColumn.Graph => 24,
             HistoryColumn.Refs => 0,
             HistoryColumn.Author => 60,
             HistoryColumn.Date => 60,
@@ -209,19 +218,33 @@ public sealed class HistoryColumnLayout : ViewModelBase
     }
 
     /// <summary>
+    /// Offers a measured width for the graph column, which is taken only while the reader has not
+    /// resized it themselves.
+    /// </summary>
+    /// <param name="measured">The width the lanes on the loaded rows ask for.</param>
+    public void SeedGraphWidth(double measured)
+    {
+        if (!IsGraphWidthOwnedByReader)
+        {
+            GraphWidth = Math.Max(0, measured);
+        }
+    }
+
+    /// <summary>
     /// Moves a column's edge by what the pointer moved.
     /// </summary>
     /// <param name="column">The column the grip belongs to.</param>
     /// <param name="delta">How far the pointer moved, positive to the right.</param>
     /// <remarks>
-    /// The badge column sits before the message and grows to the right; the author, the date and
-    /// the hash sit after it and grow to the left. Either way the message absorbs the difference,
-    /// so the edge under the pointer is the edge that moves.
+    /// The graph and the badge columns sit before the message and grow to the right; the author, the
+    /// date and the hash sit after it and grow to the left. Either way the message absorbs the
+    /// difference, so the edge under the pointer is the edge that moves.
     /// </remarks>
     public void Resize(HistoryColumn column, double delta)
     {
         double current = WidthOf(column);
-        double target = current + (column == HistoryColumn.Refs ? delta : -delta);
+        bool beforeTheMessage = column is HistoryColumn.Graph or HistoryColumn.Refs;
+        double target = current + (beforeTheMessage ? delta : -delta);
 
         target = Math.Max(target, MinimumWidth(column));
 
@@ -234,7 +257,18 @@ public sealed class HistoryColumnLayout : ViewModelBase
         {
             IsRefsWidthOwnedByReader = true;
         }
+
+        if (column == HistoryColumn.Graph)
+        {
+            IsGraphWidthOwnedByReader = true;
+        }
     }
+
+    /// <summary>
+    /// Gets a value indicating whether the reader has resized the graph column, after which the
+    /// lanes in view no longer set its width.
+    /// </summary>
+    public bool IsGraphWidthOwnedByReader { get; private set; }
 
     /// <summary>
     /// Gets a value indicating whether the reader has resized the badge column, after which the
@@ -250,6 +284,7 @@ public sealed class HistoryColumnLayout : ViewModelBase
     public double WidthOf(HistoryColumn column)
         => column switch
         {
+            HistoryColumn.Graph => GraphWidth,
             HistoryColumn.Refs => RefsWidth,
             HistoryColumn.Author => AuthorWidth,
             HistoryColumn.Date => DateWidth,
@@ -261,6 +296,10 @@ public sealed class HistoryColumnLayout : ViewModelBase
     {
         switch (column)
         {
+            case HistoryColumn.Graph:
+                GraphWidth = width;
+                break;
+
             case HistoryColumn.Refs:
                 RefsWidth = width;
                 break;

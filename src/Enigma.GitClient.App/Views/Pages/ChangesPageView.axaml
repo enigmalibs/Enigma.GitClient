@@ -84,7 +84,7 @@
                 <Button Grid.Column="2"
                         Classes="toolbar"
                         Command="{Binding StashAllCommand}"
-                        ToolTip.Tip="Put everything aside on the stash"
+                        ToolTip.Tip="Stash all changes: put everything aside on the stash"
                         AutomationProperties.Name="Stash all changes">
                   <ei:Icon Kind="Archive" Classes="toolbar" />
                 </Button>
@@ -152,20 +152,34 @@
                      AutomationProperties.Name="Stash entries">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:StashRowViewModel">
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Height="34">
+                  <!-- Painted, if only transparently: a grid with no brush is not hit-testable
+                       between its children, and this one carries the row's menu. -->
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Height="34" Background="Transparent">
 
                     <Grid.ContextMenu>
                       <ContextMenu>
-                        <MenuItem Header="Apply, keeping the stash"
+                        <MenuItem Header="Apply stash"
                                   Command="{Binding ApplyCommand}"
-                                  CommandParameter="{Binding}" />
-                        <MenuItem Header="Restore and remove"
+                                  CommandParameter="{Binding}">
+                          <MenuItem.Icon>
+                            <ei:Icon Kind="TrayArrowUp" Classes="menu" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Pop stash"
                                   Command="{Binding PopCommand}"
-                                  CommandParameter="{Binding}" />
+                                  CommandParameter="{Binding}">
+                          <MenuItem.Icon>
+                            <ei:Icon Kind="ArrowCounterClockwise" Classes="menu" />
+                          </MenuItem.Icon>
+                        </MenuItem>
                         <Separator />
-                        <MenuItem Header="Drop…"
+                        <MenuItem Header="Delete stash…"
                                   Command="{Binding DropCommand}"
-                                  CommandParameter="{Binding}" />
+                                  CommandParameter="{Binding}">
+                          <MenuItem.Icon>
+                            <ei:Icon Kind="Trash" Classes="menu" />
+                          </MenuItem.Icon>
+                        </MenuItem>
                       </ContextMenu>
                     </Grid.ContextMenu>
 
@@ -189,15 +203,15 @@
                       <Button Classes="toolbar rowaction"
                               Command="{Binding PopCommand}"
                               CommandParameter="{Binding}"
-                              ToolTip.Tip="Restore and remove"
-                              AutomationProperties.Name="Restore and remove this stash">
+                              ToolTip.Tip="Pop stash: its changes come back and the stash is removed"
+                              AutomationProperties.Name="Pop this stash">
                         <ei:Icon Kind="ArrowCounterClockwise" Classes="row" />
                       </Button>
                       <Button Classes="toolbar rowaction"
                               Command="{Binding DropCommand}"
                               CommandParameter="{Binding}"
-                              ToolTip.Tip="Drop"
-                              AutomationProperties.Name="Drop this stash">
+                              ToolTip.Tip="Delete stash"
+                              AutomationProperties.Name="Delete this stash">
                         <ei:Icon Kind="Trash" Classes="row" />
                       </Button>
                     </StackPanel>

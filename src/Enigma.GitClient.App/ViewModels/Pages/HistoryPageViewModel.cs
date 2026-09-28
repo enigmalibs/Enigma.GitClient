@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -19,6 +20,7 @@ using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Reset;
+using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Microsoft.Extensions.Logging;
 
@@ -48,6 +50,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
     private readonly IHiddenBranches _hidden;
+    private readonly IStashService _stashes;
+    private readonly IStashOperations _stashOperations;
+    private readonly ISystemInterop _interop;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -67,6 +72,20 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     // Where HEAD and every reference were when the rows were last read: the badges and the lanes on
     // screen are drawn from that, so a context that has read anything else since has something new.
     private RepositoryStateStamp? _drawnStamp;
+
+    // Whether rows were drawn, or the read in flight was walked, before the context had read the
+    // repository's references at all — which an opening does, as the two reads race. See
+    // CatchUpWithTheFirstState.
+    private bool _drawnWithoutState;
+    private bool _walkedWithoutState;
+
+    // The stash as the last reload read it, by the commit each entry is recorded as, and the other
+    // commits git records an entry with — its index and its untracked files — found as the pages
+    // arrive. A stash is drawn as one line, as GitKraken draws it: those commits are git's
+    // bookkeeping, not history anyone made.
+    private IReadOnlyList<StashEntry> _stashList = [];
+    private Dictionary<string, StashEntry> _stashBySha = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _stashHelpers = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initialises a new instance.
@@ -100,6 +119,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IInfoBarService infoBar,
         IToolDialogService tools,
         IHiddenBranches hidden,
+        IStashService stashes,
+        IStashOperations stashOperations,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -119,6 +140,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(hidden);
+        ArgumentNullException.ThrowIfNull(stashes);
+        ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -137,6 +160,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tools = tools;
         _hidden = hidden;
         _hidden.Changed += (_, _) => OnHiddenBranchesChanged();
+        _stashes = stashes;
+        _stashOperations = stashOperations;
+        _interop = interop;
+
+        // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
+        CopyCommand = new AsyncRelayCommand<string>(
+            text => _interop.CopyTextAsync(text!),
+            text => !string.IsNullOrEmpty(text));
 
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
@@ -160,7 +191,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<HistoryBranchViewModel>(OnPullBranchAsync, branch => branch?.CanSynchronise == true),
             new AsyncRelayCommand<HistoryBranchViewModel>(OnPushBranchAsync, branch => branch?.CanSynchronise == true),
             () => MergeSource,
-            () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null);
+            () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null,
+            CopyCommand);
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -180,7 +212,24 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<HistoryResetRequest>(
                 request => OnResetAsync(request, ResetMode.Hard),
                 request => request?.Row.Commit is not null),
-            () => RepositoryContext.Head is { IsDetached: false, IsUnborn: false } head ? head.BranchName : null);
+            () => RepositoryContext.Head is { IsDetached: false, IsUnborn: false } head ? head.BranchName : null,
+            new HistoryStashCommands(
+                new AsyncRelayCommand<CommitRowViewModel>(_ => OnStashAsync(), row => row is { IsUncommitted: true }),
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.ApplyAsync), IsStashLine),
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.PopAsync), IsStashLine),
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)),
+            CopyCommand);
+
+        StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
+
+        // "Merge" records a merge commit even when a fast-forward would do; "fast-forward only" beside
+        // it is how a branch is moved without one — the two items of the drop menu.
+        MergeDropCommand = new AsyncRelayCommand<HistoryBranchDrop>(
+            drop => OnDropAsync(drop, Core.Merging.FastForwardMode.Never),
+            drop => drop?.CanDrop == true);
+        FastForwardDropCommand = new AsyncRelayCommand<HistoryBranchDrop>(
+            drop => OnDropAsync(drop, Core.Merging.FastForwardMode.Only),
+            drop => drop?.CanDrop == true);
 
         Files = new ChangedFilesPanelViewModel(interop, settings)
         {
@@ -475,6 +524,45 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>
+    /// Gets a value indicating whether the history shows uncommitted changes — the line at its top —
+    /// which is what there is to stash.
+    /// </summary>
+    public bool HasUncommittedChanges => Rows.Count > 0 && Rows[0].IsUncommitted;
+
+    /// <summary>
+    /// Gets the command that copies a hash or a name to the clipboard, which the line's and the
+    /// badges' menus run with the text as their parameter.
+    /// </summary>
+    public AsyncRelayCommand<string> CopyCommand { get; }
+
+    /// <summary>
+    /// Gets the command that puts every uncommitted change on the stash, from the toolbar.
+    /// </summary>
+    public AsyncRelayCommand StashCommand { get; }
+
+    /// <summary>
+    /// Gets the command a branch badge dropped onto another runs to merge the dragged branch into the
+    /// one it was dropped on, always recording a merge commit.
+    /// </summary>
+    public AsyncRelayCommand<HistoryBranchDrop> MergeDropCommand { get; }
+
+    /// <summary>
+    /// Gets the command a branch badge dropped onto another runs to move the branch it was dropped on
+    /// forward to the dragged one, refusing when the two have diverged.
+    /// </summary>
+    public AsyncRelayCommand<HistoryBranchDrop> FastForwardDropCommand { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the history is still reading something it will draw: its
+    /// commits, or — just after a repository was opened — the references its badges come from.
+    /// </summary>
+    /// <remarks>
+    /// A context with no <see cref="IRepositoryContext.Head"/> has not read the repository yet: every
+    /// read of it, an unborn repository's included, sets one.
+    /// </remarks>
+    public bool IsLoading => IsBusy || (IsRepositoryOpen && RepositoryContext.Head is null);
+
+    /// <summary>
     /// Gets the sentence shown when the list is empty, which depends on why it is empty.
     /// </summary>
     public string EmptyMessage
@@ -498,7 +586,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             if (SetProperty(ref field, value))
             {
-                Columns.GraphWidth = value;
+                // Offered, not imposed, as the badge column's is: once the reader has dragged the
+                // graph's grip, the width is theirs.
+                Columns.SeedGraphWidth(value);
             }
         }
     }
@@ -666,6 +756,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         bool moved = referencesMoved || _drawnStamp != RepositoryStateStamp.Of(RepositoryContext);
+
+        // Dropping an older stash entry moves no reference: only the stash's own list says so.
+        if (!moved)
+        {
+            IReadOnlyList<StashEntry> stashes = await ReadStashesAsync(repository, RepositoryContext.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+            moved = !stashes.Select(entry => entry.Sha).SequenceEqual(_stashList.Select(entry => entry.Sha), StringComparer.Ordinal);
+        }
+
         bool dirty = await IsWorkingTreeDirtyAsync(repository, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
         bool showsUncommitted = Rows.Count > 0 && Rows[0].IsUncommitted;
 
@@ -744,6 +844,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         SelectedRow = null;
         HasMore = false;
         RefColumnWidth = 0;
+        _drawnWithoutState = false;
+        _stashHelpers.Clear();
 
         NotifyEmptyState();
 
@@ -766,6 +868,63 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         // A hidden branch deleted, or checked out, changes what the chip counts.
         NotifyHiddenBranches();
+
+        CatchUpWithTheFirstState();
+        OnPropertyChanged(nameof(IsLoading));
+    }
+
+    /// <summary>
+    /// Redraws what was read before the context knew the repository's references, now that it does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Opening a repository starts the history's read and the context's read of the references
+    /// together. When the log answers first — a repository with many branches, whose tracking
+    /// counts make the reference read slow — the rows are drawn with no badge at all, and nothing
+    /// used to draw them again before the next automatic refresh.
+    /// </para>
+    /// <para>
+    /// Only the first state of an opening is waited for: every later re-read follows an operation
+    /// or a refresh, which redraws the history itself. A read still in flight is left alone — its
+    /// rows take their badges from the context when they land — unless it was walked without knowing
+    /// which branches are hidden, and some are.
+    /// </para>
+    /// </remarks>
+    private void CatchUpWithTheFirstState()
+    {
+        bool drawnWithout = _drawnWithoutState;
+        bool walkedWithout = _walkedWithoutState;
+
+        _drawnWithoutState = false;
+        _walkedWithoutState = false;
+
+        if (!IsRepositoryOpen)
+        {
+            return;
+        }
+
+        if (IsBusy)
+        {
+            if (drawnWithout || (walkedWithout && ExcludedRefs().Count > 0))
+            {
+                _ = ReloadAsync();
+            }
+
+            return;
+        }
+
+        if (!drawnWithout)
+        {
+            return;
+        }
+
+        if (IsDiffViewOpen)
+        {
+            _refreshPending = true;
+            return;
+        }
+
+        _ = ReloadKeepingPlaceAsync();
     }
 
     /// <inheritdoc />
@@ -782,6 +941,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OpenTagsCommand.NotifyCanExecuteChanged();
         OpenRemotesCommand.NotifyCanExecuteChanged();
         NotifyHiddenBranches();
+        OnPropertyChanged(nameof(IsLoading));
         _ = ReloadAsync();
     }
 
@@ -799,18 +959,86 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     {
         RepositoryStateStamp before = RepositoryStateStamp.Of(RepositoryContext);
 
-        await _tools.ShowAsync(dialog).ConfigureAwait(true);
+        string? reveal = await _tools.ShowAsync(dialog).ConfigureAwait(true);
 
         if (IsRepositoryOpen && before != RepositoryStateStamp.Of(RepositoryContext))
         {
             await ReloadAsync().ConfigureAwait(true);
         }
+
+        if (reveal is not null)
+        {
+            await RevealAsync(reveal).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Selects a commit's line, reading further pages of the history while it is not loaded yet — the
+    /// list then brings the selected line into view.
+    /// </summary>
+    /// <param name="sha">The commit.</param>
+    /// <returns><see langword="true"/> when the line was found and selected.</returns>
+    /// <remarks>
+    /// A commit the graph does not draw — only a hidden branch reaches it — is not found however far
+    /// the history is read, and the reader is told so rather than left looking at the old selection.
+    /// </remarks>
+    public async Task<bool> RevealAsync(string sha)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+
+        if (!IsRepositoryOpen)
+        {
+            return false;
+        }
+
+        // A read still under way is waited for: its rows are the ones to look through.
+        while (IsBusy)
+        {
+            await Task.Delay(10).ConfigureAwait(true);
+        }
+
+        while (true)
+        {
+            foreach (CommitRowViewModel row in Rows)
+            {
+                if (string.Equals(row.Sha, sha, StringComparison.Ordinal))
+                {
+                    IsDiffViewOpen = false;
+                    SelectedRow = row;
+                    return true;
+                }
+            }
+
+            if (!HasMore)
+            {
+                break;
+            }
+
+            int loaded = Rows.Count;
+            await LoadPageAsync(includeUncommittedRow: false).ConfigureAwait(true);
+
+            // A read that failed, or was superseded, brought nothing: stop rather than ask again.
+            if (Rows.Count == loaded)
+            {
+                break;
+            }
+        }
+
+        _infoBar.Notify(
+            "Not in the history",
+            HiddenBranchCount > 0
+                ? "The graph does not draw that commit: only branches hidden from the history reach it."
+                : "The graph does not draw that commit.",
+            InfoBarSeverity.Info);
+
+        return false;
     }
 
     /// <inheritdoc />
     protected override void OnBusyChanged()
     {
         LoadMoreCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsLoading));
     }
 
     private Task OnLoadMoreAsync() => LoadPageAsync(includeUncommittedRow: false);
@@ -837,12 +1065,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             bool dirty = includeUncommittedRow
                 && await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true);
 
+            // The stash is read with the first page and kept for the pages after it, so every page of
+            // one reading walks from the same entries.
+            IReadOnlyList<StashEntry>? stashes = _query.Skip == 0
+                ? await ReadStashesAsync(repository, cancellation.Token).ConfigureAwait(true)
+                : null;
+
             // A newer load may have taken over while git answered. Cancelling cannot take back an answer
             // git had already given, and the newer load has cleared the rows and adds its own
             // uncommitted row: this one must add nothing to its list.
             if (cancellation.IsCancellationRequested)
             {
                 return;
+            }
+
+            if (stashes is not null)
+            {
+                UseStashes(stashes);
             }
 
             if (dirty)
@@ -852,8 +1091,18 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
             // The hidden branches are read as each page is asked for, not kept in the query: a page
             // is always read with the set the reader sees now, and a change reloads from the top.
+            _walkedWithoutState = RepositoryContext.Head is null;
+
+            // Every stash entry is walked from its own commit: --all reaches only the newest, through
+            // refs/stash, and the older ones live in that reference's log.
+            CommitLogQuery query = _query with
+            {
+                ExcludedRefs = [.. ExcludedRefs()],
+                IncludedRevisions = [.. _stashList.Select(entry => entry.Sha)],
+            };
+
             CommitLogPage page = await _reader
-                .GetPageAsync(repository, _query with { ExcludedRefs = [.. ExcludedRefs()] }, cancellation.Token)
+                .GetPageAsync(repository, query, cancellation.Token)
                 .ConfigureAwait(true);
 
             // The repository may have been swapped while the read was in flight.
@@ -909,8 +1158,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     private void AppendPage(CommitLogPage page)
     {
+        RefDecorationIndex decorations = RepositoryContext.Decorations;
+        IReadOnlyList<GitCommit> commits = FoldStashes(page.Commits, decorations);
+
         GraphLayoutResult layout = CommitGraphLayout.Build(
-            GraphCommitInput.From(page.Commits),
+            GraphCommitInput.From(commits),
             _layoutCarry,
             new GraphLayoutOptions
             {
@@ -923,7 +1175,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         _layoutCarry = layout.State;
 
-        RefDecorationIndex decorations = RepositoryContext.Decorations;
         IReadOnlySet<string> excluded = ExcludedRefs();
         string headSha = RepositoryContext.Head?.Sha ?? string.Empty;
         DateTimeOffset now = DateTimeOffset.Now;
@@ -935,18 +1186,22 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             _drawnStamp = RepositoryStateStamp.Of(RepositoryContext);
         }
 
-        for (int index = 0; index < page.Commits.Count; index++)
+        // No state at all is not "no reference": it is a context that has not read them yet.
+        _drawnWithoutState |= RepositoryContext.Head is null;
+
+        for (int index = 0; index < commits.Count; index++)
         {
-            GitCommit commit = page.Commits[index];
+            GitCommit commit = commits[index];
 
             Rows.Add(new CommitRowViewModel(
                 commit,
                 layout.Rows[index],
-                WithoutHidden(decorations.GetRefs(commit.Sha), excluded),
+                WithoutStashRef(WithoutHidden(decorations.GetRefs(commit.Sha), excluded)),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
                 now,
                 RowCommands,
-                _absoluteDates));
+                _absoluteDates,
+                _stashBySha.GetValueOrDefault(commit.Sha)));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
@@ -957,6 +1212,98 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         // The rows that just arrived have never been looked at by the search.
         MarkMatches();
+    }
+
+    /// <summary>
+    /// Reads the stash, which is never worth interrupting the history for: a stash that cannot be
+    /// read is drawn as no stash.
+    /// </summary>
+    private async Task<IReadOnlyList<StashEntry>> ReadStashesAsync(RepositoryHandle repository, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _stashes.ListAsync(repository, cancellationToken).ConfigureAwait(true);
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogWarning(exception, "The stash of {Repository} could not be read", repository.WorkTreePath);
+            return [];
+        }
+    }
+
+    private void UseStashes(IReadOnlyList<StashEntry> stashes)
+    {
+        _stashList = stashes;
+        _stashBySha = new Dictionary<string, StashEntry>(StringComparer.Ordinal);
+
+        foreach (StashEntry entry in stashes)
+        {
+            _stashBySha.TryAdd(entry.Sha, entry);
+        }
+    }
+
+    /// <summary>
+    /// A page's commits as the graph draws them: each stash entry is one commit off the commit it was
+    /// made on, and the commits git records it with besides — its index, its untracked files — are
+    /// not lines of their own.
+    /// </summary>
+    /// <remarks>
+    /// git records a stash as a merge of the commit it was made on, a commit of the index and, with
+    /// untracked files, a root commit holding them. The log always reads a commit before its parents,
+    /// so an entry is met before those commits are, whichever page they fall on. One that a reference
+    /// happens to point at is kept: that reference's badge has to be drawn somewhere.
+    /// </remarks>
+    private IReadOnlyList<GitCommit> FoldStashes(IReadOnlyList<GitCommit> commits, RefDecorationIndex decorations)
+    {
+        if (_stashBySha.Count == 0 && _stashHelpers.Count == 0)
+        {
+            return commits;
+        }
+
+        List<GitCommit> folded = new(commits.Count);
+
+        foreach (GitCommit commit in commits)
+        {
+            if (_stashBySha.ContainsKey(commit.Sha))
+            {
+                for (int parent = 1; parent < commit.ParentShas.Count; parent++)
+                {
+                    _stashHelpers.Add(commit.ParentShas[parent]);
+                }
+
+                folded.Add(commit.ParentShas.Count > 1
+                    ? new GitCommit(commit.Sha, [commit.ParentShas[0]], commit.Author, commit.Committer, commit.Subject, commit.Body)
+                    : commit);
+
+                continue;
+            }
+
+            if (_stashHelpers.Contains(commit.Sha) && decorations.GetRefs(commit.Sha).Count == 0)
+            {
+                continue;
+            }
+
+            folded.Add(commit);
+        }
+
+        return folded;
+    }
+
+    /// <summary>
+    /// A row's badges without <c>refs/stash</c>: every stash line carries a badge naming its own entry,
+    /// the newest included.
+    /// </summary>
+    private static IReadOnlyList<GitRef> WithoutStashRef(IReadOnlyList<GitRef> refs)
+    {
+        foreach (GitRef reference in refs)
+        {
+            if (reference.Kind == GitRefKind.Stash)
+            {
+                return [.. refs.Where(candidate => candidate.Kind != GitRefKind.Stash)];
+            }
+        }
+
+        return refs;
     }
 
     /// <summary>
@@ -1309,6 +1656,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Merges a branch into the one checked out — the question the row's menu used to be able to ask of
     /// only one branch per line.
     /// </summary>
+    private async Task OnDropAsync(HistoryBranchDrop? drop, Core.Merging.FastForwardMode fastForward)
+    {
+        if (drop is not { CanDrop: true })
+        {
+            return;
+        }
+
+        if (await _dropOperations.DropAsync(drop.Request, fastForward).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
     private async Task OnMergeIntoCurrentAsync(HistoryBranchViewModel? branch)
     {
         if (branch is null || !branch.CanMergeIntoCurrent || BranchCommands.CurrentBranch() is not { } current)
@@ -1490,6 +1850,28 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(HasUncommittedChanges));
+        StashCommand.NotifyCanExecuteChanged();
+    }
+
+    // ---------------------------------------------------------------- the stash
+
+    private static bool IsStashLine(CommitRowViewModel? row) => row?.Stash is not null;
+
+    private async Task OnStashAsync()
+    {
+        if (await _stashOperations.StashAsync().ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnStashLineAsync(CommitRowViewModel? row, Func<StashEntry, Task<bool>> operation)
+    {
+        if (row?.Stash is { } entry && await operation(entry).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
     }
 
     /// <summary>

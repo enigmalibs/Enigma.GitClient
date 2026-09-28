@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ISyncOperations, SyncOperations>();
             services.AddSingleton<IMergeOperations, MergeOperations>();
             services.AddSingleton<IBranchDropOperations, BranchDropOperations>();
+            services.AddSingleton<IStashOperations, StashOperations>();
             services.AddSingleton<IHostLinkService, HostLinkService>();
             services.AddSingleton<IHostRepositoryBrowser, HostRepositoryBrowser>();
 

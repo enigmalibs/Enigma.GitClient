@@ -371,7 +371,7 @@ public sealed class HistoryMergeSourceTests
     }
 
     [Fact]
-    public void Badges_AreBranchesWithAMenuAndEverythingElseWithout()
+    public void Badges_AreBranchesAndTagsWithAMenuAndEverythingElseWithout()
     {
         _fixture.RunAsync(async () =>
         {
@@ -386,7 +386,10 @@ public sealed class HistoryMergeSourceTests
 
             Assert.Equal(3, line.Badges.Count);
             Assert.Equal(2, line.Badges.OfType<HistoryBranchViewModel>().Count());
-            Assert.Equal("v1.0.0", Assert.Single(line.Badges.OfType<RefBadgeItem>()).Name);
+
+            // A tag brings its own menu too — its name, to copy — so it is no plain badge any more.
+            Assert.Equal("v1.0.0", Assert.Single(line.Badges.OfType<HistoryTagViewModel>()).Name);
+            Assert.Empty(line.Badges.OfType<RefBadgeItem>());
         });
     }
 }

@@ -65,32 +65,69 @@
               BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
               BorderThickness="0,0,0,1"
               Padding="14,7">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+        <!-- On the row's border, whose background is what the pointer hits: a grid with no brush is
+             not hit-testable between its children, so the menu used to open only over the text. -->
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Select in the history"
+                      Command="{Binding SelectInHistoryCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="Crosshair" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Check out"
+                      Command="{Binding CheckoutCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="SignIn" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Merge into the current branch"
+                      Command="{Binding MergeCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="GitMerge" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="{Binding VisibilityHeader}"
+                      Command="{Binding ToggleVisibilityCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <Panel>
+                  <ei:Icon Kind="Eye" Classes="menu" IsVisible="{Binding IsHiddenInHistory}" />
+                  <ei:Icon Kind="EyeSlash" Classes="menu" IsVisible="{Binding !IsHiddenInHistory}" />
+                </Panel>
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Rename…"
+                      Command="{Binding RenameCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="PencilSimple" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Set upstream…"
+                      Command="{Binding SetUpstreamCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="LinkSimple" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Delete…"
+                      Command="{Binding DeleteCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="Trash" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </Border.ContextMenu>
 
-          <Grid.ContextMenu>
-            <ContextMenu>
-              <MenuItem Header="Check out"
-                        Command="{Binding CheckoutCommand}"
-                        CommandParameter="{Binding}" />
-              <MenuItem Header="Merge into the current branch"
-                        Command="{Binding MergeCommand}"
-                        CommandParameter="{Binding}" />
-              <MenuItem Header="{Binding VisibilityHeader}"
-                        Command="{Binding ToggleVisibilityCommand}"
-                        CommandParameter="{Binding}" />
-              <Separator />
-              <MenuItem Header="Rename…"
-                        Command="{Binding RenameCommand}"
-                        CommandParameter="{Binding}" />
-              <MenuItem Header="Set upstream…"
-                        Command="{Binding SetUpstreamCommand}"
-                        CommandParameter="{Binding}" />
-              <Separator />
-              <MenuItem Header="Delete…"
-                        Command="{Binding DeleteCommand}"
-                        CommandParameter="{Binding}" />
-            </ContextMenu>
-          </Grid.ContextMenu>
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
 
           <ei:Icon Grid.Column="0"
                    Kind="GitBranch"
@@ -242,7 +279,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
@@ -262,7 +299,31 @@
                  VerticalAlignment="Center"
                  AutomationProperties.Name="Filter branches" />
 
-        <Button Grid.Column="2"
+        <!-- The order of the lines within each group: by name or by date, and which way. -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="Sort by"
+                     VerticalAlignment="Center"
+                     FontSize="12"
+                     Classes="dim" />
+          <ComboBox Name="SortKey"
+                    ItemsSource="{Binding SortKeys}"
+                    SelectedItem="{Binding SortKey, Mode=TwoWay}"
+                    MinWidth="90"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Sort the branches by" />
+          <Button Name="SortDirection"
+                  Classes="toolbar"
+                  Command="{Binding ToggleSortDirectionCommand}"
+                  ToolTip.Tip="{Binding SortDirectionTip}"
+                  AutomationProperties.Name="{Binding SortDirectionTip}">
+            <Panel>
+              <ei:Icon Kind="SortAscending" Classes="toolbar" IsVisible="{Binding !IsSortDescending}" />
+              <ei:Icon Kind="SortDescending" Classes="toolbar" IsVisible="{Binding IsSortDescending}" />
+            </Panel>
+          </Button>
+        </StackPanel>
+
+        <Button Grid.Column="3"
                 Classes="toolbar"
                 Command="{Binding CreateBranchCommand}"
                 ToolTip.Tip="Create a branch"

@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Refs;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
@@ -28,7 +30,8 @@ public sealed class TagRowViewModel : ViewModelBase
     public TagRowViewModel(
         GitTag tag,
         AsyncRelayCommand<TagRowViewModel> checkout,
-        AsyncRelayCommand<TagRowViewModel> delete)
+        AsyncRelayCommand<TagRowViewModel> delete,
+        RelayCommand<TagRowViewModel>? selectInHistory = null)
     {
         ArgumentNullException.ThrowIfNull(tag);
         ArgumentNullException.ThrowIfNull(checkout);
@@ -37,6 +40,7 @@ public sealed class TagRowViewModel : ViewModelBase
         Tag = tag;
         CheckoutCommand = checkout;
         DeleteCommand = delete;
+        SelectInHistoryCommand = selectInHistory;
     }
 
     /// <summary>Gets the tag this row stands for.</summary>
@@ -72,6 +76,9 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <summary>Gets the command that deletes the tag.</summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteCommand { get; }
 
+    /// <summary>Gets the command that closes the dialog and selects the tagged commit in the history.</summary>
+    public RelayCommand<TagRowViewModel>? SelectInHistoryCommand { get; }
+
     /// <inheritdoc />
     public override string ToString() => Name;
 }
@@ -90,6 +97,11 @@ public sealed class TagsPageViewModel : PageViewModelBase
 {
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
+    private readonly ISettingsService _settings;
+    private readonly IToolDialogService _tools;
+
+    // Set while the order is being read from the settings, which must not be written back.
+    private bool _applyingSettings;
 
     /// <summary>
     /// Initialises a new instance.
@@ -100,14 +112,32 @@ public sealed class TagsPageViewModel : PageViewModelBase
     public TagsPageViewModel(
         IRepositoryContext repositoryContext,
         ITagOperations tagOperations,
-        ICheckoutOperations checkoutOperations)
+        ICheckoutOperations checkoutOperations,
+        ISettingsService settings,
+        IToolDialogService tools)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(tools);
 
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
+        _settings = settings;
+        _tools = tools;
+
+        // The history is under the dialog: selecting a line there closes it.
+        SelectInHistoryCommand = new RelayCommand<TagRowViewModel>(
+            row => _tools.RevealInHistory(row!.Tag.TargetSha),
+            row => row is { Tag.TargetSha.Length: > 0 });
+
+        // The order the reader chose last time — the tags' own, apart from the branches'.
+        ApplySort(settings.Current, rebuild: false);
+        settings.Changed += (_, e) => ApplySort(e.Settings, rebuild: true);
+        ToggleSortDirectionCommand = new RelayCommand(() => SortDirection = SortDirection == SortDirection.Ascending
+            ? SortDirection.Descending
+            : SortDirection.Ascending);
 
         CreateCommand = new AsyncRelayCommand(OnCreateAsync, () => IsRepositoryOpen);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
@@ -124,6 +154,70 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
     /// <summary>Gets what the filter box says it filters.</summary>
     public string SearchPlaceholder => "Filter tags";
+
+    // ---------------------------------------------------------------- the order
+
+    /// <summary>Gets what the lines can be ordered by, for the "Sort by" box.</summary>
+    public IReadOnlyList<RefSortKey> SortKeys { get; } = [RefSortKey.Date, RefSortKey.Name];
+
+    /// <summary>
+    /// Gets or sets what the lines are ordered by: the name, or the date of the tagged commit — the
+    /// date every line shows. Remembered in the settings.
+    /// </summary>
+    public RefSortKey SortKey
+    {
+        get;
+        set
+        {
+            if (!Enum.IsDefined(value) || !SetProperty(ref field, value))
+            {
+                return;
+            }
+
+            OnSortChanged();
+
+            if (!_applyingSettings)
+            {
+                _settings.Update(current => current with { TagSortKey = value });
+                Rebuild();
+            }
+        }
+    } = RefSortKey.Date;
+
+    /// <summary>Gets or sets which way the lines are ordered; remembered in the settings.</summary>
+    public SortDirection SortDirection
+    {
+        get;
+        set
+        {
+            if (!Enum.IsDefined(value) || !SetProperty(ref field, value))
+            {
+                return;
+            }
+
+            OnSortChanged();
+
+            if (!_applyingSettings)
+            {
+                _settings.Update(current => current with { TagSortDirection = value });
+                Rebuild();
+            }
+        }
+    } = SortDirection.Descending;
+
+    /// <summary>Gets a value indicating whether the lines run Z to A, newest first.</summary>
+    public bool IsSortDescending => SortDirection == SortDirection.Descending;
+
+    /// <summary>Gets what the direction button says: the order now, and that a click reverses it.</summary>
+    public string SortDirectionTip => $"{RefSort.Describe(SortKey, SortDirection)} — click to reverse";
+
+    /// <summary>Gets the command that reverses the order.</summary>
+    public RelayCommand ToggleSortDirectionCommand { get; }
+
+    /// <summary>
+    /// Gets the command that closes the dialog and selects a tagged commit in the history under it.
+    /// </summary>
+    public RelayCommand<TagRowViewModel> SelectInHistoryCommand { get; }
 
     /// <summary>
     /// Gets or sets the tag the reader has selected.
@@ -217,18 +311,54 @@ public sealed class TagsPageViewModel : PageViewModelBase
     /// keystroke in the filter box. A tag that is gone — deleted, filtered out — takes the selection
     /// with it.
     /// </remarks>
+    /// <summary>
+    /// Takes the order from the settings: the one remembered, or one changed elsewhere — a reset of
+    /// every preference, say.
+    /// </summary>
+    /// <param name="settings">The settings.</param>
+    /// <param name="rebuild">Whether to redraw the lines; not while the page is still being built.</param>
+    private void ApplySort(AppSettings settings, bool rebuild)
+    {
+        if (settings.TagSortKey == SortKey && settings.TagSortDirection == SortDirection)
+        {
+            return;
+        }
+
+        _applyingSettings = true;
+
+        try
+        {
+            SortKey = settings.TagSortKey;
+            SortDirection = settings.TagSortDirection;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        if (rebuild)
+        {
+            Rebuild();
+        }
+    }
+
+    private void OnSortChanged()
+    {
+        OnPropertyChanged(nameof(IsSortDescending));
+        OnPropertyChanged(nameof(SortDirectionTip));
+    }
+
     private void Rebuild()
     {
         string? selected = SelectedTag?.Name;
 
         Tags.Clear();
 
-        foreach (GitTag tag in RepositoryContext.Refs.Tags)
+        IEnumerable<GitTag> matching = RepositoryContext.Refs.Tags.Where(tag => Matches(tag.ShortName));
+
+        foreach (GitTag tag in RefSort.Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection))
         {
-            if (Matches(tag.ShortName))
-            {
-                Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand));
-            }
+            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand));
         }
 
         SelectedTag = selected is null

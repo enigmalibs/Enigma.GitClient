@@ -175,6 +175,13 @@ public sealed class DiffService : IDiffService
     {
         ArgumentNullException.ThrowIfNull(file);
 
+        // git diff knows nothing of a file git has never been told about, and prints nothing for it:
+        // the file is compared with nothing instead, which is what a commit that added it shows.
+        if (file.IsUntracked && target.Kind is DiffTargetKind.WorkingTree or DiffTargetKind.Uncommitted)
+        {
+            return GetUntrackedPatchAsync(repository, file.Path, options, cancellationToken);
+        }
+
         List<string> paths = [file.Path];
 
         // The rename's other side, so git can still pair the two halves inside the pathspec.
@@ -225,6 +232,65 @@ public sealed class DiffService : IDiffService
         }
 
         return patch.Files[0];
+    }
+
+    private async Task<FilePatch?> GetUntrackedPatchAsync(
+        RepositoryHandle repository,
+        string path,
+        DiffOptions? options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        DiffOptions effective = options ?? DiffOptions.Default;
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, BuildUntrackedArguments(effective, path));
+
+        GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken).ConfigureAwait(false);
+
+        // --no-index answers like diff(1): 1 is "they differ", which a file compared with nothing does.
+        if (result.ExitCode is not (0 or 1))
+        {
+            throw new GitCommandException(command, result.ExitCode, result.StandardError, result.StandardOutput);
+        }
+
+        PatchSet patch = UnifiedDiffParser.Parse(result.StandardOutput, effective.Parsing);
+
+        return patch.Files.Count == 0 ? null : patch.Files[0];
+    }
+
+    /// <summary>
+    /// Builds the command line that compares an untracked file with nothing.
+    /// </summary>
+    /// <param name="options">The context, whitespace and parsing options.</param>
+    /// <param name="path">The file, relative to the work tree.</param>
+    /// <returns>The arguments, starting with <c>diff</c>.</returns>
+    /// <remarks>
+    /// <c>/dev/null</c> is git's own name for "no file" on every platform, Windows included. Renames and
+    /// copies mean nothing between one file and none, so they are not asked for.
+    /// </remarks>
+    public static List<string> BuildUntrackedArguments(DiffOptions options, string path)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<string> arguments = ["diff", "--no-index", "--patch"];
+
+        if (options.IgnoreAllWhitespace)
+        {
+            arguments.Add("--ignore-all-space");
+        }
+
+        if (options.IgnoreBlankLines)
+        {
+            arguments.Add("--ignore-blank-lines");
+        }
+
+        arguments.Add($"--unified={options.ContextLines.ToString(CultureInfo.InvariantCulture)}");
+        arguments.Add("--");
+        arguments.Add("/dev/null");
+        arguments.Add(path);
+
+        return arguments;
     }
 
     private async Task<GitResult> RunAsync(

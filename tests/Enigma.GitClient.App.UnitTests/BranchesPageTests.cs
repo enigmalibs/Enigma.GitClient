@@ -166,6 +166,9 @@ public sealed class BranchesPageTests
 
     private static async Task<BranchesPageViewModel> OpenAsync(TestServices services, RepositoryHandle repository)
     {
+        // These tests are about the rows, not their order, and find them among the realised ones.
+        services.OrderListsByName();
+
         await services.Get<IRepositoryContext>().OpenAsync(repository);
 
         BranchesPageViewModel page = services.Get<BranchesPageViewModel>();
@@ -922,6 +925,7 @@ public sealed class BranchesPageTests
                 .Select(item => item.Header?.ToString() ?? string.Empty)];
 
             Assert.Equal(3, headers.Length);
+            Assert.All(menu.ItemsSource!.OfType<MenuItem>(), item => Assert.IsType<Icon>(item.Icon));
             Assert.All(headers, header =>
             {
                 Assert.Contains("unmerged", header, StringComparison.Ordinal);

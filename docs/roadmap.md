@@ -174,3 +174,23 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5CD8 | Release 3.0.0                           | DONE   | docs/plan/FEATURE-5CD8.md |
 | BUG-6B9E     | Graph stays stale after a push          | DONE   | docs/plan/BUG-6B9E.md     |
 | FEATURE-2408 | Release 3.0.0 with the refresh fix      | DONE   | docs/plan/FEATURE-2408.md |
+| BUG-6CE0     | History badges arrive late              | DONE   | docs/plan/BUG-6CE0.md     |
+| - PHASE01    | Badges as soon as the refs arrive       | DONE   | (in BUG-6CE0.md)          |
+| - PHASE02    | A loader at the top of the history      | DONE   | (in BUG-6CE0.md)          |
+| FEATURE-292D | A resizable graph column                | DONE   | docs/plan/FEATURE-292D.md |
+| BUG-58A7     | Azure DevOps sign-in answers 400        | DONE   | docs/plan/BUG-58A7.md     |
+| FEATURE-2074 | Stashes like GitKraken                  | DONE   | docs/plan/FEATURE-2074.md |
+| - PHASE01    | One line per stash in the history       | DONE   | (in FEATURE-2074.md)      |
+| - PHASE02    | Stash operations aware of conflicts     | DONE   | (in FEATURE-2074.md)      |
+| - PHASE03    | Stashing from the history               | DONE   | (in FEATURE-2074.md)      |
+| FEATURE-7762 | Drag a branch to merge it               | DONE   | docs/plan/FEATURE-7762.md |
+| FEATURE-3E5D | Sort branches and tags                  | DONE   | docs/plan/FEATURE-3E5D.md |
+| - PHASE01    | Sorting the branches                    | DONE   | (in FEATURE-3E5D.md)      |
+| - PHASE02    | Sorting the tags                        | DONE   | (in FEATURE-3E5D.md)      |
+| FEATURE-5860 | Context menus that do more              | DONE   | docs/plan/FEATURE-5860.md |
+| - PHASE01    | A line's menu opens anywhere on it      | DONE   | (in FEATURE-5860.md)      |
+| - PHASE02    | Copy names and hashes from the history  | DONE   | (in FEATURE-5860.md)      |
+| - PHASE03    | Select the line in the history          | DONE   | (in FEATURE-5860.md)      |
+| - PHASE04    | Icons on the important operations       | DONE   | (in FEATURE-5860.md)      |
+| BUG-28E4     | Untracked file diff is empty            | DONE   | docs/plan/BUG-28E4.md     |
+| FEATURE-6DDD | Release 3.1.0                           | DONE   | docs/plan/FEATURE-6DDD.md |

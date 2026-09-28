@@ -35,6 +35,11 @@
     <Setter Property="Size" Value="12" />
   </Style>
 
+  <!-- Beside a context menu's item: the size the menu's icon column is laid out for. -->
+  <Style Selector="ei|Icon.menu">
+    <Setter Property="Size" Value="16" />
+  </Style>
+
   <!--
     Toolbar buttons: the actions that sit on a surface strip. FluentTheme's default button paints a
     filled plate in every state, which reads as a box floating on the strip; a toolbar button is
