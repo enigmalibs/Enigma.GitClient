@@ -1,6 +1,6 @@
 # FEATURE-2074 — Stashes like GitKraken
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-stash-menus-release
@@ -107,7 +107,7 @@ And draw each stash as GitKraken does: **one** line, carrying the stash icon.
 ## PHASE03 — Stashing from the history
 
 **Branch:** `feature/feature-2074-phase03-stash-in-history`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2074-PHASE03.md`
 
 ### Steps
 

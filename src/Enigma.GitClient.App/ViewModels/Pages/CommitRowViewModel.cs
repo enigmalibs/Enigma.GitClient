@@ -59,7 +59,21 @@ public sealed record HistoryRowCommands(
     HistoryBranchCommands? Branches = null,
     AsyncRelayCommand<HistoryResetRequest>? ResetSoft = null,
     AsyncRelayCommand<HistoryResetRequest>? ResetHard = null,
-    Func<string?>? CurrentBranch = null);
+    Func<string?>? CurrentBranch = null,
+    HistoryStashCommands? Stashes = null);
+
+/// <summary>
+/// The stash's commands, as the history's lines offer them.
+/// </summary>
+/// <param name="StashAll">Puts every uncommitted change on the stash; offered on the uncommitted line.</param>
+/// <param name="Apply">Brings a stash line's changes back and keeps it.</param>
+/// <param name="Pop">Brings a stash line's changes back and removes it, unless they conflict.</param>
+/// <param name="Drop">Deletes a stash line's entry, after asking.</param>
+public sealed record HistoryStashCommands(
+    AsyncRelayCommand<CommitRowViewModel> StashAll,
+    AsyncRelayCommand<CommitRowViewModel> Apply,
+    AsyncRelayCommand<CommitRowViewModel> Pop,
+    AsyncRelayCommand<CommitRowViewModel> Drop);
 
 /// <summary>
 /// What a reset item of a history line's menu asks for: the line, and the branch the item was named
@@ -290,6 +304,28 @@ public sealed class CommitRowViewModel : ViewModelBase
             }
 
             entries.Add(new HistoryMenuEntry("Show what it changed", commands.ShowChanges, this));
+
+            // A stash is not a commit anyone builds on: GitKraken offers it its own three actions and
+            // nothing else, and branching from or resetting to git's record of it is a trap.
+            if (IsStash)
+            {
+                if (commands.Stashes is { } stash)
+                {
+                    entries.Add(HistoryMenuEntry.Separator);
+                    entries.Add(new HistoryMenuEntry("Apply stash", stash.Apply, this));
+                    entries.Add(new HistoryMenuEntry("Pop stash", stash.Pop, this));
+                    entries.Add(HistoryMenuEntry.Separator);
+                    entries.Add(new HistoryMenuEntry("Delete stash…", stash.Drop, this));
+                }
+
+                return entries;
+            }
+
+            if (IsUncommitted && commands.Stashes is { } stashes)
+            {
+                entries.Add(new HistoryMenuEntry("Stash all changes…", stashes.StashAll, this));
+            }
+
             entries.Add(HistoryMenuEntry.Separator);
             entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this));
             entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this));

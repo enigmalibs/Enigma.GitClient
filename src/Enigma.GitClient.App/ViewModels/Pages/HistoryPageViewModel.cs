@@ -51,6 +51,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IToolDialogService _tools;
     private readonly IHiddenBranches _hidden;
     private readonly IStashService _stashes;
+    private readonly IStashOperations _stashOperations;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -118,6 +119,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IToolDialogService tools,
         IHiddenBranches hidden,
         IStashService stashes,
+        IStashOperations stashOperations,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -138,6 +140,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(hidden);
         ArgumentNullException.ThrowIfNull(stashes);
+        ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -157,6 +160,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _hidden = hidden;
         _hidden.Changed += (_, _) => OnHiddenBranchesChanged();
         _stashes = stashes;
+        _stashOperations = stashOperations;
 
         ApplySettings(settings.Current);
         settings.Changed += (_, e) => ApplySettings(e.Settings);
@@ -200,7 +204,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<HistoryResetRequest>(
                 request => OnResetAsync(request, ResetMode.Hard),
                 request => request?.Row.Commit is not null),
-            () => RepositoryContext.Head is { IsDetached: false, IsUnborn: false } head ? head.BranchName : null);
+            () => RepositoryContext.Head is { IsDetached: false, IsUnborn: false } head ? head.BranchName : null,
+            new HistoryStashCommands(
+                new AsyncRelayCommand<CommitRowViewModel>(_ => OnStashAsync(), row => row is { IsUncommitted: true }),
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.ApplyAsync), IsStashLine),
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.PopAsync), IsStashLine),
+                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)));
+
+        StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
         Files = new ChangedFilesPanelViewModel(interop, settings)
         {
@@ -493,6 +504,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets a value indicating whether the list has nothing to show.
     /// </summary>
     public bool IsEmpty => Rows.Count == 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the history shows uncommitted changes — the line at its top —
+    /// which is what there is to stash.
+    /// </summary>
+    public bool HasUncommittedChanges => Rows.Count > 0 && Rows[0].IsUncommitted;
+
+    /// <summary>
+    /// Gets the command that puts every uncommitted change on the stash, from the toolbar.
+    /// </summary>
+    public AsyncRelayCommand StashCommand { get; }
 
     /// <summary>
     /// Gets a value indicating whether the history is still reading something it will draw: its
@@ -1712,6 +1734,28 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(HasUncommittedChanges));
+        StashCommand.NotifyCanExecuteChanged();
+    }
+
+    // ---------------------------------------------------------------- the stash
+
+    private static bool IsStashLine(CommitRowViewModel? row) => row?.Stash is not null;
+
+    private async Task OnStashAsync()
+    {
+        if (await _stashOperations.StashAsync().ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnStashLineAsync(CommitRowViewModel? row, Func<StashEntry, Task<bool>> operation)
+    {
+        if (row?.Stash is { } entry && await operation(entry).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
     }
 
     /// <summary>
