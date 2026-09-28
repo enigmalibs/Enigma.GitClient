@@ -5,13 +5,10 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
-using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Panels;
-using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Commits;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
@@ -654,10 +651,11 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         IReadOnlyList<string> paths = PathsOf(node);
 
-        bool confirmed = await ConfirmAsync(
+        bool confirmed = await _dialogs.ConfirmDestructiveAsync(
             "Discard changes",
             $"Throw away the changes to {Count(paths.Count)}? This cannot be undone.\n\n"
-            + string.Join('\n', paths)).ConfigureAwait(true);
+            + string.Join('\n', paths),
+            "Discard").ConfigureAwait(true);
 
         if (!confirmed)
         {
@@ -671,9 +669,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     private async Task OnDiscardAllAsync()
     {
-        RepositoryHandle? repository = RepositoryContext.Repository;
-
-        if (repository is null)
+        if (RepositoryContext.Repository is null)
         {
             return;
         }
@@ -690,52 +686,14 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             return;
         }
 
-        string name = System.IO.Path.GetFileName(repository.WorkTreePath.TrimEnd(
-            System.IO.Path.DirectorySeparatorChar,
-            System.IO.Path.AltDirectorySeparatorChar));
+        // A plain question, confirmed in red: a hand can still click by accident, but the harmless
+        // button is the default and the button that loses the work says so in its colour.
+        bool confirmed = await _dialogs.ConfirmDestructiveAsync(
+            "Discard everything",
+            $"Throw away every change in {Count(paths.Count)}? This cannot be undone.",
+            "Discard everything").ConfigureAwait(true);
 
-        // The one genuinely unrecoverable bulk action in the client, so it asks for the repository's
-        // name to be typed rather than for a click. A click is something a hand does by accident.
-        ConfirmTextDialogViewModel model = new(
-            $"This throws away every change in {Count(paths.Count)} and cannot be undone.",
-            name,
-            "Type the repository's name to confirm");
-
-        ConfirmTextDialogView view = new() { DataContext = model };
-
-        ContentDialog? shown = null;
-
-        void OnChanged(object? sender, EventArgs e)
-        {
-            if (shown is not null)
-            {
-                shown.IsPrimaryButtonEnabled = model.IsConfirmed;
-            }
-        }
-
-        model.ConfirmationChanged += OnChanged;
-
-        DialogResult result;
-
-        try
-        {
-            result = await _dialogs.ShowAsync(dialog =>
-            {
-                shown = dialog;
-                dialog.Title = "Discard everything";
-                dialog.Content = view;
-                dialog.PrimaryButtonText = "Discard everything";
-                dialog.CloseButtonText = "Cancel";
-                dialog.DefaultButton = DefaultButton.Close;
-                dialog.IsPrimaryButtonEnabled = false;
-            }).ConfigureAwait(true);
-        }
-        finally
-        {
-            model.ConfirmationChanged -= OnChanged;
-        }
-
-        if (result != DialogResult.Primary || !model.IsConfirmed)
+        if (!confirmed)
         {
             return;
         }
@@ -937,22 +895,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         int newline = text.IndexOf('\n', StringComparison.Ordinal);
 
         return (newline < 0 ? text : text[..newline]).TrimEnd('\r');
-    }
-
-    private async Task<bool> ConfirmAsync(string title, string message, string confirmText = "Discard")
-    {
-        DialogResult result = await _dialogs.ShowAsync(dialog =>
-        {
-            dialog.Title = title;
-            dialog.Content = message;
-            dialog.PrimaryButtonText = confirmText;
-            dialog.CloseButtonText = "Cancel";
-
-            // The harmless button is the default, as everywhere something can be lost.
-            dialog.DefaultButton = DefaultButton.Close;
-        }).ConfigureAwait(true);
-
-        return result == DialogResult.Primary;
     }
 
     private async Task<bool> RunAsync(

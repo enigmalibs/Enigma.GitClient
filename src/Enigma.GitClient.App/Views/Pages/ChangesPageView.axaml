@@ -86,8 +86,10 @@
                            FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <!-- Red, the colour of what cannot be undone, for as long as there is anything to lose. -->
                 <Button Grid.Column="1"
-                        Classes="toolbar"
+                        Name="DiscardAll"
+                        Classes="toolbar danger"
                         Command="{Binding DiscardAllCommand}"
                         ToolTip.Tip="Discard everything"
                         AutomationProperties.Name="Discard everything">

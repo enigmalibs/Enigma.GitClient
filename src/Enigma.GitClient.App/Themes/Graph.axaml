@@ -96,6 +96,14 @@
       <Color x:Key="ActionAccentHoverColor">#4C85F3</Color>
       <Color x:Key="ActionAccentPressedColor">#2B63D4</Color>
 
+      <!-- The colour of an action that throws work away, and of the button that confirms it: a red
+           dark enough to carry white text, which the theme package's own error red (a text colour)
+           is not. -->
+      <Color x:Key="ActionDangerColor">#D13438</Color>
+      <Color x:Key="ActionDangerHoverColor">#DE4A4E</Color>
+      <Color x:Key="ActionDangerPressedColor">#B02A2E</Color>
+      <Color x:Key="ActionDangerForegroundColor">#FFFFFF</Color>
+
       <!-- A history row the search found. A wash the eye can pick out of a long list while the
            selected row stays the obviously selected one, so it is well short of the selection.
            Three of them, because the wash sits on the row and therefore covers the container's own
@@ -174,6 +182,11 @@
       <Color x:Key="ActionAccentHoverColor">#2757C4</Color>
       <Color x:Key="ActionAccentPressedColor">#204AA8</Color>
 
+      <Color x:Key="ActionDangerColor">#C42B1C</Color>
+      <Color x:Key="ActionDangerHoverColor">#A82518</Color>
+      <Color x:Key="ActionDangerPressedColor">#8F1F14</Color>
+      <Color x:Key="ActionDangerForegroundColor">#FFFFFF</Color>
+
       <Color x:Key="SearchMatchColor">#FBF0C2</Color>
       <Color x:Key="SearchMatchHoverColor">#F3E3A0</Color>
       <Color x:Key="SearchMatchSelectedColor">#E8D178</Color>
@@ -247,5 +260,10 @@
   <SolidColorBrush x:Key="ActionAccentForegroundBrush" Color="{DynamicResource ActionAccentForegroundColor}" />
   <SolidColorBrush x:Key="ActionAccentHoverBrush" Color="{DynamicResource ActionAccentHoverColor}" />
   <SolidColorBrush x:Key="ActionAccentPressedBrush" Color="{DynamicResource ActionAccentPressedColor}" />
+
+  <SolidColorBrush x:Key="ActionDangerBrush" Color="{DynamicResource ActionDangerColor}" />
+  <SolidColorBrush x:Key="ActionDangerHoverBrush" Color="{DynamicResource ActionDangerHoverColor}" />
+  <SolidColorBrush x:Key="ActionDangerPressedBrush" Color="{DynamicResource ActionDangerPressedColor}" />
+  <SolidColorBrush x:Key="ActionDangerForegroundBrush" Color="{DynamicResource ActionDangerForegroundColor}" />
 
 </ResourceDictionary>

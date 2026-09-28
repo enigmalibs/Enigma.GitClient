@@ -114,7 +114,6 @@ public static class ServiceCollectionExtensions
             services.AddTransient<RenameBranchDialogView>();
             services.AddTransient<SetUpstreamDialogView>();
             services.AddTransient<CreateTagDialogView>();
-            services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
             services.AddTransient<AddHostAccountDialogView>();
             services.AddTransient<HostRepositoriesDialogView>();

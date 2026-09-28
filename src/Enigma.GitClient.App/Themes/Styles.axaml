@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+        xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
         xmlns:diff="using:Enigma.GitClient.App.Controls.Diff">
 
   <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
@@ -534,6 +535,73 @@
 
   <Style Selector="Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+  </Style>
+
+  <!--
+    Red: an action that throws work away, and the button that confirms it. The same red in both places,
+    so the question looks like the button that asked it.
+
+    A toolbar button in red is red only while it can be pressed. Disabled, it is the ordinary disabled
+    toolbar button, because a red button that does nothing would say "careful" about nothing.
+  -->
+  <Style Selector="Button.toolbar.danger">
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerHoverBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerPressedBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!--
+    A question whose answer throws work away confirms in red. The class is put on the dialog host for
+    that one question and taken off again (ContentDialogServiceExtensions.ConfirmDestructiveAsync):
+    the host is shared by every dialog of the window, and its service does not reset its classes.
+    After the accent styles above, which the confirm button, an accent button, would otherwise take.
+  -->
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerPressedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
   </Style>
 
   <!-- A counter that has passed its guide says so by colour rather than by a second control. -->

@@ -309,4 +309,58 @@ public sealed class ToolbarButtonLookTests
             }
         });
     }
+
+    [Fact]
+    public void ADangerButton_IsRedWithAWhiteGlyph_AndPlainWhenItCannotBePressed()
+    {
+        _fixture.Run(() =>
+        {
+            Icon icon = new() { Kind = PhosphorIcon.TrashSimple, Classes = { "toolbar" } };
+            Button button = new() { Classes = { "toolbar", "danger" }, Content = icon };
+            Window window = Show(button);
+
+            ContentPresenter presenter = Presenter(button);
+
+            Assert.Same(Brush("ActionDangerBrush"), presenter.Background);
+            Assert.Same(Brush("ActionDangerForegroundBrush"), icon.Foreground);
+
+            ((IPseudoClasses)button.Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+            Assert.Same(Brush("ActionDangerHoverBrush"), presenter.Background);
+
+            ((IPseudoClasses)button.Classes).Set(":pressed", true);
+            window.UpdateLayout();
+            Assert.Same(Brush("ActionDangerPressedBrush"), presenter.Background);
+
+            ((IPseudoClasses)button.Classes).Set(":pointerover", false);
+            ((IPseudoClasses)button.Classes).Set(":pressed", false);
+
+            // Nothing to lose: the ordinary disabled toolbar button, not a red one that does nothing.
+            button.IsEnabled = false;
+            window.UpdateLayout();
+
+            Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color);
+            AssertDisabledLook(button, icon);
+
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData("Dark")]
+    [InlineData("Light")]
+    public void TheDangerRed_IsDefinedInBothThemes(string variant)
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant theme = variant == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+
+            foreach (string key in new[] { "ActionDangerColor", "ActionDangerHoverColor", "ActionDangerPressedColor", "ActionDangerForegroundColor" })
+            {
+                Assert.True(application.TryFindResource(key, theme, out object? colour), $"{key} ({variant})");
+                Assert.IsType<Color>(colour);
+            }
+        });
+    }
 }
