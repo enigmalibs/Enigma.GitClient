@@ -45,6 +45,19 @@
               <TextBlock Text="Create" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
+
+          <!-- About, at the end of the start window's one toolbar — where the repository window's
+               strip ends with it too — set apart from the actions on the repositories. -->
+          <Border Width="1"
+                  Margin="4,6"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+          <Button Name="OpenAbout"
+                  Classes="toolbar"
+                  Command="{Binding OpenAboutCommand}"
+                  ToolTip.Tip="About"
+                  AutomationProperties.Name="About Enigma git client">
+            <ei:Icon Kind="Info" Classes="toolbar" />
+          </Button>
         </StackPanel>
       </Grid>
     </Border>
