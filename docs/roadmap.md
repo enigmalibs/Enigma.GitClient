@@ -196,7 +196,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6DDD | Release 3.1.0                           | DONE   | docs/plan/FEATURE-6DDD.md |
 | BUG-EEC1     | Start page empty state not centred      | DONE   | docs/plan/BUG-EEC1.md     |
 | FEATURE-49E4 | About in the start window               | DONE   | docs/plan/FEATURE-49E4.md |
-| BUG-A303     | File line menus only open on the text   | TODO   | docs/plan/BUG-A303.md     |
+| BUG-A303     | File line menus only open on the text   | DONE   | docs/plan/BUG-A303.md     |
 | FEATURE-CC8E | Changes: way back, discards, commit box | TODO   | docs/plan/FEATURE-CC8E.md |
 | - PHASE01    | Back to the history, in blue            | TODO   | (in FEATURE-CC8E.md)      |
 | - PHASE02    | Red discards, one plain question        | TODO   | (in FEATURE-CC8E.md)      |
