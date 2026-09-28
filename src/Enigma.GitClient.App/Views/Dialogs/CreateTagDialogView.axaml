@@ -12,7 +12,7 @@
                  FontSize="12"
                  Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
       <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-               PlaceholderText="v1.0.0"
+               PlaceholderText="1.0.0"
                AutomationProperties.Name="Tag name" />
     </StackPanel>
 
