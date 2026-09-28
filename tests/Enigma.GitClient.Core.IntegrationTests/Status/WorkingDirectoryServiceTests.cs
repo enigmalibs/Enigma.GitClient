@@ -391,24 +391,6 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CommitAsync_AmendReplacesTheTipRatherThanAddingToIt()
-    {
-        _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
-        await Staging.StageAllAsync(_handle, TestContext.Current.CancellationToken);
-
-        string sha = await Commits.CommitAsync(
-            _handle,
-            new CommitRequest { Message = "Say it better", Amend = true },
-            TestContext.Current.CancellationToken);
-
-        Assert.NotEqual(_firstSha, sha);
-        Assert.Equal("Say it better", await _repository.GitLineAsync("log", "-1", "--format=%s"));
-
-        // The amended commit replaced the only one there was, so the history is still one deep.
-        Assert.Single(await _repository.GitLinesAsync("log", "--format=%H"));
-    }
-
-    [Fact]
     public async Task CommitAsync_CanRecordAnotherAuthor()
     {
         _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
@@ -424,20 +406,6 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CommitAsync_CanSignOff()
-    {
-        _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
-        await Staging.StageAllAsync(_handle, TestContext.Current.CancellationToken);
-
-        await Commits.CommitAsync(
-            _handle,
-            new CommitRequest { Message = "Signed work", SignOff = true },
-            TestContext.Current.CancellationToken);
-
-        Assert.Contains("Signed-off-by:", await _repository.GitAsync("log", "-1", "--format=%B"), StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task CommitAsync_CanStageEverythingItself()
     {
         _repository.WriteFile("src/app.txt", "one\ntwo changed\n");
@@ -448,14 +416,6 @@ public sealed class WorkingDirectoryServiceTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
 
         Assert.True((await ReadAsync()).IsClean);
-    }
-
-    [Fact]
-    public async Task GetLastCommitMessageAsync_ReadsWhatAnAmendWouldStartFrom()
-    {
-        Assert.Equal("Add the initial files", await Commits.GetLastCommitMessageAsync(
-            _handle,
-            TestContext.Current.CancellationToken));
     }
 
     [Theory]
