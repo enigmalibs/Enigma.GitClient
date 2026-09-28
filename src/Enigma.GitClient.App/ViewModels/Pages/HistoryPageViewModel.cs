@@ -959,12 +959,79 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     {
         RepositoryStateStamp before = RepositoryStateStamp.Of(RepositoryContext);
 
-        await _tools.ShowAsync(dialog).ConfigureAwait(true);
+        string? reveal = await _tools.ShowAsync(dialog).ConfigureAwait(true);
 
         if (IsRepositoryOpen && before != RepositoryStateStamp.Of(RepositoryContext))
         {
             await ReloadAsync().ConfigureAwait(true);
         }
+
+        if (reveal is not null)
+        {
+            await RevealAsync(reveal).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Selects a commit's line, reading further pages of the history while it is not loaded yet — the
+    /// list then brings the selected line into view.
+    /// </summary>
+    /// <param name="sha">The commit.</param>
+    /// <returns><see langword="true"/> when the line was found and selected.</returns>
+    /// <remarks>
+    /// A commit the graph does not draw — only a hidden branch reaches it — is not found however far
+    /// the history is read, and the reader is told so rather than left looking at the old selection.
+    /// </remarks>
+    public async Task<bool> RevealAsync(string sha)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+
+        if (!IsRepositoryOpen)
+        {
+            return false;
+        }
+
+        // A read still under way is waited for: its rows are the ones to look through.
+        while (IsBusy)
+        {
+            await Task.Delay(10).ConfigureAwait(true);
+        }
+
+        while (true)
+        {
+            foreach (CommitRowViewModel row in Rows)
+            {
+                if (string.Equals(row.Sha, sha, StringComparison.Ordinal))
+                {
+                    IsDiffViewOpen = false;
+                    SelectedRow = row;
+                    return true;
+                }
+            }
+
+            if (!HasMore)
+            {
+                break;
+            }
+
+            int loaded = Rows.Count;
+            await LoadPageAsync(includeUncommittedRow: false).ConfigureAwait(true);
+
+            // A read that failed, or was superseded, brought nothing: stop rather than ask again.
+            if (Rows.Count == loaded)
+            {
+                break;
+            }
+        }
+
+        _infoBar.Notify(
+            "Not in the history",
+            HiddenBranchCount > 0
+                ? "The graph does not draw that commit: only branches hidden from the history reach it."
+                : "The graph does not draw that commit.",
+            InfoBarSeverity.Info);
+
+        return false;
     }
 
     /// <inheritdoc />

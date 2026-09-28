@@ -30,7 +30,8 @@ public sealed class TagRowViewModel : ViewModelBase
     public TagRowViewModel(
         GitTag tag,
         AsyncRelayCommand<TagRowViewModel> checkout,
-        AsyncRelayCommand<TagRowViewModel> delete)
+        AsyncRelayCommand<TagRowViewModel> delete,
+        RelayCommand<TagRowViewModel>? selectInHistory = null)
     {
         ArgumentNullException.ThrowIfNull(tag);
         ArgumentNullException.ThrowIfNull(checkout);
@@ -39,6 +40,7 @@ public sealed class TagRowViewModel : ViewModelBase
         Tag = tag;
         CheckoutCommand = checkout;
         DeleteCommand = delete;
+        SelectInHistoryCommand = selectInHistory;
     }
 
     /// <summary>Gets the tag this row stands for.</summary>
@@ -74,6 +76,9 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <summary>Gets the command that deletes the tag.</summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteCommand { get; }
 
+    /// <summary>Gets the command that closes the dialog and selects the tagged commit in the history.</summary>
+    public RelayCommand<TagRowViewModel>? SelectInHistoryCommand { get; }
+
     /// <inheritdoc />
     public override string ToString() => Name;
 }
@@ -93,6 +98,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly ISettingsService _settings;
+    private readonly IToolDialogService _tools;
 
     // Set while the order is being read from the settings, which must not be written back.
     private bool _applyingSettings;
@@ -107,16 +113,24 @@ public sealed class TagsPageViewModel : PageViewModelBase
         IRepositoryContext repositoryContext,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
-        ISettingsService settings)
+        ISettingsService settings,
+        IToolDialogService tools)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(tools);
 
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _settings = settings;
+        _tools = tools;
+
+        // The history is under the dialog: selecting a line there closes it.
+        SelectInHistoryCommand = new RelayCommand<TagRowViewModel>(
+            row => _tools.RevealInHistory(row!.Tag.TargetSha),
+            row => row is { Tag.TargetSha.Length: > 0 });
 
         // The order the reader chose last time — the tags' own, apart from the branches'.
         ApplySort(settings.Current, rebuild: false);
@@ -199,6 +213,11 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that reverses the order.</summary>
     public RelayCommand ToggleSortDirectionCommand { get; }
+
+    /// <summary>
+    /// Gets the command that closes the dialog and selects a tagged commit in the history under it.
+    /// </summary>
+    public RelayCommand<TagRowViewModel> SelectInHistoryCommand { get; }
 
     /// <summary>
     /// Gets or sets the tag the reader has selected.
@@ -339,7 +358,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
         foreach (GitTag tag in RefSort.Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection))
         {
-            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand));
+            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand));
         }
 
         SelectedTag = selected is null
