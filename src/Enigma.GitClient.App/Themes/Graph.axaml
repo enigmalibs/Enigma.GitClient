@@ -91,6 +91,10 @@
            the theme package so it cannot quietly change out from under the button. -->
       <Color x:Key="ActionAccentColor">#3574F0</Color>
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
+      <!-- The same blue under the pointer and pressed, for the buttons painted in it that answer both
+           (the back buttons): lighter under the pointer on a dark page, darker once pressed. -->
+      <Color x:Key="ActionAccentHoverColor">#4C85F3</Color>
+      <Color x:Key="ActionAccentPressedColor">#2B63D4</Color>
 
       <!-- A history row the search found. A wash the eye can pick out of a long list while the
            selected row stays the obviously selected one, so it is well short of the selection.
@@ -167,6 +171,8 @@
 
       <Color x:Key="ActionAccentColor">#2E63D6</Color>
       <Color x:Key="ActionAccentForegroundColor">#FFFFFF</Color>
+      <Color x:Key="ActionAccentHoverColor">#2757C4</Color>
+      <Color x:Key="ActionAccentPressedColor">#204AA8</Color>
 
       <Color x:Key="SearchMatchColor">#FBF0C2</Color>
       <Color x:Key="SearchMatchHoverColor">#F3E3A0</Color>
@@ -239,5 +245,7 @@
 
   <SolidColorBrush x:Key="ActionAccentBrush" Color="{DynamicResource ActionAccentColor}" />
   <SolidColorBrush x:Key="ActionAccentForegroundBrush" Color="{DynamicResource ActionAccentForegroundColor}" />
+  <SolidColorBrush x:Key="ActionAccentHoverBrush" Color="{DynamicResource ActionAccentHoverColor}" />
+  <SolidColorBrush x:Key="ActionAccentPressedBrush" Color="{DynamicResource ActionAccentPressedColor}" />
 
 </ResourceDictionary>
