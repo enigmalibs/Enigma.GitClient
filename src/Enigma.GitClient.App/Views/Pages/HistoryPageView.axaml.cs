@@ -37,6 +37,7 @@ public partial class HistoryPageView : UserControl
         // things that change while the line is on screen — the host's name, read after the rows were.
         AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Tunnel);
 
+        Resizes(GraphGrip, HistoryColumn.Graph);
         Resizes(RefsGrip, HistoryColumn.Refs);
         Resizes(AuthorGrip, HistoryColumn.Author);
         Resizes(DateGrip, HistoryColumn.Date);

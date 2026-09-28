@@ -1232,6 +1232,78 @@ public sealed class HistoryPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the graph column
+
+    [Fact]
+    public void GraphColumn_FollowsTheLanesUntilTheReaderResizesIt()
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1200 };
+
+        columns.SeedGraphWidth(60);
+        Assert.Equal(60, columns.GraphWidth);
+        Assert.False(columns.IsGraphWidthOwnedByReader);
+
+        // A left-hand column: dragging its right edge to the right widens it.
+        double message = columns.MessageWidth;
+        columns.Resize(HistoryColumn.Graph, 30);
+
+        Assert.Equal(90, columns.GraphWidth);
+        Assert.Equal(message - 30, columns.MessageWidth, 1);
+        Assert.True(columns.IsGraphWidthOwnedByReader);
+
+        // More lanes loaded afterwards do not take the column back.
+        columns.SeedGraphWidth(140);
+        Assert.Equal(90, columns.GraphWidth);
+        Assert.Equal(90, columns.WidthOf(HistoryColumn.Graph));
+    }
+
+    [Fact]
+    public void GraphColumn_KeepsRoomForOneLaneAndGrowsOnlyIntoTheMessagesSpareRoom()
+    {
+        HistoryColumnLayout columns = new() { Viewport = 1000 };
+        columns.SeedGraphWidth(60);
+
+        columns.Resize(HistoryColumn.Graph, -500);
+        Assert.Equal(HistoryColumnLayout.MinimumWidth(HistoryColumn.Graph), columns.GraphWidth);
+
+        columns.Resize(HistoryColumn.Graph, 5000);
+        Assert.Equal(HistoryColumnLayout.MinimumMessageWidth, columns.MessageWidth, 1);
+    }
+
+    [Fact]
+    public void GraphColumn_HasATitledHeaderAndAGrip_AndTheRowsFollowItsWidth()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            Grid header = view.FindControl<Grid>("HeaderRow")
+                ?? throw new InvalidOperationException("The history page has no column header.");
+            Assert.NotNull(view.FindControl<global::Avalonia.Controls.Primitives.Thumb>("GraphGrip"));
+            Assert.Contains(
+                header.Children[0].GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text == "Graph");
+
+            double measured = model.GraphColumnWidth;
+            model.Columns.Resize(HistoryColumn.Graph, -(measured - HistoryColumnLayout.MinimumWidth(HistoryColumn.Graph)));
+            window.UpdateLayout();
+
+            AssertColumnsLineUp(header, workspace);
+
+            // Narrower than its lanes, every graph cell is clipped at the column's edge.
+            foreach (Grid row in RowGrids(workspace))
+            {
+                Control cell = row.Children[0];
+                Assert.Equal(HistoryColumnLayout.MinimumWidth(HistoryColumn.Graph), cell.Bounds.Width, 1);
+                Assert.True(cell.ClipToBounds);
+            }
+
+            window.Close();
+        });
+    }
+
     /// <summary>
     /// Asserts every row's cells sit at the same x as the header cell above them.
     /// </summary>

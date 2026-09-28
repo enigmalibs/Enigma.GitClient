@@ -1,6 +1,6 @@
 # FEATURE-292D — A resizable graph column
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-292D.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-292d-resizable-graph`
 **Run:** bugfix/2026-09-28-history-stash-menus-release
