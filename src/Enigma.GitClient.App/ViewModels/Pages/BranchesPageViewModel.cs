@@ -8,6 +8,7 @@ using Avalonia.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 
@@ -296,6 +297,10 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private readonly IMergeOperations _mergeOperations;
     private readonly IBranchDropOperations _dropOperations;
     private readonly IHiddenBranches _hidden;
+    private readonly ISettingsService _settings;
+
+    // Set while the order is being read from the settings, which must not be written back.
+    private bool _applyingSettings;
 
     // Every branch the manual merge can name, by name, as the last rebuild read them — the lists
     // are names, and what a merge needs to know about each (remote? checked out?) is looked up here.
@@ -316,7 +321,8 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
         IBranchDropOperations dropOperations,
-        IHiddenBranches hidden)
+        IHiddenBranches hidden,
+        ISettingsService settings)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
@@ -324,12 +330,22 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
         ArgumentNullException.ThrowIfNull(hidden);
+        ArgumentNullException.ThrowIfNull(settings);
 
         _operations = operations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
         _dropOperations = dropOperations;
         _hidden = hidden;
+        _settings = settings;
+
+        // The order the reader chose last time, and any change made to it since — the tags dialog's is
+        // a setting of its own, so nothing else moves this one.
+        ApplySort(settings.Current, rebuild: false);
+        settings.Changed += (_, e) => ApplySort(e.Settings, rebuild: true);
+        ToggleSortDirectionCommand = new RelayCommand(() => SortDirection = SortDirection == SortDirection.Ascending
+            ? SortDirection.Descending
+            : SortDirection.Ascending);
 
         ToggleVisibilityCommand = new RelayCommand<BranchRowViewModel>(
             row => _hidden.SetHidden(row!.Branch.FullName, !row.IsHiddenInHistory),
@@ -397,6 +413,66 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the selected branch, or <see langword="null"/> when none is selected.</summary>
     public BranchRowViewModel? SelectedBranch => SelectedItem as BranchRowViewModel;
+
+    // ---------------------------------------------------------------- the order
+
+    /// <summary>Gets what the lines can be ordered by, for the "Sort by" box.</summary>
+    public IReadOnlyList<RefSortKey> SortKeys { get; } = [RefSortKey.Date, RefSortKey.Name];
+
+    /// <summary>
+    /// Gets or sets what the lines are ordered by, within each group; remembered in the settings.
+    /// </summary>
+    public RefSortKey SortKey
+    {
+        get;
+        set
+        {
+            if (!Enum.IsDefined(value) || !SetProperty(ref field, value))
+            {
+                return;
+            }
+
+            OnSortChanged();
+
+            if (!_applyingSettings)
+            {
+                _settings.Update(current => current with { BranchSortKey = value });
+                Rebuild();
+            }
+        }
+    } = RefSortKey.Date;
+
+    /// <summary>
+    /// Gets or sets which way the lines are ordered; remembered in the settings.
+    /// </summary>
+    public SortDirection SortDirection
+    {
+        get;
+        set
+        {
+            if (!Enum.IsDefined(value) || !SetProperty(ref field, value))
+            {
+                return;
+            }
+
+            OnSortChanged();
+
+            if (!_applyingSettings)
+            {
+                _settings.Update(current => current with { BranchSortDirection = value });
+                Rebuild();
+            }
+        }
+    } = SortDirection.Descending;
+
+    /// <summary>Gets a value indicating whether the lines run Z to A, newest first.</summary>
+    public bool IsSortDescending => SortDirection == SortDirection.Descending;
+
+    /// <summary>Gets what the direction button says: the order now, and that a click reverses it.</summary>
+    public string SortDirectionTip => $"{RefSort.Describe(SortKey, SortDirection)} — click to reverse";
+
+    /// <summary>Gets the command that reverses the order.</summary>
+    public RelayCommand ToggleSortDirectionCommand { get; }
 
     /// <summary>
     /// Gets or sets a substring the shown branch names must contain.
@@ -609,6 +685,46 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// <summary>
     /// Rebuilds the groups from whatever the repository context last read.
     /// </summary>
+    /// <summary>
+    /// Takes the order from the settings: the one remembered, or one changed elsewhere — a reset of
+    /// every preference, say.
+    /// </summary>
+    /// <param name="settings">The settings.</param>
+    /// <param name="rebuild">Whether to redraw the lines; not while the page is still being built.</param>
+    private void ApplySort(AppSettings settings, bool rebuild)
+    {
+        if (settings.BranchSortKey == SortKey && settings.BranchSortDirection == SortDirection)
+        {
+            return;
+        }
+
+        _applyingSettings = true;
+
+        try
+        {
+            SortKey = settings.BranchSortKey;
+            SortDirection = settings.BranchSortDirection;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+
+        if (rebuild)
+        {
+            Rebuild();
+        }
+    }
+
+    private void OnSortChanged()
+    {
+        OnPropertyChanged(nameof(IsSortDescending));
+        OnPropertyChanged(nameof(SortDirectionTip));
+    }
+
+    private List<BranchRowViewModel> Sorted(IEnumerable<BranchRowViewModel> rows)
+        => RefSort.Order(rows, row => row.Name, row => row.Branch.TipDate, SortKey, SortDirection);
+
     private void Rebuild()
     {
         // Captured before the list is emptied: clearing a list tells its ListBox the selection is
@@ -636,7 +752,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         if (local.Count > 0)
         {
-            Groups.Add(new BranchGroupViewModel("Local", false, local));
+            Groups.Add(new BranchGroupViewModel("Local", false, Sorted(local)));
         }
 
         // One group per remote, in the order the remotes' branches were read, so a repository with
@@ -665,7 +781,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         foreach (string remote in order)
         {
-            Groups.Add(new BranchGroupViewModel(remote, true, byRemote[remote]));
+            Groups.Add(new BranchGroupViewModel(remote, true, Sorted(byRemote[remote])));
         }
 
         foreach (BranchGroupViewModel group in Groups)
