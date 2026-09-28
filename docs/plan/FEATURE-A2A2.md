@@ -71,7 +71,7 @@
 ## PHASE02 — Pushing one tag to the remote
 
 **Branch:** `feature/feature-a2a2-phase02-push-one-tag`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A2A2-PHASE02.md`
 
 ### Steps
 

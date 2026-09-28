@@ -387,6 +387,26 @@ public sealed class SyncParsingTests
         => Assert.Contains("origin", SyncService.BuildPushArguments(new PushRequest()));
 
     [Fact]
+    public void BuildPushTagArguments_NamesTheTagInFullOnBothSidesAndNeverForces()
+    {
+        List<string> arguments = SyncService.BuildPushTagArguments("origin", "1.0.0");
+
+        Assert.Equal(["push", "--progress", "origin", "refs/tags/1.0.0:refs/tags/1.0.0"], arguments);
+        Assert.DoesNotContain(arguments, argument => argument.StartsWith('+'));
+        Assert.DoesNotContain("--force", arguments);
+        Assert.DoesNotContain("--tags", arguments);
+        Assert.DoesNotContain("--follow-tags", arguments);
+    }
+
+    [Theory]
+    [InlineData("", "1.0.0")]
+    [InlineData("origin", "")]
+    [InlineData(" ", "1.0.0")]
+    [InlineData("--upload-pack=evil", "1.0.0")]
+    public void BuildPushTagArguments_RefusesWhatIsNotARemoteAndATag(string remote, string tag)
+        => Assert.ThrowsAny<ArgumentException>(() => SyncService.BuildPushTagArguments(remote, tag));
+
+    [Fact]
     public void BuildFastForwardArguments_NamesBothSidesInFullAndNeverForces()
     {
         List<string> arguments = SyncService.BuildFastForwardArguments("origin", "feature/login", "login");
