@@ -925,6 +925,7 @@ public sealed class BranchesPageTests
                 .Select(item => item.Header?.ToString() ?? string.Empty)];
 
             Assert.Equal(3, headers.Length);
+            Assert.All(menu.ItemsSource!.OfType<MenuItem>(), item => Assert.IsType<Icon>(item.Icon));
             Assert.All(headers, header =>
             {
                 Assert.Contains("unmerged", header, StringComparison.Ordinal);

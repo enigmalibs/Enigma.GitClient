@@ -71,28 +71,59 @@
           <ContextMenu>
             <MenuItem Header="Select in the history"
                       Command="{Binding SelectInHistoryCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="Crosshair" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Check out"
                       Command="{Binding CheckoutCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="SignIn" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="Merge into the current branch"
                       Command="{Binding MergeCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="GitMerge" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="{Binding VisibilityHeader}"
                       Command="{Binding ToggleVisibilityCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <Panel>
+                  <ei:Icon Kind="Eye" Classes="menu" IsVisible="{Binding IsHiddenInHistory}" />
+                  <ei:Icon Kind="EyeSlash" Classes="menu" IsVisible="{Binding !IsHiddenInHistory}" />
+                </Panel>
+              </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Rename…"
                       Command="{Binding RenameCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="PencilSimple" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="Set upstream…"
                       Command="{Binding SetUpstreamCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="LinkSimple" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Delete…"
                       Command="{Binding DeleteCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="Trash" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
           </ContextMenu>
         </Border.ContextMenu>
 

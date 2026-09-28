@@ -125,15 +125,27 @@
                 <ContextMenu>
                   <MenuItem Header="Select in the history"
                             Command="{Binding SelectInHistoryCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="Crosshair" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <Separator />
                   <MenuItem Header="Check out (detaches HEAD)"
                             Command="{Binding CheckoutCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="SignIn" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <Separator />
                   <MenuItem Header="Delete…"
                             Command="{Binding DeleteCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="Trash" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                 </ContextMenu>
               </Border.ContextMenu>
 

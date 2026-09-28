@@ -51,6 +51,9 @@ public sealed class HistoryDragMergeTests
 
                 Assert.Same(page.MergeDropCommand, items[0].Command);
                 Assert.Same(page.FastForwardDropCommand, items[1].Command);
+                Assert.Equal(
+                    [Enigma.Icons.Phosphor.PhosphorIcon.GitMerge, Enigma.Icons.Phosphor.PhosphorIcon.FastForward],
+                    items.Select(item => Assert.IsType<Enigma.Icons.Avalonia.Icon>(item.Icon).Kind));
 
                 HistoryBranchDrop drop = Assert.IsType<HistoryBranchDrop>(items[0].CommandParameter);
                 Assert.Equal("feature", drop.Source.Name);

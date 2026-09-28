@@ -3,6 +3,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Refs;
+using Enigma.Icons.Phosphor;
 
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
@@ -223,8 +224,15 @@ public sealed record HistoryBranchDrop(HistoryBranchViewModel Source, HistoryBra
 /// <param name="Header">What the item says; <c>-</c> draws a separator.</param>
 /// <param name="Command">What it runs.</param>
 /// <param name="Parameter">What it runs it with.</param>
-public sealed record HistoryMenuEntry(string Header, ICommand? Command = null, object? Parameter = null)
+/// <param name="Icon">The glyph drawn beside it, one per kind of action.</param>
+public sealed record HistoryMenuEntry(string Header, ICommand? Command = null, object? Parameter = null, PhosphorIcon? Icon = null)
 {
+    /// <summary>Gets a value indicating whether the item draws a glyph.</summary>
+    public bool HasIcon => Icon is not null;
+
+    /// <summary>Gets the glyph to draw, for a binding that cannot take an absent one.</summary>
+    public PhosphorIcon IconKind => Icon ?? PhosphorIcon.Circle;
+
     /// <summary>A separator.</summary>
     public static readonly HistoryMenuEntry Separator = new("-");
 

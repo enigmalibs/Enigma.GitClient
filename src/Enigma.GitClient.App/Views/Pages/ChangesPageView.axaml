@@ -160,14 +160,26 @@
                       <ContextMenu>
                         <MenuItem Header="Apply stash"
                                   Command="{Binding ApplyCommand}"
-                                  CommandParameter="{Binding}" />
+                                  CommandParameter="{Binding}">
+                          <MenuItem.Icon>
+                            <ei:Icon Kind="TrayArrowUp" Classes="menu" />
+                          </MenuItem.Icon>
+                        </MenuItem>
                         <MenuItem Header="Pop stash"
                                   Command="{Binding PopCommand}"
-                                  CommandParameter="{Binding}" />
+                                  CommandParameter="{Binding}">
+                          <MenuItem.Icon>
+                            <ei:Icon Kind="ArrowCounterClockwise" Classes="menu" />
+                          </MenuItem.Icon>
+                        </MenuItem>
                         <Separator />
                         <MenuItem Header="Delete stash…"
                                   Command="{Binding DropCommand}"
-                                  CommandParameter="{Binding}" />
+                                  CommandParameter="{Binding}">
+                          <MenuItem.Icon>
+                            <ei:Icon Kind="Trash" Classes="menu" />
+                          </MenuItem.Icon>
+                        </MenuItem>
                       </ContextMenu>
                     </Grid.ContextMenu>
 
