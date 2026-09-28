@@ -1,5 +1,58 @@
 # Release notes
 
+## 4.1.0 — 2026-09-28
+
+A minor release. A tag can be pushed to the remote on its own, from its badge in the history or from
+its line in the Tags dialog, and *Create a tag* suggests a bare `1.0.0`. It also fixes the history's
+column titles, and dialog questions that were cut off at the dialog's edge. Nothing is removed, and
+nothing that is stored changes.
+
+### Tags
+
+- **Push one tag to the remote:**
+  - `Push "<name>"` on a tag's badge in the history, above *Copy tag name*;
+  - *Push to the remote* on a tag's line in the Tags dialog, after *Check out*.
+
+  Only that tag is pushed, lightweight or annotated. Before, a tag only went along with a branch
+  push, and only if it was annotated.
+- **Where it goes:** to the remote the current branch pushes to, or `origin` when it has no upstream,
+  as a push of the branch does. The push goes out under the repository's profile like any other: a
+  profile with no integration for that remote does not push, and says so.
+- **A tag the remote already has on another commit is never replaced.** You are told so, and can
+  delete it there or give yours another name.
+- **Create a tag** suggests `1.0.0` as the name instead of `v1.0.0`. It is only a suggestion; a name
+  with a `v` is accepted as before.
+
+### Fixes
+
+- **Every column title in the history has the same room on its left.** *Author*, *Date* and *Commit*
+  used to touch the separator before them, and *Graph* the page's edge. Their separators now sit in
+  the gap before the column, as the others do, and *Graph* starts where the lanes do.
+- **A long question is never cut off.** *Discard uncommitted files…* asks a question that used to
+  run past the dialog's edge. It now goes onto as many lines as it needs, and so does every question
+  the app asks in plain text: deleting a stash, a tag or a branch, and the conflict page's questions.
+  A long name with no space in it is broken too.
+
+### Upgrading from 4.0
+
+- Nothing changes in the way you work, and nothing is migrated. `settings.json`,
+  `host-accounts.json`, `identity-profiles.json` and the tokens stay as 4.0 wrote them, so going back
+  to 4.0 keeps them.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set.
+- The Avalonia set (Avalonia, Avalonia.Desktop, Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and
+  Avalonia.Headless and Avalonia.Skia in the tests) is still held back at **12.1.1**. That is the set
+  Enigma.Avalonia.Desktop 1.1.0 is built against. 12.1.3 is out; the set moves as a whole, as a
+  decision of its own.
+
+### Version
+
+- **4.1.0** is a minor release under Semantic Versioning. It adds backward-compatible functionality,
+  pushing one tag, along with fixes. Nothing is removed or changed incompatibly, and nothing that is
+  stored changes.
+
 ## 4.0.0 — 2026-09-28
 
 A major release. A commit's details open in a dialog, as text you can select, and the diff view's

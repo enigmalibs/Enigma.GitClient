@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
@@ -761,6 +762,181 @@ public sealed class RemotesAndSyncTests
 
             Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "branch", "--list", "topic"));
             Assert.Contains(services.InfoBar.Shown, note => note.Title.StartsWith("Work does not push to", StringComparison.Ordinal));
+        });
+    }
+
+    // ---------------------------------------------------------------- pushing one tag
+
+    [Fact]
+    public void TagPush_PublishesThatTagAndNoOther()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+            await GitAsync(world.Local.WorkTreePath, "tag", "-a", "2.0.0-rc", "-m", "Not yet");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            Assert.True(await services.Get<ISyncOperations>().PushTagAsync("1.0.0"));
+
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+
+            RecordedNotification pushed = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Pushed", pushed.Title);
+            Assert.Equal("origin has the tag \"1.0.0\".", pushed.Message);
+        });
+    }
+
+    [Fact]
+    public void TagPush_GoesWhereTheCurrentBranchPushes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            // main tracks a second remote: that is where its tags go too.
+            string upstreamPath = Path.Combine(Path.GetDirectoryName(world.OriginPath)!, "upstream.git");
+            Directory.CreateDirectory(upstreamPath);
+            await GitAsync(world.Local.WorkTreePath, "init", "--bare", upstreamPath);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "upstream", upstreamPath);
+            await GitAsync(world.Local.WorkTreePath, "push", "--set-upstream", "upstream", "main");
+
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            Assert.True(await services.Get<ISyncOperations>().PushTagAsync("1.0.0"));
+
+            Assert.Equal("1.0.0", await ReadGitAsync(upstreamPath, "tag", "--list"));
+            Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "tag", "--list"));
+        });
+    }
+
+    [Fact]
+    public void History_ATagBadgePushesThatTag()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "tag", "-a", "1.0.0", "-m", "First release");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            HistoryTagViewModel tag = history.Rows.SelectMany(row => row.Badges).OfType<HistoryTagViewModel>().Single();
+            Assert.True(tag.CanPush);
+            Assert.Equal("Push \"1.0.0\"", tag.PushHeader);
+
+            await tag.Push!.ExecuteAsync(tag.Name);
+
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Pushed");
+        });
+    }
+
+    [Fact]
+    public void TagsDialog_ARowsMenuPushesThatRowsTag()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+            await GitAsync(world.Local.WorkTreePath, "tag", "2.0.0");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            TagsPageViewModel page = services.Get<TagsPageViewModel>();
+            await page.OnAppearingAsync();
+
+            TagsPageView view = services.Get<TagsPageView>();
+            view.DataContext = page;
+            Window window = new() { Content = view, Width = 1000, Height = 600 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+
+                Border line = view.GetVisualDescendants()
+                    .OfType<Border>()
+                    .Single(border => border.ContextMenu is not null && border.DataContext is TagRowViewModel { Name: "1.0.0" });
+                ContextMenu menu = line.ContextMenu!;
+                menu.Open(line);
+
+                // Right after the checkout, before the delete and its separator.
+                string?[] headers = [.. menu.Items.OfType<MenuItem>().Select(item => item.Header as string)];
+                Assert.Equal(["Select in the history", "Check out (detaches HEAD)", "Push to the remote", "Delete…"], headers);
+
+                MenuItem push = menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == "Push to the remote");
+                Assert.True(push.IsVisible);
+
+                await ((IAsyncRelayCommand)push.Command!).ExecuteAsync(push.CommandParameter);
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            // That row's tag, and not the other one.
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+        });
+    }
+
+    [Fact]
+    public void TagPush_NeverPushesUnderAProfileWithoutAnIntegrationForTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await WorkProfileAsync(services, world);
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            Assert.False(await services.Get<ISyncOperations>().PushTagAsync("1.0.0"));
+
+            Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title.StartsWith("Work does not push to", StringComparison.Ordinal));
+        });
+    }
+
+    [Fact]
+    public void TagPush_SaysTheRemoteHasThatTagElsewhere_AndReplacesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+
+            await GitAsync(world.OtherPath, "tag", "1.0.0");
+            await GitAsync(world.OtherPath, "push", "origin", "refs/tags/1.0.0");
+            string theirs = await ReadGitAsync(world.OriginPath, "rev-parse", "refs/tags/1.0.0");
+
+            Write(world.Local.WorkTreePath, "src/release.txt", "release\n");
+            await GitAsync(world.Local.WorkTreePath, "add", "--all");
+            await GitAsync(world.Local.WorkTreePath, "commit", "-m", "Prepare the release");
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            Assert.False(await services.Get<ISyncOperations>().PushTagAsync("1.0.0"));
+
+            Assert.Equal(theirs, await ReadGitAsync(world.OriginPath, "rev-parse", "refs/tags/1.0.0"));
+
+            // Not git's "pull first": there is nothing to pull, a tag is in the way.
+            RecordedNotification failure = Assert.Single(services.InfoBar.Shown, note => note.Title == "Pushing 1.0.0 failed");
+            Assert.Contains("origin already has a tag \"1.0.0\", on another commit", failure.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("Pull first", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, failure.Severity);
         });
     }
 

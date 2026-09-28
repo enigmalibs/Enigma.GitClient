@@ -10,10 +10,9 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 4.0** — a commit's details in a dialog, as text you can select; a one-line diff
-> header; a blue way back from the Changes page, Escape included; red discards that ask one plain
-> question, and a discard of all the uncommitted work from the history. The Changes page no longer
-> amends or signs off. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 4.1** — push one tag to the remote from its badge in the history or its line in the
+> Tags dialog; *Create a tag* suggests a bare `1.0.0`; the history's column titles each get the same
+> room; long dialog questions wrap instead of being cut off. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -41,7 +40,8 @@ Two things matter more than everything else in this app:
   the list scrolls while you hold a branch near its edge
 - Sort the branches and the tags by name or by date, either way — newest first unless you choose
   otherwise, and remembered; select a branch's or a tag's line in the history from its menu
-- Tag management — create (lightweight or annotated) and delete
+- Tag management — create (lightweight or annotated), delete, and push one tag to the remote from
+  its badge in the history or its line in the tags dialog
 - Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
   line's menu
 - Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,

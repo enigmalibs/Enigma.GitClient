@@ -523,6 +523,70 @@ public sealed class SyncServiceTests : IAsyncLifetime
             await _origin.GitLinesAsync("for-each-ref", "--format=%(refname:short)", "refs/tags/"));
     }
 
+    // ---------------------------------------------------------------- one tag
+
+    private Task<IReadOnlyList<string>> RemoteTagsAsync()
+        => _origin.GitLinesAsync("for-each-ref", "--format=%(refname:short)", "refs/tags/");
+
+    [Fact]
+    public async Task PushTagAsync_PublishesALightweightTagAndNoOther()
+    {
+        await _local.CommitFileAsync("src/release.txt", "release\n", "Prepare the release");
+        await _local.GitAsync("tag", "1.0.0");
+        await _local.GitAsync("tag", "-a", "2.0.0-rc", "-m", "Not yet");
+
+        await Sync.PushTagAsync(_handle, "origin", "1.0.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Only that tag: the other one, annotated or not, stays here.
+        Assert.Equal(["1.0.0"], await RemoteTagsAsync());
+        Assert.Equal(await _local.ResolveAsync("1.0.0"), await _origin.ResolveAsync("refs/tags/1.0.0"));
+    }
+
+    [Fact]
+    public async Task PushTagAsync_PublishesAnAnnotatedTagAsItIs()
+    {
+        await _local.GitAsync("tag", "-a", "1.0.0", "-m", "First release");
+
+        await Sync.PushTagAsync(_handle, "origin", "1.0.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // The tag object itself, message and all, not a lightweight copy of it.
+        Assert.Equal("tag", await _origin.GitLineAsync("cat-file", "-t", "refs/tags/1.0.0"));
+        Assert.Equal(await _local.ResolveAsync("refs/tags/1.0.0"), await _origin.ResolveAsync("refs/tags/1.0.0"));
+    }
+
+    [Fact]
+    public async Task PushTagAsync_NeverMovesATagTheRemoteHasOnAnotherCommit()
+    {
+        TemporaryRepository other = await BuildSecondCloneAsync();
+        await other.GitAsync("tag", "1.0.0");
+        await other.GitAsync("push", "origin", "refs/tags/1.0.0");
+        string theirs = await _origin.ResolveAsync("refs/tags/1.0.0");
+
+        await _local.CommitFileAsync("src/release.txt", "release\n", "Prepare the release");
+        await _local.GitAsync("tag", "1.0.0");
+
+        SyncException failure = await Assert.ThrowsAsync<SyncException>(() => Sync.PushTagAsync(
+            _handle,
+            "origin",
+            "1.0.0",
+            cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(SyncFailureKind.NonFastForward, failure.Failure.Kind);
+        Assert.Equal(theirs, await _origin.ResolveAsync("refs/tags/1.0.0"));
+    }
+
+    [Fact]
+    public async Task PushTagAsync_IsQuietWhenTheRemoteAlreadyHasThatTag()
+    {
+        await _local.GitAsync("tag", "1.0.0");
+        await Sync.PushTagAsync(_handle, "origin", "1.0.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Again: nothing to send, which is not a failure.
+        await Sync.PushTagAsync(_handle, "origin", "1.0.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(["1.0.0"], await RemoteTagsAsync());
+    }
+
     [Fact]
     public async Task PushAsync_ReportsAnUnknownRemoteRatherThanFailingSilently()
     {

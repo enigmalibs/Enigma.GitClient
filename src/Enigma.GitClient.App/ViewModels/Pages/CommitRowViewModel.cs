@@ -58,6 +58,9 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// <param name="DiscardUncommitted">
 /// Throws every uncommitted change away, after asking in red; offered on the uncommitted line.
 /// </param>
+/// <param name="PushTag">
+/// Pushes one tag, by its name, to the remote; offered from every tag badge on a line.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -73,7 +76,8 @@ public sealed record HistoryRowCommands(
     HistoryStashCommands? Stashes = null,
     AsyncRelayCommand<string>? Copy = null,
     AsyncRelayCommand<CommitRowViewModel>? ShowDetails = null,
-    AsyncRelayCommand<CommitRowViewModel>? DiscardUncommitted = null);
+    AsyncRelayCommand<CommitRowViewModel>? DiscardUncommitted = null,
+    AsyncRelayCommand<string>? PushTag = null);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -171,7 +175,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Row = row;
         Stash = stash;
         Refs = Project(refs, stash);
-        (Branches, Badges) = BuildBranches(Refs, commands?.Branches, commands?.Copy);
+        (Branches, Badges) = BuildBranches(Refs, commands?.Branches, commands?.Copy, commands?.PushTag);
         IsHead = isHead;
 
         Subject = commit.Subject;
@@ -554,7 +558,8 @@ public sealed class CommitRowViewModel : ViewModelBase
     private static (IReadOnlyList<HistoryBranchViewModel> Branches, IReadOnlyList<object> Badges) BuildBranches(
         IReadOnlyList<RefBadgeItem> refs,
         HistoryBranchCommands? commands,
-        AsyncRelayCommand<string>? copy)
+        AsyncRelayCommand<string>? copy,
+        AsyncRelayCommand<string>? pushTag)
     {
         if (refs.Count == 0)
         {
@@ -574,7 +579,7 @@ public sealed class CommitRowViewModel : ViewModelBase
             }
             else if (copy is not null && badge.Kind == GitRefKind.Tag)
             {
-                badges.Add(new HistoryTagViewModel(badge, copy));
+                badges.Add(new HistoryTagViewModel(badge, copy, pushTag));
             }
             else
             {

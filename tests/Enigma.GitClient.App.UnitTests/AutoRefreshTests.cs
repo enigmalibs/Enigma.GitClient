@@ -888,5 +888,7 @@ public sealed class AutoRefreshTests
         public Task<bool> PullBranchAsync(string branch) => throw new NotSupportedException();
 
         public Task<bool> PushBranchAsync(string branch) => throw new NotSupportedException();
+
+        public Task<bool> PushTagAsync(string tag) => throw new NotSupportedException();
     }
 }

@@ -56,6 +56,14 @@ public interface ISyncOperations
     Task<bool> PushBranchAsync(string branch);
 
     /// <summary>
+    /// Pushes one tag, lightweight or annotated, to the remote the current branch pushes to — or
+    /// <c>origin</c> when it has no upstream.
+    /// </summary>
+    /// <param name="tag">The tag's name.</param>
+    /// <returns><see langword="true"/> when the remote has the tag.</returns>
+    Task<bool> PushTagAsync(string tag);
+
+    /// <summary>
     /// Fetches from every remote without showing anything: no overlay, no notification, whatever
     /// happens — the automatic refresh's fetch.
     /// </summary>
@@ -249,6 +257,39 @@ public sealed class SyncOperations : ISyncOperations
                 (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
                 "Pushed",
                 $"The remote has the commits of \"{branch}\".")
+            .ConfigureAwait(true);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The remote is chosen as a push of the current branch chooses it, so the two never disagree.
+    /// A remote that already has the tag on another commit refuses it; git's sentence for that talks
+    /// about pulling commits, which is not what happened, so it gets one of its own.
+    /// </remarks>
+    public async Task<bool> PushTagAsync(string tag)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+
+        string? upstream = _context.Refs.CurrentBranch is { Tracking.IsUpstreamGone: false } current
+            ? current.UpstreamShortName
+            : null;
+
+        string remote = upstream is { Length: > 0 } ? SplitUpstream(upstream).Remote : GitRemote.DefaultName;
+
+        if (!await MayPushAsync(remote).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        return await RunAsync(
+                $"Pushing {tag}",
+                (handle, progress, token) => _sync.PushTagAsync(handle, remote, tag, progress, token),
+                "Pushed",
+                $"{remote} has the tag \"{tag}\".",
+                failure => failure.Kind == SyncFailureKind.NonFastForward
+                    ? $"{remote} already has a tag \"{tag}\", on another commit. Nothing was replaced: "
+                        + "delete it there first, or give this tag another name."
+                    : null)
             .ConfigureAwait(true);
     }
 
