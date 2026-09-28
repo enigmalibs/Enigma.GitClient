@@ -68,6 +68,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     // screen are drawn from that, so a context that has read anything else since has something new.
     private RepositoryStateStamp? _drawnStamp;
 
+    // Whether rows were drawn, or the read in flight was walked, before the context had read the
+    // repository's references at all — which an opening does, as the two reads race. See
+    // CatchUpWithTheFirstState.
+    private bool _drawnWithoutState;
+    private bool _walkedWithoutState;
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
@@ -744,6 +750,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         SelectedRow = null;
         HasMore = false;
         RefColumnWidth = 0;
+        _drawnWithoutState = false;
 
         NotifyEmptyState();
 
@@ -766,6 +773,62 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         // A hidden branch deleted, or checked out, changes what the chip counts.
         NotifyHiddenBranches();
+
+        CatchUpWithTheFirstState();
+    }
+
+    /// <summary>
+    /// Redraws what was read before the context knew the repository's references, now that it does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Opening a repository starts the history's read and the context's read of the references
+    /// together. When the log answers first — a repository with many branches, whose tracking
+    /// counts make the reference read slow — the rows are drawn with no badge at all, and nothing
+    /// used to draw them again before the next automatic refresh.
+    /// </para>
+    /// <para>
+    /// Only the first state of an opening is waited for: every later re-read follows an operation
+    /// or a refresh, which redraws the history itself. A read still in flight is left alone — its
+    /// rows take their badges from the context when they land — unless it was walked without knowing
+    /// which branches are hidden, and some are.
+    /// </para>
+    /// </remarks>
+    private void CatchUpWithTheFirstState()
+    {
+        bool drawnWithout = _drawnWithoutState;
+        bool walkedWithout = _walkedWithoutState;
+
+        _drawnWithoutState = false;
+        _walkedWithoutState = false;
+
+        if (!IsRepositoryOpen)
+        {
+            return;
+        }
+
+        if (IsBusy)
+        {
+            if (drawnWithout || (walkedWithout && ExcludedRefs().Count > 0))
+            {
+                _ = ReloadAsync();
+            }
+
+            return;
+        }
+
+        if (!drawnWithout)
+        {
+            return;
+        }
+
+        if (IsDiffViewOpen)
+        {
+            _refreshPending = true;
+            return;
+        }
+
+        _ = ReloadKeepingPlaceAsync();
     }
 
     /// <inheritdoc />
@@ -852,6 +915,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
             // The hidden branches are read as each page is asked for, not kept in the query: a page
             // is always read with the set the reader sees now, and a change reloads from the top.
+            _walkedWithoutState = RepositoryContext.Head is null;
+
             CommitLogPage page = await _reader
                 .GetPageAsync(repository, _query with { ExcludedRefs = [.. ExcludedRefs()] }, cancellation.Token)
                 .ConfigureAwait(true);
@@ -934,6 +999,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             _drawnStamp = RepositoryStateStamp.Of(RepositoryContext);
         }
+
+        // No state at all is not "no reference": it is a context that has not read them yet.
+        _drawnWithoutState |= RepositoryContext.Head is null;
 
         for (int index = 0; index < page.Commits.Count; index++)
         {

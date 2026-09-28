@@ -1,6 +1,6 @@
 # BUG-6CE0 — History badges arrive late
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-stash-menus-release
@@ -34,7 +34,7 @@ reading anything.
 ## PHASE01 — Badges as soon as the references arrive
 
 **Branch:** `bugfix/bug-6ce0-phase01-badges-on-arrival`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-6CE0-PHASE01.md`
 
 ### Steps
 
