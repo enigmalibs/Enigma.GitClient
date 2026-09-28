@@ -31,6 +31,17 @@ public sealed class AzureDevOpsProvider : IRepositoryHostProvider
     /// <summary>The API version this client is written against.</summary>
     public const string ApiVersion = "7.1";
 
+    /// <summary>
+    /// The API version the <c>connectionData</c> call is made with.
+    /// </summary>
+    /// <remarks>
+    /// <c>connectionData</c> only exists as a preview resource, and Azure DevOps refuses a plain
+    /// version for it with 400 <c>VssInvalidPreviewVersionException</c> ("The -preview flag must be
+    /// supplied in the api-version"). <c>git/repositories</c> is released at 7.1 and stays on
+    /// <see cref="ApiVersion"/>.
+    /// </remarks>
+    private const string ConnectionDataApiVersion = ApiVersion + "-preview";
+
     private readonly IHttpClientFactory _clients;
 
     /// <summary>
@@ -91,7 +102,7 @@ public sealed class AzureDevOpsProvider : IRepositoryHostProvider
         // connectionData is the one identity call that works the same on the cloud and on Server,
         // and it needs no scope beyond the one the token already has.
         using HttpResponseMessage response = await SendAsync(
-            new Uri(ApiBase(account.BaseUri), "connectionData?api-version=" + ApiVersion),
+            new Uri(ApiBase(account.BaseUri), "connectionData?api-version=" + ConnectionDataApiVersion),
             token,
             cancellationToken).ConfigureAwait(false);
 

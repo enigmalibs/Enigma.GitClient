@@ -1,6 +1,6 @@
 # BUG-58A7 — Azure DevOps sign-in answers 400
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-58A7.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-58a7-azure-preview-api`
 **Run:** bugfix/2026-09-28-history-stash-menus-release
