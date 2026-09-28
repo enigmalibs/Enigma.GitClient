@@ -207,7 +207,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Discard from the uncommitted line       | DONE   | (in FEATURE-FC7E.md)      |
 | FEATURE-10AA | Release 4.0.0                           | DONE   | docs/plan/FEATURE-10AA.md |
 | BUG-29C8     | History column titles lack a margin     | DONE   | docs/plan/BUG-29C8.md     |
-| BUG-5349     | Long dialog questions are cut off       | TODO   | docs/plan/BUG-5349.md     |
+| BUG-5349     | Long dialog questions are cut off       | DONE   | docs/plan/BUG-5349.md     |
 | FEATURE-A2A2 | Tags: bare placeholder, push from menus | TODO   | docs/plan/FEATURE-A2A2.md |
 | - PHASE01    | The placeholder says 1.0.0              | TODO   | (in FEATURE-A2A2.md)      |
 | - PHASE02    | Pushing one tag to the remote           | TODO   | (in FEATURE-A2A2.md)      |
