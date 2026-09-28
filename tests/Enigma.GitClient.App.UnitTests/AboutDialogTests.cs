@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -20,6 +22,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views;
 using Enigma.GitClient.App.Views.Dialogs;
+using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -121,6 +124,69 @@ public sealed class AboutDialogTests
             await settings.OpenAboutCommand.ExecuteAsync(null);
 
             Assert.Equal("About", Assert.Single(services.Dialogs.Shown).Title);
+        });
+    }
+
+    [Fact]
+    public void TheStartWindowsHome_OpensIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel repositories = services.Get<RepositoriesPageViewModel>();
+
+            Assert.True(repositories.OpenAboutCommand.CanExecute(null));
+            await repositories.OpenAboutCommand.ExecuteAsync(null);
+
+            ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("About", dialog.Title);
+            Assert.IsType<AboutView>(dialog.Content);
+        });
+    }
+
+    [Fact]
+    public void TheStartWindowsHome_HasTheAboutButtonAtTheEndOfItsHeader()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.ReloadRecentAsync();
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 720 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+
+                Button about = page.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "OpenAbout");
+                Button create = page.GetVisualDescendants().OfType<Button>()
+                    .Single(button => Equals(button.GetValue(AutomationProperties.NameProperty), "Create a repository"));
+
+                Assert.Equal("About Enigma git client", about.GetValue(AutomationProperties.NameProperty));
+
+                // Last in the header, after the repository actions.
+                Point aboutAt = about.TranslatePoint(default, page) ?? default;
+                Point createAt = create.TranslatePoint(default, page) ?? default;
+                Assert.True(aboutAt.X > createAt.X, "the About button is not after Create");
+
+                // A real click, so what is tested is the binding and not only the command.
+                Point middle = about.TranslatePoint(new Point(about.Bounds.Width / 2, about.Bounds.Height / 2), window)
+                    ?? throw new InvalidOperationException("The About button is not in the window.");
+                window.MouseDown(middle, MouseButton.Left);
+                window.MouseUp(middle, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal("About", Assert.Single(services.Dialogs.Shown).Title);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 

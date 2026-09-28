@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<IAboutDialogService, AboutDialogService>();
+            services.AddSingleton<ICommitDetailsDialogService, CommitDetailsDialogService>();
 
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);
@@ -78,6 +79,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IMergeOperations, MergeOperations>();
             services.AddSingleton<IBranchDropOperations, BranchDropOperations>();
             services.AddSingleton<IStashOperations, StashOperations>();
+            services.AddSingleton<IDiscardOperations, DiscardOperations>();
             services.AddSingleton<IHostLinkService, HostLinkService>();
             services.AddSingleton<IHostRepositoryBrowser, HostRepositoryBrowser>();
 
@@ -114,7 +116,6 @@ public static class ServiceCollectionExtensions
             services.AddTransient<RenameBranchDialogView>();
             services.AddTransient<SetUpstreamDialogView>();
             services.AddTransient<CreateTagDialogView>();
-            services.AddTransient<ConfirmTextDialogView>();
             services.AddTransient<RemoteDialogView>();
             services.AddTransient<AddHostAccountDialogView>();
             services.AddTransient<HostRepositoriesDialogView>();

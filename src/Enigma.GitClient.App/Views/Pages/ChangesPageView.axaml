@@ -5,18 +5,30 @@
              xmlns:panels="using:Enigma.GitClient.App.Views.Panels"
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Pages"
              x:Class="Enigma.GitClient.App.Views.Pages.ChangesPageView"
-             x:DataType="vm:ChangesPageViewModel">
+             x:DataType="vm:ChangesPageViewModel"
+             Focusable="True">
   <DockPanel>
 
-    <!-- Toolbar: where HEAD is, how far it is from its upstream, and a refresh. -->
+    <!-- Toolbar: the way back to the graph, where HEAD is, and how far it is from its upstream. -->
     <Border DockPanel.Dock="Top"
             Background="{DynamicResource EnigmaSurfaceBrush}"
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="10">
 
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+        <!-- Where the history's diff view has its own: the same way back, in the same place. -->
+        <Button Grid.Column="0"
+                Name="BackToHistory"
+                Classes="toolbar back"
+                VerticalAlignment="Center"
+                Command="{Binding BackToHistoryCommand}"
+                ToolTip.Tip="Back to the history"
+                AutomationProperties.Name="Back to the history">
+          <ei:Icon Kind="ArrowLeft" Classes="toolbar" />
+        </Button>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="FileText" Classes="header" VerticalAlignment="Center"
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           <TextBlock Text="{Binding Title}"
@@ -26,7 +38,7 @@
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
         </StackPanel>
 
-        <Border Grid.Column="1"
+        <Border Grid.Column="2"
                 Classes="pill"
                 Background="{DynamicResource EnigmaSelectionBrush}"
                 VerticalAlignment="Center">
@@ -40,7 +52,7 @@
           </StackPanel>
         </Border>
 
-        <TextBlock Grid.Column="2"
+        <TextBlock Grid.Column="3"
                    Text="{Binding TrackingSummary}"
                    IsVisible="{Binding HasTrackingSummary}"
                    VerticalAlignment="Center"
@@ -74,8 +86,10 @@
                            FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                <!-- Red, the colour of what cannot be undone, for as long as there is anything to lose. -->
                 <Button Grid.Column="1"
-                        Classes="toolbar"
+                        Name="DiscardAll"
+                        Classes="toolbar danger"
                         Command="{Binding DiscardAllCommand}"
                         ToolTip.Tip="Discard everything"
                         AutomationProperties.Name="Discard everything">
@@ -238,22 +252,8 @@
                        PlaceholderText="Summarise the change, then explain why"
                        AutomationProperties.Name="Commit message" />
 
-              <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
-                <CheckBox Grid.Column="0"
-                          IsChecked="{Binding Amend, Mode=TwoWay}"
-                          Content="Amend"
-                          FontSize="12"
-                          ToolTip.Tip="Replace the last commit instead of adding one"
-                          AutomationProperties.Name="Amend the last commit" />
-
-                <CheckBox Grid.Column="1"
-                          IsChecked="{Binding SignOff, Mode=TwoWay}"
-                          Content="Sign off"
-                          FontSize="12"
-                          ToolTip.Tip="Append a Signed-off-by trailer"
-                          AutomationProperties.Name="Sign off" />
-
-                <StackPanel Grid.Column="2"
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <StackPanel Grid.Column="0"
                             Orientation="Horizontal"
                             Spacing="6"
                             HorizontalAlignment="Right"
@@ -272,9 +272,9 @@
                              Foreground="{DynamicResource EnigmaWarningBrush}" />
                 </StackPanel>
 
-                <Button Grid.Column="3"
+                <Button Grid.Column="1"
                         Classes="accent"
-                        Content="{Binding CommitButtonText}"
+                        Content="Commit"
                         Command="{Binding CommitCommand}"
                         AutomationProperties.Name="Commit" />
               </Grid>

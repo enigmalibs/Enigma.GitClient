@@ -599,11 +599,10 @@ public sealed class ChangedFilesPanelTests
 
             page.SelectedRow = page.Rows.Single(row => row.Subject == "Rework the sources");
 
+            // The header says which commit this is; the rest is the details dialog's.
             Assert.True(page.HasSelectedCommit);
             Assert.Equal("Rework the sources", page.SelectedSubject);
-            Assert.Equal(40, page.SelectedSha.Length);
-            Assert.Contains("Ada Lovelace", page.SelectedAuthor, StringComparison.Ordinal);
-            Assert.NotEqual(string.Empty, page.SelectedDate);
+            Assert.True(page.ShowCommitDetailsCommand.CanExecute(null));
         });
     }
 

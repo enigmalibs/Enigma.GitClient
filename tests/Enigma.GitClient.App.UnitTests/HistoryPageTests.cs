@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -15,13 +16,16 @@ using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Media;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Controls;
 using Enigma.Icons.Avalonia;
 using Enigma.GitClient.App.Formatting;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
+using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
@@ -1946,6 +1950,173 @@ public sealed class HistoryPageTests
             // Nothing was clicked: the page moved the focus itself, which is what makes the first
             // Escape work.
             Assert.True(diffPage.IsFocused, "the diff view did not take the focus when it opened");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_BackButtonIsTheBlueOne()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.Activate.Execute(model.Rows.First(row => row.Commit is not null));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Button back = view.FindControl<Button>("LeaveDiffView")
+                ?? throw new InvalidOperationException("The diff view has no back button.");
+
+            Assert.Contains("back", back.Classes);
+
+            ContentPresenter presenter = back.GetVisualDescendants()
+                .OfType<ContentPresenter>()
+                .First(candidate => candidate.Name == "PART_ContentPresenter");
+
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("ActionAccentBrush", application.ActualThemeVariant, out object? blue));
+            Assert.Same(blue, presenter.Background);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_HeaderIsOneLine_TheWayBackTheDetailsAndTheSubject()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.RowCommands.Activate.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Border header = diffPage.GetVisualDescendants().OfType<Border>()
+                .First(border => DockPanel.GetDock(border) == Dock.Top);
+
+            // One text: the subject. No author, date, hash or description any more.
+            TextBlock subject = Assert.Single(header.GetVisualDescendants().OfType<TextBlock>());
+            Assert.Equal("DiffSubject", subject.Name);
+            Assert.Equal(row.Subject, subject.Text);
+            Assert.Equal(TextTrimming.CharacterEllipsis, subject.TextTrimming);
+
+            Button back = view.FindControl<Button>("LeaveDiffView")!;
+            Button details = view.FindControl<Button>("ShowCommitDetails")!;
+
+            Assert.True(details.IsVisible);
+            Assert.Same(model.ShowCommitDetailsCommand, details.Command);
+
+            // The details button right after the way back, the subject after both.
+            double backX = back.TranslatePoint(default, header)?.X ?? double.NaN;
+            double detailsX = details.TranslatePoint(default, header)?.X ?? double.NaN;
+            double subjectX = subject.TranslatePoint(default, header)?.X ?? double.NaN;
+            Assert.True(backX < detailsX && detailsX < subjectX, "the header is not back, details, subject");
+
+            // One line high: the buttons and the header's own padding, nothing more.
+            Assert.True(
+                header.Bounds.Height <= back.Bounds.Height + header.Padding.Top + header.Padding.Bottom + header.BorderThickness.Bottom + 0.5,
+                $"the header is {header.Bounds.Height} high, more than one line");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_DetailsButton_ShowsTheSelectedCommitsDetails()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.RowCommands.Activate.Execute(row);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Button details = view.FindControl<Button>("ShowCommitDetails")!;
+            Point middle = details.TranslatePoint(new Point(details.Bounds.Width / 2, details.Bounds.Height / 2), window) ?? default;
+            window.MouseDown(middle, MouseButton.Left);
+            window.MouseUp(middle, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+
+            ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Commit details", dialog.Title);
+
+            CommitDetailsViewModel shown = Assert.IsType<CommitDetailsViewModel>(
+                Assert.IsType<CommitDetailsView>(dialog.Content).DataContext);
+
+            Assert.Equal(row.Sha, shown.Sha);
+            Assert.Equal(row.Subject, shown.Subject);
+            Assert.Contains("Ada Lovelace", shown.Author, StringComparison.Ordinal);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_OffersNoDetailsForTheUncommittedLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            string workTree = services.Get<IRepositoryContext>().Repository!.WorkTreePath;
+            await File.WriteAllTextAsync(Path.Combine(workTree, "src", "app.txt"), "one\ntwo\nthree uncommitted\n");
+            await model.ReloadAsync();
+
+            CommitRowViewModel uncommitted = Assert.Single(model.Rows, row => row.IsUncommitted);
+            model.RowCommands.ShowChanges.Execute(uncommitted);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.True(model.IsDiffViewOpen);
+            Assert.False(model.ShowCommitDetailsCommand.CanExecute(null));
+            Assert.False(view.FindControl<Button>("ShowCommitDetails")!.IsVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_LeavesTheDiffViewAloneWhileADialogIsOpenOverIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            // As the window hosts it: the dialog over the page, which keeps the focus.
+            ContentDialog dialog = new() { Title = "Commit details", CloseButtonText = "Close" };
+            window.Content = null;
+            window.Content = new Panel { Children = { view, dialog } };
+            window.UpdateLayout();
+
+            model.RowCommands.Activate.Execute(model.Rows.First(row => row.Commit is not null));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            _ = dialog.ShowAsync();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(model.IsDiffViewOpen, "Escape put the diffs away under an open dialog");
 
             window.Close();
         });
