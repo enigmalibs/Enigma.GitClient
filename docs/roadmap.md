@@ -178,7 +178,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Badges as soon as the refs arrive       | DONE   | (in BUG-6CE0.md)          |
 | - PHASE02    | A loader at the top of the history      | DONE   | (in BUG-6CE0.md)          |
 | FEATURE-292D | A resizable graph column                | DONE   | docs/plan/FEATURE-292D.md |
-| BUG-58A7     | Azure DevOps sign-in answers 400        | TODO   | docs/plan/BUG-58A7.md     |
+| BUG-58A7     | Azure DevOps sign-in answers 400        | DONE   | docs/plan/BUG-58A7.md     |
 | FEATURE-2074 | Stashes like GitKraken                  | TODO   | docs/plan/FEATURE-2074.md |
 | - PHASE01    | One line per stash in the history       | TODO   | (in FEATURE-2074.md)      |
 | - PHASE02    | Stash operations aware of conflicts     | TODO   | (in FEATURE-2074.md)      |
