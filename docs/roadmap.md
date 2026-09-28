@@ -181,7 +181,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-58A7     | Azure DevOps sign-in answers 400        | DONE        | docs/plan/BUG-58A7.md     |
 | FEATURE-2074 | Stashes like GitKraken                  | IN PROGRESS | docs/plan/FEATURE-2074.md |
 | - PHASE01    | One line per stash in the history       | DONE        | (in FEATURE-2074.md)      |
-| - PHASE02    | Stash operations aware of conflicts     | TODO        | (in FEATURE-2074.md)      |
+| - PHASE02    | Stash operations aware of conflicts     | DONE        | (in FEATURE-2074.md)      |
 | - PHASE03    | Stashing from the history               | TODO        | (in FEATURE-2074.md)      |
 | FEATURE-7762 | Drag a branch to merge it               | TODO        | docs/plan/FEATURE-7762.md |
 | FEATURE-3E5D | Sort branches and tags                  | TODO        | docs/plan/FEATURE-3E5D.md |

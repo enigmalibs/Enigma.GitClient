@@ -84,7 +84,7 @@
                 <Button Grid.Column="2"
                         Classes="toolbar"
                         Command="{Binding StashAllCommand}"
-                        ToolTip.Tip="Put everything aside on the stash"
+                        ToolTip.Tip="Stash all changes: put everything aside on the stash"
                         AutomationProperties.Name="Stash all changes">
                   <ei:Icon Kind="Archive" Classes="toolbar" />
                 </Button>
@@ -156,14 +156,14 @@
 
                     <Grid.ContextMenu>
                       <ContextMenu>
-                        <MenuItem Header="Apply, keeping the stash"
+                        <MenuItem Header="Apply stash"
                                   Command="{Binding ApplyCommand}"
                                   CommandParameter="{Binding}" />
-                        <MenuItem Header="Restore and remove"
+                        <MenuItem Header="Pop stash"
                                   Command="{Binding PopCommand}"
                                   CommandParameter="{Binding}" />
                         <Separator />
-                        <MenuItem Header="Drop…"
+                        <MenuItem Header="Delete stash…"
                                   Command="{Binding DropCommand}"
                                   CommandParameter="{Binding}" />
                       </ContextMenu>
@@ -189,15 +189,15 @@
                       <Button Classes="toolbar rowaction"
                               Command="{Binding PopCommand}"
                               CommandParameter="{Binding}"
-                              ToolTip.Tip="Restore and remove"
-                              AutomationProperties.Name="Restore and remove this stash">
+                              ToolTip.Tip="Pop stash: its changes come back and the stash is removed"
+                              AutomationProperties.Name="Pop this stash">
                         <ei:Icon Kind="ArrowCounterClockwise" Classes="row" />
                       </Button>
                       <Button Classes="toolbar rowaction"
                               Command="{Binding DropCommand}"
                               CommandParameter="{Binding}"
-                              ToolTip.Tip="Drop"
-                              AutomationProperties.Name="Drop this stash">
+                              ToolTip.Tip="Delete stash"
+                              AutomationProperties.Name="Delete this stash">
                         <ei:Icon Kind="Trash" Classes="row" />
                       </Button>
                     </StackPanel>
