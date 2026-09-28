@@ -99,7 +99,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="infoBar">Reports a failure the user can act on.</param>
     /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
     /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
-    /// <param name="syncOperations">Pulls and pushes a branch from its badge.</param>
+    /// <param name="syncOperations">Pulls and pushes a branch from its badge, and pushes a tag from its own.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
     /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
@@ -232,7 +232,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             ShowDetails: new AsyncRelayCommand<CommitRowViewModel>(OnShowDetailsAsync, row => row?.Commit is not null),
             DiscardUncommitted: new AsyncRelayCommand<CommitRowViewModel>(
                 _ => OnDiscardUncommittedAsync(),
-                row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted));
+                row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted),
+            PushTag: new AsyncRelayCommand<string>(OnPushTagAsync, tag => !string.IsNullOrEmpty(tag)));
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -1636,6 +1637,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             await ReloadAsync().ConfigureAwait(true);
         }
     }
+
+    /// <summary>
+    /// Pushes a tag from its badge.
+    /// </summary>
+    /// <remarks>
+    /// No reload afterwards: a pushed tag moves nothing the graph draws — there is no remote-tracking
+    /// reference for a tag — and the operation re-reads the repository's state as every exclusive
+    /// operation does.
+    /// </remarks>
+    private Task OnPushTagAsync(string? tag)
+        => tag is { Length: > 0 } ? _syncOperations.PushTagAsync(tag) : Task.CompletedTask;
 
     private void OnSetMergeSource(HistoryBranchViewModel? branch)
     {

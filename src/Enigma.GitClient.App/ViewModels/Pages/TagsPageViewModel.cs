@@ -27,11 +27,14 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <param name="tag">The tag the row stands for.</param>
     /// <param name="checkout">The command that checks the tag out, detaching HEAD.</param>
     /// <param name="delete">The command that deletes the tag.</param>
+    /// <param name="selectInHistory">The command that selects the tagged commit in the history.</param>
+    /// <param name="push">The command that pushes the tag to the remote.</param>
     public TagRowViewModel(
         GitTag tag,
         AsyncRelayCommand<TagRowViewModel> checkout,
         AsyncRelayCommand<TagRowViewModel> delete,
-        RelayCommand<TagRowViewModel>? selectInHistory = null)
+        RelayCommand<TagRowViewModel>? selectInHistory = null,
+        AsyncRelayCommand<TagRowViewModel>? push = null)
     {
         ArgumentNullException.ThrowIfNull(tag);
         ArgumentNullException.ThrowIfNull(checkout);
@@ -41,6 +44,7 @@ public sealed class TagRowViewModel : ViewModelBase
         CheckoutCommand = checkout;
         DeleteCommand = delete;
         SelectInHistoryCommand = selectInHistory;
+        PushCommand = push;
     }
 
     /// <summary>Gets the tag this row stands for.</summary>
@@ -79,6 +83,12 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <summary>Gets the command that closes the dialog and selects the tagged commit in the history.</summary>
     public RelayCommand<TagRowViewModel>? SelectInHistoryCommand { get; }
 
+    /// <summary>Gets the command that pushes the tag, on its own, to the remote.</summary>
+    public AsyncRelayCommand<TagRowViewModel>? PushCommand { get; }
+
+    /// <summary>Gets a value indicating whether the row's menu offers the push.</summary>
+    public bool CanPush => PushCommand is not null;
+
     /// <inheritdoc />
     public override string ToString() => Name;
 }
@@ -90,13 +100,15 @@ public sealed class TagRowViewModel : ViewModelBase
 /// A page of its own rather than half of the branches page: the two lists were alternatives behind a
 /// switch, which meant one selection, one filter box and one header doing two jobs. The page shows
 /// and filters; every write, with its dialog and its confirmation, belongs to
-/// <see cref="ITagOperations"/> and <see cref="ICheckoutOperations"/>, which the graph's own context
-/// menu calls too — two places offering the same operation have to ask the same questions.
+/// <see cref="ITagOperations"/>, <see cref="ICheckoutOperations"/> and <see cref="ISyncOperations"/>,
+/// which the graph's own context menus call too — two places offering the same operation have to ask
+/// the same questions.
 /// </remarks>
 public sealed class TagsPageViewModel : PageViewModelBase
 {
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
+    private readonly ISyncOperations _syncOperations;
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
 
@@ -109,21 +121,27 @@ public sealed class TagsPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="tagOperations">Performs the tag operations, dialogs and all.</param>
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
+    /// <param name="syncOperations">Pushes a tag to the remote, as the history's tag badges do.</param>
+    /// <param name="settings">Remembers the order of the lines.</param>
+    /// <param name="tools">Closes the dialog to select a tagged commit in the history.</param>
     public TagsPageViewModel(
         IRepositoryContext repositoryContext,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
+        ISyncOperations syncOperations,
         ISettingsService settings,
         IToolDialogService tools)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
+        ArgumentNullException.ThrowIfNull(syncOperations);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(tools);
 
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
+        _syncOperations = syncOperations;
         _settings = settings;
         _tools = tools;
 
@@ -144,6 +162,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
         CheckoutCommand = new AsyncRelayCommand<TagRowViewModel>(OnCheckoutAsync, row => row is not null);
         DeleteCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteAsync, row => row is not null);
+        PushCommand = new AsyncRelayCommand<TagRowViewModel>(OnPushAsync, row => row is not null);
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -269,6 +288,9 @@ public sealed class TagsPageViewModel : PageViewModelBase
     /// <summary>Gets the command that deletes a tag.</summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteCommand { get; }
 
+    /// <summary>Gets the command that pushes a tag, on its own, to the remote.</summary>
+    public AsyncRelayCommand<TagRowViewModel> PushCommand { get; }
+
     /// <inheritdoc />
     public override async Task OnAppearingAsync(object? parameter = null)
     {
@@ -358,7 +380,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
         foreach (GitTag tag in RefSort.Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection))
         {
-            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand));
+            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand));
         }
 
         SelectedTag = selected is null
@@ -393,6 +415,14 @@ public sealed class TagsPageViewModel : PageViewModelBase
         if (row is not null)
         {
             await Run(() => _tagOperations.DeleteAsync(row.Name)).ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnPushAsync(TagRowViewModel? row)
+    {
+        if (row is not null)
+        {
+            await Run(() => _syncOperations.PushTagAsync(row.Name)).ConfigureAwait(true);
         }
     }
 

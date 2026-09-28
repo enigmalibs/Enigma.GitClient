@@ -41,7 +41,8 @@ Two things matter more than everything else in this app:
   the list scrolls while you hold a branch near its edge
 - Sort the branches and the tags by name or by date, either way — newest first unless you choose
   otherwise, and remembered; select a branch's or a tag's line in the history from its menu
-- Tag management — create (lightweight or annotated) and delete
+- Tag management — create (lightweight or annotated), delete, and push one tag to the remote from
+  its badge in the history or its line in the tags dialog
 - Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
   line's menu
 - Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
