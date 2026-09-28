@@ -258,6 +258,23 @@ public sealed class DiffTargetTests
     }
 
     [Fact]
+    public void BuildUntrackedArguments_ComparesTheFileWithNothing()
+    {
+        List<string> arguments = DiffService.BuildUntrackedArguments(
+            DiffOptions.Default with { ContextLines = 7, IgnoreAllWhitespace = true },
+            "src/new file.txt");
+
+        Assert.Equal(["diff", "--no-index", "--patch"], arguments.Take(3));
+        Assert.Equal(["--", "/dev/null", "src/new file.txt"], arguments.TakeLast(3));
+        Assert.Contains("--unified=7", arguments);
+        Assert.Contains("--ignore-all-space", arguments);
+
+        // Between one file and none there is nothing to pair up.
+        Assert.DoesNotContain("--find-renames", arguments);
+        Assert.DoesNotContain("-z", arguments);
+    }
+
+    [Fact]
     public void BuildArguments_DoesNotPassMinusZForAPatch()
     {
         List<string> arguments = DiffService.BuildArguments(
