@@ -54,6 +54,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IStashOperations _stashOperations;
     private readonly ISystemInterop _interop;
     private readonly ICommitDetailsDialogService _details;
+    private readonly IDiscardOperations _discards;
     private bool _absoluteDates;
 
     private DiffTarget? _diffTarget;
@@ -102,6 +103,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
     /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
+    /// <param name="discards">Throws the uncommitted work away, from the uncommitted line.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
@@ -124,6 +126,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IStashService stashes,
         IStashOperations stashOperations,
         ICommitDetailsDialogService details,
+        IDiscardOperations discards,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -146,6 +149,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(stashes);
         ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(details);
+        ArgumentNullException.ThrowIfNull(discards);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -168,6 +172,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _stashOperations = stashOperations;
         _interop = interop;
         _details = details;
+        _discards = discards;
 
         // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
         CopyCommand = new AsyncRelayCommand<string>(
@@ -224,7 +229,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.PopAsync), IsStashLine),
                 new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)),
             CopyCommand,
-            ShowDetails: new AsyncRelayCommand<CommitRowViewModel>(OnShowDetailsAsync, row => row?.Commit is not null));
+            ShowDetails: new AsyncRelayCommand<CommitRowViewModel>(OnShowDetailsAsync, row => row?.Commit is not null),
+            DiscardUncommitted: new AsyncRelayCommand<CommitRowViewModel>(
+                _ => OnDiscardUncommittedAsync(),
+                row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted));
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -1870,6 +1878,14 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private async Task OnStashAsync()
     {
         if (await _stashOperations.StashAsync().ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnDiscardUncommittedAsync()
+    {
+        if (await _discards.DiscardUncommittedAsync().ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }
