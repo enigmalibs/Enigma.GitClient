@@ -194,7 +194,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE04    | Icons on the important operations       | DONE   | (in FEATURE-5860.md)      |
 | BUG-28E4     | Untracked file diff is empty            | DONE   | docs/plan/BUG-28E4.md     |
 | FEATURE-6DDD | Release 3.1.0                           | DONE   | docs/plan/FEATURE-6DDD.md |
-| BUG-EEC1     | Start page empty state not centred      | TODO   | docs/plan/BUG-EEC1.md     |
+| BUG-EEC1     | Start page empty state not centred      | DONE   | docs/plan/BUG-EEC1.md     |
 | FEATURE-49E4 | About in the start window               | TODO   | docs/plan/FEATURE-49E4.md |
 | BUG-A303     | File line menus only open on the text   | TODO   | docs/plan/BUG-A303.md     |
 | FEATURE-CC8E | Changes: way back, discards, commit box | TODO   | docs/plan/FEATURE-CC8E.md |

@@ -1,6 +1,6 @@
 # BUG-EEC1 — Start page empty state not centred
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-EEC1.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-eec1-start-empty-state`
 **Run:** bugfix/2026-09-28-changes-commit-details-release
