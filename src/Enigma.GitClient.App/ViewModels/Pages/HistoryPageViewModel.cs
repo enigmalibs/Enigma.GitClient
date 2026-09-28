@@ -481,6 +481,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public bool IsEmpty => Rows.Count == 0;
 
     /// <summary>
+    /// Gets a value indicating whether the history is still reading something it will draw: its
+    /// commits, or — just after a repository was opened — the references its badges come from.
+    /// </summary>
+    /// <remarks>
+    /// A context with no <see cref="IRepositoryContext.Head"/> has not read the repository yet: every
+    /// read of it, an unborn repository's included, sets one.
+    /// </remarks>
+    public bool IsLoading => IsBusy || (IsRepositoryOpen && RepositoryContext.Head is null);
+
+    /// <summary>
     /// Gets the sentence shown when the list is empty, which depends on why it is empty.
     /// </summary>
     public string EmptyMessage
@@ -775,6 +785,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         NotifyHiddenBranches();
 
         CatchUpWithTheFirstState();
+        OnPropertyChanged(nameof(IsLoading));
     }
 
     /// <summary>
@@ -845,6 +856,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OpenTagsCommand.NotifyCanExecuteChanged();
         OpenRemotesCommand.NotifyCanExecuteChanged();
         NotifyHiddenBranches();
+        OnPropertyChanged(nameof(IsLoading));
         _ = ReloadAsync();
     }
 
@@ -874,6 +886,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     protected override void OnBusyChanged()
     {
         LoadMoreCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsLoading));
     }
 
     private Task OnLoadMoreAsync() => LoadPageAsync(includeUncommittedRow: false);
