@@ -641,6 +641,36 @@ public sealed class ChangesPageTests
     }
 
     [Fact]
+    public void Page_ShowsANewUntrackedFileAsEveryLineAdded_NothingOnTheLeft()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            Write(repository, "src/fresh.txt", "first\nsecond\n");
+
+            ChangesPageViewModel page = await OpenAsync(services, repository);
+
+            page.Unstaged.SelectPath("src/fresh.txt");
+            await WaitUntilAsync(() => page.Diff.HasPatch);
+
+            // A diff, as a commit that added the file shows it — not "touches no lines of text".
+            Assert.Equal(string.Empty, page.Diff.Message);
+
+            DiffRowViewModel[] lines = [.. page.Diff.SideBySideRows.Where(row => row.Left is not null || row.Right is not null)];
+
+            Assert.Equal(2, lines.Length);
+            Assert.All(lines, row =>
+            {
+                Assert.True(row.Left!.IsFiller, "the left side should be empty");
+                Assert.True(row.Right!.IsAdded, "the right side should be added");
+            });
+            Assert.Equal(["first", "second"], lines.Select(row => row.Right!.Text));
+        });
+    }
+
+    [Fact]
     public void Page_SwitchesTheDiffToTheStagedHalfWhenThatSideIsPicked()
     {
         _fixture.RunAsync(async () =>

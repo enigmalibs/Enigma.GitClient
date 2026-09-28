@@ -1,6 +1,6 @@
 # BUG-28E4 — Untracked file diff is empty
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-28E4.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-28e4-untracked-file-diff`
 **Run:** bugfix/2026-09-28-history-stash-menus-release
