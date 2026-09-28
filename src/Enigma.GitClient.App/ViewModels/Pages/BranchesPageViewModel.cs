@@ -221,6 +221,9 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     /// <summary>Gets the command that merges the branch into the one checked out.</summary>
     public AsyncRelayCommand<BranchRowViewModel> MergeCommand => _owner.MergeCommand;
 
+    /// <summary>Gets the command that closes the dialog and selects the branch's commit in the history.</summary>
+    public RelayCommand<BranchRowViewModel> SelectInHistoryCommand => _owner.SelectInHistoryCommand;
+
     /// <summary>
     /// Says the branch's visibility may have changed, without rebuilding the row — a rebuild of the
     /// whole list would scroll it back to the top under the reader's pointer.
@@ -298,6 +301,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private readonly IBranchDropOperations _dropOperations;
     private readonly IHiddenBranches _hidden;
     private readonly ISettingsService _settings;
+    private readonly IToolDialogService _tools;
 
     // Set while the order is being read from the settings, which must not be written back.
     private bool _applyingSettings;
@@ -322,7 +326,8 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         IMergeOperations mergeOperations,
         IBranchDropOperations dropOperations,
         IHiddenBranches hidden,
-        ISettingsService settings)
+        ISettingsService settings,
+        IToolDialogService tools)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
@@ -331,6 +336,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(dropOperations);
         ArgumentNullException.ThrowIfNull(hidden);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(tools);
 
         _operations = operations;
         _checkoutOperations = checkoutOperations;
@@ -338,6 +344,12 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         _dropOperations = dropOperations;
         _hidden = hidden;
         _settings = settings;
+        _tools = tools;
+
+        // The history is under the dialog: selecting a line there closes it.
+        SelectInHistoryCommand = new RelayCommand<BranchRowViewModel>(
+            row => _tools.RevealInHistory(row!.Branch.TargetSha),
+            row => row is { Branch.TargetSha.Length: > 0 });
 
         // The order the reader chose last time, and any change made to it since — the tags dialog's is
         // a setting of its own, so nothing else moves this one.
@@ -473,6 +485,11 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that reverses the order.</summary>
     public RelayCommand ToggleSortDirectionCommand { get; }
+
+    /// <summary>
+    /// Gets the command that closes the dialog and selects a branch's commit in the history under it.
+    /// </summary>
+    public RelayCommand<BranchRowViewModel> SelectInHistoryCommand { get; }
 
     /// <summary>
     /// Gets or sets a substring the shown branch names must contain.

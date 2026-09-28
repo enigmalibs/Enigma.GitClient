@@ -63,8 +63,18 @@ public interface IToolDialogService
     /// Shows a page as a dialog, and waits until it is closed.
     /// </summary>
     /// <param name="dialog">Which page.</param>
-    /// <returns>A task that completes once the dialog has closed.</returns>
-    Task ShowAsync(ToolDialog dialog);
+    /// <returns>
+    /// Once the dialog has closed: the commit the page asked the history to select
+    /// (<see cref="RevealInHistory"/>), or <see langword="null"/> when it asked for none.
+    /// </returns>
+    Task<string?> ShowAsync(ToolDialog dialog);
+
+    /// <summary>
+    /// Closes the open dialog and asks the history under it to select a commit's line — what a branch's
+    /// or a tag's "Select in the history" does.
+    /// </summary>
+    /// <param name="sha">The commit.</param>
+    void RevealInHistory(string sha);
 }
 
 /// <summary>
@@ -75,6 +85,7 @@ public sealed class ToolDialogService : IToolDialogService
     private readonly IServiceProvider _services;
     private readonly ILogger<ToolDialogService> _logger;
     private ContentDialog? _host;
+    private string? _reveal;
 
     /// <summary>
     /// Initialises a new instance.
@@ -101,7 +112,7 @@ public sealed class ToolDialogService : IToolDialogService
     }
 
     /// <inheritdoc />
-    public async Task ShowAsync(ToolDialog dialog)
+    public async Task<string?> ShowAsync(ToolDialog dialog)
     {
         ContentDialog host = _host
             ?? throw new InvalidOperationException("The tool dialog host has not been registered. Call RegisterHost first.");
@@ -109,8 +120,10 @@ public sealed class ToolDialogService : IToolDialogService
         // One at a time: a second button press while one is open would replace it under the reader.
         if (IsOpen)
         {
-            return;
+            return null;
         }
+
+        _reveal = null;
 
         (Type viewType, Type viewModelType) = dialog switch
         {
@@ -165,6 +178,27 @@ public sealed class ToolDialogService : IToolDialogService
                 await lifecycle.OnDisappearingAsync().ConfigureAwait(true);
             }
         }
+
+        string? reveal = _reveal;
+        _reveal = null;
+
+        return reveal;
+    }
+
+    /// <inheritdoc />
+    public void RevealInHistory(string sha)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+
+        if (!IsOpen || _host is not { IsOpen: true } host)
+        {
+            return;
+        }
+
+        _reveal = sha;
+
+        // Closing is what ends ShowAsync, which hands the commit to the history.
+        _ = host.HideAsync();
     }
 
     /// <summary>

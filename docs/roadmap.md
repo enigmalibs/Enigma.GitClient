@@ -190,7 +190,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5860 | Context menus that do more              | IN PROGRESS | docs/plan/FEATURE-5860.md |
 | - PHASE01    | A line's menu opens anywhere on it      | DONE        | (in FEATURE-5860.md)      |
 | - PHASE02    | Copy names and hashes from the history  | DONE        | (in FEATURE-5860.md)      |
-| - PHASE03    | Select the line in the history          | TODO        | (in FEATURE-5860.md)      |
+| - PHASE03    | Select the line in the history          | DONE        | (in FEATURE-5860.md)      |
 | - PHASE04    | Icons on the important operations       | TODO        | (in FEATURE-5860.md)      |
 | BUG-28E4     | Untracked file diff is empty            | TODO        | docs/plan/BUG-28E4.md     |
 | FEATURE-6DDD | Release 3.1.0                           | TODO        | docs/plan/FEATURE-6DDD.md |

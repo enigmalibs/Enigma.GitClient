@@ -69,6 +69,10 @@
              not hit-testable between its children, so the menu used to open only over the text. -->
         <Border.ContextMenu>
           <ContextMenu>
+            <MenuItem Header="Select in the history"
+                      Command="{Binding SelectInHistoryCommand}"
+                      CommandParameter="{Binding}" />
+            <Separator />
             <MenuItem Header="Check out"
                       Command="{Binding CheckoutCommand}"
                       CommandParameter="{Binding}" />

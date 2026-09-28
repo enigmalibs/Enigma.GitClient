@@ -69,7 +69,7 @@
 ## PHASE03 — Select the line in the history
 
 **Branch:** `feature/feature-5860-phase03-select-in-history`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5860-PHASE03.md`
 
 ### Steps
 
