@@ -138,6 +138,16 @@
                       <ei:Icon Kind="SignIn" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
+                  <!-- The tag on its own, to where the current branch pushes: the history's tag badge
+                       offers the same push. -->
+                  <MenuItem Header="Push to the remote"
+                            IsVisible="{Binding CanPush}"
+                            Command="{Binding PushCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="ArrowUp" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <Separator />
                   <MenuItem Header="Delete…"
                             Command="{Binding DeleteCommand}"

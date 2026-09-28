@@ -144,6 +144,27 @@ public interface ISyncService
         PushRequest request,
         IProgress<SyncProgress>? progress = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pushes one tag to a remote, and nothing else.
+    /// </summary>
+    /// <param name="repository">The repository to write from.</param>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="tag">The tag's short name — <c>1.0.0</c>, not <c>refs/tags/1.0.0</c>.</param>
+    /// <param name="progress">Receives git's own progress reports.</param>
+    /// <param name="cancellationToken">Cancels the transfer.</param>
+    /// <returns>A task that completes once the remote has accepted the tag.</returns>
+    /// <remarks>
+    /// Lightweight or annotated alike — unlike <see cref="PushRequest.PushTags"/>, whose
+    /// <c>--follow-tags</c> carries annotated tags only. It is never forced: a remote that already has a
+    /// tag of that name on another commit refuses it, and keeps its own.
+    /// </remarks>
+    Task PushTagAsync(
+        RepositoryHandle repository,
+        string remote,
+        string tag,
+        IProgress<SyncProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -310,6 +331,30 @@ public sealed class SyncService : ISyncService
         return arguments;
     }
 
+    /// <summary>
+    /// Builds the argument vector that pushes one tag.
+    /// </summary>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="tag">The tag's short name.</param>
+    /// <returns>The arguments.</returns>
+    /// <remarks>
+    /// The refspec names the tag in full on both sides, so it cannot be read as an option or as a
+    /// branch of the same name, and it never starts with <c>+</c> — which would make it a forced update,
+    /// moving a tag other people may already have fetched.
+    /// </remarks>
+    public static List<string> BuildPushTagArguments(string remote, string tag)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+
+        if (remote.StartsWith('-'))
+        {
+            throw new ArgumentException("A remote's name cannot start with a dash.", nameof(remote));
+        }
+
+        return ["push", "--progress", remote, $"refs/tags/{tag}:refs/tags/{tag}"];
+    }
+
     /// <inheritdoc />
     public Task FetchAsync(
         RepositoryHandle repository,
@@ -359,6 +404,15 @@ public sealed class SyncService : ISyncService
 
         return RunAsync(repository, BuildPushArguments(request), progress, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task PushTagAsync(
+        RepositoryHandle repository,
+        string remote,
+        string tag,
+        IProgress<SyncProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+        => RunAsync(repository, BuildPushTagArguments(remote, tag), progress, cancellationToken);
 
     private async Task RunAsync(
         RepositoryHandle repository,
