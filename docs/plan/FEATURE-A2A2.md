@@ -1,6 +1,6 @@
 # FEATURE-A2A2 — Tags: bare placeholder, push from menus
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-tag-push-release
@@ -55,7 +55,7 @@
 ## PHASE01 — The placeholder says 1.0.0
 
 **Branch:** `feature/feature-a2a2-phase01-bare-tag-placeholder`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A2A2-PHASE01.md`
 
 ### Steps
 

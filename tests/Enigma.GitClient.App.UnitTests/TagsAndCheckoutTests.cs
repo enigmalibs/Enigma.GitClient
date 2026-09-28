@@ -10,12 +10,14 @@ using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
@@ -147,6 +149,26 @@ public sealed class TagsAndCheckoutTests
         model.Message = "Something worth saying";
 
         Assert.Contains("annotated", model.KindDescription, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CreateTagDialog_SuggestsABareVersion_AndStillAcceptsOneWithAV()
+    {
+        _fixture.Run(() =>
+        {
+            CreateTagDialogViewModel model = new([new BranchStartPoint("HEAD", "HEAD", "now")], []);
+            CreateTagDialogView view = new() { DataContext = model };
+
+            // The releases here are tagged bare X.Y.Z, and the suggestion says so.
+            TextBox name = view.GetLogicalDescendants()
+                .OfType<TextBox>()
+                .Single(box => global::Avalonia.Automation.AutomationProperties.GetName(box) == "Tag name");
+            Assert.Equal("1.0.0", name.PlaceholderText);
+
+            // Only a suggestion: a name with a v is as good as it was.
+            model.Name = "v1.0.0";
+            Assert.True(model.IsValid);
+        });
     }
 
     [Fact]
