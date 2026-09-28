@@ -1,6 +1,6 @@
 # FEATURE-10AA — Release 4.0.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-10AA.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-10aa-release-4-0-0`
 **Run:** bugfix/2026-09-28-changes-commit-details-release

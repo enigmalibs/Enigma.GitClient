@@ -10,10 +10,10 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 3.1** — stashes in the history, one line each as GitKraken draws them: stash,
-> apply, pop and delete from the graph. Drag one branch onto another to merge it, sort the branches
-> and tags by name or date, and find icons and copy items in every menu. See
-> [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 4.0** — a commit's details in a dialog, as text you can select; a one-line diff
+> header; a blue way back from the Changes page, Escape included; red discards that ask one plain
+> question, and a discard of all the uncommitted work from the history. The Changes page no longer
+> amends or signs off. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -25,6 +25,9 @@ Two things matter more than everything else in this app:
   the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit, shown as a **list or a tree** (your choice)
+- A commit's details — its title, description, author and email, date and how long ago that was, and
+  full hash — in a dialog opened from the diff view's header or the commit's line menu, every value
+  selectable to copy
 - Colour-coded file diffs with word-level intra-line highlighting
 - Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
   change with the context you chose
@@ -51,7 +54,9 @@ Two things matter more than everything else in this app:
 - Create, clone and open repositories from a start window with a recent-repositories list; the
   repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
   straight away
-- Working directory: status, stage/unstage, discard and commit
+- Working directory: status, stage/unstage, discard and commit, with a back button (or Escape) to
+  the history; every discard confirms with a red button, and the history's uncommitted line discards
+  all the uncommitted work at once
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
 - Stashes in the graph, one line each at the stash itself: stash your uncommitted work from the
   history's toolbar, then apply, pop or delete a stash from its line — a pop that conflicts keeps
