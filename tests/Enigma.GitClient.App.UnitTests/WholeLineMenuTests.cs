@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,9 @@ using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.App.Views.Panels;
+using Enigma.GitClient.Core.Diff;
+using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
 
@@ -123,6 +127,118 @@ public sealed class WholeLineMenuTests
         });
     }
 
+    [Theory]
+    [InlineData(ChangedFilesViewMode.List)]
+    [InlineData(ChangedFilesViewMode.Tree)]
+    public void AFileLine_OpensItsMenuAnywhereOnIt(ChangedFilesViewMode mode)
+    {
+        _fixture.Run(() =>
+        {
+            ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop()) { ViewMode = mode };
+            panel.SetFiles(
+            [
+                new ChangedFile { Path = "README.md", AddedLines = 3, RemovedLines = 1, HasLineCounts = true },
+                new ChangedFile { Path = "src/app/Program.cs", AddedLines = 20, HasLineCounts = true, ChangeKind = FileChangeKind.Added },
+                new ChangedFile { Path = "src/lib/Engine.cs", RemovedLines = 4, HasLineCounts = true },
+            ]);
+
+            ChangedFilesPanelView view = new() { DataContext = panel };
+            Window window = new() { Content = view, Width = 420, Height = 500 };
+            window.Show();
+
+            try
+            {
+                Render(window);
+
+                // In the tree, a file under a folder: its line starts with the indentation.
+                Grid line = FileLines(view).First(row => mode == ChangedFilesViewMode.List || ((ChangedFileNodeViewModel)row.DataContext!).Path == "src/app/Program.cs");
+
+                AssertTheWholeFileLineOpensItsMenu(window, line);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheChangesPagesFileLines_OpenTheirMenusAnywhereOnThem()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# edited\n");
+            File.WriteAllText(Path.Combine(repository.WorkTreePath, "staged.txt"), "staged\n");
+            Git(repository, "add", "staged.txt");
+
+            ChangesPageViewModel page = services.Get<ChangesPageViewModel>();
+            await page.OnAppearingAsync();
+            await WaitUntilAsync(() => page.HasUnstaged && page.HasStaged);
+
+            ChangesPageView view = services.Get<ChangesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1200, Height = 700 };
+            window.Show();
+
+            try
+            {
+                Render(window);
+
+                // Not staged, then staged: the two panels are the same control.
+                Grid[] lines = [.. FileLines(view)];
+                Assert.Equal(2, lines.Length);
+
+                foreach (Grid line in lines)
+                {
+                    AssertTheWholeFileLineOpensItsMenu(window, line);
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheHistoryDiffsFileLines_OpenTheirMenusAnywhereOnThem()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            await BuildRepositoryAsync(services);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            HistoryPageView view = services.Get<HistoryPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1200, Height = 800 };
+            window.Show();
+
+            try
+            {
+                page.RowCommands.ShowChanges.Execute(page.Rows.First(row => row.Commit is not null));
+                await WaitUntilAsync(() => page.Files.Nodes.Count > 0);
+                Render(window);
+
+                Border diffs = view.FindControl<Border>("DiffPage")
+                    ?? throw new InvalidOperationException("The history page has no diff view.");
+                Assert.True(diffs.IsVisible);
+
+                AssertTheWholeFileLineOpensItsMenu(window, FileLines(diffs).First());
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
@@ -159,6 +275,52 @@ public sealed class WholeLineMenuTests
         finally
         {
             window.Close();
+        }
+    }
+
+    /// <summary>
+    /// The file lines of the changed-files panels under a control, in order: the row grid that carries
+    /// each line's menu.
+    /// </summary>
+    private static IEnumerable<Grid> FileLines(Control root)
+        => root.GetVisualDescendants()
+            .OfType<Grid>()
+            .Where(grid => grid.ContextMenu is not null && grid.DataContext is ChangedFileNodeViewModel { IsDirectory: false } && grid.IsEffectivelyVisible);
+
+    /// <summary>
+    /// Right-clicks a file line — for real, pointer down and up — in the corner of its container's
+    /// padding (the indentation, in a tree), at the right end of the line, in the gap after its first
+    /// column and over its name, and checks each one opens that line's own menu.
+    /// </summary>
+    private static void AssertTheWholeFileLineOpensItsMenu(Window window, Grid line)
+    {
+        Control container = line.GetVisualAncestors().OfType<Control>().First(control => control is ListBoxItem or TreeViewItem);
+        ContextMenu menu = line.ContextMenu!;
+
+        Point rowTop = line.TranslatePoint(default, container) ?? throw new InvalidOperationException("The line is not in its container.");
+        double middle = rowTop.Y + (line.Bounds.Height / 2);
+
+        TextBlock name = line.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text is { Length: > 0 });
+
+        (string Where, Point At)[] points =
+        [
+            ("in the container's corner", container.TranslatePoint(new Point(2, 2), window) ?? default),
+            ("at the start of the line", container.TranslatePoint(new Point(2, middle), window) ?? default),
+            ("at the end of the line", container.TranslatePoint(new Point(container.Bounds.Width - 3, middle), window) ?? default),
+            ("between its columns", line.TranslatePoint(GapAfterFirstChild(line), window) ?? default),
+            ("over its name", name.TranslatePoint(new Point(2, name.Bounds.Height / 2), window) ?? default),
+        ];
+
+        foreach ((string where, Point at) in points)
+        {
+            window.MouseDown(at, MouseButton.Right);
+            window.MouseUp(at, MouseButton.Right);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(menu.IsOpen, $"a right-click {where} did not open the line's menu");
+
+            menu.Close();
+            Dispatcher.UIThread.RunJobs();
         }
     }
 

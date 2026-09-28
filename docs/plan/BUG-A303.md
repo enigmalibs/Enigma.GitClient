@@ -1,6 +1,6 @@
 # BUG-A303 — File line menus only open on the text
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-A303.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-a303-whole-line-file-menus`
 **Run:** bugfix/2026-09-28-changes-commit-details-release
