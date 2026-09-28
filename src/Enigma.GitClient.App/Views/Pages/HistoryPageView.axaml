@@ -444,6 +444,23 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+
+        <!--
+          The loader: the history is still reading what it will draw — its commits, or, just after an
+          opening, the references its badges come from. Laid over the top of the list rather than
+          docked above it, so appearing and disappearing never moves a row: an automatic refresh that
+          redraws the graph must not make it jump.
+        -->
+        <ProgressBar Name="LoadingBar"
+                     IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     VerticalAlignment="Top"
+                     HorizontalAlignment="Stretch"
+                     Height="3"
+                     MinHeight="3"
+                     MinWidth="0"
+                     IsHitTestVisible="False"
+                     AutomationProperties.Name="Loading the history" />
       </Panel>
     </DockPanel>
 

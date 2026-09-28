@@ -5,10 +5,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -137,6 +139,90 @@ public sealed class HistoryOpeningTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(reads, log.Reads);
+        });
+    }
+
+    // ---------------------------------------------------------------- the loader
+
+    [Fact]
+    public void TheLoader_ShowsUntilTheCommitsAndTheReferencesAreBothRead()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildGated();
+            GatedRefReader references = services.Get<GatedRefReader>();
+            CountingCommitLogReader log = services.Get<CountingCommitLogReader>();
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            HistoryPageViewModel page = await AppearedAsync(services);
+            Assert.False(page.IsLoading);
+
+            log.Hold();
+            Task opening = services.Get<IRepositoryContext>().OpenAsync(repository);
+            await WaitUntilAsync(() => log.Reads == 1);
+            Assert.True(page.IsLoading);
+
+            // The commits are drawn; their badges are still being read.
+            log.Release();
+            await WaitUntilAsync(() => page.Rows.Count > 0 && page.IsNotBusy);
+            Assert.True(page.IsLoading);
+
+            references.Open();
+            await opening;
+            await WaitUntilAsync(() => page.IsNotBusy && page.Rows.Any(row => row.HasRefs));
+
+            Assert.False(page.IsLoading);
+        });
+    }
+
+    [Fact]
+    public void TheLoader_IsLaidOverTheListWhileLoading_AndGoneOnceItIsDrawn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildGated();
+            GatedRefReader references = services.Get<GatedRefReader>();
+            CountingCommitLogReader log = services.Get<CountingCommitLogReader>();
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            HistoryPageViewModel page = await AppearedAsync(services);
+            HistoryPageView view = services.Get<HistoryPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 700 };
+            window.Show();
+
+            try
+            {
+                ProgressBar bar = view.FindControl<ProgressBar>("LoadingBar")
+                    ?? throw new InvalidOperationException("The history page has no loader.");
+                Panel workspace = view.FindControl<Panel>("Workspace")
+                    ?? throw new InvalidOperationException("The history page has no workspace.");
+
+                Assert.False(bar.IsVisible);
+
+                log.Hold();
+                references.Open();
+                Task opening = services.Get<IRepositoryContext>().OpenAsync(repository);
+                await WaitUntilAsync(() => log.Reads == 1);
+                window.UpdateLayout();
+
+                Assert.True(bar.IsVisible);
+                Assert.True(bar.IsIndeterminate);
+                Assert.Same(workspace, bar.Parent);
+                Assert.Equal(0, bar.Bounds.Top);
+
+                log.Release();
+                await opening;
+                await WaitUntilAsync(() => page.IsNotBusy && page.Rows.Count > 0);
+                window.UpdateLayout();
+
+                Assert.False(bar.IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
