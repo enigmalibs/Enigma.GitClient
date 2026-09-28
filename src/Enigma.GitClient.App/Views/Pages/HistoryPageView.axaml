@@ -180,9 +180,10 @@
           </Grid.ColumnDefinitions>
 
           <!-- The graph is a column like the others: titled, and resized from its own grip. Until
-               that grip is dragged, the column follows the lanes in view. -->
+               that grip is dragged, the column follows the lanes in view. Its title starts where the
+               lanes do (HistoryPageViewModel.LanePadding), rather than against the page's edge. -->
           <Panel Grid.Column="0" Width="{Binding Columns.GraphWidth}">
-            <TextBlock Classes="columnheader" Text="Graph" />
+            <TextBlock Classes="columnheader" Text="Graph" Margin="8,0,4,0" />
             <Thumb Name="GraphGrip"
                    Classes="columngrip"
                    HorizontalAlignment="Right"
@@ -205,12 +206,17 @@
             <TextBlock Classes="columnheader" Text="Message" />
           </Panel>
 
+          <!-- The columns after the message are resized from their left edge, but their grips sit in
+               the gap before them, not on the edge itself: -14 is the 10 of the column spacing plus
+               half the 9-wide grip, which puts the rule where the graph's and the refs' rules are — at
+               the start of the gap, the title a whole gap after it. A grip on the edge drew its rule
+               against the title. -->
           <Panel Grid.Column="3" Width="{Binding Columns.AuthorWidth}">
             <TextBlock Classes="columnheader" Text="Author" />
             <Thumb Name="AuthorGrip"
                    Classes="columngrip"
                    HorizontalAlignment="Left"
-                   Margin="-5,0,0,0"
+                   Margin="-14,0,0,0"
                    AutomationProperties.Name="Resize the author column" />
           </Panel>
 
@@ -219,7 +225,7 @@
             <Thumb Name="DateGrip"
                    Classes="columngrip"
                    HorizontalAlignment="Left"
-                   Margin="-5,0,0,0"
+                   Margin="-14,0,0,0"
                    AutomationProperties.Name="Resize the date column" />
           </Panel>
 
@@ -228,7 +234,7 @@
             <Thumb Name="ShaGrip"
                    Classes="columngrip"
                    HorizontalAlignment="Left"
-                   Margin="-5,0,0,0"
+                   Margin="-14,0,0,0"
                    AutomationProperties.Name="Resize the commit column" />
           </Panel>
         </Grid>

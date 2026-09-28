@@ -1308,6 +1308,65 @@ public sealed class HistoryPageTests
         });
     }
 
+    [Fact]
+    public void ColumnTitles_EachStartTheSameGapAfterTheSeparatorBeforeThem()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, _, HistoryPageView view, Panel workspace, _) = await ShowHistoryPageAsync(services);
+
+            Grid header = view.FindControl<Grid>("HeaderRow")
+                ?? throw new InvalidOperationException("The history page has no column header.");
+
+            List<(string Text, double Left)> titles =
+            [
+                .. header.GetVisualDescendants()
+                    .OfType<TextBlock>()
+                    .Where(text => text.Classes.Contains("columnheader"))
+                    .Select(text => (text.Text ?? string.Empty, text.TranslatePoint(default, header)!.Value.X))
+                    .OrderBy(title => title.Item2),
+            ];
+
+            // Where each grip draws its rule: down its middle.
+            List<double> rules =
+            [
+                .. header.GetVisualDescendants()
+                    .OfType<global::Avalonia.Controls.Primitives.Thumb>()
+                    .Select(grip => grip.TranslatePoint(new Point(grip.Bounds.Width / 2, 0), header)!.Value.X),
+            ];
+
+            Assert.Equal(["Graph", "Refs", "Message", "Author", "Date", "Commit"], titles.Select(title => title.Text));
+            Assert.Equal(5, rules.Count);
+
+            // The first title is not against the page's edge: it starts where the lanes do.
+            Assert.True(
+                titles[0].Left >= HistoryPageViewModel.LanePadding - 0.5,
+                $"\"Graph\" starts at {titles[0].Left}");
+
+            // Every other title starts a gap after the rule on its left, and the same gap for all of
+            // them — "Author", "Date" and "Commit" used to sit against theirs.
+            List<double> gaps = [];
+
+            foreach ((string text, double left) in titles.Skip(1))
+            {
+                double rule = rules.Where(x => x < left).DefaultIfEmpty(double.NaN).Max();
+                Assert.False(double.IsNaN(rule), $"no separator before \"{text}\"");
+
+                double gap = left - rule;
+                Assert.True(gap >= 8, $"\"{text}\" starts {gap} after its separator");
+                gaps.Add(gap);
+            }
+
+            Assert.True(gaps.Max() - gaps.Min() <= 1, $"the gaps differ: {string.Join(", ", gaps)}");
+
+            // Moving the grips moved nothing else: the header still lines up with the rows.
+            AssertColumnsLineUp(header, workspace);
+
+            window.Close();
+        });
+    }
+
     /// <summary>
     /// Asserts every row's cells sit at the same x as the header cell above them.
     /// </summary>
