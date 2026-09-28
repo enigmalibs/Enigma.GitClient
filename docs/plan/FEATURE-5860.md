@@ -1,6 +1,6 @@
 # FEATURE-5860 — Context menus that do more
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-09-28-history-stash-menus-release
@@ -32,7 +32,7 @@
 ## PHASE01 — A line's menu opens anywhere on it
 
 **Branch:** `feature/feature-5860-phase01-whole-line-menus`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5860-PHASE01.md`
 
 ### Steps
 

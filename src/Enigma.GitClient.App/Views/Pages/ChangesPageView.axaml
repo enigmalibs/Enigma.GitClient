@@ -152,7 +152,9 @@
                      AutomationProperties.Name="Stash entries">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:StashRowViewModel">
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Height="34">
+                  <!-- Painted, if only transparently: a grid with no brush is not hit-testable
+                       between its children, and this one carries the row's menu. -->
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Height="34" Background="Transparent">
 
                     <Grid.ContextMenu>
                       <ContextMenu>

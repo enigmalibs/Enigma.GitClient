@@ -13,7 +13,9 @@
       <!-- The name sits in the one star column so the Grid can shrink it and the trimming
            actually fires. A horizontal StackPanel would measure every child with infinite width,
            which is what made a deeply indented tree row run past the panel's edge. -->
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Height="22">
+      <!-- Painted, if only transparently: a grid with no brush is not hit-testable between its
+           children, and this one carries the row's menu. -->
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Height="22" Background="Transparent">
 
         <!-- The row's own menu. A ContextMenu opens in its own popup tree, so it cannot reach the
              panel through a visual ancestor: the row passes the panel's commands through instead,

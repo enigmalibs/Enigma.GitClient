@@ -70,22 +70,24 @@
                     BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="16,10">
-              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+              <!-- On the row's border, whose background is what the pointer hits: a grid with no brush is
+                   not hit-testable between its children, so the menu used to open only over the text. -->
+              <Border.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Fetch"
+                            Command="{Binding FetchCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="Edit…"
+                            Command="{Binding EditCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="Remove…"
+                            Command="{Binding RemoveCommand}"
+                            CommandParameter="{Binding}" />
+                </ContextMenu>
+              </Border.ContextMenu>
 
-                <Grid.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="Fetch"
-                              Command="{Binding FetchCommand}"
-                              CommandParameter="{Binding}" />
-                    <Separator />
-                    <MenuItem Header="Edit…"
-                              Command="{Binding EditCommand}"
-                              CommandParameter="{Binding}" />
-                    <MenuItem Header="Remove…"
-                              Command="{Binding RemoveCommand}"
-                              CommandParameter="{Binding}" />
-                  </ContextMenu>
-                </Grid.ContextMenu>
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
 
                 <ei:Icon Grid.Column="0"
                          Kind="HardDrives"
