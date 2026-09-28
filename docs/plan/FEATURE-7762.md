@@ -1,6 +1,6 @@
 # FEATURE-7762 — Drag a branch to merge it
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-7762.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-7762-drag-merge-history`
 **Run:** bugfix/2026-09-28-history-stash-menus-release

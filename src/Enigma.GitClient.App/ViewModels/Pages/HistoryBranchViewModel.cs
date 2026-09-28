@@ -174,6 +174,30 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 }
 
 /// <summary>
+/// One branch badge of the history dropped onto another: the dragged branch is merged into the one it
+/// was dropped on.
+/// </summary>
+/// <param name="Source">The branch that was dragged, whose commits are brought over.</param>
+/// <param name="Target">The branch it was dropped on, which is written to.</param>
+public sealed record HistoryBranchDrop(HistoryBranchViewModel Source, HistoryBranchViewModel Target)
+{
+    /// <summary>Gets the merge the drop asks for.</summary>
+    public BranchDropRequest Request => new(Source.Name, Source.IsRemote, Target.Name, Target.IsRemote, Target.IsCurrent);
+
+    /// <summary>
+    /// Gets a value indicating whether the drop can be merged: onto a local branch, and not onto the
+    /// branch itself.
+    /// </summary>
+    public bool CanDrop => BranchDropOperations.CanDrop(Request);
+
+    /// <summary>Gets the merge's menu item, both branches named in full.</summary>
+    public string MergeHeader => $"Merge \"{Source.Name}\" into \"{Target.Name}\"";
+
+    /// <summary>Gets the fast-forward's menu item, both branches named in full.</summary>
+    public string FastForwardHeader => $"Merge \"{Source.Name}\" into \"{Target.Name}\", fast-forward only";
+}
+
+/// <summary>
 /// One item of a history line's menu, as data: the line's menu is built when it opens, because what
 /// it offers depends on the branches on the line and on the page's merge source.
 /// </summary>
