@@ -213,3 +213,6 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Pushing one tag to the remote           | DONE   | (in FEATURE-A2A2.md)      |
 | - PHASE03    | Push from the badge and the dialog      | DONE   | (in FEATURE-A2A2.md)      |
 | FEATURE-A349 | Release 4.1.0                           | DONE   | docs/plan/FEATURE-A349.md |
+| BUG-6EAA     | Test suite fails on Windows             | TODO   | docs/plan/BUG-6EAA.md     |
+| BUG-7E5C     | Dialogs with a view show its type name  | TODO   | docs/plan/BUG-7E5C.md     |
+| FEATURE-28C8 | Release 4.1.1                           | TODO   | docs/plan/FEATURE-28C8.md |
