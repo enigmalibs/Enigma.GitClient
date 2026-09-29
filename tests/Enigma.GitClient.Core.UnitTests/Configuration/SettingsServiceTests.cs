@@ -243,6 +243,34 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TheCloneDirectory_IsRememberedTrimmed_AndAnOlderFileHasNone()
+    {
+        Assert.Equal(string.Empty, AppSettings.Defaults.CloneParentDirectory);
+        Assert.Equal(string.Empty, (AppSettings.Defaults with { CloneParentDirectory = null! }).Normalised().CloneParentDirectory);
+
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, $"{{ \"version\": {AppSettings.CurrentVersion.ToString(CultureInfo.InvariantCulture)} }}");
+
+        string clones = Path.Combine(_root, "clones");
+
+        using (SettingsService first = Build())
+        {
+            AppSettings loaded = await first.LoadAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(string.Empty, loaded.CloneParentDirectory);
+
+            first.Update(current => current with { CloneParentDirectory = "  " + clones + "  " });
+            Assert.Equal(clones, first.Current.CloneParentDirectory);
+
+            await first.FlushAsync(TestContext.Current.CancellationToken);
+        }
+
+        using SettingsService second = Build();
+        AppSettings reloaded = await second.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(clones, reloaded.CloneParentDirectory);
+    }
+
+    [Fact]
     public void AnOrderThisBuildDoesNotHave_FallsBackToNewestFirst()
     {
         AppSettings odd = AppSettings.Defaults with { BranchSortKey = (RefSortKey)42, BranchSortDirection = (SortDirection)7 };

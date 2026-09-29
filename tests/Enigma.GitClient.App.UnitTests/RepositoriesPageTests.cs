@@ -16,6 +16,7 @@ using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
 
@@ -133,6 +134,83 @@ public sealed class RepositoriesPageTests
             // The progress overlay must go up and, above all, come back down.
             Assert.Equal(1, services.Overlay.ShowCount);
             Assert.False(services.Overlay.IsOpen, "an overlay left open makes the window unusable");
+        });
+    }
+
+    [Fact]
+    public void ACloneThatWorked_IsWhereTheNextCloneIsSuggested()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+
+            string root = Path.Combine(services.ConfigurationRoot, "clones");
+            RepositoryHandle source = await SourceRepositoryAsync(services);
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            // Nothing cloned yet: the home folder, as before.
+            Assert.Equal(HomeFolder, page.CloneParentDirectory());
+
+            Assert.True(await page.RunCloneAsync(new CloneRequest
+            {
+                Url = source.WorkTreePath,
+                ParentDirectory = root,
+                DirectoryName = "cloned",
+            }));
+
+            Assert.Equal(Path.GetFullPath(root), services.Get<ISettingsService>().Current.CloneParentDirectory);
+
+            // The next clone dialog opens on it.
+            CloneRepositoryDialogViewModel? next = null;
+            services.Dialogs.OnShown = dialog => next = ((Control)dialog.Content!).DataContext as CloneRepositoryDialogViewModel;
+
+            await page.CloneCommand.ExecuteAsync(null);
+
+            Assert.NotNull(next);
+            Assert.Equal(Path.GetFullPath(root), next.ParentDirectory);
+        });
+    }
+
+    [Fact]
+    public void ACloneThatFailed_LeavesTheSuggestionWhereItWas()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+
+            string root = Path.Combine(services.ConfigurationRoot, "clones");
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            Assert.False(await page.RunCloneAsync(new CloneRequest
+            {
+                Url = Path.Combine(services.ConfigurationRoot, "no-such-repository"),
+                ParentDirectory = root,
+                DirectoryName = "cloned",
+            }));
+
+            Assert.Equal(string.Empty, services.Get<ISettingsService>().Current.CloneParentDirectory);
+            Assert.Equal(HomeFolder, page.CloneParentDirectory());
+        });
+    }
+
+    [Fact]
+    public void ARememberedDirectoryThatIsGone_IsNotSuggested()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            string kept = Path.Combine(services.ConfigurationRoot, "kept");
+            Directory.CreateDirectory(kept);
+
+            ISettingsService settings = services.Get<ISettingsService>();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            settings.Update(current => current with { CloneParentDirectory = kept });
+            Assert.Equal(kept, page.CloneParentDirectory());
+
+            settings.Update(current => current with { CloneParentDirectory = Path.Combine(services.ConfigurationRoot, "unplugged") });
+            Assert.Equal(HomeFolder, page.CloneParentDirectory());
         });
     }
 
@@ -459,6 +537,26 @@ public sealed class RepositoriesPageTests
                 window.Close();
             }
         });
+    }
+
+    // Where a clone goes when there is nothing to remember.
+    private static string HomeFolder => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    /// <summary>
+    /// A repository with one commit, to clone from.
+    /// </summary>
+    private static async Task<RepositoryHandle> SourceRepositoryAsync(TestServices services)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        RepositoryHandle source = await services.Get<IRepositoryService>().InitAsync(Path.Combine(root, "source"), "main");
+
+        File.WriteAllText(Path.Combine(source.WorkTreePath, "README.md"), "# source\n");
+        RunGit(source.WorkTreePath, "add", "--all");
+        RunGit(source.WorkTreePath, "-c", "user.name=T", "-c", "user.email=t@e.invalid", "commit", "-m", "base");
+
+        return source;
     }
 
     private static void RunGit(string workingDirectory, params string[] arguments)

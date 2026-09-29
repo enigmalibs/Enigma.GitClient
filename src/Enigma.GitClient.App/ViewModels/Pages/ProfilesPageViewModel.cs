@@ -1173,7 +1173,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         await _repositories.RunCloneAsync(new CloneRequest
         {
             Url = picked.CloneUrl,
-            ParentDirectory = RepositoriesPageViewModel.DefaultParentDirectory(),
+            ParentDirectory = _repositories.CloneParentDirectory(),
             DirectoryName = CloneRequest.DeriveDirectoryName(picked.CloneUrl),
             Account = row.Account,
         }).ConfigureAwait(true);
