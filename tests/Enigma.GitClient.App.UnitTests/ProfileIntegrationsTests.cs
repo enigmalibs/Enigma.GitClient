@@ -15,6 +15,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
@@ -481,6 +482,51 @@ public sealed class ProfileIntegrationsTests
             CloneRequest request = Assert.Single(repositories.Clones);
             Assert.Equal(picked.CloneUrl, request.Url);
             Assert.Equal(row.Account.Id, request.Account?.Id);
+        });
+    }
+
+    [Fact]
+    public void ARepositoryPickedInTheDialog_ClonesWhereTheLastCloneWent()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            FakeHostProvider provider = new();
+            provider.Returns(new HostRepositoryPage([]));
+            RecordingRepositoryService repositories = new();
+
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IRepositoryHostProvider>();
+                collection.AddSingleton<IRepositoryHostProvider>(provider);
+                collection.RemoveAll<IRepositoryService>();
+                collection.AddSingleton<IRepositoryService>(repositories);
+            });
+
+            // A clone that picks from a host has no dialog to choose a directory in: it goes where
+            // the last one went, like the clone dialog's suggestion.
+            string remembered = System.IO.Path.Combine(services.ConfigurationRoot, "clones");
+            System.IO.Directory.CreateDirectory(remembered);
+            services.Get<ISettingsService>().Update(current => current with { CloneParentDirectory = remembered });
+
+            ProfilesPageViewModel page = await PageAsync(services, ("Work", Work));
+            await ConnectAsync(services, page);
+
+            HostAccountRowViewModel row = Assert.Single(Profile(page, "Work").Integrations);
+            HostRepository picked = new(
+                "ada/engine", "engine", null, "main", "https://github.com/ada/engine.git",
+                "git@github.com:ada/engine.git", "https://github.com/ada/engine", IsPrivate: true);
+
+            services.Dialogs.OnShown = dialog =>
+            {
+                if (((Control)dialog.Content!).DataContext is HostRepositoriesDialogViewModel model)
+                {
+                    model.CloneCommand.Execute(new HostRepositoryRowViewModel(model, picked));
+                }
+            };
+
+            await row.BrowseCommand.ExecuteAsync(row);
+
+            Assert.Equal(remembered, Assert.Single(repositories.Clones).ParentDirectory);
         });
     }
 

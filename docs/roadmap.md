@@ -216,6 +216,11 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-6EAA     | Test suite fails on Windows             | ABANDONED | docs/plan/BUG-6EAA.md     |
 | BUG-7E5C     | Dialogs with a view show its type name  | DONE      | docs/plan/BUG-7E5C.md     |
 | FEATURE-28C8 | Release 4.1.1                           | DONE      | docs/plan/FEATURE-28C8.md |
+| FEATURE-3071 | A narrower navigation rail              | DONE      | docs/plan/FEATURE-3071.md |
+| FEATURE-2087 | Clone remembers its directory           | DONE      | docs/plan/FEATURE-2087.md |
+| FEATURE-0842 | History: checked-out line, tag focus    | DONE      | docs/plan/FEATURE-0842.md |
+| - PHASE01    | The checked-out line is washed          | DONE      | (in FEATURE-0842.md)      |
+| - PHASE02    | The tag name has the focus              | DONE      | (in FEATURE-0842.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
