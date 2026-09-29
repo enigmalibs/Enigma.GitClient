@@ -26,6 +26,16 @@
       <!-- One monospace stack for short hashes and file content, listing a face that exists on
            Linux and one that exists on Windows before falling back to the generic family. -->
       <FontFamily x:Key="MonospaceFontFamily">Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, Consolas, Menlo, monospace</FontFamily>
+
+      <!-- The navigation rail's width in each window: the narrowest multiple of 4 that leaves the
+           window's longest label at least 2 of room to spare, which is what layout rounding at a
+           fractional scale can take away. The library's item wraps a label that does not fit
+           mid-word, and puts 21 around it: 8 of padding and two 1 margins on each side, and the
+           rail's 1 border. So the repository window, whose longest labels are "Changes" and
+           "Conflicts" (46 in Inter 11), is 72; the start window, whose "Repositories" is 64.4, is 88.
+           One width for both would be pinned at 88 by a label the repository window never shows. -->
+      <x:Double x:Key="RepositoryRailWidth">72</x:Double>
+      <x:Double x:Key="StartRailWidth">88</x:Double>
     </ResourceDictionary>
   </Application.Resources>
 </Application>
