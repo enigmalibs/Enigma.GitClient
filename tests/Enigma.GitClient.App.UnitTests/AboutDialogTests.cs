@@ -294,6 +294,52 @@ public sealed class AboutDialogTests
         });
     }
 
+    [Theory]
+    [InlineData(typeof(MainWindow))]
+    [InlineData(typeof(StartWindow))]
+    public void InEitherWindow_TheDialogShowsTheAboutViewItself(Type windowType)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IContentDialogService>();
+                collection.AddSingleton<IContentDialogService, ContentDialogService>();
+            });
+
+            Window window = (Window)services.Provider.GetRequiredService(windowType);
+            ContentDialog host = ((IHostWindow)window).DialogHost;
+            services.Get<IContentDialogService>().RegisterHost(host);
+            window.Show();
+
+            try
+            {
+                Task showing = services.Get<IAboutDialogService>().ShowAsync();
+
+                Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+
+                // The view is in the card, drawing its own text — not a line naming its type, which is
+                // what a content template made of every view in 4.1.0.
+                AboutView view = Assert.IsType<AboutView>(host.Content);
+                Visual[] shown = [.. host.GetVisualDescendants()];
+                TextBlock[] texts = [.. shown.OfType<TextBlock>()];
+
+                Assert.Contains(view, shown);
+                Assert.Contains(texts, text => text.Text == "Enigma git client");
+                Assert.DoesNotContain(texts, text => text.Text == view.ToString());
+
+                await host.HideAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                await showing.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     [Fact]
     public void TheView_IsDrawn()
     {
