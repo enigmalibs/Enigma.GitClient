@@ -90,6 +90,10 @@ public sealed class ToolDialogTests
                 Assert.IsType(viewModel, page.DataContext);
                 Assert.Equal("Close", window.ToolDialog.CloseButtonText);
 
+                // Shown, not only set: a content template once drew the page's type name in its place.
+                Settle(window);
+                Assert.Contains(page, window.ToolDialog.GetVisualDescendants());
+
                 await window.ToolDialog.HideAsync().WaitAsync(Patience);
                 await showing.WaitAsync(Patience);
 
@@ -255,12 +259,33 @@ public sealed class ToolDialogTests
                     await window.ToolDialog.HideAsync().WaitAsync(Patience);
                     await running.WaitAsync(Patience);
                 }
+
+                // The history reads the repository it was told of on its own, and nothing awaits that
+                // reading. It ends before the repository is deleted: a git still running in it holds
+                // the directory.
+                await WaitUntilAsync(() => history.IsNotBusy);
             }
             finally
             {
                 window.Close();
             }
         });
+    }
+
+    /// <summary>
+    /// Pumps the dispatcher until the condition holds.
+    /// </summary>
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+
+        while (!condition())
+        {
+            Assert.True(watch.Elapsed < Patience, "the condition never held");
+
+            await Task.Delay(10);
+            Dispatcher.UIThread.RunJobs();
+        }
     }
 
     [Fact]
