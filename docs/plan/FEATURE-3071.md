@@ -1,6 +1,6 @@
 # FEATURE-3071 — A narrower navigation rail
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3071.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-3071-narrower-rail`
 **Run:** feature/2026-09-29-rail-clone-history

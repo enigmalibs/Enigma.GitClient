@@ -28,7 +28,7 @@
                           FooterItems="{Binding Navigation.FooterItems}"
                           SelectedItem="{Binding Navigation.SelectedItem, Mode=TwoWay}"
                           Orientation="Vertical"
-                          PaneSize="96" />
+                          PaneSize="{StaticResource StartRailWidth}" />
 
       <ContentControl Content="{Binding Navigation.CurrentPage}" />
     </DockPanel>
