@@ -1,5 +1,33 @@
 # Release notes
 
+## 4.1.1 — 2026-09-29
+
+A patch release that fixes a regression in 4.1.0: every dialog whose content is a view showed a line
+of text naming the view's type instead of the view. Nothing is added or removed, and nothing that is
+stored changes.
+
+### Fixes
+
+- **Dialogs show their content again** (a regression from 4.1.0). The Branches, Tags and Remotes
+  dialogs showed only a line such as `Enigma.GitClient.App.Views.Pages.BranchesPageView` and the
+  Close button. So did About, *Commit details*, the branch, tag, stash and remote forms, the
+  repository browser, the profile dialogs and the Repositories page's form. 4.1.0's wrapping of long
+  questions was applied to every dialog's content, views included; it now reaches only the text of a
+  plain question. Long questions still wrap, and are never cut.
+
+### Upgrading from 4.1.0
+
+- Nothing changes in the way you work, and nothing is migrated.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set, which is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.1.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **4.1.1** is a patch release under Semantic Versioning: a fix, and nothing else.
+
 ## 4.1.0 — 2026-09-28
 
 A minor release. A tag can be pushed to the remote on its own, from its badge in the history or from

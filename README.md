@@ -10,9 +10,10 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 4.1** — push one tag to the remote from its badge in the history or its line in the
-> Tags dialog; *Create a tag* suggests a bare `1.0.0`; the history's column titles each get the same
-> room; long dialog questions wrap instead of being cut off. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 4.1.1** — the dialogs show their content again: 4.1.0 showed a view's type name in
+> the Branches, Tags and Remotes dialogs, About and every form. 4.1 added pushing one tag from its
+> badge or its line in the Tags dialog, a bare `1.0.0` placeholder for a new tag, even column titles
+> in the history, and long dialog questions that wrap. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
