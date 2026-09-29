@@ -1,6 +1,6 @@
 # FEATURE-0842 — History: checked-out line, tag focus
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-29-rail-clone-history
@@ -74,7 +74,7 @@
 ## PHASE02 — The tag name has the focus
 
 **Branch:** `feature/feature-0842-phase02-tag-name-focus`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0842-PHASE02.md`
 
 ### Steps
 
