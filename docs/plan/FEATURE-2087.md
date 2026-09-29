@@ -1,6 +1,6 @@
 # FEATURE-2087 — Clone remembers its directory
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2087.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-2087-remember-clone-directory`
 **Run:** feature/2026-09-29-rail-clone-history

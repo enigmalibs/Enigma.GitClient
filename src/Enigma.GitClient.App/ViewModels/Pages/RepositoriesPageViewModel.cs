@@ -13,6 +13,7 @@ using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.Views.Dialogs;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 {
     private readonly IRepositoryService _repositories;
     private readonly IRecentRepositoryStore _recentStore;
+    private readonly ISettingsService _settings;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IContentDialogService _dialogs;
     private readonly IOverlayService _overlay;
@@ -46,6 +48,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="repositories">Opens, creates and clones repositories.</param>
     /// <param name="recentStore">Remembers what has been opened.</param>
+    /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
     /// <param name="overlay">Shows clone progress.</param>
@@ -60,6 +63,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IRepositoryContext repositoryContext,
         IRepositoryService repositories,
         IRecentRepositoryStore recentStore,
+        ISettingsService settings,
         IFolderDialogService folderDialogs,
         IContentDialogService dialogs,
         IOverlayService overlay,
@@ -74,6 +78,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     {
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(recentStore);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(overlay);
@@ -87,6 +92,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         _repositories = repositories;
         _recentStore = recentStore;
+        _settings = settings;
         _folderDialogs = folderDialogs;
         _dialogs = dialogs;
         _overlay = overlay;
@@ -332,7 +338,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private async Task OnCloneAsync()
     {
-        CloneRepositoryDialogViewModel model = new(_folderDialogs, _repositories, DefaultParentDirectory());
+        CloneRepositoryDialogViewModel model = new(_folderDialogs, _repositories, CloneParentDirectory());
         CloneRepositoryDialogView view = _services.GetService(typeof(CloneRepositoryDialogView)) as CloneRepositoryDialogView
             ?? new CloneRepositoryDialogView();
         view.DataContext = model;
@@ -385,6 +391,12 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             RepositoryHandle repository = await _repositories
                 .CloneAsync(request, progress, cancellation.Token)
                 .ConfigureAwait(true);
+
+            // Only once it has worked: a clone that failed says nothing about where the next one goes.
+            _settings.Update(current => current with
+            {
+                CloneParentDirectory = System.IO.Path.GetFullPath(request.ParentDirectory),
+            });
 
             await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
             Replace(await _recentStore.TouchAsync(repository.WorkTreePath, repository.Name).ConfigureAwait(true));
@@ -490,14 +502,29 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Where a clone is created unless the user says otherwise.
+    /// Where the next clone is created unless the user says otherwise: the directory the last one
+    /// was made in, while it still exists, and the home folder otherwise.
     /// </summary>
     /// <returns>The absolute directory path.</returns>
     /// <remarks>
-    /// Public because the profiles page clones from a repository the user picked on a host,
-    /// with no dialog to choose a directory in.
+    /// Public because the profiles page clones from a repository the user picked on a host, with no
+    /// dialog to choose a directory in: that clone is the next clone as much as the dialog's is. A
+    /// remembered directory that has gone — a drive unplugged, a folder removed — is not offered.
     /// </remarks>
-    public static string DefaultParentDirectory()
+    public string CloneParentDirectory()
+    {
+        string remembered = _settings.Current.CloneParentDirectory;
+
+        return remembered.Length > 0 && System.IO.Directory.Exists(remembered)
+            ? remembered
+            : DefaultParentDirectory();
+    }
+
+    /// <summary>
+    /// Where a new repository is created, and a clone when none has been made yet.
+    /// </summary>
+    /// <returns>The absolute directory path.</returns>
+    private static string DefaultParentDirectory()
     {
         string documents = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return documents.Length == 0 ? Environment.CurrentDirectory : documents;
