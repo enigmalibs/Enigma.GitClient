@@ -608,8 +608,11 @@ public sealed class HistoryPageTests
             // target for its own menu, washed or not.
             static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
 
+            // Every line but the checked-out one, which has a wash of its own.
+            List<Grid> plain() => [.. RowGrids(workspace).Where(row => !((CommitRowViewModel)row.DataContext!).IsHead)];
+
             Assert.All(RowGrids(workspace), row => Assert.NotEqual(found, Painted(row)));
-            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+            Assert.All(plain(), row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             model.SearchText = "branch";
             window.UpdateLayout();
@@ -629,7 +632,7 @@ public sealed class HistoryPageTests
             model.ClearSearchCommand.Execute(null);
             window.UpdateLayout();
 
-            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+            Assert.All(plain(), row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             window.Close();
         });
@@ -674,7 +677,7 @@ public sealed class HistoryPageTests
             window.UpdateLayout();
 
             Grid match = RowGrids(workspace).First(row => ((CommitRowViewModel)row.DataContext!).IsSearchMatch);
-            Grid miss = RowGrids(workspace).First(row => !((CommitRowViewModel)row.DataContext!).IsSearchMatch);
+            Grid miss = RowGrids(workspace).First(row => row.DataContext is CommitRowViewModel { IsSearchMatch: false, IsHead: false });
 
             Assert.Equal(found, Painted(match));
             Assert.Equal(Colors.Transparent, Painted(miss));
@@ -720,7 +723,9 @@ public sealed class HistoryPageTests
             model.ClearSearchCommand.Execute(null);
             window.UpdateLayout();
 
-            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+            Assert.All(
+                RowGrids(workspace).Where(row => !((CommitRowViewModel)row.DataContext!).IsHead),
+                row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             window.Close();
         });
@@ -743,6 +748,132 @@ public sealed class HistoryPageTests
 
                     Assert.IsAssignableFrom<ISolidColorBrush>(brush);
                 }
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- the checked-out line
+
+    private static Color ThemeColour(string key, ThemeVariant variant)
+    {
+        Assert.True(Application.Current!.TryFindResource(key, variant, out object? colour), $"the {variant} theme has no {key}");
+
+        return Assert.IsType<Color>(colour);
+    }
+
+    private static Color BrushColour(string key)
+    {
+        Application application = Application.Current!;
+        Assert.True(application.TryFindResource(key, application.ActualThemeVariant, out object? brush), $"the theme has no {key}");
+
+        return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+    }
+
+    [Fact]
+    public void TheCheckedOutLine_IsWashed_AndNoOtherLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            Assert.Single(model.Rows, row => row.IsHead);
+
+            List<Grid> rows = RowGrids(workspace);
+            Grid head = Assert.Single(rows, row => row.Classes.Contains("head"));
+
+            // The line whose node carries the ring, across the whole of it.
+            Assert.True(((CommitRowViewModel)head.DataContext!).IsHead);
+            Assert.Equal(BrushColour("HeadRowBrush"), Painted(head));
+            Assert.True(head.Bounds.Width > 400, $"the washed line was only {head.Bounds.Width} wide");
+
+            Assert.All(rows.Where(row => !ReferenceEquals(row, head)), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheCheckedOutLine_AnswersForHoverAndSelection_AndGivesWayToTheSearch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            Grid head = RowGrids(workspace).Single(row => ((CommitRowViewModel)row.DataContext!).IsHead);
+            ListBoxItem container = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(item => ReferenceEquals(item.DataContext, head.DataContext));
+
+            ((IPseudoClasses)container.Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("HeadRowHoverBrush"), Painted(head));
+
+            // Selected — hovered or not — it is the ordinary selection, like any other line.
+            model.SelectedRow = (CommitRowViewModel)head.DataContext!;
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("EnigmaSelectionBrush"), Painted(head));
+
+            ((IPseudoClasses)container.Classes).Set(":pointerover", false);
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("EnigmaSelectionBrush"), Painted(head));
+
+            model.SelectedRow = null;
+            window.UpdateLayout();
+
+            // Found by the search, it shows what the reader is doing now.
+            model.SearchText = ((CommitRowViewModel)head.DataContext!).Subject;
+            window.UpdateLayout();
+
+            Assert.True(((CommitRowViewModel)head.DataContext!).IsSearchMatch);
+            Assert.Equal(BrushColour("SearchMatchBrush"), Painted(head));
+
+            model.ClearSearchCommand.Execute(null);
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("HeadRowBrush"), Painted(head));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheCheckedOutLine_IsASubtleWash_InBothThemes()
+    {
+        _fixture.Run(() =>
+        {
+            static double Distance(Color one, Color other)
+                => Math.Abs(one.R - other.R) + Math.Abs(one.G - other.G) + Math.Abs(one.B - other.B);
+
+            foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+            {
+                Color background = ThemeColour("EnigmaBackgroundColor", variant);
+                Color selection = ThemeColour("EnigmaSelectionColor", variant);
+                Color head = ThemeColour("HeadRowColor", variant);
+                Color hovered = ThemeColour("HeadRowHoverColor", variant);
+
+                // Visible: away from the page's background, and further under the pointer.
+                Assert.True(Distance(head, background) >= 20, $"{variant}: the wash cannot be told from the background");
+                Assert.True(Distance(hovered, background) > Distance(head, background), $"{variant}: the hover is no further");
+
+                // Subtle: nearer the background than the selection is, hovered included.
+                Assert.True(Distance(hovered, background) < Distance(selection, background) / 2, $"{variant}: the wash rivals the selection");
+
+                // And blue, like the badge it goes with.
+                Assert.True(head.B > head.R && head.B >= head.G, $"{variant}: the wash is not blue");
             }
         });
     }

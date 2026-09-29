@@ -316,6 +316,29 @@
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
+  <!--
+    The checked-out line, which already carries the current branch's blue badge and the ringed node,
+    washed in a light blue across its whole width so it can be found in a long list without reading
+    the badges. Like the search's wash, it is the row's own and covers the container's plates, so it
+    answers for hover — a shade further — and for selection, where it gives way to the ordinary
+    selection: a selected line looks selected, whichever line it is.
+
+    Declared before the search's wash on purpose: a checked-out line the search found shows what the
+    reader is doing now, and the badge and the ring still say which line HEAD is.
+  -->
+
+  <Style Selector="Grid.commitrow.head">
+    <Setter Property="Background" Value="{DynamicResource HeadRowBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:pointerover Grid.commitrow.head">
+    <Setter Property="Background" Value="{DynamicResource HeadRowHoverBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected Grid.commitrow.head">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+  </Style>
+
   <Style Selector="Grid.commitrow.match">
     <Setter Property="Background" Value="{DynamicResource SearchMatchBrush}" />
   </Style>

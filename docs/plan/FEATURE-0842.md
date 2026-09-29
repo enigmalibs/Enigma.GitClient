@@ -1,6 +1,6 @@
 # FEATURE-0842 — History: checked-out line, tag focus
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-29-rail-clone-history
@@ -43,7 +43,7 @@
 ## PHASE01 — The checked-out line is washed
 
 **Branch:** `feature/feature-0842-phase01-checked-out-line`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0842-PHASE01.md`
 
 ### Steps
 
