@@ -1,6 +1,6 @@
 # FEATURE-28C8 — Release 4.1.1
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-28C8.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-28c8-release-4-1-1`
 **Run:** vibe/2026-09-29-dialog-view-type-name

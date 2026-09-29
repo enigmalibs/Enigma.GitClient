@@ -215,7 +215,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-A349 | Release 4.1.0                           | DONE      | docs/plan/FEATURE-A349.md |
 | BUG-6EAA     | Test suite fails on Windows             | ABANDONED | docs/plan/BUG-6EAA.md     |
 | BUG-7E5C     | Dialogs with a view show its type name  | DONE      | docs/plan/BUG-7E5C.md     |
-| FEATURE-28C8 | Release 4.1.1                           | TODO      | docs/plan/FEATURE-28C8.md |
+| FEATURE-28C8 | Release 4.1.1                           | DONE      | docs/plan/FEATURE-28C8.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
