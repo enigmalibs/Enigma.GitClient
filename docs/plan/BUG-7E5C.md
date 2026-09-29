@@ -1,6 +1,6 @@
 # BUG-7E5C — Dialogs with a view show its type name
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-7E5C.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-7e5c-dialog-shows-its-view`
 **Run:** vibe/2026-09-29-dialog-view-type-name

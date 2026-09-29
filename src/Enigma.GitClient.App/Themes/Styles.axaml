@@ -585,16 +585,21 @@
     the card's edge. Wrap, not WrapWithOverflow: a word with no break in it, a path or a long name, is
     broken too rather than left to run past the edge.
 
-    A template for strings, not TextWrapping on the presenter: that property is inherited, and would
-    have made every text block of every dialog's own view wrap — the tools' lists and the forms lay
-    out their own text. A view given as the content is used as it is, and never goes through this.
+    What is styled is the text block the presenter makes for a string, and nothing else:
+    - Not a ContentTemplate. A content presenter applies its template to a view (a Control) too, not
+      only to data. A template for strings does not match a view, and the presenter falls back to its
+      default one: a text block showing the view's type name, with the view never attached. That is
+      what 4.1.0 did to every dialog whose content is a view (BUG-7E5C).
+    - Not TextWrapping on the presenter. That property is inherited, and would have made every text
+      block of every dialog's own view wrap; the tools' lists and the forms lay out their own text.
+    The dialog's template names no part PART_ContentPresenter, so the presenter keeps the text block
+    it makes as its own logical child, and "ContentPresenter > TextBlock" reaches it. A view given as
+    the content is the dialog's logical child, and so are the text blocks inside it: none of them
+    matches.
   -->
-  <Style Selector="contentDialog|ContentDialog">
-    <Setter Property="ContentTemplate">
-      <DataTemplate DataType="x:String" x:DataType="x:String">
-        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
-      </DataTemplate>
-    </Setter>
+  <Style Selector="contentDialog|ContentDialog /template/ ContentPresenter > TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
   </Style>
 
   <!--

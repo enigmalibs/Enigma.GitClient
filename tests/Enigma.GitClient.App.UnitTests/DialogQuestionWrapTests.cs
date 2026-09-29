@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -122,16 +123,24 @@ public sealed class DialogQuestionWrapTests
             // A form lays out its own text; the wrapping is only for the text block the presenter makes
             // for a string, and does not reach into a view's own.
             TextBlock label = new() { Text = "Tag name", TextTrimming = TextTrimming.CharacterEllipsis };
+            StackPanel form = new() { Children = { label } };
 
             try
             {
                 Task<DialogResult> asking = dialogs.ShowAsync(dialog =>
                 {
                     dialog.Title = "Create a tag";
-                    dialog.Content = new StackPanel { Children = { label } };
+                    dialog.Content = form;
                     dialog.PrimaryButtonText = "Create";
                 });
                 Settle(window);
+
+                // The view itself is shown, not the line of text that stands for an object nothing
+                // knows how to draw: its type name.
+                Visual[] shown = [.. host.GetVisualDescendants()];
+                Assert.Contains(form, shown);
+                Assert.Contains(label, shown);
+                Assert.DoesNotContain(shown.OfType<TextBlock>(), text => text.Text == form.ToString());
 
                 Assert.Equal(TextWrapping.NoWrap, label.TextWrapping);
 

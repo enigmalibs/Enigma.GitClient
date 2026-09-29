@@ -1,6 +1,6 @@
 # BUG-6EAA — Test suite fails on Windows
 
-**Status:** TODO
+**Status:** ABANDONED — at the user's request, out of the run's scope; unverified work on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
 **Type:** BUG
 **Branch:** `bugfix/bug-6eaa-windows-test-suite`
 **Run:** vibe/2026-09-29-dialog-view-type-name
