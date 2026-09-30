@@ -213,6 +213,21 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
+    /// Moves a repository to another place in the list, which is where the view's drag drops it.
+    /// </summary>
+    /// <param name="entry">The repository being moved.</param>
+    /// <param name="index">Where it goes, counted in the list without it.</param>
+    /// <returns>A task that completes once the list shows the new order, which is already stored.</returns>
+    public async Task MoveAsync(ListedRepository entry, int index)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        string profileId = await SelectedProfileIdAsync().ConfigureAwait(true);
+
+        Replace(await _lists.MoveAsync(profileId, entry.Path, index).ConfigureAwait(true));
+    }
+
+    /// <summary>
     /// Opens a repository by path: discovers it, publishes it, adds it to the list and shows its history.
     /// </summary>
     /// <param name="path">A path inside the repository.</param>

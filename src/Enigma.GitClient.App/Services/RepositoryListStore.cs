@@ -71,6 +71,23 @@ public interface IRepositoryListStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Moves a repository to another place in a profile's list, which is what dragging its row does.
+    /// </summary>
+    /// <param name="profileId">The profile's identifier.</param>
+    /// <param name="path">The repository's work-tree path.</param>
+    /// <param name="index">
+    /// Where it goes, counted in the list without it; clamped to the list, so a drop past the end puts
+    /// it last.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>The profile's updated list; unchanged when the repository is not in it.</returns>
+    Task<IReadOnlyList<ListedRepository>> MoveAsync(
+        string profileId,
+        string path,
+        int index,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Forgets a profile's whole list, which is what deleting the profile does.
     /// </summary>
     /// <param name="profileId">The profile's identifier.</param>
@@ -189,6 +206,35 @@ public sealed class RepositoryListStore : IRepositoryListStore
         return MutateAsync(
             profileId,
             entries => entries.RemoveAll(entry => SamePath(entry.Path, Path.GetFullPath(path))),
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ListedRepository>> MoveAsync(
+        string profileId,
+        string path,
+        int index,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        return MutateAsync(
+            profileId,
+            entries =>
+            {
+                string full = Path.GetFullPath(path);
+                int from = entries.FindIndex(existing => SamePath(existing.Path, full));
+
+                if (from < 0)
+                {
+                    return;
+                }
+
+                ListedRepository entry = entries[from];
+
+                entries.RemoveAt(from);
+                entries.Insert(Math.Clamp(index, 0, entries.Count), entry);
+            },
             cancellationToken);
     }
 

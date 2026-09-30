@@ -127,6 +127,54 @@ public sealed class RepositoryListStoreTests : IDisposable
         Assert.Equal(["one", "three"], Names(entries));
     }
 
+    [Theory]
+    [InlineData("three", 0, new[] { "three", "one", "two", "four" })]
+    [InlineData("one", 2, new[] { "two", "three", "one", "four" })]
+    [InlineData("one", 3, new[] { "two", "three", "four", "one" })]
+    [InlineData("four", 1, new[] { "one", "four", "two", "three" })]
+    [InlineData("two", 1, new[] { "one", "two", "three", "four" })]
+    [InlineData("two", 99, new[] { "one", "three", "four", "two" })]
+    [InlineData("three", -5, new[] { "three", "one", "two", "four" })]
+    public async Task MoveAsync_PutsTheRepositoryWhereItWasDropped(string name, int index, string[] expected)
+    {
+        foreach (string entry in new[] { "one", "two", "three", "four" })
+        {
+            await _store.AddAsync(Work, File(entry), entry, TestContext.Current.CancellationToken);
+        }
+
+        IReadOnlyList<ListedRepository> moved =
+            await _store.MoveAsync(Work, File(name), index, TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected, Names(moved));
+        Assert.Equal(expected, Names(await Build().GetAsync(Work, TestContext.Current.CancellationToken)));
+    }
+
+    [Fact]
+    public async Task MoveAsync_OfARepositoryThatIsNotListedChangesNothing()
+    {
+        await _store.AddAsync(Work, File("one"), "one", TestContext.Current.CancellationToken);
+        await _store.AddAsync(Work, File("two"), "two", TestContext.Current.CancellationToken);
+
+        IReadOnlyList<ListedRepository> entries =
+            await _store.MoveAsync(Work, File("elsewhere"), 0, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["one", "two"], Names(entries));
+    }
+
+    [Fact]
+    public async Task MoveAsync_KeepsTheOtherProfilesOrder()
+    {
+        await _store.AddAsync(Work, File("one"), "one", TestContext.Current.CancellationToken);
+        await _store.AddAsync(Work, File("two"), "two", TestContext.Current.CancellationToken);
+        await _store.AddAsync(Home, File("one"), "one", TestContext.Current.CancellationToken);
+        await _store.AddAsync(Home, File("two"), "two", TestContext.Current.CancellationToken);
+
+        await _store.MoveAsync(Work, File("two"), 0, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["two", "one"], Names(await _store.GetAsync(Work, TestContext.Current.CancellationToken)));
+        Assert.Equal(["one", "two"], Names(await _store.GetAsync(Home, TestContext.Current.CancellationToken)));
+    }
+
     [Fact]
     public async Task EachProfileHasAListOfItsOwn()
     {
