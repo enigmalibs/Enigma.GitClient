@@ -158,6 +158,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 {
     private readonly IGitIdentityService _identity;
     private readonly IIdentityProfileStore _profiles;
+    private readonly IRepositoryListStore _lists;
     private readonly IHostAccountService _accounts;
     private readonly IHostProviderRegistry _registry;
     private readonly IHostLinkService _links;
@@ -174,6 +175,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="identity">Reads and writes git's identity.</param>
     /// <param name="profiles">Keeps the identity profiles.</param>
+    /// <param name="lists">Keeps each profile's list of repositories, which goes with the profile.</param>
     /// <param name="accounts">Keeps the connected accounts and their tokens.</param>
     /// <param name="registry">Finds the provider for an account.</param>
     /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
@@ -187,6 +189,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IRepositoryContext repositoryContext,
         IGitIdentityService identity,
         IIdentityProfileStore profiles,
+        IRepositoryListStore lists,
         IHostAccountService accounts,
         IHostProviderRegistry registry,
         IHostLinkService links,
@@ -200,6 +203,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(lists);
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(links);
@@ -212,6 +216,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
         _identity = identity;
         _profiles = profiles;
+        _lists = lists;
         _accounts = accounts;
         _registry = registry;
         _links = links;
@@ -867,7 +872,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             dialog.Title = "Delete this profile";
             dialog.Content =
                 $"Delete the profile {row.Label} ({row.Summary})?\n\n"
-                + "Your git configuration keeps whatever identity it has."
+                + "Your git configuration keeps whatever identity it has. Its list of repositories goes "
+                + "with it; the repositories themselves stay where they are."
                 + integrations;
             dialog.PrimaryButtonText = "Delete";
             dialog.CloseButtonText = "Keep it";
@@ -900,6 +906,10 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         // integrations — visible, and still removable — rather than under a profile that is gone.
         try
         {
+            // Its list of repositories goes with it: a list nobody can select again would only sit
+            // in the file. The store keeps a failed write to itself, as losing a list is no failure.
+            await _lists.RemoveProfileAsync(row.Profile.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+
             await _accounts.RemoveForProfileAsync(row.Profile.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
 
             Report("Profile deleted", $"{row.Label} is no longer in the list.", InfoBarSeverity.Info);

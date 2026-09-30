@@ -54,7 +54,8 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddGitClientApp()
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
-            services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
+            services.AddSingleton<IRepositoryListStore, RepositoryListStore>();
+            services.AddSingleton<IProfileSelection, ProfileSelection>();
             services.AddSingleton<IHiddenBranchStore, HiddenBranchStore>();
             services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();

@@ -500,6 +500,36 @@ public sealed class ProfilesPageTests
     }
 
     [Fact]
+    public void DeletingAProfileTakesItsListOfRepositoriesWithIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            IdentityProfile home = await store.SaveAsync(IdentityProfile.Create("Home", Home));
+
+            string kept = Path.Combine(services.ConfigurationRoot, "work-repo");
+            Directory.CreateDirectory(kept);
+
+            IRepositoryListStore lists = services.Get<IRepositoryListStore>();
+            await lists.AddAsync(work.Id, kept, "work-repo");
+            await lists.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Dialogs.Script(DialogResult.Primary);
+            await page.RemoveProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.Contains("Its list of repositories goes with it", services.Dialogs.Last!.Content as string, StringComparison.Ordinal);
+            Assert.Empty(await lists.GetAsync(work.Id));
+            Assert.Single(await lists.GetAsync(home.Id));
+            Assert.True(Directory.Exists(kept), "deleting a profile must never delete a repository");
+        });
+    }
+
+    [Fact]
     public void UsingAProfileMakesItTheGlobalIdentityInOneClick()
     {
         _fixture.RunAsync(async () =>
@@ -1149,6 +1179,9 @@ public sealed class ProfilesPageTests
 internal sealed class FailingProfileStore : IIdentityProfileStore
 {
     public Task<IReadOnlyList<IdentityProfile>> GetAllAsync(CancellationToken cancellationToken = default)
+        => throw new UnauthorizedAccessException("Access to the profiles is denied.");
+
+    public Task<IReadOnlyList<IdentityProfile>> EnsureAnyAsync(CancellationToken cancellationToken = default)
         => throw new UnauthorizedAccessException("Access to the profiles is denied.");
 
     public Task<IdentityProfile> SaveAsync(IdentityProfile profile, CancellationToken cancellationToken = default)

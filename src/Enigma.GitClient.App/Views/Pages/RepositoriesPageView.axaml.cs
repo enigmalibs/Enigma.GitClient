@@ -3,7 +3,7 @@ using Avalonia.Controls;
 namespace Enigma.GitClient.App.Views.Pages;
 
 /// <summary>
-/// The landing page: recent repositories and the open / clone / create actions.
+/// The landing page: the selected profile's repositories and the open / clone / create actions.
 /// </summary>
 public partial class RepositoriesPageView : UserControl
 {

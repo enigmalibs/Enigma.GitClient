@@ -21,13 +21,14 @@ using Microsoft.Extensions.Logging;
 namespace Enigma.GitClient.App.ViewModels.Pages;
 
 /// <summary>
-/// The landing page: the repositories the user has opened before, and the three ways to get a new
-/// one — open, clone, create.
+/// The landing page: the selected profile's list of repositories, in the user's order, and the three
+/// ways to get a new one — open, clone, create.
 /// </summary>
 public sealed class RepositoriesPageViewModel : PageViewModelBase
 {
     private readonly IRepositoryService _repositories;
-    private readonly IRecentRepositoryStore _recentStore;
+    private readonly IRepositoryListStore _lists;
+    private readonly IProfileSelection _selection;
     private readonly ISettingsService _settings;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IContentDialogService _dialogs;
@@ -47,7 +48,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// </summary>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="repositories">Opens, creates and clones repositories.</param>
-    /// <param name="recentStore">Remembers what has been opened.</param>
+    /// <param name="lists">Keeps each profile's list of repositories.</param>
+    /// <param name="selection">Says whose list is shown.</param>
     /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
@@ -62,7 +64,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     public RepositoriesPageViewModel(
         IRepositoryContext repositoryContext,
         IRepositoryService repositories,
-        IRecentRepositoryStore recentStore,
+        IRepositoryListStore lists,
+        IProfileSelection selection,
         ISettingsService settings,
         IFolderDialogService folderDialogs,
         IContentDialogService dialogs,
@@ -77,7 +80,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(repositories);
-        ArgumentNullException.ThrowIfNull(recentStore);
+        ArgumentNullException.ThrowIfNull(lists);
+        ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(dialogs);
@@ -91,7 +95,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(logger);
 
         _repositories = repositories;
-        _recentStore = recentStore;
+        _lists = lists;
+        _selection = selection;
         _settings = settings;
         _folderDialogs = folderDialogs;
         _dialogs = dialogs;
@@ -107,23 +112,22 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         OpenCommand = new AsyncRelayCommand(OnOpenAsync, () => IsNotBusy);
         CloneCommand = new AsyncRelayCommand(OnCloneAsync, () => IsNotBusy);
         CreateCommand = new AsyncRelayCommand(OnCreateAsync, () => IsNotBusy);
-        OpenRecentCommand = new AsyncRelayCommand<RecentRepository>(OnOpenRecentAsync, _ => IsNotBusy);
-        OpenInNewWindowCommand = new RelayCommand<RecentRepository>(OnOpenInNewWindow);
-        ForgetRecentCommand = new AsyncRelayCommand<RecentRepository>(OnForgetRecentAsync);
-        TogglePinCommand = new AsyncRelayCommand<RecentRepository>(OnTogglePinAsync);
+        OpenListedCommand = new AsyncRelayCommand<ListedRepository>(OnOpenListedAsync, _ => IsNotBusy);
+        OpenInNewWindowCommand = new RelayCommand<ListedRepository>(OnOpenInNewWindow);
+        ForgetCommand = new AsyncRelayCommand<ListedRepository>(OnForgetAsync);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
     }
 
     /// <summary>
-    /// Gets the repositories the user has opened before.
+    /// Gets the selected profile's repositories, in the user's order.
     /// </summary>
-    public ObservableCollection<RecentRepository> Recent { get; } = [];
+    public ObservableCollection<ListedRepository> Repositories { get; } = [];
 
     /// <summary>
-    /// Gets a value indicating whether the recent list is empty, which the empty state binds to.
+    /// Gets a value indicating whether the list has anything in it, which the empty state binds to.
     /// </summary>
-    public bool HasRecent => Recent.Count > 0;
+    public bool HasRepositories => Repositories.Count > 0;
 
     /// <summary>Gets the command that opens an existing repository from a folder picker.</summary>
     public AsyncRelayCommand OpenCommand { get; }
@@ -134,20 +138,17 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <summary>Gets the command that creates a repository.</summary>
     public AsyncRelayCommand CreateCommand { get; }
 
-    /// <summary>Gets the command that opens a repository from the recent list.</summary>
-    public AsyncRelayCommand<RecentRepository> OpenRecentCommand { get; }
+    /// <summary>Gets the command that opens a repository from the list.</summary>
+    public AsyncRelayCommand<ListedRepository> OpenListedCommand { get; }
 
     /// <summary>
-    /// Gets the command that opens a repository from the recent list in another instance, leaving
-    /// this window as it is.
+    /// Gets the command that opens a repository from the list in another instance, leaving this window
+    /// as it is.
     /// </summary>
-    public RelayCommand<RecentRepository> OpenInNewWindowCommand { get; }
+    public RelayCommand<ListedRepository> OpenInNewWindowCommand { get; }
 
-    /// <summary>Gets the command that forgets a repository.</summary>
-    public AsyncRelayCommand<RecentRepository> ForgetRecentCommand { get; }
-
-    /// <summary>Gets the command that pins or unpins a repository.</summary>
-    public AsyncRelayCommand<RecentRepository> TogglePinCommand { get; }
+    /// <summary>Gets the command that takes a repository out of the list.</summary>
+    public AsyncRelayCommand<ListedRepository> ForgetCommand { get; }
 
     /// <summary>
     /// Gets the command that shows the About dialog. The start window has no toolbar of its own, and
@@ -162,21 +163,22 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     public override async Task OnAppearingAsync(object? parameter = null)
     {
         await base.OnAppearingAsync(parameter).ConfigureAwait(true);
-        await ReloadRecentAsync().ConfigureAwait(true);
+        await ReloadListAsync().ConfigureAwait(true);
     }
 
     /// <summary>
-    /// Re-reads the recent list from the store.
+    /// Re-reads the selected profile's list from the store.
     /// </summary>
     /// <returns>A task that completes once the list has been refreshed.</returns>
-    public async Task ReloadRecentAsync()
+    public async Task ReloadListAsync()
     {
-        IReadOnlyList<RecentRepository> entries = await _recentStore.GetAllAsync().ConfigureAwait(true);
-        Replace(entries);
+        string profileId = await SelectedProfileIdAsync().ConfigureAwait(true);
+
+        Replace(await _lists.GetAsync(profileId).ConfigureAwait(true));
     }
 
     /// <summary>
-    /// Opens a repository by path: discovers it, publishes it, remembers it and shows its history.
+    /// Opens a repository by path: discovers it, publishes it, adds it to the list and shows its history.
     /// </summary>
     /// <param name="path">A path inside the repository.</param>
     /// <returns><see langword="true"/> when a repository was opened.</returns>
@@ -192,7 +194,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             return false;
         }
 
-        await ReloadRecentAsync().ConfigureAwait(true);
+        await ReloadListAsync().ConfigureAwait(true);
 
         _windows.ShowRepository();
         return true;
@@ -204,7 +206,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         OpenCommand.NotifyCanExecuteChanged();
         CloneCommand.NotifyCanExecuteChanged();
         CreateCommand.NotifyCanExecuteChanged();
-        OpenRecentCommand.NotifyCanExecuteChanged();
+        OpenListedCommand.NotifyCanExecuteChanged();
     }
 
     private async Task OnOpenAsync()
@@ -221,7 +223,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnOpenRecentAsync(RecentRepository? entry)
+    private async Task OnOpenListedAsync(ListedRepository? entry)
     {
         if (entry is null)
         {
@@ -240,7 +242,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         await RunBusyAsync(() => OpenPathAsync(entry.Path)).ConfigureAwait(true);
     }
 
-    private void OnOpenInNewWindow(RecentRepository? entry)
+    private void OnOpenInNewWindow(ListedRepository? entry)
     {
         if (entry is null)
         {
@@ -265,7 +267,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task OnForgetRecentAsync(RecentRepository? entry)
+    private async Task OnForgetAsync(ListedRepository? entry)
     {
         if (entry is null)
         {
@@ -273,17 +275,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
 
         // Forgetting only removes the entry from this list; it never touches the repository.
-        Replace(await _recentStore.RemoveAsync(entry.Path).ConfigureAwait(true));
-    }
+        string profileId = await SelectedProfileIdAsync().ConfigureAwait(true);
 
-    private async Task OnTogglePinAsync(RecentRepository? entry)
-    {
-        if (entry is null)
-        {
-            return;
-        }
-
-        Replace(await _recentStore.SetPinnedAsync(entry.Path, !entry.IsPinned).ConfigureAwait(true));
+        Replace(await _lists.RemoveAsync(profileId, entry.Path).ConfigureAwait(true));
     }
 
     private async Task OnCreateAsync()
@@ -317,7 +311,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                     .ConfigureAwait(true);
 
                 await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
-                Replace(await _recentStore.TouchAsync(repository.WorkTreePath, repository.Name).ConfigureAwait(true));
+                await AddToListAsync(repository).ConfigureAwait(true);
 
                 Report(
                     "Repository created",
@@ -399,7 +393,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             });
 
             await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
-            Replace(await _recentStore.TouchAsync(repository.WorkTreePath, repository.Name).ConfigureAwait(true));
+            await AddToListAsync(repository).ConfigureAwait(true);
 
             Report("Clone finished", $"{repository.Name} is ready.", InfoBarSeverity.Success);
 
@@ -489,16 +483,37 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private void Report(string title, string message, InfoBarSeverity severity)
         => _infoBar.Notify(title, message, severity);
 
-    private void Replace(IReadOnlyList<RecentRepository> entries)
+    /// <summary>
+    /// Adds a repository just created or cloned to the selected profile's list, at its end.
+    /// </summary>
+    private async Task AddToListAsync(RepositoryHandle repository)
     {
-        Recent.Clear();
+        string profileId = await SelectedProfileIdAsync().ConfigureAwait(true);
 
-        foreach (RecentRepository entry in entries)
+        Replace(await _lists.AddAsync(profileId, repository.WorkTreePath, repository.Name).ConfigureAwait(true));
+    }
+
+    /// <summary>
+    /// Asks whose list is in use now — creating the default profile when there is none — rather than
+    /// remembering it: a clone started from the profiles page reaches this page before it was ever shown.
+    /// </summary>
+    private async Task<string> SelectedProfileIdAsync()
+    {
+        ProfileChoice choice = await _selection.LoadAsync().ConfigureAwait(true);
+
+        return choice.Selected.Id;
+    }
+
+    private void Replace(IReadOnlyList<ListedRepository> entries)
+    {
+        Repositories.Clear();
+
+        foreach (ListedRepository entry in entries)
         {
-            Recent.Add(entry);
+            Repositories.Add(entry);
         }
 
-        OnPropertyChanged(nameof(HasRecent));
+        OnPropertyChanged(nameof(HasRepositories));
     }
 
     /// <summary>

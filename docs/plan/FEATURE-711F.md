@@ -87,7 +87,7 @@ lose push. This phase makes such a profile legal.
 ## PHASE02 — A repository list per profile
 
 **Branch:** `feature/feature-711f-phase02-profile-lists`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-711F-PHASE02.md`
 
 ### Steps
 

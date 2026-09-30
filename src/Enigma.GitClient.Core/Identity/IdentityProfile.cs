@@ -18,6 +18,18 @@ namespace Enigma.GitClient.Core.Identity;
 /// <param name="Email">The email it sets.</param>
 public sealed record IdentityProfile(string Id, string Label, string Name, string Email)
 {
+    /// <summary>
+    /// The identifier of the profile the client creates when there is none.
+    /// </summary>
+    /// <remarks>
+    /// Fixed rather than fresh: two instances starting at the same moment on a machine without profiles
+    /// both create it, and writing the same identifier twice leaves one profile, not two.
+    /// </remarks>
+    public const string DefaultId = "default";
+
+    /// <summary>What the profile the client creates is called.</summary>
+    public const string DefaultLabel = "Default";
+
     /// <summary>Gets the identity the profile sets.</summary>
     [JsonIgnore]
     public GitIdentity Identity => new(Name, Email);
@@ -46,6 +58,13 @@ public sealed record IdentityProfile(string Id, string Label, string Name, strin
         return new IdentityProfile(Guid.NewGuid().ToString("N"), string.Empty, string.Empty, string.Empty)
             .With(label, identity);
     }
+
+    /// <summary>
+    /// Builds the profile the client creates when there is none: "Default", with no identity, so that
+    /// creating it changes nothing about commits, pushes or sign-ins.
+    /// </summary>
+    /// <returns>The profile.</returns>
+    public static IdentityProfile CreateDefault() => new(DefaultId, DefaultLabel, string.Empty, string.Empty);
 
     /// <summary>
     /// Returns this profile with new values and the same identifier.
