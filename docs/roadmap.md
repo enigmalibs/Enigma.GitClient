@@ -226,7 +226,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The working tree in the panel           | DONE        | (in FEATURE-5261.md)      |
 | FEATURE-711F | Repository lists per profile            | IN PROGRESS | docs/plan/FEATURE-711F.md |
 | - PHASE01    | Profiles without a name and email       | DONE        | (in FEATURE-711F.md)      |
-| - PHASE02    | A repository list per profile           | TODO        | (in FEATURE-711F.md)      |
+| - PHASE02    | A repository list per profile           | DONE        | (in FEATURE-711F.md)      |
 | - PHASE03    | The profile picker on the home page     | TODO        | (in FEATURE-711F.md)      |
 | - PHASE04    | Reorder repositories by dragging        | TODO        | (in FEATURE-711F.md)      |
 | - PHASE05    | A theme button beside About             | TODO        | (in FEATURE-711F.md)      |

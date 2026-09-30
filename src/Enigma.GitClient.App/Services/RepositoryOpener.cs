@@ -6,8 +6,8 @@ using Enigma.GitClient.Core.Repositories;
 namespace Enigma.GitClient.App.Services;
 
 /// <summary>
-/// Opens a repository by path: git's own discovery, then the repository context, then the recent
-/// list.
+/// Opens a repository by path: git's own discovery, then the repository context, then the selected
+/// profile's list of repositories.
 /// </summary>
 /// <remarks>
 /// Two places open a repository from a path — the repositories page and the command line — and they
@@ -32,23 +32,31 @@ public sealed class RepositoryOpener : IRepositoryOpener
 {
     private readonly IRepositoryService _repositories;
     private readonly IRepositoryContext _context;
-    private readonly IRecentRepositoryStore _recent;
+    private readonly IRepositoryListStore _lists;
+    private readonly IProfileSelection _selection;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="repositories">Finds the repository a path belongs to.</param>
     /// <param name="context">Receives the repository once it is found.</param>
-    /// <param name="recent">Remembers that it was opened.</param>
-    public RepositoryOpener(IRepositoryService repositories, IRepositoryContext context, IRecentRepositoryStore recent)
+    /// <param name="lists">Keeps each profile's list of repositories.</param>
+    /// <param name="selection">Says which profile's list the repository joins.</param>
+    public RepositoryOpener(
+        IRepositoryService repositories,
+        IRepositoryContext context,
+        IRepositoryListStore lists,
+        IProfileSelection selection)
     {
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(recent);
+        ArgumentNullException.ThrowIfNull(lists);
+        ArgumentNullException.ThrowIfNull(selection);
 
         _repositories = repositories;
         _context = context;
-        _recent = recent;
+        _lists = lists;
+        _selection = selection;
     }
 
     /// <inheritdoc />
@@ -63,7 +71,10 @@ public sealed class RepositoryOpener : IRepositoryOpener
             RepositoryHandle repository = discovery.Repository!;
 
             await _context.OpenAsync(repository, cancellationToken).ConfigureAwait(true);
-            await _recent.TouchAsync(repository.WorkTreePath, repository.Name, cancellationToken).ConfigureAwait(true);
+            ProfileChoice choice = await _selection.LoadAsync(cancellationToken).ConfigureAwait(true);
+
+            await _lists.AddAsync(choice.Selected.Id, repository.WorkTreePath, repository.Name, cancellationToken)
+                .ConfigureAwait(true);
         }
 
         return discovery;

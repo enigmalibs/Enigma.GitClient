@@ -151,7 +151,7 @@ public sealed class AboutDialogTests
         {
             using TestServices services = TestServices.Build();
             RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
-            await model.ReloadRecentAsync();
+            await model.ReloadListAsync();
 
             RepositoriesPageView page = services.Get<RepositoriesPageView>();
             page.DataContext = model;

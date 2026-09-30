@@ -70,12 +70,12 @@
       <controls:EmptyState IconKind="Folders"
                            Title="No repositories yet"
                            Message="Open a repository you already have, clone one from GitHub, GitLab or Azure DevOps, or create a new one."
-                           IsVisible="{Binding !HasRecent}" />
+                           IsVisible="{Binding !HasRepositories}" />
 
-      <ScrollViewer IsVisible="{Binding HasRecent}" Padding="16">
-        <ItemsControl ItemsSource="{Binding Recent}">
+      <ScrollViewer IsVisible="{Binding HasRepositories}" Padding="16">
+        <ItemsControl ItemsSource="{Binding Repositories}">
           <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="services:RecentRepository">
+            <DataTemplate x:DataType="services:ListedRepository">
               <Border Background="{DynamicResource EnigmaSurfaceBrush}"
                       BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
                       BorderThickness="1"
@@ -110,14 +110,7 @@
 
                   <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <Button Classes="toolbar"
-                            Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).TogglePinCommand}"
-                            CommandParameter="{Binding}"
-                            ToolTip.Tip="Pin to the top"
-                            AutomationProperties.Name="Pin to the top">
-                      <ei:Icon Kind="PushPin" Classes="row" />
-                    </Button>
-                    <Button Classes="toolbar"
-                            Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).ForgetRecentCommand}"
+                            Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).ForgetCommand}"
                             CommandParameter="{Binding}"
                             ToolTip.Tip="Forget this repository (it is not deleted)"
                             AutomationProperties.Name="Forget this repository">
@@ -130,7 +123,7 @@
                             AutomationProperties.Name="Open this repository in a new window">
                       <ei:Icon Kind="ArrowSquareOut" Classes="row" />
                     </Button>
-                    <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenRecentCommand}"
+                    <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenListedCommand}"
                             CommandParameter="{Binding}"
                             Content="Open"
                             AutomationProperties.Name="Open this repository" />

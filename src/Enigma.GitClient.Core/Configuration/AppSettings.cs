@@ -274,6 +274,16 @@ public sealed record AppSettings
     public string CloneParentDirectory { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the identifier of the profile whose repositories the start window lists; empty until one
+    /// has been chosen, and the first profile is listed instead.
+    /// </summary>
+    /// <remarks>
+    /// Remembered rather than chosen on the settings page, like <see cref="CloneParentDirectory"/>. It
+    /// only says which list is shown: git's identity is the Profiles page's to switch.
+    /// </remarks>
+    public string SelectedProfileId { get; init; } = string.Empty;
+
+    /// <summary>
     /// Returns these settings with every value forced into a range the application can use.
     /// </summary>
     /// <returns>The clamped settings.</returns>
@@ -300,6 +310,7 @@ public sealed record AppSettings
             DiffFontFamily = DiffFontFamily?.Trim() ?? string.Empty,
             GitExecutablePath = GitExecutablePath?.Trim() ?? string.Empty,
             CloneParentDirectory = CloneParentDirectory?.Trim() ?? string.Empty,
+            SelectedProfileId = SelectedProfileId?.Trim() ?? string.Empty,
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,
             FilesView = Enum.IsDefined(FilesView) ? FilesView : FilesView.List,

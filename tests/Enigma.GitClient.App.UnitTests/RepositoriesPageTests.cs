@@ -17,6 +17,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 using Xunit;
 
@@ -40,14 +41,80 @@ public sealed class RepositoriesPageTests
             using TestServices services = TestServices.Build();
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
 
-            Assert.False(page.HasRecent);
+            Assert.False(page.HasRepositories);
 
-            IRecentRepositoryStore store = services.Get<IRecentRepositoryStore>();
-            await store.TouchAsync(Path.Combine(services.ConfigurationRoot, "one"), "one");
-            await page.ReloadRecentAsync();
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(IdentityProfile.DefaultId, Path.Combine(services.ConfigurationRoot, "one"), "one");
+            await page.ReloadListAsync();
 
-            Assert.True(page.HasRecent);
-            Assert.Equal("one", Assert.Single(page.Recent).Name);
+            Assert.True(page.HasRepositories);
+            Assert.Equal("one", Assert.Single(page.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void AtTheFirstStart_TheDefaultProfileIsCreatedAndItsListShown()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            await page.OnAppearingAsync();
+
+            IdentityProfile profile = Assert.Single(await services.Get<IIdentityProfileStore>().GetAllAsync());
+            Assert.Equal(IdentityProfile.DefaultId, profile.Id);
+            Assert.Equal("Default", profile.Label);
+            Assert.False(profile.HasIdentity);
+            Assert.False(page.HasRepositories);
+        });
+    }
+
+    [Fact]
+    public void ThePageShowsOnlyTheSelectedProfilesRepositories()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(work.Id, Path.Combine(services.ConfigurationRoot, "work-repo"), "work-repo");
+            await store.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            // Nothing chosen yet: the first profile's list.
+            await page.ReloadListAsync();
+            Assert.Equal("work-repo", Assert.Single(page.Repositories).Name);
+
+            services.Get<IProfileSelection>().Select(home.Id);
+            await page.ReloadListAsync();
+            Assert.Equal("home-repo", Assert.Single(page.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void OpeningAListedRepositoryAgain_LeavesItWhereItIs()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            IRepositoryService repositories = services.Get<IRepositoryService>();
+            RepositoryHandle first = await repositories.InitAsync(Path.Combine(root, "first"), "main");
+            RepositoryHandle second = await repositories.InitAsync(Path.Combine(root, "second"), "main");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OpenPathAsync(first.WorkTreePath);
+            await page.OpenPathAsync(second.WorkTreePath);
+            await page.OpenPathAsync(first.WorkTreePath);
+
+            Assert.Equal(["first", "second"], page.Repositories.Select(entry => entry.Name));
         });
     }
 
@@ -73,7 +140,7 @@ public sealed class RepositoriesPageTests
             Assert.True(opened);
             Assert.Equal("my-repo", context.Repository?.Name);
             Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
-            Assert.Contains(page.Recent, entry => entry.Name == "my-repo");
+            Assert.Contains(page.Repositories, entry => entry.Name == "my-repo");
         });
     }
 
@@ -94,7 +161,7 @@ public sealed class RepositoriesPageTests
 
             Assert.False(opened);
             Assert.False(context.IsRepositoryOpen);
-            Assert.Empty(page.Recent);
+            Assert.Empty(page.Repositories);
 
             Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, services.InfoBar.Last?.Severity);
             Assert.Contains("not inside a git repository", services.InfoBar.Last!.Message, StringComparison.Ordinal);
@@ -129,7 +196,7 @@ public sealed class RepositoriesPageTests
 
             Assert.True(cloned);
             Assert.Equal("cloned", services.Get<IRepositoryContext>().Repository?.Name);
-            Assert.Contains(page.Recent, entry => entry.Name == "cloned");
+            Assert.Contains(page.Repositories, entry => entry.Name == "cloned");
 
             // The progress overlay must go up and, above all, come back down.
             Assert.Equal(1, services.Overlay.ShowCount);
@@ -220,18 +287,18 @@ public sealed class RepositoriesPageTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
-            IRecentRepositoryStore store = services.Get<IRecentRepositoryStore>();
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
 
             string path = Path.Combine(services.ConfigurationRoot, "kept");
             Directory.CreateDirectory(path);
-            await store.TouchAsync(path, "kept");
+            await store.AddAsync(IdentityProfile.DefaultId, path, "kept");
 
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
-            await page.ReloadRecentAsync();
+            await page.ReloadListAsync();
 
-            await page.ForgetRecentCommand.ExecuteAsync(page.Recent.Single());
+            await page.ForgetCommand.ExecuteAsync(page.Repositories.Single());
 
-            Assert.Empty(page.Recent);
+            Assert.Empty(page.Repositories);
             Assert.True(Directory.Exists(path), "forgetting must never delete the repository");
         });
     }
@@ -434,7 +501,7 @@ public sealed class RepositoriesPageTests
     // ---------------------------------------------------------------- rendering
 
     [Fact]
-    public void Page_RendersItsRecentListOffScreen()
+    public void Page_RendersItsListOffScreen()
     {
         _fixture.RunAsync(async () =>
         {
@@ -445,17 +512,17 @@ public sealed class RepositoriesPageTests
             try
             {
                 using TestServices services = TestServices.Build();
-                IRecentRepositoryStore store = services.Get<IRecentRepositoryStore>();
+                IRepositoryListStore store = services.Get<IRepositoryListStore>();
 
                 foreach (string name in new[] { "Enigma.GitClient", "Enigma.Avalonia", "Enigma.Icons" })
                 {
                     string path = Path.Combine(services.ConfigurationRoot, "src", name);
                     Directory.CreateDirectory(path);
-                    await store.TouchAsync(path, name);
+                    await store.AddAsync(IdentityProfile.DefaultId, path, name);
                 }
 
                 RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
-                await model.ReloadRecentAsync();
+                await model.ReloadListAsync();
 
                 RepositoriesPageView page = services.Get<RepositoriesPageView>();
                 page.DataContext = model;
@@ -501,9 +568,9 @@ public sealed class RepositoriesPageTests
             using TestServices services = TestServices.Build();
 
             RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
-            await model.ReloadRecentAsync();
+            await model.ReloadListAsync();
 
-            Assert.False(model.HasRecent);
+            Assert.False(model.HasRepositories);
 
             RepositoriesPageView page = services.Get<RepositoriesPageView>();
             page.DataContext = model;

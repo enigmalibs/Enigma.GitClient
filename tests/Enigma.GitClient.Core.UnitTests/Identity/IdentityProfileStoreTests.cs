@@ -94,6 +94,41 @@ public sealed class IdentityProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task EnsureAnyAsync_CreatesTheDefaultProfileWhenThereIsNone()
+    {
+        using IdentityProfileStore store = Build();
+
+        IdentityProfile created = Assert.Single(await store.EnsureAnyAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(new IdentityProfile("default", "Default", string.Empty, string.Empty), created);
+        Assert.False(created.HasIdentity);
+
+        using IdentityProfileStore reopened = Build();
+        Assert.Equal(created, Assert.Single(await reopened.GetAllAsync(TestContext.Current.CancellationToken)));
+    }
+
+    [Fact]
+    public async Task EnsureAnyAsync_LeavesExistingProfilesAlone()
+    {
+        using IdentityProfileStore store = Build();
+        IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work), TestContext.Current.CancellationToken);
+
+        Assert.Equal([work], await store.EnsureAnyAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task EnsureAnyAsync_CreatesItAgainOnceTheLastProfileIsGone()
+    {
+        using IdentityProfileStore store = Build();
+        IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work), TestContext.Current.CancellationToken);
+        await store.RemoveAsync(work.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            IdentityProfile.DefaultId,
+            Assert.Single(await store.EnsureAnyAsync(TestContext.Current.CancellationToken)).Id);
+    }
+
+    [Fact]
     public async Task AProfileWithoutANameAndEmailIsStoredAndReadBack()
     {
         using IdentityProfileStore store = Build();
