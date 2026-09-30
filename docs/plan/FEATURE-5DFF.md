@@ -1,6 +1,6 @@
 # FEATURE-5DFF — Release 5.0.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5DFF.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-5dff-release-5-0-0`
 **Run:** feature/2026-09-30-rename-and-release

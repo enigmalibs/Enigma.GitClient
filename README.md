@@ -10,10 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 4.1.1** — the dialogs show their content again: 4.1.0 showed a view's type name in
-> the Branches, Tags and Remotes dialogs, About and every form. 4.1 added pushing one tag from its
-> badge or its line in the Tags dialog, a bare `1.0.0` placeholder for a new tag, even column titles
-> in the history, and long dialog questions that wrap. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.0** — a details panel beside the history: a line's files, and on the uncommitted
+> line the working tree and the commit box, in place of the Changes page. The start window lists the
+> repositories of the profile you pick, in the order you drag them into. The diff's text can be
+> selected and copied, a new repository starts with a README, and the application is now **Enigma Git
+> Client**. 5.0 removes the Changes page, the double-click on a line and *Pin to the top*, and starts
+> the repository list afresh — see *Upgrading from 4.x* in [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
