@@ -12,7 +12,9 @@ using Avalonia.VisualTree;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.App.Views.Panels;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.Icons.Avalonia;
 using Enigma.Icons.Phosphor;
@@ -140,7 +142,7 @@ public sealed class MenuIconTests
     }
 
     [Fact]
-    public void TheDialogsAndTheChangesPage_HaveAGlyphOnEveryMenuItem()
+    public void TheDialogsAndTheWorkingTreePanel_HaveAGlyphOnEveryMenuItem()
     {
         _fixture.RunAsync(async () =>
         {
@@ -158,16 +160,17 @@ public sealed class MenuIconTests
             await tags.OnAppearingAsync();
             RemotesPageViewModel remotes = services.Get<RemotesPageViewModel>();
             await remotes.OnAppearingAsync();
-            ChangesPageViewModel changes = services.Get<ChangesPageViewModel>();
-            await changes.OnAppearingAsync();
-            await WaitUntilAsync(() => remotes.Remotes.Count > 0 && changes.HasUnstaged && changes.HasStashes);
+            WorkingTreePanelViewModel changes = services.Get<WorkingTreePanelViewModel>();
+            changes.IsActive = true;
+            await changes.RefreshAsync();
+            await WaitUntilAsync(() => remotes.Remotes.Count > 0 && changes.HasUnstaged);
 
             foreach ((Control view, object model) in new (Control, object)[]
             {
                 (services.Get<BranchesPageView>(), branches),
                 (services.Get<TagsPageView>(), tags),
                 (services.Get<RemotesPageView>(), remotes),
-                (services.Get<ChangesPageView>(), changes),
+                (new WorkingTreePanelView(), changes),
             })
             {
                 view.DataContext = model;

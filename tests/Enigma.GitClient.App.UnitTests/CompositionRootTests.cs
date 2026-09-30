@@ -5,6 +5,7 @@ using Enigma.GitClient.App;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels;
 using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
@@ -91,7 +92,6 @@ public sealed class CompositionRootTests
 
     [Theory]
     [InlineData(typeof(HistoryPageViewModel))]
-    [InlineData(typeof(ChangesPageViewModel))]
     [InlineData(typeof(BranchesPageViewModel))]
     [InlineData(typeof(TagsPageViewModel))]
     [InlineData(typeof(RemotesPageViewModel))]
@@ -117,6 +117,17 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
+    public void TheWorkingTreePanel_IsTheOneTheHistoryShows()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        // One working tree, with one commit message, for the one history.
+        Assert.Same(
+            provider.GetRequiredService<WorkingTreePanelViewModel>(),
+            provider.GetRequiredService<HistoryPageViewModel>().WorkingTree);
+    }
+
+    [Fact]
     public void RepositoryContext_IsASingletonSoEveryPageSeesTheSameRepository()
     {
         using ServiceProvider provider = BuildProvider();
@@ -137,7 +148,6 @@ public sealed class CompositionRootTests
         List<PageViewModelBase> pages =
         [
             provider.GetRequiredService<HistoryPageViewModel>(),
-            provider.GetRequiredService<ChangesPageViewModel>(),
             provider.GetRequiredService<BranchesPageViewModel>(),
             provider.GetRequiredService<TagsPageViewModel>(),
             provider.GetRequiredService<RemotesPageViewModel>(),

@@ -2180,7 +2180,7 @@ public sealed class HistoryPageTests
 
             CommitRowViewModel uncommitted = Assert.Single(model.Rows, row => row.IsUncommitted);
             model.SelectedRow = uncommitted;
-            await WaitUntilAsync(() => model.Files.FileCount > 0);
+            await WaitUntilAsync(() => model.WorkingTree.HasUnstaged);
             Assert.True(model.IsDetailsPanelOpen);
 
             // The work the line stood for is thrown away, and the refresh that sees it takes the

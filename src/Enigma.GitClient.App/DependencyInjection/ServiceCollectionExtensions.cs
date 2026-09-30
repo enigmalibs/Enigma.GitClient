@@ -90,7 +90,6 @@ public static class ServiceCollectionExtensions
 
             services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();
-            services.AddTransient<ChangesPageView>();
             services.AddTransient<BranchesPageView>();
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
@@ -100,13 +99,16 @@ public static class ServiceCollectionExtensions
 
             services.AddSingleton<RepositoriesPageViewModel>();
             services.AddSingleton<HistoryPageViewModel>();
-            services.AddSingleton<ChangesPageViewModel>();
             services.AddSingleton<BranchesPageViewModel>();
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
+
+            // The history's details panel for the uncommitted line: one working tree, with its
+            // message, for the one history.
+            services.AddSingleton<WorkingTreePanelViewModel>();
 
             // Dialog views are transient: each showing gets a fresh control bound to a fresh
             // ViewModel, so a cancelled dialog never leaves its half-typed state behind.

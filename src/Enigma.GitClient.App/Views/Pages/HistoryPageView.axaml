@@ -74,8 +74,15 @@
             </Grid>
           </Border>
 
-          <!-- What the line changed: a commit's files, or the uncommitted ones. -->
-          <panels:ChangedFilesPanelView Name="DetailsFiles" DataContext="{Binding Files}" />
+          <!-- A commit's files, or — for the uncommitted line — the working tree and the commit. -->
+          <Panel>
+            <Panel IsVisible="{Binding !IsWorkingTreeShown}">
+              <panels:ChangedFilesPanelView Name="DetailsFiles" DataContext="{Binding Files}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsWorkingTreeShown}">
+              <panels:WorkingTreePanelView Name="DetailsWorkingTree" DataContext="{Binding WorkingTree}" />
+            </Panel>
+          </Panel>
         </DockPanel>
       </DockPanel>
     </Border>

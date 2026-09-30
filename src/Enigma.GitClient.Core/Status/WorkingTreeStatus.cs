@@ -129,7 +129,7 @@ public sealed record WorkingTreeStatus(
 
     /// <summary>
     /// Enumerates everything that is not staged: the work-tree changes, the untracked files and the
-    /// conflicts, which is what the "unstaged" half of the changes page shows.
+    /// conflicts, which is what the "not staged" half of the working-tree panel shows.
     /// </summary>
     /// <returns>The entries, work-tree changes first.</returns>
     public IEnumerable<ChangedFile> NotStaged()

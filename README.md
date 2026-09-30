@@ -57,8 +57,9 @@ Two things matter more than everything else in this app:
 - Create, clone and open repositories from a start window with a recent-repositories list; the
   repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
   straight away
-- Working directory: status, stage/unstage, discard and commit, with a back button (or Escape) to
-  the history; every discard confirms with a red button, and the history's uncommitted line discards
+- Working directory in the same panel: select the history's uncommitted line to see what is not
+  staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
+  over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
   all the uncommitted work at once
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
 - Stashes in the graph, one line each at the stash itself: stash your uncommitted work from the

@@ -607,7 +607,7 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
-    public void HistoryPage_ShowsTheUncommittedChangesLikeAnyOtherRow()
+    public void HistoryPage_ShowsTheUncommittedChangesAsTheWorkingTree()
     {
         _fixture.RunAsync(async () =>
         {
@@ -623,12 +623,17 @@ public sealed class ChangedFilesPanelTests
             await page.ReloadAsync();
 
             page.SelectedRow = page.Rows.Single(row => row.IsUncommitted);
-            await WaitForFilesAsync(page);
+            await WaitUntilAsync(() => page.WorkingTree.HasUnstaged);
 
-            Assert.Equal(["README.md"], PathsOf(page.Files));
+            // Its files are the working tree's, split into what is and is not staged; the list a
+            // commit's files go in has none of them.
+            Assert.True(page.IsWorkingTreeShown);
+            Assert.Equal(["README.md"], PathsOf(page.WorkingTree.Unstaged));
+            Assert.Empty(PathsOf(page.Files));
 
             // The pseudo-row has no commit, so the details header has nothing to describe.
             Assert.False(page.HasSelectedCommit);
+            Assert.False(page.HasDetailsCommit);
         });
     }
 
