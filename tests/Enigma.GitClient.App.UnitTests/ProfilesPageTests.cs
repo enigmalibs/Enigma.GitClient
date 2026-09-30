@@ -535,6 +535,77 @@ public sealed class ProfilesPageTests
     }
 
     [Fact]
+    public void AProfileWithoutANameAndEmailIsNeverCurrentAndOffersNoUse()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(new IdentityProfile("default", "Default", string.Empty, string.Empty));
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            ProfileRowViewModel none = page.Profiles[0];
+            ProfileRowViewModel work = page.Profiles[1];
+
+            // git has no identity at all: an empty profile must not claim to be it.
+            Assert.False(none.IsCurrent);
+            Assert.Null(page.CurrentProfile);
+            Assert.Equal("No name or email", none.Summary);
+            Assert.False(none.CanUse);
+            Assert.True(work.CanUse);
+
+            await page.UseProfileCommand.ExecuteAsync(none);
+
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void AProfileCanBeAddedWithoutANameAndEmailButNotWithHalfOfThem()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            List<bool> enabled = [];
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                IdentityProfileDialogViewModel model = DialogModel(dialog);
+
+                model.Label = "Repositories only";
+                model.Email = string.Empty;
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+                Assert.Equal("Enter an email.", model.ValidationMessage);
+
+                model.Name = string.Empty;
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+                Assert.False(model.HasValidationMessage);
+            };
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            Assert.Equal([false, true], enabled);
+
+            IdentityProfile stored = Assert.Single(await services.Get<IIdentityProfileStore>().GetAllAsync());
+            Assert.Equal("Repositories only", stored.Label);
+            Assert.False(stored.HasIdentity);
+
+            ProfileRowViewModel row = Assert.Single(page.Profiles);
+            Assert.False(row.CanUse);
+            Assert.Contains("No name or email", services.InfoBar.Shown[^1].Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public void TheCurrentProfileFollowsAnIdentitySavedByHand()
     {
         _fixture.RunAsync(async () =>
