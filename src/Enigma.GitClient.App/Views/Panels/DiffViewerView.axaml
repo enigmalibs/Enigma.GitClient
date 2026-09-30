@@ -50,7 +50,10 @@
                                ShowWhitespace="{Binding Options.ShowWhitespace}"
                                WrapLines="{Binding Options.WrapLines}"
                                TabWidth="{Binding Options.TabWidth}"
-                               HorizontalOffset="{Binding Options.UnifiedScroll.Offset}" />
+                               HorizontalOffset="{Binding Options.UnifiedScroll.Offset}"
+                               Selection="{Binding Options.Selection}"
+                               Row="{Binding Index}"
+                               Pane="Unified" />
           </Grid>
         </Border>
       </Panel>
@@ -95,7 +98,10 @@
                                  ShowWhitespace="{Binding Options.ShowWhitespace}"
                                  WrapLines="{Binding Options.WrapLines}"
                                  TabWidth="{Binding Options.TabWidth}"
-                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}" />
+                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}"
+                                 Selection="{Binding Options.Selection}"
+                                 Row="{Binding Index}"
+                                 Pane="Left" />
             </Grid>
           </Border>
 
@@ -120,7 +126,10 @@
                                  ShowWhitespace="{Binding Options.ShowWhitespace}"
                                  WrapLines="{Binding Options.WrapLines}"
                                  TabWidth="{Binding Options.TabWidth}"
-                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}" />
+                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}"
+                                 Selection="{Binding Options.Selection}"
+                                 Row="{Binding Index}"
+                                 Pane="Right" />
             </Grid>
           </Border>
         </Grid>
