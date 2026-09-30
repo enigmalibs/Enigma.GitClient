@@ -138,7 +138,7 @@ lose push. This phase makes such a profile legal.
 ## PHASE03 — The profile picker on the home page
 
 **Branch:** `feature/feature-711f-phase03-profile-picker`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-711F-PHASE03.md`
 
 ### Steps
 

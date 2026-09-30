@@ -15,6 +15,7 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +43,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly ILogger<RepositoriesPageViewModel> _logger;
 
     private CancellationTokenSource? _cloneCancellation;
+    private bool _showingProfiles;
 
     /// <summary>
     /// Initialises a new instance.
@@ -120,6 +122,33 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
+    /// Gets every profile, for the picker in the page's header.
+    /// </summary>
+    public ObservableCollection<IdentityProfile> Profiles { get; } = [];
+
+    /// <summary>
+    /// Gets or sets the profile whose repositories are listed.
+    /// </summary>
+    /// <remarks>
+    /// Choosing one is remembered and shows its list. It never changes the identity git commits with:
+    /// that is the Profiles page's Use.
+    /// </remarks>
+    public IdentityProfile? SelectedProfile
+    {
+        get;
+        set
+        {
+            // The picker pushes a null of its own while its items are being replaced; that, and the
+            // page putting back the profile it has just read, are not the user choosing anything.
+            if (SetProperty(ref field, value) && value is not null && !_showingProfiles)
+            {
+                _selection.Select(value.Id);
+                _ = ShowListOfAsync(value.Id);
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets the selected profile's repositories, in the user's order.
     /// </summary>
     public ObservableCollection<ListedRepository> Repositories { get; } = [];
@@ -167,14 +196,20 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Re-reads the selected profile's list from the store.
+    /// Re-reads the profiles, and the selected profile's list, from their stores.
     /// </summary>
-    /// <returns>A task that completes once the list has been refreshed.</returns>
+    /// <returns>A task that completes once the picker and the list have been refreshed.</returns>
+    /// <remarks>
+    /// Every time the page is shown: a profile added, renamed or deleted on the Profiles page is in the
+    /// picker when the reader comes back.
+    /// </remarks>
     public async Task ReloadListAsync()
     {
-        string profileId = await SelectedProfileIdAsync().ConfigureAwait(true);
+        ProfileChoice choice = await _selection.LoadAsync().ConfigureAwait(true);
 
-        Replace(await _lists.GetAsync(profileId).ConfigureAwait(true));
+        ShowProfiles(choice);
+
+        Replace(await _lists.GetAsync(choice.Selected.Id).ConfigureAwait(true));
     }
 
     /// <summary>
@@ -502,6 +537,49 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ProfileChoice choice = await _selection.LoadAsync().ConfigureAwait(true);
 
         return choice.Selected.Id;
+    }
+
+    /// <summary>
+    /// Puts the profiles in the picker, and the selected one in it, without taking either for a choice.
+    /// </summary>
+    private void ShowProfiles(ProfileChoice choice)
+    {
+        _showingProfiles = true;
+
+        try
+        {
+            // Left alone when nothing changed, so the picker does not flicker through an empty
+            // selection on every showing of the page.
+            if (!Profiles.SequenceEqual(choice.Profiles))
+            {
+                Profiles.Clear();
+
+                foreach (IdentityProfile profile in choice.Profiles)
+                {
+                    Profiles.Add(profile);
+                }
+            }
+
+            SelectedProfile = choice.Selected;
+        }
+        finally
+        {
+            _showingProfiles = false;
+        }
+    }
+
+    /// <summary>
+    /// Shows a profile's list once the reader has picked it.
+    /// </summary>
+    private async Task ShowListOfAsync(string profileId)
+    {
+        IReadOnlyList<ListedRepository> entries = await _lists.GetAsync(profileId).ConfigureAwait(true);
+
+        // A quicker second pick may have been made while this one was reading.
+        if (string.Equals(SelectedProfile?.Id, profileId, StringComparison.Ordinal))
+        {
+            Replace(entries);
+        }
     }
 
     private void Replace(IReadOnlyList<ListedRepository> entries)
