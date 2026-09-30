@@ -67,6 +67,9 @@
       <Color x:Key="DiffWhitespaceColor">#4A4F57</Color>
       <Color x:Key="DiffFillerColor">#17181B</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+      <!-- Selected text: the selection blue, translucent, so the line's own green or red and the
+           word-level tint still read through it. -->
+      <Color x:Key="DiffTextSelectionColor">#703574F0</Color>
 
       <!--
         The conflict panes. Ours is the blue of the graph's first lane and theirs the violet of its
@@ -113,6 +116,14 @@
       <Color x:Key="SearchMatchColor">#3A3517</Color>
       <Color x:Key="SearchMatchHoverColor">#4C4520</Color>
       <Color x:Key="SearchMatchSelectedColor">#635A29</Color>
+
+      <!-- The checked-out line: the HEAD badge's blue laid lightly over the background — 12%, and 20%
+           under the pointer; 8% and 12% in the light variant, whose selection is far paler — enough
+           to find the line at a glance, nearer the background than the selection even when hovered,
+           and less of a cost to the text than the search's wash. Selected, it is the ordinary
+           selection, so there is no colour of its own for that. -->
+      <Color x:Key="HeadRowColor">#21293B</Color>
+      <Color x:Key="HeadRowHoverColor">#23304B</Color>
 
       <!-- The diff's minimap. Its strip is the gutter's colour and its marks are the gutter's own
            added and removed ones, so the map and the patch cannot disagree about what green means;
@@ -164,6 +175,7 @@
       <Color x:Key="DiffWhitespaceColor">#B4BAC2</Color>
       <Color x:Key="DiffFillerColor">#F7F8FA</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+      <Color x:Key="DiffTextSelectionColor">#503574F0</Color>
 
       <Color x:Key="ConflictOursLineColor">#E8F0FE</Color>
       <Color x:Key="ConflictTheirsLineColor">#F6EAFB</Color>
@@ -190,6 +202,9 @@
       <Color x:Key="SearchMatchColor">#FBF0C2</Color>
       <Color x:Key="SearchMatchHoverColor">#F3E3A0</Color>
       <Color x:Key="SearchMatchSelectedColor">#E8D178</Color>
+
+      <Color x:Key="HeadRowColor">#E7EDF9</Color>
+      <Color x:Key="HeadRowHoverColor">#E0E8F9</Color>
 
       <Color x:Key="DiffMinimapViewportColor">#22000000</Color>
       <Color x:Key="DiffMinimapViewportBorderColor">#55000000</Color>
@@ -237,6 +252,7 @@
   <SolidColorBrush x:Key="DiffWhitespaceBrush" Color="{DynamicResource DiffWhitespaceColor}" />
   <SolidColorBrush x:Key="DiffFillerBrush" Color="{DynamicResource DiffFillerColor}" />
   <SolidColorBrush x:Key="DiffSelectionBrush" Color="{DynamicResource DiffSelectionColor}" />
+  <SolidColorBrush x:Key="DiffTextSelectionBrush" Color="{DynamicResource DiffTextSelectionColor}" />
   <SolidColorBrush x:Key="ConflictOursLineBrush" Color="{DynamicResource ConflictOursLineColor}" />
   <SolidColorBrush x:Key="ConflictTheirsLineBrush" Color="{DynamicResource ConflictTheirsLineColor}" />
   <SolidColorBrush x:Key="ConflictBaseLineBrush" Color="{DynamicResource ConflictBaseLineColor}" />
@@ -252,6 +268,9 @@
   <SolidColorBrush x:Key="SearchMatchBrush" Color="{DynamicResource SearchMatchColor}" />
   <SolidColorBrush x:Key="SearchMatchHoverBrush" Color="{DynamicResource SearchMatchHoverColor}" />
   <SolidColorBrush x:Key="SearchMatchSelectedBrush" Color="{DynamicResource SearchMatchSelectedColor}" />
+
+  <SolidColorBrush x:Key="HeadRowBrush" Color="{DynamicResource HeadRowColor}" />
+  <SolidColorBrush x:Key="HeadRowHoverBrush" Color="{DynamicResource HeadRowHoverColor}" />
 
   <SolidColorBrush x:Key="DiffMinimapViewportBrush" Color="{DynamicResource DiffMinimapViewportColor}" />
   <SolidColorBrush x:Key="DiffMinimapViewportBorderBrush" Color="{DynamicResource DiffMinimapViewportBorderColor}" />

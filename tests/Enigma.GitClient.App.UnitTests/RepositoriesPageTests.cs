@@ -3,12 +3,15 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
@@ -16,7 +19,12 @@ using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -39,14 +47,347 @@ public sealed class RepositoriesPageTests
             using TestServices services = TestServices.Build();
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
 
-            Assert.False(page.HasRecent);
+            Assert.False(page.HasRepositories);
 
-            IRecentRepositoryStore store = services.Get<IRecentRepositoryStore>();
-            await store.TouchAsync(Path.Combine(services.ConfigurationRoot, "one"), "one");
-            await page.ReloadRecentAsync();
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(IdentityProfile.DefaultId, Path.Combine(services.ConfigurationRoot, "one"), "one");
+            await page.ReloadListAsync();
 
-            Assert.True(page.HasRecent);
-            Assert.Equal("one", Assert.Single(page.Recent).Name);
+            Assert.True(page.HasRepositories);
+            Assert.Equal("one", Assert.Single(page.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void AtTheFirstStart_TheDefaultProfileIsCreatedAndItsListShown()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            await page.OnAppearingAsync();
+
+            IdentityProfile profile = Assert.Single(await services.Get<IIdentityProfileStore>().GetAllAsync());
+            Assert.Equal(IdentityProfile.DefaultId, profile.Id);
+            Assert.Equal("Default", profile.Label);
+            Assert.False(profile.HasIdentity);
+            Assert.False(page.HasRepositories);
+        });
+    }
+
+    [Fact]
+    public void ThePageShowsOnlyTheSelectedProfilesRepositories()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(work.Id, Path.Combine(services.ConfigurationRoot, "work-repo"), "work-repo");
+            await store.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            // Nothing chosen yet: the first profile's list.
+            await page.ReloadListAsync();
+            Assert.Equal("work-repo", Assert.Single(page.Repositories).Name);
+
+            services.Get<IProfileSelection>().Select(home.Id);
+            await page.ReloadListAsync();
+            Assert.Equal("home-repo", Assert.Single(page.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void ThePickerListsEveryProfile_WithTheRememberedOneSelected()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+            services.Get<IProfileSelection>().Select(home.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.Equal(["Work", "Home"], page.Profiles.Select(profile => profile.Label));
+            Assert.Equal(home, page.SelectedProfile);
+        });
+    }
+
+    [Fact]
+    public void PickingAnotherProfile_ShowsItsListAndIsRemembered()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(work.Id, Path.Combine(services.ConfigurationRoot, "work-repo"), "work-repo");
+            await store.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            Assert.Equal("work-repo", Assert.Single(page.Repositories).Name);
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+
+            await WaitUntilAsync(() => page.Repositories.Count == 1 && page.Repositories[0].Name == "home-repo");
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+
+            // A page built afresh — the next start — opens on the same profile.
+            RepositoriesPageViewModel again = ActivatorUtilities.CreateInstance<RepositoriesPageViewModel>(services.Provider);
+            await again.OnAppearingAsync();
+
+            Assert.Equal(home, again.SelectedProfile);
+            Assert.Equal("home-repo", Assert.Single(again.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void ShowingThePageAgain_PicksUpProfilesChangedElsewhere()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+            services.Get<IProfileSelection>().Select(home.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            // On the Profiles page: Work renamed, Home deleted, Client added.
+            await profiles.SaveAsync(work with { Label = "Office" });
+            await profiles.RemoveAsync(home.Id);
+            await profiles.SaveAsync(IdentityProfile.Create("Client", GitIdentity.Empty));
+
+            await page.OnAppearingAsync();
+
+            Assert.Equal(["Office", "Client"], page.Profiles.Select(profile => profile.Label));
+            Assert.Equal(work.Id, page.SelectedProfile?.Id);
+        });
+    }
+
+    [Fact]
+    public void ARepositoryOpenedWhileAProfileIsPicked_JoinsThatProfilesList()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "picked"), "main");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+
+            await page.OpenPathAsync(repository.WorkTreePath);
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            Assert.Equal("picked", Assert.Single(await store.GetAsync(home.Id)).Name);
+            Assert.Empty(await store.GetAsync(work.Id));
+        });
+    }
+
+    [Fact]
+    public void ThePickerIsInThePagesHeader()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.OnAppearingAsync();
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            ComboBox picker = page.GetVisualDescendants()
+                .OfType<ComboBox>()
+                .Single(box => AutomationProperties.GetName(box) == "The profile whose repositories are listed");
+
+            Assert.Equal(1, picker.ItemCount);
+            Assert.Equal("Work", Assert.IsType<IdentityProfile>(picker.SelectedItem).Label);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheThemeSwitch_SwitchesTheWholeApplicationAndRecordsTheChoice()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            ISettingsService settings = services.Get<ISettingsService>();
+
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+
+            try
+            {
+                application.RequestedThemeVariant = ThemeVariant.Dark;
+
+                page.ToggleThemeCommand.Execute(null);
+                Assert.Equal(ThemeVariant.Light, application.RequestedThemeVariant);
+                Assert.Equal(ThemePreference.Light, settings.Current.Theme);
+
+                page.ToggleThemeCommand.Execute(null);
+                Assert.Equal(ThemeVariant.Dark, application.RequestedThemeVariant);
+                Assert.Equal(ThemePreference.Dark, settings.Current.Theme);
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
+    public void TheThemeSwitchSitsJustLeftOfAbout()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.OnAppearingAsync();
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Button theme = page.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ToggleTheme");
+            Button about = page.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "OpenAbout");
+
+            Assert.Same(model.ToggleThemeCommand, theme.Command);
+            Assert.Equal("Switch between the dark and light themes", AutomationProperties.GetName(theme));
+
+            StackPanel strip = Assert.IsType<StackPanel>(about.Parent);
+            Assert.Equal(strip.Children.IndexOf(about) - 1, strip.Children.IndexOf(theme));
+
+            Point themeAt = theme.TranslatePoint(default, page) ?? default;
+            Point aboutAt = about.TranslatePoint(default, page) ?? default;
+            Assert.True(themeAt.X < aboutAt.X, "the theme switch must be drawn left of About");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Creating_CommitsAReadmeAsTheFirstCommitAndOpensTheRepository()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAnIdentityOnEveryNewRepository);
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            FillInitDialog(services, root, "brand-new");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            string path = Path.Combine(root, "brand-new");
+
+            Assert.Equal("Initial commit", ReadGit(path, "log", "--format=%s").Trim());
+            Assert.Equal("README.md", ReadGit(path, "ls-tree", "-r", "--name-only", "HEAD").Trim());
+            Assert.Equal("# brand-new\n", ReadGit(path, "show", "HEAD:README.md"));
+
+            Assert.Equal("brand-new", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Equal("brand-new", Assert.Single(page.Repositories).Name);
+            Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Repository created", note.Title);
+            Assert.Contains("with its README as the first commit", note.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void ACreatedRepositoryWhoseFirstCommitFails_IsStillOpenedAndTheReaderIsTold()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAFirstCommitGitRefuses);
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            FillInitDialog(services, root, "no-identity");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            Assert.Equal("no-identity", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Equal("no-identity", Assert.Single(page.Repositories).Name);
+            Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Repository created without its first commit", note.Title);
+            Assert.Equal(InfoBarSeverity.Warning, note.Severity);
+            Assert.Contains("git has no name and email to commit with. Set them on the Profiles page.", note.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData("*** Please tell me who you are.\n\nRun\n\n  git config --global user.email \"you@example.com\"\n", "git has no name and email to commit with. Set them on the Profiles page.")]
+    [InlineData("fatal: empty ident name (for <>) not allowed\n", "git has no name and email to commit with. Set them on the Profiles page.")]
+    [InlineData("fatal: unable to write new index file\n", "fatal: unable to write new index file.")]
+    public void FirstCommitProblem_SaysWhyInTheReadersTerms(string standardError, string expected)
+    {
+        GitCommandException refused = new(
+            new GitCommand(".", ["commit", "--message", "Initial commit"]),
+            128,
+            standardError,
+            string.Empty);
+
+        Assert.Equal(expected, RepositoriesPageViewModel.FirstCommitProblem(refused));
+    }
+
+    [Fact]
+    public void OpeningAListedRepositoryAgain_LeavesItWhereItIs()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            IRepositoryService repositories = services.Get<IRepositoryService>();
+            RepositoryHandle first = await repositories.InitAsync(Path.Combine(root, "first"), "main");
+            RepositoryHandle second = await repositories.InitAsync(Path.Combine(root, "second"), "main");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OpenPathAsync(first.WorkTreePath);
+            await page.OpenPathAsync(second.WorkTreePath);
+            await page.OpenPathAsync(first.WorkTreePath);
+
+            Assert.Equal(["first", "second"], page.Repositories.Select(entry => entry.Name));
         });
     }
 
@@ -72,7 +413,7 @@ public sealed class RepositoriesPageTests
             Assert.True(opened);
             Assert.Equal("my-repo", context.Repository?.Name);
             Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
-            Assert.Contains(page.Recent, entry => entry.Name == "my-repo");
+            Assert.Contains(page.Repositories, entry => entry.Name == "my-repo");
         });
     }
 
@@ -93,7 +434,7 @@ public sealed class RepositoriesPageTests
 
             Assert.False(opened);
             Assert.False(context.IsRepositoryOpen);
-            Assert.Empty(page.Recent);
+            Assert.Empty(page.Repositories);
 
             Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, services.InfoBar.Last?.Severity);
             Assert.Contains("not inside a git repository", services.InfoBar.Last!.Message, StringComparison.Ordinal);
@@ -128,11 +469,88 @@ public sealed class RepositoriesPageTests
 
             Assert.True(cloned);
             Assert.Equal("cloned", services.Get<IRepositoryContext>().Repository?.Name);
-            Assert.Contains(page.Recent, entry => entry.Name == "cloned");
+            Assert.Contains(page.Repositories, entry => entry.Name == "cloned");
 
             // The progress overlay must go up and, above all, come back down.
             Assert.Equal(1, services.Overlay.ShowCount);
             Assert.False(services.Overlay.IsOpen, "an overlay left open makes the window unusable");
+        });
+    }
+
+    [Fact]
+    public void ACloneThatWorked_IsWhereTheNextCloneIsSuggested()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+
+            string root = Path.Combine(services.ConfigurationRoot, "clones");
+            RepositoryHandle source = await SourceRepositoryAsync(services);
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            // Nothing cloned yet: the home folder, as before.
+            Assert.Equal(HomeFolder, page.CloneParentDirectory());
+
+            Assert.True(await page.RunCloneAsync(new CloneRequest
+            {
+                Url = source.WorkTreePath,
+                ParentDirectory = root,
+                DirectoryName = "cloned",
+            }));
+
+            Assert.Equal(Path.GetFullPath(root), services.Get<ISettingsService>().Current.CloneParentDirectory);
+
+            // The next clone dialog opens on it.
+            CloneRepositoryDialogViewModel? next = null;
+            services.Dialogs.OnShown = dialog => next = ((Control)dialog.Content!).DataContext as CloneRepositoryDialogViewModel;
+
+            await page.CloneCommand.ExecuteAsync(null);
+
+            Assert.NotNull(next);
+            Assert.Equal(Path.GetFullPath(root), next.ParentDirectory);
+        });
+    }
+
+    [Fact]
+    public void ACloneThatFailed_LeavesTheSuggestionWhereItWas()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+
+            string root = Path.Combine(services.ConfigurationRoot, "clones");
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            Assert.False(await page.RunCloneAsync(new CloneRequest
+            {
+                Url = Path.Combine(services.ConfigurationRoot, "no-such-repository"),
+                ParentDirectory = root,
+                DirectoryName = "cloned",
+            }));
+
+            Assert.Equal(string.Empty, services.Get<ISettingsService>().Current.CloneParentDirectory);
+            Assert.Equal(HomeFolder, page.CloneParentDirectory());
+        });
+    }
+
+    [Fact]
+    public void ARememberedDirectoryThatIsGone_IsNotSuggested()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            string kept = Path.Combine(services.ConfigurationRoot, "kept");
+            Directory.CreateDirectory(kept);
+
+            ISettingsService settings = services.Get<ISettingsService>();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            settings.Update(current => current with { CloneParentDirectory = kept });
+            Assert.Equal(kept, page.CloneParentDirectory());
+
+            settings.Update(current => current with { CloneParentDirectory = Path.Combine(services.ConfigurationRoot, "unplugged") });
+            Assert.Equal(HomeFolder, page.CloneParentDirectory());
         });
     }
 
@@ -142,18 +560,18 @@ public sealed class RepositoriesPageTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
-            IRecentRepositoryStore store = services.Get<IRecentRepositoryStore>();
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
 
             string path = Path.Combine(services.ConfigurationRoot, "kept");
             Directory.CreateDirectory(path);
-            await store.TouchAsync(path, "kept");
+            await store.AddAsync(IdentityProfile.DefaultId, path, "kept");
 
             RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
-            await page.ReloadRecentAsync();
+            await page.ReloadListAsync();
 
-            await page.ForgetRecentCommand.ExecuteAsync(page.Recent.Single());
+            await page.ForgetCommand.ExecuteAsync(page.Repositories.Single());
 
-            Assert.Empty(page.Recent);
+            Assert.Empty(page.Repositories);
             Assert.True(Directory.Exists(path), "forgetting must never delete the repository");
         });
     }
@@ -356,7 +774,7 @@ public sealed class RepositoriesPageTests
     // ---------------------------------------------------------------- rendering
 
     [Fact]
-    public void Page_RendersItsRecentListOffScreen()
+    public void Page_RendersItsListOffScreen()
     {
         _fixture.RunAsync(async () =>
         {
@@ -367,17 +785,17 @@ public sealed class RepositoriesPageTests
             try
             {
                 using TestServices services = TestServices.Build();
-                IRecentRepositoryStore store = services.Get<IRecentRepositoryStore>();
+                IRepositoryListStore store = services.Get<IRepositoryListStore>();
 
                 foreach (string name in new[] { "Enigma.GitClient", "Enigma.Avalonia", "Enigma.Icons" })
                 {
                     string path = Path.Combine(services.ConfigurationRoot, "src", name);
                     Directory.CreateDirectory(path);
-                    await store.TouchAsync(path, name);
+                    await store.AddAsync(IdentityProfile.DefaultId, path, name);
                 }
 
                 RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
-                await model.ReloadRecentAsync();
+                await model.ReloadListAsync();
 
                 RepositoriesPageView page = services.Get<RepositoriesPageView>();
                 page.DataContext = model;
@@ -423,9 +841,9 @@ public sealed class RepositoriesPageTests
             using TestServices services = TestServices.Build();
 
             RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
-            await model.ReloadRecentAsync();
+            await model.ReloadListAsync();
 
-            Assert.False(model.HasRecent);
+            Assert.False(model.HasRepositories);
 
             RepositoriesPageView page = services.Get<RepositoriesPageView>();
             page.DataContext = model;
@@ -461,6 +879,101 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    // Where a clone goes when there is nothing to remember.
+    private static string HomeFolder => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    /// <summary>
+    /// A repository with one commit, to clone from.
+    /// </summary>
+    private static async Task<RepositoryHandle> SourceRepositoryAsync(TestServices services)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        RepositoryHandle source = await services.Get<IRepositoryService>().InitAsync(Path.Combine(root, "source"), "main");
+
+        File.WriteAllText(Path.Combine(source.WorkTreePath, "README.md"), "# source\n");
+        RunGit(source.WorkTreePath, "add", "--all");
+        RunGit(source.WorkTreePath, "-c", "user.name=T", "-c", "user.email=t@e.invalid", "commit", "-m", "base");
+
+        return source;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int attempts = 300)
+    {
+        for (int attempt = 0; attempt < attempts && !condition(); attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition(), "the page never reached the state the test waited for");
+    }
+
+    private static void FillInitDialog(TestServices services, string parent, string name)
+    {
+        services.Dialogs.Result = DialogResult.Primary;
+        services.Dialogs.OnShown = dialog =>
+        {
+            if (dialog.Content is Control { DataContext: InitRepositoryDialogViewModel model })
+            {
+                model.ParentDirectory = parent;
+                model.DirectoryName = name;
+            }
+        };
+    }
+
+    /// <summary>
+    /// The real repository service, with a name and email given to each repository it creates: the
+    /// first commit must not depend on the identity of whoever runs the tests.
+    /// </summary>
+    private static void WithAnIdentityOnEveryNewRepository(ServiceCollection services)
+    {
+        services.RemoveAll<IRepositoryService>();
+        services.AddSingleton<RepositoryService>();
+        services.AddSingleton<IRepositoryService>(provider => new IdentifiedRepositoryService(
+            provider.GetRequiredService<RepositoryService>(),
+            refuseTheFirstCommit: false));
+    }
+
+    /// <summary>
+    /// The real repository service, whose first commit git refuses as it does without an identity.
+    /// </summary>
+    private static void WithAFirstCommitGitRefuses(ServiceCollection services)
+    {
+        services.RemoveAll<IRepositoryService>();
+        services.AddSingleton<RepositoryService>();
+        services.AddSingleton<IRepositoryService>(provider => new IdentifiedRepositoryService(
+            provider.GetRequiredService<RepositoryService>(),
+            refuseTheFirstCommit: true));
+    }
+
+    private static string ReadGit(string workingDirectory, params string[] arguments)
+    {
+        System.Diagnostics.ProcessStartInfo startInfo = new()
+        {
+            FileName = "git",
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using System.Diagnostics.Process process = System.Diagnostics.Process.Start(startInfo)!;
+        string output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+
+        return process.ExitCode == 0
+            ? output
+            : throw new InvalidOperationException(
+                $"git {string.Join(' ', arguments)} failed: {process.StandardError.ReadToEnd()}");
+    }
+
     private static void RunGit(string workingDirectory, params string[] arguments)
     {
         System.Diagnostics.ProcessStartInfo startInfo = new()
@@ -486,4 +999,60 @@ public sealed class RepositoriesPageTests
                 $"git {string.Join(' ', arguments)} failed: {process.StandardError.ReadToEnd()}");
         }
     }
+}
+
+/// <summary>
+/// Hands everything to the real repository service, but gives a repository a name and email of its own
+/// before its first commit — or refuses that commit the way git does without one.
+/// </summary>
+internal sealed class IdentifiedRepositoryService : IRepositoryService
+{
+    private readonly IRepositoryService _inner;
+    private readonly bool _refuseTheFirstCommit;
+
+    public IdentifiedRepositoryService(IRepositoryService inner, bool refuseTheFirstCommit)
+    {
+        _inner = inner;
+        _refuseTheFirstCommit = refuseTheFirstCommit;
+    }
+
+    public Task<RepositoryDiscoveryResult> OpenAsync(string path, System.Threading.CancellationToken cancellationToken = default)
+        => _inner.OpenAsync(path, cancellationToken);
+
+    public Task<RepositoryHandle> InitAsync(string path, string initialBranch = "main", System.Threading.CancellationToken cancellationToken = default)
+        => _inner.InitAsync(path, initialBranch, cancellationToken);
+
+    public Task<string> CommitReadmeAsync(RepositoryHandle repository, string title, System.Threading.CancellationToken cancellationToken = default)
+    {
+        if (_refuseTheFirstCommit)
+        {
+            throw new GitCommandException(
+                new GitCommand(repository.WorkTreePath, ["commit", "--message", "Initial commit"]),
+                128,
+                "Author identity unknown\n\n*** Please tell me who you are.\n",
+                string.Empty);
+        }
+
+        foreach ((string key, string value) in new[] { ("user.name", "Ada Lovelace"), ("user.email", "ada@example.com") })
+        {
+            using System.Diagnostics.Process process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = repository.WorkTreePath,
+                ArgumentList = { "config", "--local", key, value },
+                UseShellExecute = false,
+            })!;
+            process.WaitForExit();
+        }
+
+        return _inner.CommitReadmeAsync(repository, title, cancellationToken);
+    }
+
+    public Task<RepositoryHandle> CloneAsync(
+        CloneRequest request,
+        IProgress<CloneProgress>? progress = null,
+        System.Threading.CancellationToken cancellationToken = default)
+        => _inner.CloneAsync(request, progress, cancellationToken);
+
+    public RemoteUrlValidation ValidateCloneUrl(string? url) => _inner.ValidateCloneUrl(url);
 }

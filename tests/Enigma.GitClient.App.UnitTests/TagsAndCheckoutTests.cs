@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Dialogs;
@@ -168,6 +169,62 @@ public sealed class TagsAndCheckoutTests
             // Only a suggestion: a name with a v is as good as it was.
             model.Name = "v1.0.0";
             Assert.True(model.IsValid);
+        });
+    }
+
+    [Fact]
+    public void CreateTagDialog_OpensWithTheCaretInTheName()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            // The dialog on a real host, opened from a button that had the focus — the toolbar's, or
+            // the line's menu, as it is in the window.
+            Button opener = new() { Content = "Create a tag" };
+            ContentDialog host = new();
+            Window window = new() { Content = new Panel { Children = { opener, host } }, Width = 1200, Height = 800 };
+            window.Show();
+
+            ContentDialogService dialogs = new();
+            dialogs.RegisterHost(host);
+
+            opener.Focus();
+            Assert.True(opener.IsFocused);
+
+            CreateTagDialogView view = new()
+            {
+                DataContext = new CreateTagDialogViewModel([new BranchStartPoint("HEAD", "HEAD", "now")], []),
+            };
+
+            try
+            {
+                Task<DialogResult> asking = dialogs.ShowAsync(dialog =>
+                {
+                    dialog.Title = "Create a tag";
+                    dialog.Content = view;
+                    dialog.PrimaryButtonText = "Create";
+                    dialog.CloseButtonText = "Cancel";
+                });
+
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
+                }
+
+                TextBox name = view.GetLogicalDescendants()
+                    .OfType<TextBox>()
+                    .Single(box => global::Avalonia.Automation.AutomationProperties.GetName(box) == "Tag name");
+
+                Assert.True(name.IsFocused, "the name box does not have the focus: the name cannot be typed straight away");
+                Assert.False(opener.IsFocused);
+
+                await host.HideAsync();
+                await asking;
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -510,7 +567,7 @@ public sealed class TagsAndCheckoutTests
     }
 
     [Fact]
-    public void History_ActivatingARowChecksNothingOut()
+    public void History_SelectingARowOrShowingItsChangesChecksNothingOut()
     {
         _fixture.RunAsync(async () =>
         {
@@ -528,9 +585,12 @@ public sealed class TagsAndCheckoutTests
 
             Assert.True(row.HasBranch);
 
-            row.Commands!.Activate.Execute(row);
+            history.SelectedRow = row;
+            row.Commands!.ShowChanges.Execute(row);
 
-            // A double-click shows what the row changed; moving HEAD is the menu's job alone.
+            // A click opens the details panel and the menu shows what the row changed; moving HEAD is
+            // the menu's job alone, and only when asked by name.
+            Assert.True(history.IsDetailsPanelOpen);
             Assert.Equal(before, context.Head?.BranchName);
             Assert.False(context.Head?.IsDetached);
             Assert.True(history.IsDiffViewOpen);

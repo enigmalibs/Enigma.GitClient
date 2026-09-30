@@ -98,12 +98,12 @@ public sealed class WholeLineMenuTests
             RepositoryHandle repository = await BuildRepositoryAsync(services);
             File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# edited\n");
 
-            ChangesPageViewModel page = services.Get<ChangesPageViewModel>();
-            await page.OnAppearingAsync();
+            WorkingTreePanelViewModel page = services.Get<WorkingTreePanelViewModel>();
+            page.IsActive = true;
+            await page.RefreshAsync();
             await WaitUntilAsync(() => page.HasUnstaged);
 
-            ChangesPageView view = services.Get<ChangesPageView>();
-            view.DataContext = page;
+            WorkingTreePanelView view = new() { DataContext = page };
 
             Window window = new() { Content = view, Width = 1200, Height = 700 };
             window.Show();
@@ -163,7 +163,7 @@ public sealed class WholeLineMenuTests
     }
 
     [Fact]
-    public void TheChangesPagesFileLines_OpenTheirMenusAnywhereOnThem()
+    public void TheWorkingTreesFileLines_OpenTheirMenusAnywhereOnThem()
     {
         _fixture.RunAsync(async () =>
         {
@@ -173,12 +173,12 @@ public sealed class WholeLineMenuTests
             File.WriteAllText(Path.Combine(repository.WorkTreePath, "staged.txt"), "staged\n");
             Git(repository, "add", "staged.txt");
 
-            ChangesPageViewModel page = services.Get<ChangesPageViewModel>();
-            await page.OnAppearingAsync();
+            WorkingTreePanelViewModel page = services.Get<WorkingTreePanelViewModel>();
+            page.IsActive = true;
+            await page.RefreshAsync();
             await WaitUntilAsync(() => page.HasUnstaged && page.HasStaged);
 
-            ChangesPageView view = services.Get<ChangesPageView>();
-            view.DataContext = page;
+            WorkingTreePanelView view = new() { DataContext = page };
 
             Window window = new() { Content = view, Width = 1200, Height = 700 };
             window.Show();
@@ -204,7 +204,7 @@ public sealed class WholeLineMenuTests
     }
 
     [Fact]
-    public void TheHistoryDiffsFileLines_OpenTheirMenusAnywhereOnThem()
+    public void TheHistoryPanelsFileLines_OpenTheirMenusAnywhereOnThem()
     {
         _fixture.RunAsync(async () =>
         {
@@ -222,15 +222,15 @@ public sealed class WholeLineMenuTests
 
             try
             {
-                page.RowCommands.ShowChanges.Execute(page.Rows.First(row => row.Commit is not null));
+                page.SelectedRow = page.Rows.First(row => row.Commit is not null);
                 await WaitUntilAsync(() => page.Files.Nodes.Count > 0);
                 Render(window);
 
-                Border diffs = view.FindControl<Border>("DiffPage")
-                    ?? throw new InvalidOperationException("The history page has no diff view.");
-                Assert.True(diffs.IsVisible);
+                Border panel = view.FindControl<Border>("DetailsPanel")
+                    ?? throw new InvalidOperationException("The history page has no details panel.");
+                Assert.True(panel.IsVisible);
 
-                AssertTheWholeFileLineOpensItsMenu(window, FileLines(diffs).First());
+                AssertTheWholeFileLineOpensItsMenu(window, FileLines(panel).First());
             }
             finally
             {

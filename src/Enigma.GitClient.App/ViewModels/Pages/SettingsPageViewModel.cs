@@ -336,7 +336,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
             dialog.Title = "Reset every preference";
             dialog.Content =
                 "Put the theme, the history, the diff and the git preferences back to their defaults?\n\n"
-                + "Connected accounts, their tokens and your recent repositories are not touched.";
+                + "Connected accounts, their tokens and your lists of repositories are not touched.";
             dialog.PrimaryButtonText = "Reset";
             dialog.CloseButtonText = "Keep them";
             dialog.DefaultButton = DefaultButton.Close;

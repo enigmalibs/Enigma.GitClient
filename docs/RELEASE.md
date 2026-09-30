@@ -92,7 +92,7 @@ It writes only under `$HOME`:
 |---|---|
 | the application | `~/.local/share/enigma-git-client` |
 | the launcher symlink | `~/.local/bin/enigma-git-client` |
-| the desktop entry, "Enigma git client" | `~/.local/share/applications/enigma-git-client.desktop` |
+| the desktop entry, "Enigma Git Client" | `~/.local/share/applications/enigma-git-client.desktop` |
 | the icon, six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
 
 `packaging/linux/uninstall.sh` removes exactly those and leaves `~/.config/Enigma.GitClient` — the
@@ -102,7 +102,7 @@ Windows has no installer: publish as in step 5 and run the result.
 
 ## 7. Post-release verification
 
-- [ ] **Enigma git client** appears in the application launcher, with its icon, and starts when
+- [ ] **Enigma Git Client** appears in the application launcher, with its icon, and starts when
       clicked. A launcher starts a process from a bare environment, so this is not the same test as
       starting it from a terminal — check the launcher, not just the shell.
 - [ ] The splash screen and the **About** dialog say `Version X.Y.Z`, and the About dialog's build line
@@ -114,6 +114,6 @@ Windows has no installer: publish as in step 5 and run the result.
 ## Why there is no MSI profile
 
 `dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0, 1.1.0,
-2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0 and 4.1.1: the releases' packaging is the Linux installer. When a Windows
+2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0, 4.1.1 and 5.0.0: the releases' packaging is the Linux installer. When a Windows
 installer is wanted, generate the **first** profile then — its `upgradeCode` is created once and
 reused verbatim in every later version, while `productId` is new each time.

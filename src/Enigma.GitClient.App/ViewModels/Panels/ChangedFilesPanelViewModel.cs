@@ -27,7 +27,7 @@ public enum ChangedFilesViewMode
 /// </summary>
 /// <remarks>
 /// The panel itself has no opinion about what should happen to a file — in the history it is
-/// something to read, on the changes page it is something to stage or throw away. The host supplies
+/// something to read, in the working tree it is something to stage or throw away. The host supplies
 /// the verbs; the panel only draws them.
 /// </remarks>
 /// <param name="PrimaryLabel">What the first action is called.</param>

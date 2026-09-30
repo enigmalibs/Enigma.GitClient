@@ -18,9 +18,32 @@ namespace Enigma.GitClient.Core.Identity;
 /// <param name="Email">The email it sets.</param>
 public sealed record IdentityProfile(string Id, string Label, string Name, string Email)
 {
+    /// <summary>
+    /// The identifier of the profile the client creates when there is none.
+    /// </summary>
+    /// <remarks>
+    /// Fixed rather than fresh: two instances starting at the same moment on a machine without profiles
+    /// both create it, and writing the same identifier twice leaves one profile, not two.
+    /// </remarks>
+    public const string DefaultId = "default";
+
+    /// <summary>What the profile the client creates is called.</summary>
+    public const string DefaultLabel = "Default";
+
     /// <summary>Gets the identity the profile sets.</summary>
     [JsonIgnore]
     public GitIdentity Identity => new(Name, Email);
+
+    /// <summary>
+    /// Gets a value indicating whether the profile sets an identity at all.
+    /// </summary>
+    /// <remarks>
+    /// A profile without one is legal: git never sees it. It never matches the identity git has, so it
+    /// is never the current profile, never decides a push and never signs git in — which is what lets
+    /// the client create one on the user's behalf without changing anything they had.
+    /// </remarks>
+    [JsonIgnore]
+    public bool HasIdentity => !Identity.IsEmpty;
 
     /// <summary>
     /// Builds a new profile with a fresh identifier and trimmed values.
@@ -35,6 +58,13 @@ public sealed record IdentityProfile(string Id, string Label, string Name, strin
         return new IdentityProfile(Guid.NewGuid().ToString("N"), string.Empty, string.Empty, string.Empty)
             .With(label, identity);
     }
+
+    /// <summary>
+    /// Builds the profile the client creates when there is none: "Default", with no identity, so that
+    /// creating it changes nothing about commits, pushes or sign-ins.
+    /// </summary>
+    /// <returns>The profile.</returns>
+    public static IdentityProfile CreateDefault() => new(DefaultId, DefaultLabel, string.Empty, string.Empty);
 
     /// <summary>
     /// Returns this profile with new values and the same identifier.
@@ -117,6 +147,24 @@ public static class IdentityProfileRules
     }
 
     /// <summary>
+    /// Checks the identity a profile sets: none at all, or a whole one.
+    /// </summary>
+    /// <param name="identity">The name and email, as typed.</param>
+    /// <returns>A sentence saying what is wrong, or <see langword="null"/> when it is usable.</returns>
+    /// <remarks>
+    /// Neither value is a profile that git never sees (<see cref="IdentityProfile.HasIdentity"/>). One of
+    /// them without the other is refused: git would write half an identity.
+    /// </remarks>
+    public static string? ValidateIdentity(GitIdentity identity)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+
+        GitIdentity normalised = identity.Normalised();
+
+        return normalised.IsEmpty ? null : GitIdentityRules.Validate(normalised);
+    }
+
+    /// <summary>
     /// Checks a whole profile: the label, then the name, then the email.
     /// </summary>
     /// <param name="profile">The profile.</param>
@@ -125,6 +173,6 @@ public static class IdentityProfileRules
     {
         ArgumentNullException.ThrowIfNull(profile);
 
-        return ValidateLabel(profile.Label) ?? GitIdentityRules.Validate(profile.Identity.Normalised());
+        return ValidateLabel(profile.Label) ?? ValidateIdentity(profile.Identity);
     }
 }

@@ -85,7 +85,7 @@ public sealed class IdentityProfileDialogViewModel : ViewModelBase
     public event EventHandler? ValidationChanged;
 
     private string? Problem
-        => IdentityProfileRules.ValidateLabel(Label) ?? GitIdentityRules.Validate(new GitIdentity(Name, Email).Normalised());
+        => IdentityProfileRules.ValidateLabel(Label) ?? IdentityProfileRules.ValidateIdentity(new GitIdentity(Name, Email));
 
     /// <summary>
     /// Builds the profile the fields describe.

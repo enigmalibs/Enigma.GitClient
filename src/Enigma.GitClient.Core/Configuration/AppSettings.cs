@@ -164,10 +164,10 @@ public sealed record AppSettings
     // ---------------------------------------------------------------- changed files
 
     /// <summary>
-    /// Gets how the changed files are arranged — in the history's diffs, on the changes page and in
-    /// a stash. A flat list by default: a commit touches a handful of files far more often than a
-    /// tree's worth, and a list shows every one of them without a click; the tree is one setting, or
-    /// one toggle on the panel, away.
+    /// Gets how the changed files are arranged — in the history's details panel, for a commit and
+    /// for the working tree, and in a stash. A flat list by default: a commit touches a handful of
+    /// files far more often than a tree's worth, and a list shows every one of them without a click;
+    /// the tree is one setting, or one toggle on the panel, away.
     /// </summary>
     public FilesView FilesView { get; init; } = FilesView.List;
 
@@ -260,6 +260,29 @@ public sealed record AppSettings
     /// <summary>Gets which way the tags dialog orders its lines.</summary>
     public SortDirection TagSortDirection { get; init; } = SortDirection.Descending;
 
+    // ---------------------------------------------------------------- repositories
+
+    /// <summary>
+    /// Gets the directory the last clone was made in, which the next clone suggests; empty until a
+    /// clone has succeeded, and the home folder is suggested instead.
+    /// </summary>
+    /// <remarks>
+    /// Remembered rather than chosen, like the lists' orders: a clone that succeeded writes it, and
+    /// no settings card shows it. A file written before this setting existed reads as empty, so no
+    /// schema migration is needed.
+    /// </remarks>
+    public string CloneParentDirectory { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the identifier of the profile whose repositories the start window lists; empty until one
+    /// has been chosen, and the first profile is listed instead.
+    /// </summary>
+    /// <remarks>
+    /// Remembered rather than chosen on the settings page, like <see cref="CloneParentDirectory"/>. It
+    /// only says which list is shown: git's identity is the Profiles page's to switch.
+    /// </remarks>
+    public string SelectedProfileId { get; init; } = string.Empty;
+
     /// <summary>
     /// Returns these settings with every value forced into a range the application can use.
     /// </summary>
@@ -286,6 +309,8 @@ public sealed record AppSettings
             DiffFontSize = Math.Clamp(DiffFontSize, 8, 32),
             DiffFontFamily = DiffFontFamily?.Trim() ?? string.Empty,
             GitExecutablePath = GitExecutablePath?.Trim() ?? string.Empty,
+            CloneParentDirectory = CloneParentDirectory?.Trim() ?? string.Empty,
+            SelectedProfileId = SelectedProfileId?.Trim() ?? string.Empty,
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,
             FilesView = Enum.IsDefined(FilesView) ? FilesView : FilesView.List,

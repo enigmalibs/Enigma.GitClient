@@ -1,15 +1,12 @@
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diagnostics;
 using Enigma.GitClient.Core.Refs;
 
@@ -28,7 +25,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
     private readonly IAutoRefreshService _autoRefresh;
-    private readonly ISettingsService _settings;
+    private readonly IThemeSwitcher _theme;
     private readonly IAboutDialogService _about;
     private bool _initialised;
 
@@ -41,10 +38,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="launcher">Starts another instance, for another repository beside this one.</param>
     /// <param name="infoBar">Says so when that instance could not be started.</param>
     /// <param name="history">
-    /// The graph page, whose uncommitted row navigates to the changes page, and which the toolbar's
-    /// fetch, pull and push bring up to date.
+    /// The graph page, which the toolbar's fetch, pull and push bring up to date.
     /// </param>
-    /// <param name="changes">The working directory page, whose back button returns to the graph.</param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
@@ -52,7 +47,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Fetches and refreshes the repository on its own, and when the toolbar's refresh button asks;
     /// the graph is told what each refresh found.
     /// </param>
-    /// <param name="settings">Records the theme the toolbar's theme switch chose.</param>
+    /// <param name="theme">The toolbar's theme switch, shared with the start window.</param>
     /// <param name="about">Shows the About dialog from the toolbar.</param>
     public MainWindowViewModel(
         IShellNavigation shell,
@@ -61,12 +56,11 @@ public sealed class MainWindowViewModel : ViewModelBase
         IInstanceLauncher launcher,
         IInfoBarService infoBar,
         HistoryPageViewModel history,
-        ChangesPageViewModel changes,
         ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
         IMergeOperations merges,
         IAutoRefreshService autoRefresh,
-        ISettingsService settings,
+        IThemeSwitcher theme,
         IAboutDialogService about)
     {
         ArgumentNullException.ThrowIfNull(shell);
@@ -75,23 +69,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(history);
-        ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(conflicts);
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(autoRefresh);
-        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(about);
 
-        // The graph's uncommitted row belongs to the working directory page, and the shell is the
-        // only thing that knows how to get there.
-        history.WorkingDirectoryRequested += (_, _) => shell.GoTo(ShellPage.Changes);
-
-        // And the way back, for the same reason.
-        changes.HistoryRequested += (_, _) => shell.GoTo(ShellPage.History);
-
-        // The pages that follow the repository's state (branches, tags, changes, this strip) follow
-        // the refresh on their own; the graph is told, because redrawing it is what costs the reader
+        // What follows the repository's state (branches, tags, the working tree, this strip) follows
+        // the refresh on its own; the graph is told, because redrawing it is what costs the reader
         // their place, and it only does so when there is something new — or when the reader pressed
         // refresh, which is asking for exactly that.
         autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed || result.Requested);
@@ -107,10 +93,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         _sync = sync;
         _merges = merges;
         _autoRefresh = autoRefresh;
-        _settings = settings;
+        _theme = theme;
         _about = about;
 
-        ToggleThemeCommand = new RelayCommand(OnToggleTheme);
+        ToggleThemeCommand = new RelayCommand(_theme.Toggle);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
 
         FetchCommand = new AsyncRelayCommand(RunSyncAsync(_sync.FetchAsync), () => CanSync);
@@ -382,32 +368,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasUpstream));
     }
 
-    /// <summary>
-    /// Switches to the variant that is not on screen, and makes it the preference. From "follow the
-    /// system" too: a click on the switch is a choice, and the settings page is where the system is
-    /// followed again.
-    /// </summary>
-    /// <remarks>
-    /// The variant is put on the application here rather than left to the settings' change handler
-    /// the application wires at startup: the switch has to work wherever the ViewModel runs, and
-    /// applying the same variant a second time is nothing.
-    /// </remarks>
-    private void OnToggleTheme()
-    {
-        Application? application = Application.Current;
-
-        if (application is null)
-        {
-            return;
-        }
-
-        bool toLight = application.ActualThemeVariant == ThemeVariant.Dark;
-
-        application.RequestedThemeVariant = toLight ? ThemeVariant.Light : ThemeVariant.Dark;
-
-        ThemePreference chosen = toLight ? ThemePreference.Light : ThemePreference.Dark;
-        _settings.Update(current => current with { Theme = chosen });
-    }
 
     /// <summary>
     /// Closes the repository and hands the screen back to the start window, which is where another

@@ -108,7 +108,6 @@ public sealed class ShellRenderTests
 
     [Theory]
     [InlineData(typeof(HistoryPageView))]
-    [InlineData(typeof(ChangesPageView))]
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]
@@ -197,7 +196,6 @@ public sealed class ShellRenderTests
 
     [Theory]
     [InlineData(typeof(HistoryPageView))]
-    [InlineData(typeof(ChangesPageView))]
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]
@@ -234,7 +232,6 @@ public sealed class ShellRenderTests
 
     [Theory]
     [InlineData(typeof(HistoryPageView))]
-    [InlineData(typeof(ChangesPageView))]
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]

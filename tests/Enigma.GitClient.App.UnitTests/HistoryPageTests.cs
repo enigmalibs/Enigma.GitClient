@@ -608,8 +608,11 @@ public sealed class HistoryPageTests
             // target for its own menu, washed or not.
             static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
 
+            // Every line but the checked-out one, which has a wash of its own.
+            List<Grid> plain() => [.. RowGrids(workspace).Where(row => !((CommitRowViewModel)row.DataContext!).IsHead)];
+
             Assert.All(RowGrids(workspace), row => Assert.NotEqual(found, Painted(row)));
-            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+            Assert.All(plain(), row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             model.SearchText = "branch";
             window.UpdateLayout();
@@ -629,7 +632,7 @@ public sealed class HistoryPageTests
             model.ClearSearchCommand.Execute(null);
             window.UpdateLayout();
 
-            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+            Assert.All(plain(), row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             window.Close();
         });
@@ -674,7 +677,7 @@ public sealed class HistoryPageTests
             window.UpdateLayout();
 
             Grid match = RowGrids(workspace).First(row => ((CommitRowViewModel)row.DataContext!).IsSearchMatch);
-            Grid miss = RowGrids(workspace).First(row => !((CommitRowViewModel)row.DataContext!).IsSearchMatch);
+            Grid miss = RowGrids(workspace).First(row => row.DataContext is CommitRowViewModel { IsSearchMatch: false, IsHead: false });
 
             Assert.Equal(found, Painted(match));
             Assert.Equal(Colors.Transparent, Painted(miss));
@@ -720,7 +723,9 @@ public sealed class HistoryPageTests
             model.ClearSearchCommand.Execute(null);
             window.UpdateLayout();
 
-            Assert.All(RowGrids(workspace), row => Assert.Equal(Colors.Transparent, Painted(row)));
+            Assert.All(
+                RowGrids(workspace).Where(row => !((CommitRowViewModel)row.DataContext!).IsHead),
+                row => Assert.Equal(Colors.Transparent, Painted(row)));
 
             window.Close();
         });
@@ -743,6 +748,132 @@ public sealed class HistoryPageTests
 
                     Assert.IsAssignableFrom<ISolidColorBrush>(brush);
                 }
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- the checked-out line
+
+    private static Color ThemeColour(string key, ThemeVariant variant)
+    {
+        Assert.True(Application.Current!.TryFindResource(key, variant, out object? colour), $"the {variant} theme has no {key}");
+
+        return Assert.IsType<Color>(colour);
+    }
+
+    private static Color BrushColour(string key)
+    {
+        Application application = Application.Current!;
+        Assert.True(application.TryFindResource(key, application.ActualThemeVariant, out object? brush), $"the theme has no {key}");
+
+        return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+    }
+
+    [Fact]
+    public void TheCheckedOutLine_IsWashed_AndNoOtherLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            Assert.Single(model.Rows, row => row.IsHead);
+
+            List<Grid> rows = RowGrids(workspace);
+            Grid head = Assert.Single(rows, row => row.Classes.Contains("head"));
+
+            // The line whose node carries the ring, across the whole of it.
+            Assert.True(((CommitRowViewModel)head.DataContext!).IsHead);
+            Assert.Equal(BrushColour("HeadRowBrush"), Painted(head));
+            Assert.True(head.Bounds.Width > 400, $"the washed line was only {head.Bounds.Width} wide");
+
+            Assert.All(rows.Where(row => !ReferenceEquals(row, head)), row => Assert.Equal(Colors.Transparent, Painted(row)));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheCheckedOutLine_AnswersForHoverAndSelection_AndGivesWayToTheSearch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, _) =
+                await ShowHistoryPageAsync(services);
+
+            static Color Painted(Grid row) => Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color;
+
+            ListBox list = view.FindControl<ListBox>("CommitList")
+                ?? throw new InvalidOperationException("The history page has no commit list.");
+
+            Grid head = RowGrids(workspace).Single(row => ((CommitRowViewModel)row.DataContext!).IsHead);
+            ListBoxItem container = list.GetRealizedContainers()
+                .OfType<ListBoxItem>()
+                .First(item => ReferenceEquals(item.DataContext, head.DataContext));
+
+            ((IPseudoClasses)container.Classes).Set(":pointerover", true);
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("HeadRowHoverBrush"), Painted(head));
+
+            // Selected — hovered or not — it is the ordinary selection, like any other line.
+            model.SelectedRow = (CommitRowViewModel)head.DataContext!;
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("EnigmaSelectionBrush"), Painted(head));
+
+            ((IPseudoClasses)container.Classes).Set(":pointerover", false);
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("EnigmaSelectionBrush"), Painted(head));
+
+            model.SelectedRow = null;
+            window.UpdateLayout();
+
+            // Found by the search, it shows what the reader is doing now.
+            model.SearchText = ((CommitRowViewModel)head.DataContext!).Subject;
+            window.UpdateLayout();
+
+            Assert.True(((CommitRowViewModel)head.DataContext!).IsSearchMatch);
+            Assert.Equal(BrushColour("SearchMatchBrush"), Painted(head));
+
+            model.ClearSearchCommand.Execute(null);
+            window.UpdateLayout();
+
+            Assert.Equal(BrushColour("HeadRowBrush"), Painted(head));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheCheckedOutLine_IsASubtleWash_InBothThemes()
+    {
+        _fixture.Run(() =>
+        {
+            static double Distance(Color one, Color other)
+                => Math.Abs(one.R - other.R) + Math.Abs(one.G - other.G) + Math.Abs(one.B - other.B);
+
+            foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+            {
+                Color background = ThemeColour("EnigmaBackgroundColor", variant);
+                Color selection = ThemeColour("EnigmaSelectionColor", variant);
+                Color head = ThemeColour("HeadRowColor", variant);
+                Color hovered = ThemeColour("HeadRowHoverColor", variant);
+
+                // Visible: away from the page's background, and further under the pointer.
+                Assert.True(Distance(head, background) >= 20, $"{variant}: the wash cannot be told from the background");
+                Assert.True(Distance(hovered, background) > Distance(head, background), $"{variant}: the hover is no further");
+
+                // Subtle: nearer the background than the selection is, hovered included.
+                Assert.True(Distance(hovered, background) < Distance(selection, background) / 2, $"{variant}: the wash rivals the selection");
+
+                // And blue, like the badge it goes with.
+                Assert.True(head.B > head.R && head.B >= head.G, $"{variant}: the wash is not blue");
             }
         });
     }
@@ -1720,6 +1851,393 @@ public sealed class HistoryPageTests
     private static string SubjectOf(HistoryPageView view)
         => view.FindControl<TextBlock>("DiffSubject")?.Text ?? string.Empty;
 
+    /// <summary>
+    /// A point on a line of the history, so far from its left edge: in the message column, clear of
+    /// the graph and the badges.
+    /// </summary>
+    private static Point OnLine(HistoryPageView view, CommitRowViewModel row, Window window, double x = 360)
+    {
+        ListBox list = view.FindControl<ListBox>("CommitList")!;
+        Control item = list.ContainerFromItem(row)
+            ?? throw new InvalidOperationException($"The line of {row} is not realised.");
+
+        return item.TranslatePoint(new Point(x, item.Bounds.Height / 2), window)
+            ?? throw new InvalidOperationException("The line is not in the window.");
+    }
+
+    /// <summary>
+    /// A press and a release with the left button, and whatever they posted run.
+    /// </summary>
+    private static void Click(Window window, Point point)
+    {
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+    }
+
+    // ---------------------------------------------------------------- the details panel
+
+    [Fact]
+    public void ALine_IsTheDetailsPanelsToggle()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            Border panel = view.FindControl<Border>("DetailsPanel")!;
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Subject == "Extend the application file");
+            CommitRowViewModel other = model.Rows.First(candidate => candidate.Subject == "Add the readme");
+
+            Assert.False(panel.IsVisible);
+
+            // Nothing selected: the click selects the line and the panel opens on its files.
+            Click(window, OnLine(view, row, window));
+            await WaitUntilAsync(() => model.Files.FileCount > 0);
+            window.UpdateLayout();
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(panel.IsVisible);
+            Assert.Equal(row.Subject, view.FindControl<TextBlock>("DetailsSubject")!.Text);
+            Assert.Equal("src/app.txt", Assert.Single(model.Files.Nodes).Path);
+
+            // The same line again — further along it, so it is a second click and not a double-click:
+            // it lets go, and the panel goes.
+            Click(window, OnLine(view, row, window, 480));
+
+            Assert.Null(model.SelectedRow);
+            Assert.False(model.IsDetailsPanelOpen);
+            Assert.False(panel.IsVisible);
+
+            // And comes back with the next click.
+            Click(window, OnLine(view, row, window));
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(panel.IsVisible);
+
+            // Another line takes the selection, and the panel follows it rather than closing.
+            Click(window, OnLine(view, other, window, 480));
+            await WaitUntilAsync(() => model.Files.Nodes.Count == 1 && model.Files.Nodes[0].Path == "README.md");
+            window.UpdateLayout();
+
+            Assert.Same(other, model.SelectedRow);
+            Assert.True(panel.IsVisible);
+            Assert.Equal(other.Subject, view.FindControl<TextBlock>("DetailsSubject")!.Text);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ADoubleClick_NeverLeavesThePanelClosed()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+
+            // On a line nobody had selected.
+            Point first = OnLine(view, row, window);
+            Click(window, first);
+            Click(window, first);
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(model.IsDetailsPanelOpen);
+
+            // On the line that is selected: the first press lets go of it, the second takes it back.
+            Point second = OnLine(view, row, window, 480);
+            Click(window, second);
+            Click(window, second);
+
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(model.IsDetailsPanelOpen);
+
+            // And a double-click opens nothing else: the diffs are the panel's files' to open.
+            Assert.False(diffPage.IsVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ARightClickOnTheSelectedLine_LeavesItSelected()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+            model.SelectedRow = row;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Point point = OnLine(view, row, window);
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseUp(point, MouseButton.Right);
+            Dispatcher.UIThread.RunJobs();
+
+            // The line's menu is what a right-click is for.
+            Assert.Same(row, model.SelectedRow);
+            Assert.True(model.IsDetailsPanelOpen);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ThePanelsCloseButton_LetsGoOfTheLine()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows.First(candidate => candidate.Commit is not null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Button close = view.FindControl<Button>("CloseDetailsPanel")!;
+            Assert.True(close.IsEffectivelyVisible);
+            Assert.Equal("Close the details panel", global::Avalonia.Automation.AutomationProperties.GetName(close));
+
+            Click(window, close.TranslatePoint(new Point(close.Bounds.Width / 2, close.Bounds.Height / 2), window)!.Value);
+
+            Assert.Null(model.SelectedRow);
+            Assert.False(view.FindControl<Border>("DetailsPanel")!.IsVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ThePanel_TakesItsWidthFromTheMessageColumnAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            // Wide enough for the message column to stay above its minimum with the panel open.
+            window.Width = 1600;
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            HistoryColumnLayout columns = model.Columns;
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
+
+            (double Graph, double Refs, double Author, double Date, double Sha) fixedBefore =
+                (columns.GraphWidth, columns.RefsWidth, columns.AuthorWidth, columns.DateWidth, columns.ShaWidth);
+            double viewportBefore = columns.Viewport;
+            double messageBefore = columns.MessageWidth;
+            double subjectBefore = SubjectCell(view, row).Bounds.Width;
+
+            model.SelectedRow = row;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            double panel = view.FindControl<Border>("DetailsPanel")!.Bounds.Width;
+
+            Assert.Equal(HistoryPageViewModel.DefaultDetailsPanelWidth, panel, 3);
+            Assert.Equal(viewportBefore - panel, columns.Viewport, 1);
+
+            // Graph, Refs, Author, Date and Commit are as they were; the message gave the width up.
+            Assert.Equal(fixedBefore, (columns.GraphWidth, columns.RefsWidth, columns.AuthorWidth, columns.DateWidth, columns.ShaWidth));
+            Assert.Equal(messageBefore - panel, columns.MessageWidth, 1);
+            Assert.Equal(subjectBefore - panel, SubjectCell(view, row).Bounds.Width, 1);
+
+            // And takes it back when the panel closes.
+            model.SelectedRow = null;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(messageBefore, columns.MessageWidth, 1);
+
+            window.Close();
+        });
+    }
+
+    /// <summary>
+    /// The message column's cell on a line: its subject.
+    /// </summary>
+    private static TextBlock SubjectCell(HistoryPageView view, CommitRowViewModel row)
+    {
+        ListBox list = view.FindControl<ListBox>("CommitList")!;
+        Control item = list.ContainerFromItem(row)!;
+
+        return item.GetVisualDescendants().OfType<TextBlock>().First(text => Grid.GetColumn(text) == 2);
+    }
+
+    [Fact]
+    public void ThePanelsGrip_ResizesItWithinItsBounds()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows.First(candidate => candidate.Commit is not null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Border panel = view.FindControl<Border>("DetailsPanel")!;
+            Control grip = view.FindControl<Control>("DetailsGrip")!;
+            Point start = grip.TranslatePoint(new Point(grip.Bounds.Width / 2, grip.Bounds.Height / 2), window)!.Value;
+
+            // The edge dragged to the left makes the panel wider.
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X - 60, start.Y), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(new Point(start.X - 60, start.Y), MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(HistoryPageViewModel.DefaultDetailsPanelWidth + 60, model.DetailsPanelWidth, 3);
+            Assert.Equal(model.DetailsPanelWidth, panel.Bounds.Width, 3);
+
+            // Never narrower or wider than its bounds.
+            model.ResizeDetailsPanel(10_000);
+            Assert.Equal(HistoryPageViewModel.MinimumDetailsPanelWidth, model.DetailsPanelWidth);
+
+            model.ResizeDetailsPanel(-10_000);
+            Assert.Equal(HistoryPageViewModel.MaximumDetailsPanelWidth, model.DetailsPanelWidth);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ThePanel_StaysOnItsLineThroughAnInPlaceRefresh()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, _, _, _) = await ShowHistoryPageAsync(services);
+
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Subject == "Extend the application file");
+            model.SelectedRow = row;
+            await WaitUntilAsync(() => model.Files.FileCount > 0);
+
+            List<bool> panelStates = [];
+            model.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(HistoryPageViewModel.IsDetailsPanelOpen))
+                {
+                    panelStates.Add(model.IsDetailsPanelOpen);
+                }
+            };
+
+            int emptied = 0;
+            model.Files.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ViewModels.Panels.ChangedFilesPanelViewModel.FileCount) && model.Files.FileCount == 0)
+                {
+                    emptied++;
+                }
+            };
+
+            // What the automatic refresh does when something moved.
+            await model.RefreshInPlaceAsync(referencesMoved: true);
+            await WaitUntilAsync(() => ReferenceEquals(model.DetailsRow, model.SelectedRow) && model.Files.FileCount > 0);
+
+            Assert.Equal(row.Sha, model.SelectedRow?.Sha);
+            Assert.NotSame(row, model.SelectedRow);
+            Assert.True(model.IsDetailsPanelOpen);
+
+            // Never closed, never emptied, while the rows were replaced under it.
+            Assert.DoesNotContain(false, panelStates);
+            Assert.Equal(0, emptied);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ThePanel_GoesWhenItsLineDoes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            RepositoryHandle repository = services.Get<IRepositoryContext>().Repository!;
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "src", "app.txt"), "one\ntwo\nfor a moment\n");
+            await model.ReloadAsync();
+
+            CommitRowViewModel uncommitted = Assert.Single(model.Rows, row => row.IsUncommitted);
+            model.SelectedRow = uncommitted;
+            await WaitUntilAsync(() => model.WorkingTree.HasUnstaged);
+            Assert.True(model.IsDetailsPanelOpen);
+
+            // The work the line stood for is thrown away, and the refresh that sees it takes the
+            // line away.
+            await GitAsync(repository, "checkout", "--", "src/app.txt");
+            await model.RefreshInPlaceAsync(referencesMoved: false);
+            await WaitUntilAsync(() => !model.IsDetailsPanelOpen);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.DoesNotContain(model.Rows, row => row.IsUncommitted);
+            Assert.Null(model.SelectedRow);
+            Assert.False(model.IsDetailsPanelOpen);
+            Assert.False(view.FindControl<Border>("DetailsPanel")!.IsVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DiffView_OpenedFromThePanel_LeavesTheFocusInIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
+                await ShowHistoryPageAsync(services);
+
+            model.SelectedRow = model.Rows.First(candidate => candidate.Subject == "Merge the topic branch");
+            await WaitUntilAsync(() => model.Files.FileCount > 0);
+            model.Files.ViewMode = ViewModels.Panels.ChangedFilesViewMode.List;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Border panel = view.FindControl<Border>("DetailsPanel")!;
+            ListBox files = panel.GetVisualDescendants().OfType<ListBox>().First(list => list.IsVisible);
+            Control line = files.ContainerFromIndex(0)!;
+
+            // A click on the file: its line takes the focus and the selection.
+            Click(window, line.TranslatePoint(new Point(line.Bounds.Width / 2, line.Bounds.Height / 2), window)!.Value);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(diffPage.IsVisible);
+            Assert.True(panel.IsKeyboardFocusWithin, "opening the diff took the focus out of the panel");
+            Assert.False(diffPage.IsFocused);
+
+            // Escape still reaches the page from there.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(model.IsDiffViewOpen);
+            Assert.True(model.IsDetailsPanelOpen);
+
+            window.Close();
+        });
+    }
+
     [Fact]
     public void DiffView_StaysClosedWhenARowIsMerelySelected()
     {
@@ -1737,18 +2255,19 @@ public sealed class HistoryPageTests
             ListBox list = workspace.GetVisualDescendants().OfType<ListBox>().First();
             Assert.Equal(workspace.Bounds.Height, list.Bounds.Height);
 
-            // Selecting a line selects it. The diffs are asked for, not implied.
+            // Selecting a line opens the details panel. The diffs are asked for, not implied.
             model.SelectedRow = model.Rows[0];
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
             Assert.False(model.IsDiffViewOpen);
             Assert.False(diffPage.IsVisible);
+            Assert.True(model.IsDetailsPanelOpen);
             Assert.Same(model.Rows[0], model.SelectedRow);
 
             // Asking shows them, and the graph underneath keeps the height — and therefore the
             // scroll position — it had.
-            model.RowCommands.Activate.Execute(model.Rows[0]);
+            model.RowCommands.ShowChanges.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -1761,7 +2280,7 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffView_OpensOnADoubleClick()
+    public void DiffView_OpensFromAFileOfThePanel()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1769,17 +2288,38 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
-            CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-
-            // What the view's DoubleTapped handler runs.
-            row.Commands!.Activate.Execute(row);
+            CommitRowViewModel row = model.Rows.First(candidate => candidate.Subject == "Extend the application file");
+            model.SelectedRow = row;
+            await WaitUntilAsync(() => model.Files.FileCount > 0);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Same(row, model.SelectedRow);
+            // The panel lists the files; nothing is open until one of them is picked.
+            Assert.False(diffPage.IsVisible);
+            Assert.Null(model.Files.SelectedNode);
+
+            Assert.True(model.Files.SelectPath("src/app.txt"));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
             Assert.True(model.IsDiffViewOpen);
             Assert.True(diffPage.IsVisible);
             Assert.Equal(row.Subject, SubjectOf(view));
+            await WaitUntilAsync(() => model.Diff.Title == "src/app.txt");
+
+            // Back lets go of the file, so picking it again opens it again.
+            model.CloseDiffViewCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Null(model.Files.SelectedNode);
+            Assert.True(model.IsDetailsPanelOpen);
+            Assert.Same(row, model.SelectedRow);
+
+            Assert.True(model.Files.SelectPath("src/app.txt"));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.True(diffPage.IsVisible);
 
             window.Close();
         });
@@ -1801,8 +2341,11 @@ public sealed class HistoryPageTests
 
             Assert.Equal(row.Subject, SubjectOf(view));
 
-            // The changed files and the diff moved onto the page as they were.
-            Assert.Single(diffPage.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
+            // The diff over the graph, and the changed files beside it, in the details panel.
+            Border panel = view.FindControl<Border>("DetailsPanel")!;
+            Assert.True(panel.IsVisible);
+            Assert.Single(panel.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
+            Assert.Empty(diffPage.GetVisualDescendants().OfType<Views.Panels.ChangedFilesPanelView>());
             Assert.Single(diffPage.GetVisualDescendants().OfType<Views.Panels.DiffViewerView>());
 
             // Asking for another row's changes leaves the view open and moves it onto that commit.
@@ -1819,7 +2362,7 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void DiffView_TakesTheWholePageAndFollowsIt()
+    public void DiffView_CoversTheGraphAndLeavesThePanelBesideIt()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1827,15 +2370,24 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, Panel workspace, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
-            model.RowCommands.Activate.Execute(model.Rows[0]);
+            model.RowCommands.ShowChanges.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Equal(view.Bounds.Width, diffPage.Bounds.Width, 3);
+            Border panel = view.FindControl<Border>("DetailsPanel")!;
+
+            Assert.True(panel.IsVisible);
+            Assert.Equal(view.Bounds.Width - panel.Bounds.Width, diffPage.Bounds.Width, 3);
             Assert.Equal(view.Bounds.Height, diffPage.Bounds.Height, 3);
+            Assert.Equal(view.Bounds.Height, panel.Bounds.Height, 3);
+
+            // Side by side, not on top of each other.
+            double diffRight = diffPage.TranslatePoint(new Point(diffPage.Bounds.Width, 0), view)?.X ?? double.NaN;
+            double panelLeft = panel.TranslatePoint(default, view)?.X ?? double.NaN;
+            Assert.Equal(diffRight, panelLeft, 3);
 
             // The history is still laid out underneath, which is what keeps the reader's place in
-            // it; the panel is simply drawn over it.
+            // it; the diff is simply drawn over it.
             Assert.True(workspace.Bounds.Height > 0);
 
             window.Width = 900;
@@ -1843,7 +2395,7 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.Equal(view.Bounds.Width, diffPage.Bounds.Width, 3);
+            Assert.Equal(view.Bounds.Width - panel.Bounds.Width, diffPage.Bounds.Width, 3);
 
             window.Close();
         });
@@ -1859,7 +2411,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.RowCommands.Activate.Execute(row);
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -1889,7 +2441,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
-            model.RowCommands.Activate.Execute(model.Rows[0]);
+            model.RowCommands.ShowChanges.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -1918,7 +2470,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
-            model.RowCommands.Activate.Execute(model.Rows[0]);
+            model.RowCommands.ShowChanges.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -1946,7 +2498,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.RowCommands.Activate.Execute(row);
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
 
             model.CloseDiffViewCommand.Execute(null);
@@ -2001,7 +2553,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
-            model.RowCommands.Activate.Execute(model.Rows[0]);
+            model.RowCommands.ShowChanges.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
@@ -2023,7 +2575,7 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
                 await ShowHistoryPageAsync(services);
 
-            model.RowCommands.Activate.Execute(model.Rows.First(row => row.Commit is not null));
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Commit is not null));
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -2054,7 +2606,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.RowCommands.Activate.Execute(row);
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -2098,7 +2650,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.RowCommands.Activate.Execute(row);
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -2163,7 +2715,7 @@ public sealed class HistoryPageTests
             window.Content = new Panel { Children = { view, dialog } };
             window.UpdateLayout();
 
-            model.RowCommands.Activate.Execute(model.Rows.First(row => row.Commit is not null));
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Commit is not null));
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
@@ -2191,7 +2743,7 @@ public sealed class HistoryPageTests
                 await ShowHistoryPageAsync(services);
 
             CommitRowViewModel row = model.Rows.First(candidate => candidate.Commit is not null);
-            model.RowCommands.Activate.Execute(row);
+            model.RowCommands.ShowChanges.Execute(row);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
@@ -2219,17 +2771,17 @@ public sealed class HistoryPageTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
-            (Window window, HistoryPageViewModel model, _, _, Border diffPage) =
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, Border diffPage) =
                 await ShowHistoryPageAsync(services);
 
-            model.RowCommands.Activate.Execute(model.Rows[0]);
+            model.RowCommands.ShowChanges.Execute(model.Rows[0]);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
 
-            // The file filter is the control most likely to have the focus, and a TextBox is
-            // exactly the kind of control that swallows a key it is offered.
-            TextBox filter = diffPage.GetVisualDescendants().OfType<TextBox>().First();
+            // The details panel's file filter is the control most likely to have the focus, and a
+            // TextBox is exactly the kind of control that swallows a key it is offered.
+            TextBox filter = view.FindControl<Border>("DetailsPanel")!.GetVisualDescendants().OfType<TextBox>().First();
             filter.Focus();
             Dispatcher.UIThread.RunJobs();
 
@@ -2341,9 +2893,10 @@ public sealed class HistoryPageTests
                 body.Bounds.Height <= diffPage.Bounds.Height,
                 $"the body is {body.Bounds.Height} tall inside a {diffPage.Bounds.Height} page");
 
-            // And each pane has more than it can show, with its own viewport to show it in.
-            // The list's own scroll, not the filter box's: a TextBox templates one too.
-            ScrollViewer files = ScrollOf(diffPage.GetVisualDescendants()
+            // And each pane has more than it can show, with its own viewport to show it in: the
+            // diff over the graph, the file list in the details panel beside it. The list's own
+            // scroll, not the filter box's: a TextBox templates one too.
+            ScrollViewer files = ScrollOf(view.FindControl<Border>("DetailsPanel")!.GetVisualDescendants()
                 .OfType<Views.Panels.ChangedFilesPanelView>()
                 .Single());
 

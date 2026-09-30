@@ -152,7 +152,7 @@
 
         <!-- Changed files -->
         <controls:SettingsCardExpander Header="Changed files"
-                                       Description="How the changed files are arranged in the history, on the changes page and in the diffs"
+                                       Description="How the changed files are arranged in the history's details panel, for a commit and for the working tree"
                                        IconData="{ei:IconGeometry FileText}">
           <StackPanel Spacing="14">
 
@@ -423,8 +423,8 @@
                     Command="{Binding OpenAboutCommand}"
                     HorizontalAlignment="Left"
                     Margin="0,4,0,0"
-                    Content="About Enigma git client"
-                    AutomationProperties.Name="About Enigma git client" />
+                    Content="About Enigma Git Client"
+                    AutomationProperties.Name="About Enigma Git Client" />
           </StackPanel>
         </controls:SettingsCardExpander>
       </StackPanel>

@@ -216,6 +216,26 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-6EAA     | Test suite fails on Windows             | ABANDONED | docs/plan/BUG-6EAA.md     |
 | BUG-7E5C     | Dialogs with a view show its type name  | DONE      | docs/plan/BUG-7E5C.md     |
 | FEATURE-28C8 | Release 4.1.1                           | DONE      | docs/plan/FEATURE-28C8.md |
+| FEATURE-3071 | A narrower navigation rail              | DONE      | docs/plan/FEATURE-3071.md |
+| FEATURE-2087 | Clone remembers its directory           | DONE      | docs/plan/FEATURE-2087.md |
+| FEATURE-0842 | History: checked-out line, tag focus    | DONE      | docs/plan/FEATURE-0842.md |
+| - PHASE01    | The checked-out line is washed          | DONE      | (in FEATURE-0842.md)      |
+| - PHASE02    | The tag name has the focus              | DONE      | (in FEATURE-0842.md)      |
+| FEATURE-5261 | History details panel                   | DONE      | docs/plan/FEATURE-5261.md |
+| - PHASE01    | A details panel for commits             | DONE      | (in FEATURE-5261.md)      |
+| - PHASE02    | The working tree in the panel           | DONE      | (in FEATURE-5261.md)      |
+| FEATURE-711F | Repository lists per profile            | DONE      | docs/plan/FEATURE-711F.md |
+| - PHASE01    | Profiles without a name and email       | DONE      | (in FEATURE-711F.md)      |
+| - PHASE02    | A repository list per profile           | DONE      | (in FEATURE-711F.md)      |
+| - PHASE03    | The profile picker on the home page     | DONE      | (in FEATURE-711F.md)      |
+| - PHASE04    | Reorder repositories by dragging        | DONE      | (in FEATURE-711F.md)      |
+| - PHASE05    | A theme button beside About             | DONE      | (in FEATURE-711F.md)      |
+| FEATURE-1669 | New repositories start with a README    | DONE      | docs/plan/FEATURE-1669.md |
+| BUG-6787     | Diff text cannot be selected            | DONE      | docs/plan/BUG-6787.md     |
+| - PHASE01    | The text selection and its drawing      | DONE      | (in BUG-6787.md)          |
+| - PHASE02    | Selecting and copying with the pointer  | DONE      | (in BUG-6787.md)          |
+| FEATURE-3988 | The name Enigma Git Client              | DONE      | docs/plan/FEATURE-3988.md |
+| FEATURE-5DFF | Release 5.0.0                           | DONE      | docs/plan/FEATURE-5DFF.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

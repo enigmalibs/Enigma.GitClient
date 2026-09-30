@@ -132,7 +132,7 @@
                     Classes="toolbar"
                     Command="{Binding OpenAboutCommand}"
                     ToolTip.Tip="About"
-                    AutomationProperties.Name="About Enigma git client">
+                    AutomationProperties.Name="About Enigma Git Client">
               <ei:Icon Kind="Info" Classes="toolbar" />
             </Button>
           </StackPanel>
@@ -199,7 +199,7 @@
                           FooterItems="{Binding Navigation.FooterItems}"
                           SelectedItem="{Binding Navigation.SelectedItem, Mode=TwoWay}"
                           Orientation="Vertical"
-                          PaneSize="96" />
+                          PaneSize="{StaticResource RepositoryRailWidth}" />
 
       <ContentControl Content="{Binding Navigation.CurrentPage}" />
     </DockPanel>

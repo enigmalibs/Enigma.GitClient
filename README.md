@@ -10,10 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 4.1.1** — the dialogs show their content again: 4.1.0 showed a view's type name in
-> the Branches, Tags and Remotes dialogs, About and every form. 4.1 added pushing one tag from its
-> badge or its line in the Tags dialog, a bare `1.0.0` placeholder for a new tag, even column titles
-> in the history, and long dialog questions that wrap. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.0** — a details panel beside the history: a line's files, and on the uncommitted
+> line the working tree and the commit box, in place of the Changes page. The start window lists the
+> repositories of the profile you pick, in the order you drag them into. The diff's text can be
+> selected and copied, a new repository starts with a README, and the application is now **Enigma Git
+> Client**. 5.0 removes the Changes page, the double-click on a line and *Pin to the top*, and starts
+> the repository list afresh — see *Upgrading from 4.x* in [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -24,10 +26,12 @@ Two things matter more than everything else in this app:
   brings and its badge leave the graph, the history says how many branches it is leaving out, and
   the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
-- Changed files for the selected commit, shown as a **list or a tree** (your choice)
+- Changed files for the selected commit in a panel beside the history, as GitKraken has it — click a
+  line to open it, click the line again to close it — shown as a **list or a tree** (your choice);
+  pick a file and its diff opens over the graph, with the panel still beside it
 - A commit's details — its title, description, author and email, date and how long ago that was, and
-  full hash — in a dialog opened from the diff view's header or the commit's line menu, every value
-  selectable to copy
+  full hash — in a dialog opened from the details panel's header, the diff view's or the commit's
+  line menu, every value selectable to copy
 - Colour-coded file diffs with word-level intra-line highlighting
 - Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
   change with the context you chose
@@ -52,11 +56,14 @@ Two things matter more than everything else in this app:
   merge or the fast-forward
 - Every merge the app offers records a merge commit, even when the branch could simply be
   fast-forwarded; the fast-forward-only merges are the way to move a branch without one
-- Create, clone and open repositories from a start window with a recent-repositories list; the
-  repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
-  straight away
-- Working directory: status, stage/unstage, discard and commit, with a back button (or Escape) to
-  the history; every discard confirms with a red button, and the history's uncommitted line discards
+- Create (with a `README.md` holding its name as the first commit), clone and open repositories from
+  a start window that lists a profile's repositories — pick the profile in the page's header: every
+  profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
+  made when there is none; the repository you pick opens in a window of its own, and
+  `Enigma.GitClient.App <path>` opens one straight away
+- Working directory in the same panel: select the history's uncommitted line to see what is not
+  staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
+  over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
   all the uncommitted work at once
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
 - Stashes in the graph, one line each at the stash itself: stash your uncommitted work from the
@@ -130,10 +137,10 @@ Everything the client remembers about you lives in one per-user directory —
 | File | What is in it |
 |------|---------------|
 | `settings.json` | Your preferences, as plain readable JSON |
-| `recent-repositories.json` | The repositories you have opened, and the ones you pinned |
+| `repository-lists.json` | Each profile's list of repositories, in its order |
 | `host-accounts.json` | The hosting accounts you connected, each under the profile it belongs to — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
-| `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
+| `identity-profiles.json` | Your profiles: a label each, and the name and email it sets, if any |
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
@@ -161,7 +168,7 @@ dotnet run --project src/Enigma.GitClient.App
 ## Install on Linux
 
 `packaging/linux/install.sh` builds the application from this repository and installs it for you —
-no root, no `sudo`, nothing outside your home directory — so that **Enigma git client** is in your
+no root, no `sudo`, nothing outside your home directory — so that **Enigma Git Client** is in your
 application launcher:
 
 ```bash

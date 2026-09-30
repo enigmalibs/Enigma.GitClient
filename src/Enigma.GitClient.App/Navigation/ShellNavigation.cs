@@ -15,11 +15,11 @@ namespace Enigma.GitClient.App.Navigation;
 /// </summary>
 public enum ShellPage
 {
-    /// <summary>The commit graph.</summary>
+    /// <summary>
+    /// The commit graph, whose details panel is also where the working directory is staged and
+    /// committed, from the uncommitted line.
+    /// </summary>
     History,
-
-    /// <summary>The working directory.</summary>
-    Changes,
 
     /// <summary>The conflicts of a merge in progress, which is the only time it exists.</summary>
     Conflicts,
@@ -110,7 +110,6 @@ public sealed class ShellNavigation : IShellNavigation
             logger.LogError(e.Exception, "Navigation failed during {Phase}", e.Phase);
 
         Add(navigation.Items, ShellPage.History, "History", PhosphorIcon.GitCommit, typeof(HistoryPageView), typeof(HistoryPageViewModel));
-        Add(navigation.Items, ShellPage.Changes, "Changes", PhosphorIcon.FileText, typeof(ChangesPageView), typeof(ChangesPageViewModel));
 
         // Built like the others, but held back until a merge conflicts.
         _conflicts = Build(ShellPage.Conflicts, "Conflicts", PhosphorIcon.GitMerge, typeof(ConflictResolutionPageView), typeof(ConflictResolutionPageViewModel));

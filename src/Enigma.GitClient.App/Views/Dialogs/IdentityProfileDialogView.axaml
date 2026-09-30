@@ -34,6 +34,11 @@
                AutomationProperties.Name="Email git records" />
     </StackPanel>
 
+    <TextBlock Text="Leave both empty for a profile git never sees: commits, pushes and sign-ins go on as if it did not exist."
+               FontSize="12"
+               TextWrapping="Wrap"
+               Classes="faint" />
+
     <StackPanel Orientation="Horizontal"
                 Spacing="6"
                 IsVisible="{Binding HasValidationMessage}">

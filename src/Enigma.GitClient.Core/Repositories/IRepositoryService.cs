@@ -31,6 +31,27 @@ public interface IRepositoryService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gives a repository its first commit: a <c>README.md</c> holding its title.
+    /// </summary>
+    /// <param name="repository">The repository, normally one <see cref="InitAsync"/> has just created.</param>
+    /// <param name="title">What the README's heading says, normally the repository's name.</param>
+    /// <param name="cancellationToken">Cancels the write and the commit.</param>
+    /// <returns>The new commit's full SHA.</returns>
+    /// <remarks>
+    /// The file holds <c># title</c> and a newline. A <c>README.md</c> the directory already has is kept as
+    /// it is and committed instead: a file the user wrote is never overwritten. Only that file is
+    /// staged; anything else the directory holds stays untracked.
+    /// </remarks>
+    /// <exception cref="Git.GitCommandException">
+    /// git refused to stage or commit — most often because no name and email are configured. The file
+    /// is left in place, staged.
+    /// </exception>
+    Task<string> CommitReadmeAsync(
+        RepositoryHandle repository,
+        string title,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Clones a repository, reporting progress as git makes it.
     /// </summary>
     /// <param name="request">What to clone and where.</param>

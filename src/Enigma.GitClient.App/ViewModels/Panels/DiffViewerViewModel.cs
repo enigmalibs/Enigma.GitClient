@@ -175,6 +175,15 @@ public sealed class DiffRenderOptions : ViewModelBase
     public DiffScrollState SideBySideScroll { get; } = new();
 
     /// <summary>
+    /// Gets the text the reader has selected, which every row draws its own part of.
+    /// </summary>
+    /// <remarks>
+    /// Here for the same reason as the scroll states: one instance reaches every row by the route the
+    /// rows already have, and survives the virtualised list recycling them.
+    /// </remarks>
+    public DiffTextSelection Selection { get; } = new();
+
+    /// <summary>
     /// Enumerates the panes, for the things that apply to all of them.
     /// </summary>
     /// <returns>The scroll states.</returns>
@@ -313,6 +322,11 @@ public sealed class DiffRowViewModel
     /// <summary>Gets a value indicating whether the row is a hunk band.</summary>
     public bool IsHunkHeader { get; }
 
+    /// <summary>
+    /// Gets the row's place in its rendering, which a text selection is counted in.
+    /// </summary>
+    public int Index { get; init; }
+
     /// <summary>Gets a value indicating whether the row carries lines.</summary>
     public bool IsLine => !IsHunkHeader;
 
@@ -333,6 +347,20 @@ public sealed class DiffRowViewModel
 
     /// <summary>Gets the command a hunk band runs when it is clicked.</summary>
     public AsyncRelayCommand? ExpandContextCommand { get; }
+
+    /// <summary>
+    /// Gets the cell this row shows in a pane.
+    /// </summary>
+    /// <param name="pane">The pane.</param>
+    /// <returns>The cell, or <see langword="null"/> for a hunk band, or a pane this rendering does not have.</returns>
+    public DiffCellViewModel? CellFor(DiffPane pane)
+        => pane switch
+        {
+            DiffPane.Unified => Single,
+            DiffPane.Left => Left,
+            DiffPane.Right => Right,
+            _ => null,
+        };
 
     /// <summary>
     /// Gets the lines this row stands for, which is what a copy of the selection collects.
@@ -433,7 +461,14 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
         CopySelectionCommand = new AsyncRelayCommand(CopySelectionAsync, () => Selection.Count > 0);
 
-        Selection.CollectionChanged += (_, _) => CopySelectionCommand.NotifyCanExecuteChanged();
+        CopyCommand = new AsyncRelayCommand(CopyAsync, () => !Render.Selection.IsEmpty || Selection.Count > 0);
+
+        Selection.CollectionChanged += (_, _) =>
+        {
+            CopySelectionCommand.NotifyCanExecuteChanged();
+            CopyCommand.NotifyCanExecuteChanged();
+        };
+        Render.Selection.Changed += (_, _) => CopyCommand.NotifyCanExecuteChanged();
 
         // The tab width changes how wide a line is without changing the patch, and the toolbar's
         // wrap toggle writes straight to the options rather than through this ViewModel, so the
@@ -526,6 +561,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsSideBySide));
                 OnPropertyChanged(nameof(EffectiveContextLines));
                 Selection.Clear();
+                Render.Selection.Clear();
 
                 ExpandContextCommand.NotifyCanExecuteChanged();
                 ExpandAllContextCommand.NotifyCanExecuteChanged();
@@ -649,6 +685,12 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
     /// <summary>Gets the command that copies the selected lines without their markers.</summary>
     public AsyncRelayCommand CopySelectionCommand { get; }
+
+    /// <summary>
+    /// Gets the command Ctrl+C and the lists' "Copy" run: the selected text when there is some, the
+    /// selected rows' lines otherwise.
+    /// </summary>
+    public AsyncRelayCommand CopyCommand { get; }
 
     /// <summary>
     /// Points the viewer at one file of one comparison and reads it.
@@ -777,6 +819,27 @@ public sealed class DiffViewerViewModel : ViewModelBase
         await ReloadAsync();
     }
 
+    /// <summary>
+    /// Gets the text the reader has selected, as it reads on screen: one line per row, without the
+    /// line numbers or the markers.
+    /// </summary>
+    /// <returns>The text; empty when nothing is selected.</returns>
+    public string SelectedText()
+    {
+        DiffTextSelection selection = Render.Selection;
+        ObservableCollection<DiffRowViewModel> rows = selection.Pane == DiffPane.Unified ? UnifiedRows : SideBySideRows;
+
+        return selection.Text(row =>
+            row >= 0 && row < rows.Count && rows[row].CellFor(selection.Pane)?.Line is { Kind: not DiffLineKind.NoNewline } line
+                ? line.Text
+                : null);
+    }
+
+    private Task CopyAsync()
+        => Render.Selection.IsEmpty
+            ? CopySelectionAsync()
+            : _interop.CopyTextAsync(SelectedText());
+
     private async Task CopySelectionAsync()
     {
         List<DiffLine> lines = [];
@@ -837,24 +900,33 @@ public sealed class DiffViewerViewModel : ViewModelBase
         SideBySideRows.Clear();
         Selection.Clear();
 
+        // Selected text is counted in rows, and these rows are about to be another file's.
+        Render.Selection.Clear();
+
         if (patch is not null)
         {
             foreach (DiffRow row in DiffRowBuilder.BuildUnified(patch))
             {
                 UnifiedRows.Add(row.Kind == DiffRowKind.HunkHeader
-                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand)
-                    : new DiffRowViewModel(new DiffCellViewModel(row.Line, Render), null, null, Render));
+                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = UnifiedRows.Count }
+                    : new DiffRowViewModel(new DiffCellViewModel(row.Line, Render), null, null, Render)
+                    {
+                        Index = UnifiedRows.Count,
+                    });
             }
 
             foreach (DiffPairRow row in DiffRowBuilder.BuildSideBySide(patch))
             {
                 SideBySideRows.Add(row.Kind == DiffRowKind.HunkHeader
-                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand)
+                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = SideBySideRows.Count }
                     : new DiffRowViewModel(
                         null,
                         new DiffCellViewModel(row.Left, Render, showOldNumber: true, showNewNumber: false),
                         new DiffCellViewModel(row.Right, Render, showOldNumber: false, showNewNumber: true),
-                        Render));
+                        Render)
+                    {
+                        Index = SideBySideRows.Count,
+                    });
             }
         }
 
@@ -893,6 +965,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
         ShowAnywayCommand.NotifyCanExecuteChanged();
         CopyPatchCommand.NotifyCanExecuteChanged();
         CopySelectionCommand.NotifyCanExecuteChanged();
+        CopyCommand.NotifyCanExecuteChanged();
 
         // Last: whoever moves the view to the change is moving it to rows that now exist.
         PatchChanged?.Invoke(this, EventArgs.Empty);

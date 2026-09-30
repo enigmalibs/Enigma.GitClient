@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
@@ -85,6 +86,57 @@ public sealed class RepositoryService : IRepositoryService
         return discovered.Repository
             ?? throw new InvalidOperationException(
                 $"The repository was created at '{full}' but could not be opened: {discovered.Message}");
+    }
+
+    /// <summary>
+    /// The first commit's message, as hosting services write it when they create a repository with a
+    /// README.
+    /// </summary>
+    public const string InitialCommitMessage = "Initial commit";
+
+    /// <summary>
+    /// The file the first commit adds.
+    /// </summary>
+    public const string ReadmeFileName = "README.md";
+
+    /// <inheritdoc />
+    public async Task<string> CommitReadmeAsync(
+        RepositoryHandle repository,
+        string title,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        string readme = Path.Combine(repository.WorkTreePath, ReadmeFileName);
+
+        if (!File.Exists(readme))
+        {
+            // LF and no byte-order mark: git's own default for a new text file, and a BOM would sit in
+            // front of the '#'.
+            await File.WriteAllTextAsync(readme, $"# {title.Trim()}\n", new UTF8Encoding(false), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await _runner.RunAsync(
+                _commandFactory.Create(repository.WorkTreePath, "add", "--", ReadmeFileName),
+                throwOnError: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await _runner.RunAsync(
+                _commandFactory.Create(repository.WorkTreePath, "commit", "--message", InitialCommitMessage),
+                throwOnError: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        GitResult head = await _runner.RunAsync(
+                _commandFactory.Create(repository.WorkTreePath, "rev-parse", "HEAD"),
+                throwOnError: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return head.TrimmedOutput;
     }
 
     /// <inheritdoc />

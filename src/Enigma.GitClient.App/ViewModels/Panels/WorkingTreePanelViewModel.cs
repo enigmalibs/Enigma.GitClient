@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,7 +7,6 @@ using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.Core.Commits;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
@@ -16,72 +14,48 @@ using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Staging;
-using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Microsoft.Extensions.Logging;
 
-namespace Enigma.GitClient.App.ViewModels.Pages;
+namespace Enigma.GitClient.App.ViewModels.Panels;
 
 /// <summary>
-/// One entry on the stash, as the changes page lists it.
+/// A file picked in the working-tree panel, and the half of the change it was picked in.
 /// </summary>
-public sealed class StashRowViewModel : ViewModelBase
+/// <param name="Target">
+/// What its diff compares: <see cref="DiffTarget.WorkingTree"/> for what is not staged,
+/// <see cref="DiffTarget.Staged"/> for what is.
+/// </param>
+/// <param name="File">The file.</param>
+public sealed record WorkingTreeChange(DiffTarget Target, ChangedFile File);
+
+/// <summary>
+/// What an operation of the working-tree panel did, for whoever draws the history.
+/// </summary>
+/// <param name="Committed">Whether it recorded a commit, which moves HEAD.</param>
+public sealed class WorkingTreeChangedEventArgs(bool Committed) : EventArgs
 {
-    private readonly ChangesPageViewModel _owner;
-
-    /// <summary>
-    /// Initialises a new instance.
-    /// </summary>
-    /// <param name="owner">The page the row belongs to.</param>
-    /// <param name="entry">The entry it stands for.</param>
-    public StashRowViewModel(ChangesPageViewModel owner, StashEntry entry)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        ArgumentNullException.ThrowIfNull(entry);
-
-        _owner = owner;
-        Entry = entry;
-    }
-
-    /// <summary>Gets the entry this row stands for.</summary>
-    public StashEntry Entry { get; }
-
-    /// <summary>Gets what the entry says about itself.</summary>
-    public string Message => Entry.Message;
-
-    /// <summary>Gets the branch the entry was made on.</summary>
-    public string Branch => Entry.Branch;
-
-    /// <summary>Gets a value indicating whether there is a branch to show.</summary>
-    public bool HasBranch => Branch.Length > 0;
-
-    /// <summary>Gets how long ago the entry was made.</summary>
-    public string When => Formatting.RelativeTime.Format(Entry.When);
-
-    /// <summary>Gets the command that applies the entry and keeps it.</summary>
-    public AsyncRelayCommand<StashRowViewModel> ApplyCommand => _owner.ApplyStashCommand;
-
-    /// <summary>Gets the command that applies the entry and removes it.</summary>
-    public AsyncRelayCommand<StashRowViewModel> PopCommand => _owner.PopStashCommand;
-
-    /// <summary>Gets the command that throws the entry away.</summary>
-    public AsyncRelayCommand<StashRowViewModel> DropCommand => _owner.DropStashCommand;
-
-    /// <inheritdoc />
-    public override string ToString() => Entry.ToString();
+    /// <summary>Gets a value indicating whether the operation recorded a commit.</summary>
+    public bool Committed { get; } = Committed;
 }
 
 /// <summary>
-/// ViewModel behind the working directory page: what has changed, what is staged, and the commit
-/// that turns the second into history.
+/// The working tree, as the history's details panel shows it for the uncommitted line: what has
+/// changed, what is staged, and the commit that turns the second into history.
 /// </summary>
 /// <remarks>
-/// The two halves are the same <see cref="ChangedFilesPanelViewModel"/> the history page uses, so
-/// the list/tree toggle, the filter and the row menu all behave identically in both places. The
-/// diff pane is the same viewer too: a change is a change, whether it is in a commit or on its way
-/// to one.
+/// <para>
+/// The two halves are the same <see cref="ChangedFilesPanelViewModel"/> a commit's files are listed
+/// in, so the list/tree toggle, the filter and the row menu behave identically in both places.
+/// </para>
+/// <para>
+/// The panel draws no diff of its own: it says which file is picked, and in which half
+/// (<see cref="SelectedChange"/>), and the history shows that file's diff over the graph, as it does
+/// a commit's. It reads the working tree only while the history shows it (<see cref="IsActive"/>):
+/// a panel nobody is looking at has no reason to run <c>git status</c> at every refresh.
+/// </para>
 /// </remarks>
-public sealed class ChangesPageViewModel : PageViewModelBase
+public sealed class WorkingTreePanelViewModel : ViewModelBase
 {
     /// <summary>
     /// How long a subject line should be before it stops reading as a summary.
@@ -96,14 +70,16 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     private readonly IStatusService _status;
     private readonly IStagingService _staging;
     private readonly ICommitService _commits;
-    private readonly IStashService _stashes;
     private readonly IStashOperations _stashOperations;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
-    private readonly ILogger<ChangesPageViewModel> _logger;
+    private readonly ILogger<WorkingTreePanelViewModel> _logger;
 
     private WorkingTreeStatus _current = WorkingTreeStatus.Empty;
-    private PatchSet? _stashPatch;
+
+    // Set while a refresh replaces both halves' files: the selection they drop and take back is one
+    // change of selection, reported once the refresh is done.
+    private bool _applying;
 
     /// <summary>
     /// Initialises a new instance.
@@ -112,57 +88,51 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     /// <param name="status">Reads what has changed.</param>
     /// <param name="staging">Moves changes into and out of the index.</param>
     /// <param name="commits">Records the commit.</param>
-    /// <param name="stashes">Lists the stash and reads an entry's contents.</param>
-    /// <param name="stashOperations">Puts work aside and brings it back, as the history does.</param>
-    /// <param name="interop">Backs the file panels' own row menus.</param>
-    /// <param name="diff">Shows the selected file's diff.</param>
+    /// <param name="stashOperations">Puts the work aside, as the history's toolbar does.</param>
+    /// <param name="interop">Backs the file lists' own row menus.</param>
+    /// <param name="settings">The file lists' shape.</param>
     /// <param name="dialogs">Raises the confirmations.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
-    public ChangesPageViewModel(
+    public WorkingTreePanelViewModel(
         IRepositoryContext repositoryContext,
         IStatusService status,
         IStagingService staging,
         ICommitService commits,
-        IStashService stashes,
         IStashOperations stashOperations,
         ISystemInterop interop,
         ISettingsService settings,
-        DiffViewerViewModel diff,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
-        ILogger<ChangesPageViewModel> logger)
-        : base(repositoryContext)
+        ILogger<WorkingTreePanelViewModel> logger)
     {
+        ArgumentNullException.ThrowIfNull(repositoryContext);
         ArgumentNullException.ThrowIfNull(status);
         ArgumentNullException.ThrowIfNull(staging);
         ArgumentNullException.ThrowIfNull(commits);
-        ArgumentNullException.ThrowIfNull(stashes);
         ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
+        RepositoryContext = repositoryContext;
         _status = status;
         _staging = staging;
         _commits = commits;
-        _stashes = stashes;
         _stashOperations = stashOperations;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _logger = logger;
 
-        Diff = diff;
         Unstaged = new ChangedFilesPanelViewModel(interop, settings);
         Staged = new ChangedFilesPanelViewModel(interop, settings);
 
         // Only one side can be selected at a time: the diff shown has to be unambiguous about which
         // half of the change it is.
-        Unstaged.SelectionChanged += (_, _) => OnSelected(Unstaged, Staged, DiffTarget.WorkingTree());
-        Staged.SelectionChanged += (_, _) => OnSelected(Staged, Unstaged, DiffTarget.Staged());
+        Unstaged.SelectionChanged += (_, _) => OnSelected(Unstaged, Staged);
+        Staged.SelectionChanged += (_, _) => OnSelected(Staged, Unstaged);
 
         StageCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnStageAsync, node => node is not null);
         UnstageCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnUnstageAsync, node => node is not null);
@@ -173,25 +143,10 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         DiscardAllCommand = new AsyncRelayCommand(OnDiscardAllAsync, () => HasUnstaged);
 
         CommitCommand = new AsyncRelayCommand(OnCommitAsync, CanCommit);
-
-        BackToHistoryCommand = new RelayCommand(() => HistoryRequested?.Invoke(this, EventArgs.Empty));
-
         StashAllCommand = new AsyncRelayCommand(OnStashAllAsync, () => HasUnstaged || HasStaged);
-        ApplyStashCommand = new AsyncRelayCommand<StashRowViewModel>(
-            row => RunStashAsync(row, _stashOperations.ApplyAsync),
-            row => row is not null);
-        PopStashCommand = new AsyncRelayCommand<StashRowViewModel>(
-            row => RunStashAsync(row, _stashOperations.PopAsync),
-            row => row is not null);
-        DropStashCommand = new AsyncRelayCommand<StashRowViewModel>(
-            row => RunStashAsync(row, _stashOperations.DropAsync),
-            row => row is not null);
 
-        StashFiles = new ChangedFilesPanelViewModel(interop, settings);
-        StashFiles.SelectionChanged += (_, _) => ShowStashFile();
-
-        // The panels are the same control the history uses; what differs is the verbs a row offers
-        // and what an empty one means here.
+        // The lists are the same control a commit's files are listed in; what differs is the verbs a
+        // row offers and what an empty one means here.
         Unstaged.Actions = new ChangedFileRowActions("Stage", StageCommand, "Discard…", DiscardCommand);
         Unstaged.EmptyTitle = "Nothing to stage";
         Unstaged.EmptyMessage = "Everything you have changed is already staged.";
@@ -200,71 +155,42 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         Staged.EmptyTitle = "Nothing staged";
         Staged.EmptyMessage = "Stage the changes you want in the next commit.";
 
-        StashFiles.EmptyTitle = "Nothing selected";
-        StashFiles.EmptyMessage = "Pick a stash to see what it holds.";
+        repositoryContext.RepositoryChanged += (_, _) => OnRepositoryChanged();
+        repositoryContext.StateRefreshed += (_, _) => OnStateRefreshed();
     }
 
-    /// <summary>Gets the page's title, shown in its header.</summary>
-    public string Title => "Working directory";
+    /// <summary>Gets the repository the application is looking at.</summary>
+    public IRepositoryContext RepositoryContext { get; }
+
+    /// <summary>Gets a value indicating whether a repository is open.</summary>
+    public bool IsRepositoryOpen => RepositoryContext.IsRepositoryOpen;
 
     /// <summary>
-    /// Raised when the reader asks to go back to the history, so the shell can take them there.
+    /// Gets or sets a value indicating whether the history shows the panel, which it does while the
+    /// uncommitted line is selected. Only then does a refresh of the repository read the working
+    /// tree again.
     /// </summary>
-    /// <remarks>
-    /// An event rather than the navigation service, for the reason
-    /// <see cref="HistoryPageViewModel.WorkingDirectoryRequested"/> is one: the shell's navigation
-    /// builds the page ViewModels, so a page holding it would be asking to be constructed by something
-    /// it is constructing.
-    /// </remarks>
-    public event EventHandler? HistoryRequested;
+    public bool IsActive { get; set; }
 
     /// <summary>
-    /// Gets the command that goes back to the history: the page's back button, and Escape.
+    /// Raised when the picked file changes, or is picked again by a refresh that re-read it.
     /// </summary>
-    public RelayCommand BackToHistoryCommand { get; }
+    public event EventHandler? SelectionChanged;
+
+    /// <summary>
+    /// Raised after an operation changed the working tree, the index or HEAD, and the panel has read
+    /// the working tree again — so the history can bring its own lines up to date.
+    /// </summary>
+    public event EventHandler<WorkingTreeChangedEventArgs>? Changed;
+
+    /// <summary>Gets the file picked in either half, or <see langword="null"/> when none is.</summary>
+    public WorkingTreeChange? SelectedChange { get; private set => SetProperty(ref field, value); }
 
     /// <summary>Gets the panel holding everything that is not staged.</summary>
     public ChangedFilesPanelViewModel Unstaged { get; }
 
     /// <summary>Gets the panel holding everything that is.</summary>
     public ChangedFilesPanelViewModel Staged { get; }
-
-    /// <summary>Gets the diff viewer showing whichever file is selected.</summary>
-    public DiffViewerViewModel Diff { get; }
-
-    /// <summary>Gets the stash, most recent first.</summary>
-    public ObservableCollection<StashRowViewModel> Stashes { get; } = [];
-
-    /// <summary>Gets the files of the selected stash entry.</summary>
-    public ChangedFilesPanelViewModel StashFiles { get; }
-
-    /// <summary>Gets a value indicating whether anything is stashed.</summary>
-    public bool HasStashes => Stashes.Count > 0;
-
-    /// <summary>Gets how many entries the stash holds, for the section's heading.</summary>
-    public string StashSummary
-        => Stashes.Count == 1
-            ? "1 stash"
-            : $"{Stashes.Count.ToString(CultureInfo.CurrentCulture)} stashes";
-
-    /// <summary>
-    /// Gets or sets the stash entry whose files are shown.
-    /// </summary>
-    public StashRowViewModel? SelectedStash
-    {
-        get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                OnPropertyChanged(nameof(HasSelectedStash));
-                _ = LoadStashFilesAsync();
-            }
-        }
-    }
-
-    /// <summary>Gets a value indicating whether a stash entry is being looked at.</summary>
-    public bool HasSelectedStash => SelectedStash is not null;
 
     /// <summary>
     /// Gets or sets the commit message.
@@ -336,42 +262,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     /// <summary>Gets a value indicating whether a merge left conflicts to resolve.</summary>
     public bool HasConflicts => _current.HasConflicts;
 
-    /// <summary>Gets the branch HEAD is on, for the header.</summary>
-    public string BranchName
-        => _current.Branch.IsDetached
-            ? "detached HEAD"
-            : _current.Branch.Head.Length > 0 ? _current.Branch.Head : "no branch";
-
-    /// <summary>Gets the upstream and how far apart they are, empty when there is no upstream.</summary>
-    public string TrackingSummary
-    {
-        get
-        {
-            if (!_current.Branch.HasUpstream)
-            {
-                return string.Empty;
-            }
-
-            string ahead = _current.Branch.Ahead.ToString(CultureInfo.CurrentCulture);
-            string behind = _current.Branch.Behind.ToString(CultureInfo.CurrentCulture);
-
-            return _current.Branch is { Ahead: 0, Behind: 0 }
-                ? $"up to date with {_current.Branch.Upstream}"
-                : $"{_current.Branch.Upstream} · {ahead} ahead, {behind} behind";
-        }
-    }
-
-    /// <summary>Gets a value indicating whether there is a tracking summary to show.</summary>
-    public bool HasTrackingSummary => TrackingSummary.Length > 0;
-
-    /// <summary>
-    /// Gets the sentence shown while the page has nothing to display.
-    /// </summary>
-    public string EmptyMessage
-        => !IsRepositoryOpen
-            ? "Open a repository to see what has changed in its working directory."
-            : "Nothing has changed since the last commit.";
-
     /// <summary>Gets the command that stages one row.</summary>
     public AsyncRelayCommand<ChangedFileNodeViewModel> StageCommand { get; }
 
@@ -396,71 +286,25 @@ public sealed class ChangesPageViewModel : PageViewModelBase
     /// <summary>Gets the command that puts everything aside on the stash.</summary>
     public AsyncRelayCommand StashAllCommand { get; }
 
-    /// <summary>Gets the command that applies a stash entry and keeps it.</summary>
-    public AsyncRelayCommand<StashRowViewModel> ApplyStashCommand { get; }
-
-    /// <summary>Gets the command that applies a stash entry and removes it.</summary>
-    public AsyncRelayCommand<StashRowViewModel> PopStashCommand { get; }
-
-    /// <summary>Gets the command that throws a stash entry away.</summary>
-    public AsyncRelayCommand<StashRowViewModel> DropStashCommand { get; }
-
-    /// <inheritdoc />
-    public override async Task OnAppearingAsync(object? parameter = null)
+    /// <summary>
+    /// Lets go of the picked file, in both halves.
+    /// </summary>
+    public void ClearSelection()
     {
-        await base.OnAppearingAsync(parameter).ConfigureAwait(true);
-        await RefreshAsync().ConfigureAwait(true);
+        Unstaged.SelectedNode = null;
+        Staged.SelectedNode = null;
     }
 
     /// <summary>
-    /// Re-reads the stash.
+    /// Picks the first file: the first that is not staged, or the first staged one when everything is.
     /// </summary>
-    /// <returns>A task that completes once the list is up to date.</returns>
-    public async Task RefreshStashesAsync()
-    {
-        RepositoryHandle? repository = RepositoryContext.Repository;
-
-        IReadOnlyList<StashEntry> entries = [];
-
-        if (repository is not null)
-        {
-            try
-            {
-                entries = await _stashes
-                    .ListAsync(repository, RepositoryContext.RepositoryLifetime)
-                    .ConfigureAwait(true);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected when the repository changes under the read.
-            }
-            catch (GitCommandException exception)
-            {
-                _logger.LogError(exception, "Reading the stash failed");
-            }
-        }
-
-        // Read first, replace after: clearing before the await lets a second refresh interleave.
-        Stashes.Clear();
-
-        foreach (StashEntry entry in entries)
-        {
-            Stashes.Add(new StashRowViewModel(this, entry));
-        }
-
-        if (SelectedStash is not null && Stashes.Count == 0)
-        {
-            SelectedStash = null;
-        }
-
-        OnPropertyChanged(nameof(HasStashes));
-        OnPropertyChanged(nameof(StashSummary));
-    }
+    /// <returns><see langword="true"/> when there was a file to pick.</returns>
+    public bool SelectFirstFile() => Unstaged.SelectFirstFile() || Staged.SelectFirstFile();
 
     /// <summary>
-    /// Re-reads the status and rebuilds both panels.
+    /// Re-reads the status and rebuilds both halves.
     /// </summary>
-    /// <returns>A task that completes once the page is up to date.</returns>
+    /// <returns>A task that completes once the panel is up to date.</returns>
     public async Task RefreshAsync()
     {
         RepositoryHandle? repository = RepositoryContext.Repository;
@@ -478,7 +322,6 @@ public sealed class ChangesPageViewModel : PageViewModelBase
                 .ConfigureAwait(true);
 
             Apply(status);
-            await RefreshStashesAsync().ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -491,18 +334,28 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
     }
 
-    /// <inheritdoc />
-    protected override void OnRepositoryChanged()
+    private void OnRepositoryChanged()
     {
-        base.OnRepositoryChanged();
+        OnPropertyChanged(nameof(IsRepositoryOpen));
 
         Message = string.Empty;
 
-        _ = RefreshAsync();
+        // Another repository's files are nothing to show, whether or not the panel is on screen.
+        Apply(WorkingTreeStatus.Empty);
+
+        if (IsActive)
+        {
+            _ = RefreshAsync();
+        }
     }
 
-    /// <inheritdoc />
-    protected override void OnRepositoryStateRefreshed() => _ = RefreshAsync();
+    private void OnStateRefreshed()
+    {
+        if (IsActive)
+        {
+            _ = RefreshAsync();
+        }
+    }
 
     private void Apply(WorkingTreeStatus status)
     {
@@ -511,24 +364,33 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         string? previousUnstaged = Unstaged.SelectedFile?.Path;
         string? previousStaged = Staged.SelectedFile?.Path;
 
-        Unstaged.WorkTreePath = RepositoryContext.Repository?.WorkTreePath ?? string.Empty;
-        Staged.WorkTreePath = Unstaged.WorkTreePath;
+        _applying = true;
 
-        Unstaged.SetFiles([.. status.NotStaged()]);
-        Staged.SetFiles(status.Staged);
+        try
+        {
+            Unstaged.WorkTreePath = RepositoryContext.Repository?.WorkTreePath ?? string.Empty;
+            Staged.WorkTreePath = Unstaged.WorkTreePath;
 
-        // Keeping the selection across a refresh is what lets a user stage a file, look at the next
-        // one, and not lose their place every time the page re-reads.
-        _ = Unstaged.SelectPath(previousUnstaged) || Staged.SelectPath(previousStaged);
+            Unstaged.SetFiles([.. status.NotStaged()]);
+            Staged.SetFiles(status.Staged);
+
+            // Keeping the selection across a refresh is what lets a user stage a file, look at the
+            // next one, and not lose their place every time the panel re-reads. A file that moved to
+            // the other half — the one just staged or unstaged — is followed there.
+            _ = Unstaged.SelectPath(previousUnstaged)
+                || Staged.SelectPath(previousStaged)
+                || Staged.SelectPath(previousUnstaged)
+                || Unstaged.SelectPath(previousStaged);
+        }
+        finally
+        {
+            _applying = false;
+        }
 
         OnPropertyChanged(nameof(HasStaged));
         OnPropertyChanged(nameof(HasUnstaged));
         OnPropertyChanged(nameof(IsClean));
         OnPropertyChanged(nameof(HasConflicts));
-        OnPropertyChanged(nameof(BranchName));
-        OnPropertyChanged(nameof(TrackingSummary));
-        OnPropertyChanged(nameof(HasTrackingSummary));
-        OnPropertyChanged(nameof(EmptyMessage));
 
         StageAllCommand.NotifyCanExecuteChanged();
         UnstageAllCommand.NotifyCanExecuteChanged();
@@ -536,30 +398,38 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         StashAllCommand.NotifyCanExecuteChanged();
         CommitCommand.NotifyCanExecuteChanged();
 
-        if (Unstaged.SelectedFile is null && Staged.SelectedFile is null)
-        {
-            Diff.Clear();
-        }
+        UpdateSelectedChange();
     }
 
-    private void OnSelected(
-        ChangedFilesPanelViewModel picked,
-        ChangedFilesPanelViewModel other,
-        DiffTarget target)
+    private void OnSelected(ChangedFilesPanelViewModel picked, ChangedFilesPanelViewModel other)
     {
-        if (picked.SelectedFile is not { } file)
+        if (_applying)
         {
             return;
         }
 
-        other.SelectedNode = null;
-
-        RepositoryHandle? repository = RepositoryContext.Repository;
-
-        if (repository is not null)
+        if (picked.SelectedFile is not null)
         {
-            _ = Diff.ShowAsync(repository, target, file);
+            other.SelectedNode = null;
         }
+        else if (other.SelectedFile is not null)
+        {
+            // The other half letting go of its file on this one's behalf: this one has it.
+            return;
+        }
+
+        UpdateSelectedChange();
+    }
+
+    private void UpdateSelectedChange()
+    {
+        SelectedChange = Unstaged.SelectedFile is { } unstaged
+            ? new WorkingTreeChange(DiffTarget.WorkingTree(), unstaged)
+            : Staged.SelectedFile is { } staged
+                ? new WorkingTreeChange(DiffTarget.Staged(), staged)
+                : null;
+
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private bool CanCommit()
@@ -663,14 +533,13 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
         bool done = await RunAsync(
             async (handle, token) => sha = await _commits.CommitAsync(handle, request, token).ConfigureAwait(true),
-            "Could not commit").ConfigureAwait(true);
+            "Could not commit",
+            committing: true).ConfigureAwait(true);
 
         if (!done)
         {
             return;
         }
-
-        Message = string.Empty;
 
         Report(
             "Committed",
@@ -678,13 +547,8 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             InfoBarSeverity.Success);
     }
 
-    // ---------------------------------------------------------------- plumbing
-
-    // ---------------------------------------------------------------- the stash
-
-    // The stash's own questions and messages are the stash operations': this page asks for them and
-    // re-reads what it shows afterwards, exactly as the history does.
-
+    // The stash's own questions and messages are the stash operations': this panel asks for them and
+    // re-reads what it shows afterwards, exactly as the history's toolbar does.
     private async Task OnStashAllAsync()
     {
         if (!IsRepositoryOpen)
@@ -699,6 +563,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
             if (await _stashOperations.StashAsync().ConfigureAwait(true))
             {
                 await RefreshAsync().ConfigureAwait(true);
+                Changed?.Invoke(this, new WorkingTreeChangedEventArgs(Committed: false));
             }
         }
         finally
@@ -707,99 +572,7 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         }
     }
 
-    private async Task RunStashAsync(StashRowViewModel? row, Func<StashEntry, Task<bool>> operation)
-    {
-        if (row is null || !IsRepositoryOpen)
-        {
-            return;
-        }
-
-        IsBusy = true;
-
-        try
-        {
-            if (await operation(row.Entry).ConfigureAwait(true))
-            {
-                await RefreshAsync().ConfigureAwait(true);
-            }
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>
-    /// Reads the selected entry's files into its own panel.
-    /// </summary>
-    private async Task LoadStashFilesAsync()
-    {
-        RepositoryHandle? repository = RepositoryContext.Repository;
-        StashRowViewModel? row = SelectedStash;
-
-        if (repository is null || row is null)
-        {
-            StashFiles.Clear();
-            return;
-        }
-
-        try
-        {
-            PatchSet patch = await _stashes
-                .ShowAsync(repository, row.Entry.Index, null, RepositoryContext.RepositoryLifetime)
-                .ConfigureAwait(true);
-
-            if (!ReferenceEquals(row, SelectedStash))
-            {
-                return;
-            }
-
-            _stashPatch = patch;
-
-            List<ChangedFile> files = [];
-
-            foreach (FilePatch file in patch.Files)
-            {
-                files.Add(ChangedFile.FromPatch(file));
-            }
-
-            StashFiles.WorkTreePath = repository.WorkTreePath;
-            StashFiles.SetFiles(files);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected when the repository changes under the read.
-        }
-        catch (GitCommandException exception)
-        {
-            _logger.LogError(exception, "Reading the stash's contents failed");
-            StashFiles.Clear();
-        }
-    }
-
-    /// <summary>
-    /// Shows the file picked inside a stash entry, which came from the entry rather than from a
-    /// comparison the viewer could re-read.
-    /// </summary>
-    private void ShowStashFile()
-    {
-        if (StashFiles.SelectedFile is not { } file || _stashPatch is null)
-        {
-            return;
-        }
-
-        Unstaged.SelectedNode = null;
-        Staged.SelectedNode = null;
-
-        foreach (FilePatch candidate in _stashPatch.Files)
-        {
-            if (string.Equals(candidate.DisplayPath, file.Path, StringComparison.Ordinal))
-            {
-                Diff.ShowPatch(candidate);
-                return;
-            }
-        }
-    }
+    // ---------------------------------------------------------------- plumbing
 
     /// <summary>
     /// Collects the paths a row stands for: one file, or every file under a directory row.
@@ -840,7 +613,8 @@ public sealed class ChangesPageViewModel : PageViewModelBase
 
     private async Task<bool> RunAsync(
         Func<RepositoryHandle, CancellationToken, Task> operation,
-        string failureTitle)
+        string failureTitle,
+        bool committing = false)
     {
         if (!IsRepositoryOpen)
         {
@@ -852,7 +626,16 @@ public sealed class ChangesPageViewModel : PageViewModelBase
         try
         {
             await RepositoryContext.RunExclusiveAsync(operation).ConfigureAwait(true);
+
+            // Cleared before the panel reads the tree again: a commit that went through leaves
+            // nothing of its message for the next one.
+            if (committing)
+            {
+                Message = string.Empty;
+            }
+
             await RefreshAsync().ConfigureAwait(true);
+            Changed?.Invoke(this, new WorkingTreeChangedEventArgs(committing));
 
             return true;
         }

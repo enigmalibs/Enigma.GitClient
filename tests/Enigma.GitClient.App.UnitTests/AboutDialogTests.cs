@@ -45,7 +45,7 @@ public sealed class AboutDialogTests
     {
         AboutViewModel about = new();
 
-        Assert.Equal("Enigma git client", about.DisplayName);
+        Assert.Equal("Enigma Git Client", about.DisplayName);
         Assert.Equal(ProductInformation.Version, about.Version);
         Assert.Equal(ProductInformation.BuildSha, about.BuildSha);
         Assert.Equal(ProductInformation.Copyright, about.Copyright);
@@ -151,7 +151,7 @@ public sealed class AboutDialogTests
         {
             using TestServices services = TestServices.Build();
             RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
-            await model.ReloadRecentAsync();
+            await model.ReloadListAsync();
 
             RepositoriesPageView page = services.Get<RepositoriesPageView>();
             page.DataContext = model;
@@ -167,7 +167,7 @@ public sealed class AboutDialogTests
                 Button create = page.GetVisualDescendants().OfType<Button>()
                     .Single(button => Equals(button.GetValue(AutomationProperties.NameProperty), "Create a repository"));
 
-                Assert.Equal("About Enigma git client", about.GetValue(AutomationProperties.NameProperty));
+                Assert.Equal("About Enigma Git Client", about.GetValue(AutomationProperties.NameProperty));
 
                 // Last in the header, after the repository actions.
                 Point aboutAt = about.TranslatePoint(default, page) ?? default;
@@ -204,7 +204,7 @@ public sealed class AboutDialogTests
                 string[] texts = [.. view.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text ?? string.Empty)];
 
                 Assert.Equal(380, view.Width);
-                Assert.Contains("Enigma git client", texts);
+                Assert.Contains("Enigma Git Client", texts);
                 Assert.Contains("1.0.0", texts);
                 Assert.Contains("9a1b2c3", texts);
                 Assert.Contains("Copyright © 2026 Josué Clément", texts);
@@ -327,7 +327,7 @@ public sealed class AboutDialogTests
                 TextBlock[] texts = [.. shown.OfType<TextBlock>()];
 
                 Assert.Contains(view, shown);
-                Assert.Contains(texts, text => text.Text == "Enigma git client");
+                Assert.Contains(texts, text => text.Text == "Enigma Git Client");
                 Assert.DoesNotContain(texts, text => text.Text == view.ToString());
 
                 await host.HideAsync().WaitAsync(TimeSpan.FromSeconds(10));

@@ -54,7 +54,8 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddGitClientApp()
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
-            services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
+            services.AddSingleton<IRepositoryListStore, RepositoryListStore>();
+            services.AddSingleton<IProfileSelection, ProfileSelection>();
             services.AddSingleton<IHiddenBranchStore, HiddenBranchStore>();
             services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
@@ -64,6 +65,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<IAboutDialogService, AboutDialogService>();
+            services.AddSingleton<IThemeSwitcher, ThemeSwitcher>();
             services.AddSingleton<ICommitDetailsDialogService, CommitDetailsDialogService>();
 
             // The automatic refresh measures its interval on this clock, which a test replaces.
@@ -90,7 +92,6 @@ public static class ServiceCollectionExtensions
 
             services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();
-            services.AddTransient<ChangesPageView>();
             services.AddTransient<BranchesPageView>();
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
@@ -100,13 +101,16 @@ public static class ServiceCollectionExtensions
 
             services.AddSingleton<RepositoriesPageViewModel>();
             services.AddSingleton<HistoryPageViewModel>();
-            services.AddSingleton<ChangesPageViewModel>();
             services.AddSingleton<BranchesPageViewModel>();
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
+
+            // The history's details panel for the uncommitted line: one working tree, with its
+            // message, for the one history.
+            services.AddSingleton<WorkingTreePanelViewModel>();
 
             // Dialog views are transient: each showing gets a fresh control bound to a fresh
             // ViewModel, so a cancelled dialog never leaves its half-typed state behind.
