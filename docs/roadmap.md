@@ -234,6 +234,8 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-6787     | Diff text cannot be selected            | DONE      | docs/plan/BUG-6787.md     |
 | - PHASE01    | The text selection and its drawing      | DONE      | (in BUG-6787.md)          |
 | - PHASE02    | Selecting and copying with the pointer  | DONE      | (in BUG-6787.md)          |
+| FEATURE-3988 | The name Enigma Git Client              | TODO      | docs/plan/FEATURE-3988.md |
+| FEATURE-5DFF | Release 5.0.0                           | TODO      | docs/plan/FEATURE-5DFF.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
