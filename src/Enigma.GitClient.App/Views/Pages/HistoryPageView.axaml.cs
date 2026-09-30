@@ -37,6 +37,10 @@ public partial class HistoryPageView : UserControl
     private RefBadge? _highlighted;
     private double _autoScrollBy;
 
+    // A plain press on the line that is already selected, which lets go of it when it is released on
+    // the same line without having become a drag.
+    private PendingToggle? _toggle;
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
@@ -58,6 +62,8 @@ public partial class HistoryPageView : UserControl
         Resizes(AuthorGrip, HistoryColumn.Author);
         Resizes(DateGrip, HistoryColumn.Date);
         Resizes(ShaGrip, HistoryColumn.Sha);
+
+        DetailsGrip.DragDelta += (_, e) => (DataContext as HistoryPageViewModel)?.ResizeDetailsPanel(e.Vector.X);
 
         // The list's own viewport is the width the header has to match, and it is known only once
         // the list has a template to find a scroll viewer in.
@@ -217,7 +223,12 @@ public partial class HistoryPageView : UserControl
     /// This is what makes Escape work on the first press. A key event is routed to whatever has
     /// focus; with the focus still on the list — or nowhere at all, which is where a freshly shown
     /// window leaves it — the route never passes through this page, and the key reached nothing
-    /// until the reader happened to click inside the diffs first.
+    /// until the reader happened to click inside the diffs first. The list is also under the diffs
+    /// now, and its arrow keys would move the selection nobody can see.
+    ///
+    /// A diff opened from the details panel leaves the focus in the panel: the panel is on this
+    /// page, so Escape still passes through it, and its arrow keys are how the reader goes from one
+    /// file's diff to the next.
     ///
     /// Posted rather than called: the panel is collapsed until the layout pass that follows this
     /// notification, and a control that is not visible cannot take the focus.
@@ -227,7 +238,11 @@ public partial class HistoryPageView : UserControl
         {
             if (isOpen && DiffPage.IsVisible)
             {
-                DiffPage.Focus();
+                if (!DetailsPanel.IsKeyboardFocusWithin)
+                {
+                    DiffPage.Focus();
+                }
+
                 return;
             }
 
@@ -283,10 +298,22 @@ public partial class HistoryPageView : UserControl
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _pending = null;
+        _toggle = null;
 
+        // The second press of a double-click is neither a drag nor a toggle: a double-click on a line
+        // leaves it selected, however the first press found it.
         if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             return;
+        }
+
+        // The list selects a line on the press, and leaves a selected line selected: letting go of
+        // it is the page's, once the press is known to be a click.
+        if (e.KeyModifiers == KeyModifiers.None
+            && RowAt(e.Source) is { } row
+            && ReferenceEquals(row, _page?.SelectedRow))
+        {
+            _toggle = new PendingToggle(row, e.GetPosition(this));
         }
 
         if (BadgeAt(e.Source)?.DataContext is not HistoryBranchViewModel branch)
@@ -299,6 +326,12 @@ public partial class HistoryPageView : UserControl
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        // A press that travels is a drag — of a badge, or of nothing — and not a click.
+        if (_toggle is { } toggle && BranchDragGesture.IsDrag(toggle.Origin, e.GetPosition(this)))
+        {
+            _toggle = null;
+        }
+
         if (_dragging is not null)
         {
             Steer(e);
@@ -352,8 +385,18 @@ public partial class HistoryPageView : UserControl
     {
         _pending = null;
 
+        PendingToggle? toggle = _toggle;
+        _toggle = null;
+
         if (_dragging is null)
         {
+            if (toggle is not null
+                && e.InitialPressMouseButton == MouseButton.Left
+                && ReferenceEquals(RowUnder(e), toggle.Row))
+            {
+                LetGoOf(toggle.Row);
+            }
+
             return;
         }
 
@@ -527,6 +570,46 @@ public partial class HistoryPageView : UserControl
 
     private sealed record PendingBadgeDrag(HistoryBranchViewModel Branch, Point Origin);
 
+    private sealed record PendingToggle(CommitRowViewModel Row, Point Origin);
+
+    // ---------------------------------------------------------------- the lines are toggles
+
+    /// <summary>
+    /// Lets go of the selected line a click landed on, which closes the details panel.
+    /// </summary>
+    /// <param name="row">The line.</param>
+    /// <remarks>
+    /// Posted, so the list has finished with the release before the selection moves: a selection
+    /// taken away while the list is still handling the gesture could be handed straight back.
+    /// </remarks>
+    private void LetGoOf(CommitRowViewModel row)
+        => Dispatcher.UIThread.Post(() =>
+        {
+            if (_page is { } page && ReferenceEquals(page.SelectedRow, row))
+            {
+                page.ToggleSelection(row);
+            }
+        });
+
+    /// <summary>
+    /// The line under the pointer, wherever the pointer was captured.
+    /// </summary>
+    private CommitRowViewModel? RowUnder(PointerEventArgs e)
+    {
+        Point point = e.GetPosition(CommitList);
+
+        return BranchDragGesture.IsOverTheList(point, CommitList.Bounds.Size)
+            ? RowAt(CommitList.InputHitTest(point))
+            : null;
+    }
+
+    private static CommitRowViewModel? RowAt(object? source)
+        => source is Visual visual
+            ? visual.GetSelfAndVisualAncestors()
+                .OfType<Control>()
+                .FirstOrDefault(control => control.DataContext is CommitRowViewModel)?.DataContext as CommitRowViewModel
+            : null;
+
     /// <summary>
     /// Asks the line under a right-click to rebuild its menu before the menu opens.
     /// </summary>
@@ -539,30 +622,6 @@ public partial class HistoryPageView : UserControl
                 is { DataContext: CommitRowViewModel row })
         {
             row.RefreshMenu();
-        }
-    }
-
-    /// <summary>
-    /// Shows what the double-clicked row changed.
-    /// </summary>
-    /// <remarks>
-    /// A double-click is a gesture, not state, so it has nowhere to live but here. The handler does
-    /// no work of its own: it finds the row and runs the command the ViewModel already exposes, so
-    /// the behaviour stays testable without a pointer. The first click of the pair has already put
-    /// the selection on the row, which is why the page's own selection is what it acts on.
-    /// </remarks>
-    /// <param name="sender">The list.</param>
-    /// <param name="e">The gesture.</param>
-    private void OnCommitDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (DataContext is not HistoryPageViewModel page || page.SelectedRow is not { } row)
-        {
-            return;
-        }
-
-        if (row.Commands?.Activate is { } activate && activate.CanExecute(row))
-        {
-            activate.Execute(row);
         }
     }
 }

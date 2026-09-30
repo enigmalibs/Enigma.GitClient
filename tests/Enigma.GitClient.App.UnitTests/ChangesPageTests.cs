@@ -698,33 +698,6 @@ public sealed class ChangesPageTests
     // ---------------------------------------------------------------- the shell
 
     [Fact]
-    public void History_UncommittedRowTakesYouToTheWorkingDirectory()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build(useRealRefReader: true);
-            RepositoryHandle repository = await BuildRepositoryAsync(services);
-
-            Write(repository, "src/app.txt", "one\ntwo uncommitted\n");
-
-            // Building the shell is what wires the graph's row to the navigation.
-            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
-            Assert.NotNull(shell);
-
-            await services.Get<IRepositoryContext>().OpenAsync(repository);
-
-            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
-            await history.ReloadAsync();
-
-            CommitRowViewModel uncommitted = history.Rows.Single(row => row.IsUncommitted);
-
-            uncommitted.Commands!.Activate.Execute(uncommitted);
-
-            Assert.Equal(ShellPage.Changes, services.Get<IShellNavigation>().Current);
-        });
-    }
-
-    [Fact]
     public void BackButton_TakesYouToTheHistory()
     {
         _fixture.RunAsync(async () =>

@@ -24,10 +24,12 @@ Two things matter more than everything else in this app:
   brings and its badge leave the graph, the history says how many branches it is leaving out, and
   the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
-- Changed files for the selected commit, shown as a **list or a tree** (your choice)
+- Changed files for the selected commit in a panel beside the history, as GitKraken has it — click a
+  line to open it, click the line again to close it — shown as a **list or a tree** (your choice);
+  pick a file and its diff opens over the graph, with the panel still beside it
 - A commit's details — its title, description, author and email, date and how long ago that was, and
-  full hash — in a dialog opened from the diff view's header or the commit's line menu, every value
-  selectable to copy
+  full hash — in a dialog opened from the details panel's header, the diff view's or the commit's
+  line menu, every value selectable to copy
 - Colour-coded file diffs with word-level intra-line highlighting
 - Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
   change with the context you chose

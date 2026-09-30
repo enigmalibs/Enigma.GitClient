@@ -819,9 +819,8 @@ public sealed class ChangedFilesPanelTests
                 HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
                 await page.ReloadAsync();
 
-                // The dialog is what draws the panels, and it is asked for rather than implied by
-                // the selection.
-                page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Rework the sources"));
+                // Selecting the line is what opens the details panel.
+                page.SelectedRow = page.Rows.Single(row => row.Subject == "Rework the sources");
                 await WaitForFilesAsync(page);
 
                 HistoryPageView view = services.Get<HistoryPageView>();
@@ -829,8 +828,8 @@ public sealed class ChangedFilesPanelTests
 
                 IReadOnlyList<string> texts = RenderAndReadText(view, "history-page-details.png", 1200, 700);
 
-                // The graph is still there, and the details pane now sits under it — its files a
-                // flat list of names, which is what the panel opens on: no directory row.
+                // The graph is still there, and the details panel sits beside it — its files a flat
+                // list of names, which is what the panel opens on: no directory row.
                 Assert.Contains("Rework the sources", texts);
                 Assert.Contains("Program.cs", texts);
                 Assert.DoesNotContain("src/app", texts);

@@ -1,6 +1,6 @@
 # FEATURE-5261 — History details panel
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** vibe/2026-09-30-history-details-panel
@@ -60,7 +60,7 @@ A GitKraken-style panel on the right of the history:
 ## PHASE01 — A details panel for commits
 
 **Branch:** `feature/feature-5261-phase01-commit-panel`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5261-PHASE01.md`
 
 ### Steps
 
