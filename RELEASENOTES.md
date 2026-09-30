@@ -1,5 +1,108 @@
 # Release notes
 
+## 5.0.0 — 2026-09-30
+
+A major release. The history has a details panel beside it: a click on a line lists the files it
+changed, and the uncommitted line holds the working tree and the commit box. That is why the Changes
+page is gone. The start window lists the repositories of the profile you pick, in the order you drag
+them into. The diff's text can be selected and copied, a new repository starts with a README, and the
+application is now called **Enigma Git Client**. The Changes page, double-clicking a history line,
+*Pin to the top* and the 4.x recent-repositories list are gone, and that is why this is 5.0: read
+*Upgrading from 4.x* below.
+
+### The history's details panel
+
+- **A click on a line opens a panel on the right** with the files that commit changed, as a list or a
+  tree. A click on the selected line closes it again; a click on another line moves the panel there.
+- **A file picked in the panel opens its diff over the graph**, with the panel still beside it. The
+  back button and Escape close the diff and keep the line and the panel. *Show what it changed* in a
+  line's menu selects the line and opens its first file.
+- **The uncommitted line holds the working tree:**
+  - *Not staged*, with *Discard all*, *Stash all* and *Stage all*;
+  - *Staged*, with *Unstage all*;
+  - the commit box, Ctrl+Enter included.
+
+  The history refreshes as soon as you commit, stage, discard or stash, and a tree left clean takes
+  the line away. The first commit of a new repository is made there too.
+- **Resizable:** drag the panel's left edge, from 280 to 720 wide (380 to start with). Only the
+  *Message* column gives up the room; the others keep their widths.
+- **The checked-out line is tinted light blue** across its whole width, so the commit you are on is
+  easy to find.
+
+### The start window's repositories
+
+- **Each profile has its own list of repositories.** Pick the profile in the combobox in the
+  Repositories page's header; the choice is remembered. Picking a list never changes the name and
+  email git commits with: that is still the Profiles page's *Use*.
+- **Drag a repository by its row** — the grip at its left says it can be dragged — to put the list in
+  your order. The order is kept for each profile. Opening a repository never moves it. A new one goes
+  at the end, and nothing is dropped to make room.
+- **A "Default" profile is made when there is none,** so there is always a list. It has no name or
+  email.
+- **A profile no longer needs a name and email.** One without them changes nothing in git: it is never
+  the current profile, never decides a push and never signs git in, and it has no *Use*.
+- **Deleting a profile deletes its list,** never the repositories on it.
+- **A theme switch** sits left of About, as it does in the repository window.
+
+### Creating, cloning and tagging
+
+- **A new repository's first commit is a `README.md`** holding its name as a title, committed as
+  *Initial commit* with nothing else. A `README.md` the folder already had is committed as it is, never
+  overwritten. Without a git name and email, the repository is still created and opened, and you are
+  told why it has no first commit yet.
+- **A clone is suggested where the last one was made,** as long as that folder still exists.
+- ***Create a tag* puts the caret in its name box,** so the name can be typed straight away.
+
+### The look
+
+- **The name is Enigma Git Client:** the splash screen, About, the Settings page's About button, the
+  launcher entry, and the installer and uninstaller.
+- **Narrower navigation rails:** 72 wide in the repository window and 88 in the start window, the
+  narrowest that keep their labels on one line.
+
+### Fixes
+
+- **The diff's text can be selected** — it could not be, committed or uncommitted. Drag across the
+  lines in either side of the side-by-side view, or in the unified view:
+  - Shift+click extends the selection and a click clears it;
+  - the list scrolls when the selection is held at its edge;
+  - Ctrl+C or the right-click *Copy* copies it, as the code alone, without line numbers or markers.
+
+  With no text selected, *Copy* copies the selected lines. The diff stays read-only.
+
+### Upgrading from 4.x
+
+- **The Changes page is gone.** Select the history's uncommitted line: the panel beside the history
+  has what the page had — *Not staged*, *Staged*, the discards, *Stash all* and the commit box. The
+  page's stash list is not there: every stash is a line in the graph, with apply, pop and delete. The
+  branch and its upstream are in the window's strip.
+- **Double-clicking a history line no longer opens its diffs.** Click the line, then a file in its
+  panel, or use *Show what it changed* in the line's menu.
+- **The repository list starts empty.** Lists belong to profiles now, and the 4.x list is not carried
+  over: open, clone or create your repositories once more, and they join the selected profile's list.
+  The lists are kept in `repository-lists.json`. `recent-repositories.json` is left where it was,
+  unread, so going back to 4.x finds its list again.
+- ***Pin to the top* is gone:** drag a repository where you want it instead.
+- **Without profiles, 5.0 adds one, "Default",** with no name or email, so your commits, pushes and
+  sign-ins stay exactly as they were. 4.x lists it too; its *Use* there changes nothing, and only says
+  there is no name to write.
+- `settings.json` gains `selectedProfileId`, which 4.x ignores.
+- **The launcher's entry is renamed** "Enigma Git Client" the next time you run `install.sh`. Nothing
+  is moved: the install paths and the configuration directory keep their names.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set, which is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.1.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.0.0** is a major release under Semantic Versioning. It removes functionality — the Changes page,
+  the double-click that opened a line's diffs, and *Pin to the top* — and does not carry the 4.x
+  repository list over, so an upgrade can stop an existing workflow until you move to the panel and
+  add your repositories again. As for 2.0.0, 3.0.0 and 4.0.0, that makes it a major release.
+  Everything else is new, backward-compatible functionality and fixes.
+
 ## 4.1.1 — 2026-09-29
 
 A patch release that fixes a regression in 4.1.0: every dialog whose content is a view showed a line
