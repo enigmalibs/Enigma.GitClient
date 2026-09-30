@@ -59,7 +59,7 @@ public sealed class SplashScreenTests
             {
                 string[] texts = [.. splash.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text ?? string.Empty)];
 
-                Assert.Contains("Enigma git client", texts);
+                Assert.Contains("Enigma Git Client", texts);
                 Assert.Contains("Version", texts);
                 Assert.Contains(ProductInformation.GetVersion(), texts);
             }

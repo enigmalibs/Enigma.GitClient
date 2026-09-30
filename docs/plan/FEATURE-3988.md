@@ -1,6 +1,6 @@
 # FEATURE-3988 — The name Enigma Git Client
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3988.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-3988-enigma-git-client-name`
 **Run:** feature/2026-09-30-rename-and-release

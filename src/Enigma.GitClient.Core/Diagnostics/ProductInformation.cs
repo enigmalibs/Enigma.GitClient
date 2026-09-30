@@ -21,7 +21,7 @@ public static class ProductInformation
     /// Beside <see cref="Name"/> rather than in place of it: that one is also the product token of the
     /// HTTP user agent, which cannot carry a space.
     /// </remarks>
-    public const string DisplayName = "Enigma git client";
+    public const string DisplayName = "Enigma Git Client";
 
     /// <summary>
     /// The scope statement the product is built to. Rebase is deliberately absent from this client,
