@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
@@ -19,6 +20,7 @@ using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -93,6 +95,139 @@ public sealed class RepositoriesPageTests
             services.Get<IProfileSelection>().Select(home.Id);
             await page.ReloadListAsync();
             Assert.Equal("home-repo", Assert.Single(page.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void ThePickerListsEveryProfile_WithTheRememberedOneSelected()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+            services.Get<IProfileSelection>().Select(home.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.Equal(["Work", "Home"], page.Profiles.Select(profile => profile.Label));
+            Assert.Equal(home, page.SelectedProfile);
+        });
+    }
+
+    [Fact]
+    public void PickingAnotherProfile_ShowsItsListAndIsRemembered()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(work.Id, Path.Combine(services.ConfigurationRoot, "work-repo"), "work-repo");
+            await store.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            Assert.Equal("work-repo", Assert.Single(page.Repositories).Name);
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+
+            await WaitUntilAsync(() => page.Repositories.Count == 1 && page.Repositories[0].Name == "home-repo");
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+
+            // A page built afresh — the next start — opens on the same profile.
+            RepositoriesPageViewModel again = ActivatorUtilities.CreateInstance<RepositoriesPageViewModel>(services.Provider);
+            await again.OnAppearingAsync();
+
+            Assert.Equal(home, again.SelectedProfile);
+            Assert.Equal("home-repo", Assert.Single(again.Repositories).Name);
+        });
+    }
+
+    [Fact]
+    public void ShowingThePageAgain_PicksUpProfilesChangedElsewhere()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+            services.Get<IProfileSelection>().Select(home.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            // On the Profiles page: Work renamed, Home deleted, Client added.
+            await profiles.SaveAsync(work with { Label = "Office" });
+            await profiles.RemoveAsync(home.Id);
+            await profiles.SaveAsync(IdentityProfile.Create("Client", GitIdentity.Empty));
+
+            await page.OnAppearingAsync();
+
+            Assert.Equal(["Office", "Client"], page.Profiles.Select(profile => profile.Label));
+            Assert.Equal(work.Id, page.SelectedProfile?.Id);
+        });
+    }
+
+    [Fact]
+    public void ARepositoryOpenedWhileAProfileIsPicked_JoinsThatProfilesList()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", GitIdentity.Empty));
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "picked"), "main");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+
+            await page.OpenPathAsync(repository.WorkTreePath);
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            Assert.Equal("picked", Assert.Single(await store.GetAsync(home.Id)).Name);
+            Assert.Empty(await store.GetAsync(work.Id));
+        });
+    }
+
+    [Fact]
+    public void ThePickerIsInThePagesHeader()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", GitIdentity.Empty));
+
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.OnAppearingAsync();
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            ComboBox picker = page.GetVisualDescendants()
+                .OfType<ComboBox>()
+                .Single(box => AutomationProperties.GetName(box) == "The profile whose repositories are listed");
+
+            Assert.Equal(1, picker.ItemCount);
+            Assert.Equal("Work", Assert.IsType<IdentityProfile>(picker.SelectedItem).Label);
+
+            window.Close();
         });
     }
 
@@ -624,6 +759,17 @@ public sealed class RepositoriesPageTests
         RunGit(source.WorkTreePath, "-c", "user.name=T", "-c", "user.email=t@e.invalid", "commit", "-m", "base");
 
         return source;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, int attempts = 300)
+    {
+        for (int attempt = 0; attempt < attempts && !condition(); attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition(), "the page never reached the state the test waited for");
     }
 
     private static void RunGit(string workingDirectory, params string[] arguments)
