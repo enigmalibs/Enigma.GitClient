@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Installs Enigma git client (Enigma.GitClient) for the current user, into the XDG directories:
+# Installs Enigma Git Client (Enigma.GitClient) for the current user, into the XDG directories:
 #
 #   $XDG_DATA_HOME/enigma-git-client                        the application
 #   $XDG_BIN_HOME/enigma-git-client                         a symlink to its launcher
@@ -39,7 +39,7 @@ usage() {
     cat <<'USAGE'
 Usage: install.sh [options]
 
-Installs Enigma git client for the current user. With no options it builds the
+Installs Enigma Git Client for the current user. With no options it builds the
 application from this repository, bundling the .NET runtime, and installs the result.
 
 Options:
@@ -136,7 +136,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf 'Installing Enigma git client\n\n'
+printf 'Installing Enigma Git Client\n\n'
 
 # ---------------------------------------------------------------- 1. get the application
 
@@ -251,7 +251,7 @@ command -v update-desktop-database > /dev/null 2>&1 && update-desktop-database -
 command -v gtk-update-icon-cache > /dev/null 2>&1 && gtk-update-icon-cache -q -t -f "${icon_root}" 2>/dev/null || true
 command -v kbuildsycoca6 > /dev/null 2>&1 && kbuildsycoca6 --noincremental > /dev/null 2>&1 || true
 
-printf '\nDone. "Enigma git client" is in your application launcher.\n'
+printf '\nDone. "Enigma Git Client" is in your application launcher.\n'
 
 case ":${PATH}:" in
     *":${bin_home}:"*) printf 'Run it from a terminal with: %s, or %s <repository> to open one.\n' "${APP_ID}" "${APP_ID}" ;;

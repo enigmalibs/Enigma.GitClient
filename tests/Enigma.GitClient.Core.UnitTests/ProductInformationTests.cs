@@ -18,7 +18,7 @@ public sealed class ProductInformationTests
 
     [Fact]
     public void DisplayName_IsTheProductInWords()
-        => Assert.Equal("Enigma git client", ProductInformation.DisplayName);
+        => Assert.Equal("Enigma Git Client", ProductInformation.DisplayName);
 
     [Fact]
     public void Copyright_IsTheOneTheBuildStamps()

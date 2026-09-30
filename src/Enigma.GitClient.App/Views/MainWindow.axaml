@@ -132,7 +132,7 @@
                     Classes="toolbar"
                     Command="{Binding OpenAboutCommand}"
                     ToolTip.Tip="About"
-                    AutomationProperties.Name="About Enigma git client">
+                    AutomationProperties.Name="About Enigma Git Client">
               <ei:Icon Kind="Info" Classes="toolbar" />
             </Button>
           </StackPanel>
