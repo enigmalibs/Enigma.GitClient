@@ -67,6 +67,9 @@
       <Color x:Key="DiffWhitespaceColor">#4A4F57</Color>
       <Color x:Key="DiffFillerColor">#17181B</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+      <!-- Selected text: the selection blue, translucent, so the line's own green or red and the
+           word-level tint still read through it. -->
+      <Color x:Key="DiffTextSelectionColor">#703574F0</Color>
 
       <!--
         The conflict panes. Ours is the blue of the graph's first lane and theirs the violet of its
@@ -172,6 +175,7 @@
       <Color x:Key="DiffWhitespaceColor">#B4BAC2</Color>
       <Color x:Key="DiffFillerColor">#F7F8FA</Color>
       <Color x:Key="DiffSelectionColor">#3574F0</Color>
+      <Color x:Key="DiffTextSelectionColor">#503574F0</Color>
 
       <Color x:Key="ConflictOursLineColor">#E8F0FE</Color>
       <Color x:Key="ConflictTheirsLineColor">#F6EAFB</Color>
@@ -248,6 +252,7 @@
   <SolidColorBrush x:Key="DiffWhitespaceBrush" Color="{DynamicResource DiffWhitespaceColor}" />
   <SolidColorBrush x:Key="DiffFillerBrush" Color="{DynamicResource DiffFillerColor}" />
   <SolidColorBrush x:Key="DiffSelectionBrush" Color="{DynamicResource DiffSelectionColor}" />
+  <SolidColorBrush x:Key="DiffTextSelectionBrush" Color="{DynamicResource DiffTextSelectionColor}" />
   <SolidColorBrush x:Key="ConflictOursLineBrush" Color="{DynamicResource ConflictOursLineColor}" />
   <SolidColorBrush x:Key="ConflictTheirsLineBrush" Color="{DynamicResource ConflictTheirsLineColor}" />
   <SolidColorBrush x:Key="ConflictBaseLineBrush" Color="{DynamicResource ConflictBaseLineColor}" />
