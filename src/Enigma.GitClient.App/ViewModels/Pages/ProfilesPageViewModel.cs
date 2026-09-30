@@ -47,8 +47,11 @@ public sealed class ProfileRowViewModel : ViewModelBase
     /// <summary>Gets what the profile is called.</summary>
     public string Label => Profile.Label;
 
-    /// <summary>Gets the identity the profile sets, written the way a commit writes it.</summary>
-    public string Summary => Profile.Identity.ToString();
+    /// <summary>
+    /// Gets the identity the profile sets, written the way a commit writes it — or, for a profile that
+    /// sets none, a line saying so rather than nothing.
+    /// </summary>
+    public string Summary => Describe(Profile);
 
     /// <summary>
     /// Gets a value indicating whether the profile is the identity git has now.
@@ -61,12 +64,19 @@ public sealed class ProfileRowViewModel : ViewModelBase
             if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(IsNotCurrent));
+                OnPropertyChanged(nameof(CanUse));
             }
         }
     }
 
-    /// <summary>Gets a value indicating whether the profile can be switched to.</summary>
+    /// <summary>Gets a value indicating whether the profile is not the identity git has now.</summary>
     public bool IsNotCurrent => !IsCurrent;
+
+    /// <summary>
+    /// Gets a value indicating whether the profile can be switched to: it is not the current one, and
+    /// it has a name and an email to switch to.
+    /// </summary>
+    public bool CanUse => IsNotCurrent && Profile.HasIdentity;
 
     /// <summary>Gets the command that makes this profile the global identity.</summary>
     public AsyncRelayCommand<ProfileRowViewModel> UseCommand => _owner.UseProfileCommand;
@@ -104,6 +114,14 @@ public sealed class ProfileRowViewModel : ViewModelBase
 
     /// <inheritdoc />
     public override string ToString() => $"{Label}: {Summary}";
+
+    /// <summary>
+    /// Writes what a profile sets, the way the page and its messages show it.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <returns>Its identity as a commit writes it, or "No name or email".</returns>
+    internal static string Describe(IdentityProfile profile)
+        => profile.HasIdentity ? profile.Identity.ToString() : "No name or email";
 }
 
 /// <summary>
@@ -788,7 +806,9 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
     private async Task OnUseProfileAsync(ProfileRowViewModel? row)
     {
-        if (row is null)
+        // A profile without a name and email has nothing to switch to: writing its empty identity
+        // would unset git's own.
+        if (row is null || !row.Profile.HasIdentity)
         {
             return;
         }
@@ -973,7 +993,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             return;
         }
 
-        Report(title, $"{stored.Label}: {stored.Identity}.", InfoBarSeverity.Success);
+        Report(title, $"{stored.Label}: {ProfileRowViewModel.Describe(stored)}.", InfoBarSeverity.Success);
         await LoadProfilesAsync().ConfigureAwait(true);
     }
 

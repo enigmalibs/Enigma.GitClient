@@ -93,9 +93,28 @@ public sealed class IdentityProfileStoreTests : IDisposable
         Assert.Equal(stored, Assert.Single(await store.GetAllAsync(TestContext.Current.CancellationToken)));
     }
 
+    [Fact]
+    public async Task AProfileWithoutANameAndEmailIsStoredAndReadBack()
+    {
+        using IdentityProfileStore store = Build();
+
+        IdentityProfile stored = await store.SaveAsync(
+            new IdentityProfile("abc", " Default ", " ", string.Empty),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(new IdentityProfile("abc", "Default", string.Empty, string.Empty), stored);
+
+        using IdentityProfileStore reopened = Build();
+        IdentityProfile read = Assert.Single(await reopened.GetAllAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(stored, read);
+        Assert.False(read.HasIdentity);
+    }
+
     [Theory]
     [InlineData("", "Ada", "ada@example.com")]
     [InlineData("Work", "", "ada@example.com")]
+    [InlineData("Work", "Ada", "")]
     [InlineData("Work", "Ada", "not an address")]
     public async Task AnUnusableProfileIsRefusedAndNothingIsWritten(string label, string name, string email)
     {

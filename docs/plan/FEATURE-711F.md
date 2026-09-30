@@ -1,6 +1,6 @@
 # FEATURE-711F — Repository lists per profile
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-30-profile-lists-readme-diffs
@@ -53,7 +53,7 @@ which the user accepted.
 ## PHASE01 — Profiles without a name and email
 
 **Branch:** `feature/feature-711f-phase01-identityless-profiles`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-711F-PHASE01.md`
 
 The "Default" profile PHASE02 creates must not carry an identity. With git's global identity it would
 match, and a matching profile without integrations refuses every push, so every existing user would

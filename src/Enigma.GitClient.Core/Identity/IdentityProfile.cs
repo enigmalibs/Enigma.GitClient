@@ -23,6 +23,17 @@ public sealed record IdentityProfile(string Id, string Label, string Name, strin
     public GitIdentity Identity => new(Name, Email);
 
     /// <summary>
+    /// Gets a value indicating whether the profile sets an identity at all.
+    /// </summary>
+    /// <remarks>
+    /// A profile without one is legal: git never sees it. It never matches the identity git has, so it
+    /// is never the current profile, never decides a push and never signs git in — which is what lets
+    /// the client create one on the user's behalf without changing anything they had.
+    /// </remarks>
+    [JsonIgnore]
+    public bool HasIdentity => !Identity.IsEmpty;
+
+    /// <summary>
     /// Builds a new profile with a fresh identifier and trimmed values.
     /// </summary>
     /// <param name="label">What the profile is called.</param>
@@ -117,6 +128,24 @@ public static class IdentityProfileRules
     }
 
     /// <summary>
+    /// Checks the identity a profile sets: none at all, or a whole one.
+    /// </summary>
+    /// <param name="identity">The name and email, as typed.</param>
+    /// <returns>A sentence saying what is wrong, or <see langword="null"/> when it is usable.</returns>
+    /// <remarks>
+    /// Neither value is a profile that git never sees (<see cref="IdentityProfile.HasIdentity"/>). One of
+    /// them without the other is refused: git would write half an identity.
+    /// </remarks>
+    public static string? ValidateIdentity(GitIdentity identity)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+
+        GitIdentity normalised = identity.Normalised();
+
+        return normalised.IsEmpty ? null : GitIdentityRules.Validate(normalised);
+    }
+
+    /// <summary>
     /// Checks a whole profile: the label, then the name, then the email.
     /// </summary>
     /// <param name="profile">The profile.</param>
@@ -125,6 +154,6 @@ public static class IdentityProfileRules
     {
         ArgumentNullException.ThrowIfNull(profile);
 
-        return ValidateLabel(profile.Label) ?? GitIdentityRules.Validate(profile.Identity.Normalised());
+        return ValidateLabel(profile.Label) ?? ValidateIdentity(profile.Identity);
     }
 }
