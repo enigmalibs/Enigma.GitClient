@@ -10,6 +10,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.App.Controls;
 using Enigma.GitClient.App.Navigation;
 using Enigma.GitClient.App.Services;
@@ -18,9 +20,11 @@ using Enigma.GitClient.App.ViewModels.Dialogs;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace Enigma.GitClient.App.UnitTests;
@@ -293,6 +297,76 @@ public sealed class RepositoriesPageTests
 
             window.Close();
         });
+    }
+
+    [Fact]
+    public void Creating_CommitsAReadmeAsTheFirstCommitAndOpensTheRepository()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAnIdentityOnEveryNewRepository);
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            FillInitDialog(services, root, "brand-new");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            string path = Path.Combine(root, "brand-new");
+
+            Assert.Equal("Initial commit", ReadGit(path, "log", "--format=%s").Trim());
+            Assert.Equal("README.md", ReadGit(path, "ls-tree", "-r", "--name-only", "HEAD").Trim());
+            Assert.Equal("# brand-new\n", ReadGit(path, "show", "HEAD:README.md"));
+
+            Assert.Equal("brand-new", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Equal("brand-new", Assert.Single(page.Repositories).Name);
+            Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Repository created", note.Title);
+            Assert.Contains("with its README as the first commit", note.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void ACreatedRepositoryWhoseFirstCommitFails_IsStillOpenedAndTheReaderIsTold()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAFirstCommitGitRefuses);
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+
+            FillInitDialog(services, root, "no-identity");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            Assert.Equal("no-identity", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Equal("no-identity", Assert.Single(page.Repositories).Name);
+            Assert.Equal([AppWindowKind.Repository], services.Windows.Requested);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Repository created without its first commit", note.Title);
+            Assert.Equal(InfoBarSeverity.Warning, note.Severity);
+            Assert.Contains("git has no name and email to commit with. Set them on the Profiles page.", note.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData("*** Please tell me who you are.\n\nRun\n\n  git config --global user.email \"you@example.com\"\n", "git has no name and email to commit with. Set them on the Profiles page.")]
+    [InlineData("fatal: empty ident name (for <>) not allowed\n", "git has no name and email to commit with. Set them on the Profiles page.")]
+    [InlineData("fatal: unable to write new index file\n", "fatal: unable to write new index file.")]
+    public void FirstCommitProblem_SaysWhyInTheReadersTerms(string standardError, string expected)
+    {
+        GitCommandException refused = new(
+            new GitCommand(".", ["commit", "--message", "Initial commit"]),
+            128,
+            standardError,
+            string.Empty);
+
+        Assert.Equal(expected, RepositoriesPageViewModel.FirstCommitProblem(refused));
     }
 
     [Fact]
@@ -836,6 +910,70 @@ public sealed class RepositoriesPageTests
         Assert.True(condition(), "the page never reached the state the test waited for");
     }
 
+    private static void FillInitDialog(TestServices services, string parent, string name)
+    {
+        services.Dialogs.Result = DialogResult.Primary;
+        services.Dialogs.OnShown = dialog =>
+        {
+            if (dialog.Content is Control { DataContext: InitRepositoryDialogViewModel model })
+            {
+                model.ParentDirectory = parent;
+                model.DirectoryName = name;
+            }
+        };
+    }
+
+    /// <summary>
+    /// The real repository service, with a name and email given to each repository it creates: the
+    /// first commit must not depend on the identity of whoever runs the tests.
+    /// </summary>
+    private static void WithAnIdentityOnEveryNewRepository(ServiceCollection services)
+    {
+        services.RemoveAll<IRepositoryService>();
+        services.AddSingleton<RepositoryService>();
+        services.AddSingleton<IRepositoryService>(provider => new IdentifiedRepositoryService(
+            provider.GetRequiredService<RepositoryService>(),
+            refuseTheFirstCommit: false));
+    }
+
+    /// <summary>
+    /// The real repository service, whose first commit git refuses as it does without an identity.
+    /// </summary>
+    private static void WithAFirstCommitGitRefuses(ServiceCollection services)
+    {
+        services.RemoveAll<IRepositoryService>();
+        services.AddSingleton<RepositoryService>();
+        services.AddSingleton<IRepositoryService>(provider => new IdentifiedRepositoryService(
+            provider.GetRequiredService<RepositoryService>(),
+            refuseTheFirstCommit: true));
+    }
+
+    private static string ReadGit(string workingDirectory, params string[] arguments)
+    {
+        System.Diagnostics.ProcessStartInfo startInfo = new()
+        {
+            FileName = "git",
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using System.Diagnostics.Process process = System.Diagnostics.Process.Start(startInfo)!;
+        string output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+
+        return process.ExitCode == 0
+            ? output
+            : throw new InvalidOperationException(
+                $"git {string.Join(' ', arguments)} failed: {process.StandardError.ReadToEnd()}");
+    }
+
     private static void RunGit(string workingDirectory, params string[] arguments)
     {
         System.Diagnostics.ProcessStartInfo startInfo = new()
@@ -861,4 +999,60 @@ public sealed class RepositoriesPageTests
                 $"git {string.Join(' ', arguments)} failed: {process.StandardError.ReadToEnd()}");
         }
     }
+}
+
+/// <summary>
+/// Hands everything to the real repository service, but gives a repository a name and email of its own
+/// before its first commit — or refuses that commit the way git does without one.
+/// </summary>
+internal sealed class IdentifiedRepositoryService : IRepositoryService
+{
+    private readonly IRepositoryService _inner;
+    private readonly bool _refuseTheFirstCommit;
+
+    public IdentifiedRepositoryService(IRepositoryService inner, bool refuseTheFirstCommit)
+    {
+        _inner = inner;
+        _refuseTheFirstCommit = refuseTheFirstCommit;
+    }
+
+    public Task<RepositoryDiscoveryResult> OpenAsync(string path, System.Threading.CancellationToken cancellationToken = default)
+        => _inner.OpenAsync(path, cancellationToken);
+
+    public Task<RepositoryHandle> InitAsync(string path, string initialBranch = "main", System.Threading.CancellationToken cancellationToken = default)
+        => _inner.InitAsync(path, initialBranch, cancellationToken);
+
+    public Task<string> CommitReadmeAsync(RepositoryHandle repository, string title, System.Threading.CancellationToken cancellationToken = default)
+    {
+        if (_refuseTheFirstCommit)
+        {
+            throw new GitCommandException(
+                new GitCommand(repository.WorkTreePath, ["commit", "--message", "Initial commit"]),
+                128,
+                "Author identity unknown\n\n*** Please tell me who you are.\n",
+                string.Empty);
+        }
+
+        foreach ((string key, string value) in new[] { ("user.name", "Ada Lovelace"), ("user.email", "ada@example.com") })
+        {
+            using System.Diagnostics.Process process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = repository.WorkTreePath,
+                ArgumentList = { "config", "--local", key, value },
+                UseShellExecute = false,
+            })!;
+            process.WaitForExit();
+        }
+
+        return _inner.CommitReadmeAsync(repository, title, cancellationToken);
+    }
+
+    public Task<RepositoryHandle> CloneAsync(
+        CloneRequest request,
+        IProgress<CloneProgress>? progress = null,
+        System.Threading.CancellationToken cancellationToken = default)
+        => _inner.CloneAsync(request, progress, cancellationToken);
+
+    public RemoteUrlValidation ValidateCloneUrl(string? url) => _inner.ValidateCloneUrl(url);
 }

@@ -368,17 +368,34 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         {
             try
             {
+                string branch = model.InitialBranch.Trim();
                 RepositoryHandle repository = await _repositories
-                    .InitAsync(model.TargetPath, model.InitialBranch.Trim())
+                    .InitAsync(model.TargetPath, branch)
                     .ConfigureAwait(true);
+
+                // The first commit is a README holding the repository's name. A commit that fails —
+                // no name and email configured, most often — leaves a real repository all the same,
+                // so it is opened either way and the reader is told what is missing.
+                string? firstCommitProblem = await CommitReadmeAsync(repository).ConfigureAwait(true);
 
                 await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
                 await AddToListAsync(repository).ConfigureAwait(true);
 
-                Report(
-                    "Repository created",
-                    $"{repository.Name} is ready on branch {model.InitialBranch.Trim()}.",
-                    InfoBarSeverity.Success);
+                if (firstCommitProblem is null)
+                {
+                    Report(
+                        "Repository created",
+                        $"{repository.Name} is ready on branch {branch}, with its README as the first commit.",
+                        InfoBarSeverity.Success);
+                }
+                else
+                {
+                    Report(
+                        "Repository created without its first commit",
+                        $"{repository.Name} is ready on branch {branch}, but its README could not be committed: "
+                        + $"{firstCommitProblem} It is staged, ready to commit from the history.",
+                        InfoBarSeverity.Warning);
+                }
 
                 _windows.ShowRepository();
                 return true;
@@ -390,6 +407,46 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 return false;
             }
         }).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Commits a new repository's README.
+    /// </summary>
+    /// <returns><see langword="null"/> once it is committed; otherwise git's reason, for the reader.</returns>
+    private async Task<string?> CommitReadmeAsync(RepositoryHandle repository)
+    {
+        try
+        {
+            await _repositories.CommitReadmeAsync(repository, repository.Name).ConfigureAwait(true);
+            return null;
+        }
+        catch (Exception exception) when (exception is GitCommandException or System.IO.IOException)
+        {
+            _logger.LogWarning(exception, "The first commit of {Path} failed", repository.WorkTreePath);
+            return FirstCommitProblem(exception);
+        }
+    }
+
+    /// <summary>
+    /// Says why a first commit failed, in the reader's terms.
+    /// </summary>
+    /// <remarks>
+    /// The usual reason gets a sentence of its own: git's "Please tell me who you are" runs to a dozen
+    /// lines of commands to type, and the Profiles page is where this client sets a name and email.
+    /// </remarks>
+    internal static string FirstCommitProblem(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        if (exception is GitCommandException { StandardError: { } error }
+            && (error.Contains("Please tell me who you are", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("empty ident name", StringComparison.OrdinalIgnoreCase)
+                || error.Contains("unable to auto-detect email address", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "git has no name and email to commit with. Set them on the Profiles page.";
+        }
+
+        return ProfilesPageViewModel.Describe(exception).TrimEnd('.') + ".";
     }
 
     private async Task OnCloneAsync()
