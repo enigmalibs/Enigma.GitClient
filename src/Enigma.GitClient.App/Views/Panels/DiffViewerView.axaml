@@ -7,6 +7,11 @@
              x:Class="Enigma.GitClient.App.Views.Panels.DiffViewerView"
              x:DataType="vm:DiffViewerViewModel">
 
+  <!-- The diff is read-only: its text can be selected and copied, never typed into. -->
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Ctrl+C" Command="{Binding CopyCommand}" />
+  </UserControl.KeyBindings>
+
   <UserControl.Resources>
 
     <!-- The unified rendering: both line numbers, one marker, one text column. -->
@@ -287,7 +292,17 @@
                  BorderThickness="0"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
-                 AutomationProperties.Name="Unified diff" />
+                 AutomationProperties.Name="Unified diff">
+          <ListBox.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGesture="Ctrl+C">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="Copy" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+            </ContextMenu>
+          </ListBox.ContextMenu>
+        </ListBox>
 
         <diff:DiffMinimap Grid.Row="0"
                           Grid.Column="1"
@@ -329,7 +344,17 @@
                  BorderThickness="0"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
-                 AutomationProperties.Name="Side-by-side diff" />
+                 AutomationProperties.Name="Side-by-side diff">
+          <ListBox.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGesture="Ctrl+C">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="Copy" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+            </ContextMenu>
+          </ListBox.ContextMenu>
+        </ListBox>
 
         <diff:DiffMinimap Grid.Row="0"
                           Grid.Column="1"

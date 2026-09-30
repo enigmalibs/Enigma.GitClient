@@ -461,7 +461,14 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
         CopySelectionCommand = new AsyncRelayCommand(CopySelectionAsync, () => Selection.Count > 0);
 
-        Selection.CollectionChanged += (_, _) => CopySelectionCommand.NotifyCanExecuteChanged();
+        CopyCommand = new AsyncRelayCommand(CopyAsync, () => !Render.Selection.IsEmpty || Selection.Count > 0);
+
+        Selection.CollectionChanged += (_, _) =>
+        {
+            CopySelectionCommand.NotifyCanExecuteChanged();
+            CopyCommand.NotifyCanExecuteChanged();
+        };
+        Render.Selection.Changed += (_, _) => CopyCommand.NotifyCanExecuteChanged();
 
         // The tab width changes how wide a line is without changing the patch, and the toolbar's
         // wrap toggle writes straight to the options rather than through this ViewModel, so the
@@ -680,6 +687,12 @@ public sealed class DiffViewerViewModel : ViewModelBase
     public AsyncRelayCommand CopySelectionCommand { get; }
 
     /// <summary>
+    /// Gets the command Ctrl+C and the lists' "Copy" run: the selected text when there is some, the
+    /// selected rows' lines otherwise.
+    /// </summary>
+    public AsyncRelayCommand CopyCommand { get; }
+
+    /// <summary>
     /// Points the viewer at one file of one comparison and reads it.
     /// </summary>
     /// <param name="repository">The repository, or <see langword="null"/> to clear.</param>
@@ -822,6 +835,11 @@ public sealed class DiffViewerViewModel : ViewModelBase
                 : null);
     }
 
+    private Task CopyAsync()
+        => Render.Selection.IsEmpty
+            ? CopySelectionAsync()
+            : _interop.CopyTextAsync(SelectedText());
+
     private async Task CopySelectionAsync()
     {
         List<DiffLine> lines = [];
@@ -947,6 +965,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
         ShowAnywayCommand.NotifyCanExecuteChanged();
         CopyPatchCommand.NotifyCanExecuteChanged();
         CopySelectionCommand.NotifyCanExecuteChanged();
+        CopyCommand.NotifyCanExecuteChanged();
 
         // Last: whoever moves the view to the change is moving it to rows that now exist.
         PatchChanged?.Invoke(this, EventArgs.Empty);
