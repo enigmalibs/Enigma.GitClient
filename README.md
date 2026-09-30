@@ -166,7 +166,7 @@ dotnet run --project src/Enigma.GitClient.App
 ## Install on Linux
 
 `packaging/linux/install.sh` builds the application from this repository and installs it for you —
-no root, no `sudo`, nothing outside your home directory — so that **Enigma git client** is in your
+no root, no `sudo`, nothing outside your home directory — so that **Enigma Git Client** is in your
 application launcher:
 
 ```bash

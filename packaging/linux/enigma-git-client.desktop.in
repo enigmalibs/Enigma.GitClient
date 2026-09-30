@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Version=1.5
-Name=Enigma git client
-GenericName=Enigma git client
+Name=Enigma Git Client
+GenericName=Enigma Git Client
 Comment=A git client built around the commit graph and the diff
 Exec=@EXEC@
 Icon=enigma-git-client
