@@ -92,11 +92,19 @@
             </StackPanel>
           </Button>
 
-          <!-- About, at the end of the start window's one toolbar — where the repository window's
-               strip ends with it too — set apart from the actions on the repositories. -->
+          <!-- The theme switch and About, at the end of the start window's one toolbar — where the
+               repository window's strip ends with them too — set apart from the actions on the
+               repositories. -->
           <Border Width="1"
                   Margin="4,6"
                   Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+          <Button Name="ToggleTheme"
+                  Classes="toolbar"
+                  Command="{Binding ToggleThemeCommand}"
+                  ToolTip.Tip="Switch between the dark and light themes"
+                  AutomationProperties.Name="Switch between the dark and light themes">
+            <ei:Icon Kind="Palette" Classes="toolbar" />
+          </Button>
           <Button Name="OpenAbout"
                   Classes="toolbar"
                   Command="{Binding OpenAboutCommand}"

@@ -232,6 +232,70 @@ public sealed class RepositoriesPageTests
     }
 
     [Fact]
+    public void TheThemeSwitch_SwitchesTheWholeApplicationAndRecordsTheChoice()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            ISettingsService settings = services.Get<ISettingsService>();
+
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+
+            try
+            {
+                application.RequestedThemeVariant = ThemeVariant.Dark;
+
+                page.ToggleThemeCommand.Execute(null);
+                Assert.Equal(ThemeVariant.Light, application.RequestedThemeVariant);
+                Assert.Equal(ThemePreference.Light, settings.Current.Theme);
+
+                page.ToggleThemeCommand.Execute(null);
+                Assert.Equal(ThemeVariant.Dark, application.RequestedThemeVariant);
+                Assert.Equal(ThemePreference.Dark, settings.Current.Theme);
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
+    public void TheThemeSwitchSitsJustLeftOfAbout()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.OnAppearingAsync();
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Button theme = page.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ToggleTheme");
+            Button about = page.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "OpenAbout");
+
+            Assert.Same(model.ToggleThemeCommand, theme.Command);
+            Assert.Equal("Switch between the dark and light themes", AutomationProperties.GetName(theme));
+
+            StackPanel strip = Assert.IsType<StackPanel>(about.Parent);
+            Assert.Equal(strip.Children.IndexOf(about) - 1, strip.Children.IndexOf(theme));
+
+            Point themeAt = theme.TranslatePoint(default, page) ?? default;
+            Point aboutAt = about.TranslatePoint(default, page) ?? default;
+            Assert.True(themeAt.X < aboutAt.X, "the theme switch must be drawn left of About");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void OpeningAListedRepositoryAgain_LeavesItWhereItIs()
     {
         _fixture.RunAsync(async () =>

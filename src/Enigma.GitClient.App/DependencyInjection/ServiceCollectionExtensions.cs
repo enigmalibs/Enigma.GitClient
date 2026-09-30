@@ -65,6 +65,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<IAboutDialogService, AboutDialogService>();
+            services.AddSingleton<IThemeSwitcher, ThemeSwitcher>();
             services.AddSingleton<ICommitDetailsDialogService, CommitDetailsDialogService>();
 
             // The automatic refresh measures its interval on this clock, which a test replaces.

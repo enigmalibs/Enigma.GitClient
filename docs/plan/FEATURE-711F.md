@@ -1,6 +1,6 @@
 # FEATURE-711F — Repository lists per profile
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-09-30-profile-lists-readme-diffs
@@ -196,7 +196,7 @@ lose push. This phase makes such a profile legal.
 ## PHASE05 — A theme button beside About
 
 **Branch:** `feature/feature-711f-phase05-start-theme-button`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-711F-PHASE05.md`
 
 ### Steps
 
