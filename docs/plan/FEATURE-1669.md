@@ -1,6 +1,6 @@
 # FEATURE-1669 — New repositories start with a README
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1669.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1669-readme-first-commit`
 **Run:** feature/2026-09-30-profile-lists-readme-diffs

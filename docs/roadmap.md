@@ -230,7 +230,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | The profile picker on the home page     | DONE      | (in FEATURE-711F.md)      |
 | - PHASE04    | Reorder repositories by dragging        | DONE      | (in FEATURE-711F.md)      |
 | - PHASE05    | A theme button beside About             | DONE      | (in FEATURE-711F.md)      |
-| FEATURE-1669 | New repositories start with a README    | TODO      | docs/plan/FEATURE-1669.md |
+| FEATURE-1669 | New repositories start with a README    | DONE      | docs/plan/FEATURE-1669.md |
 | BUG-6787     | Diff text cannot be selected            | TODO      | docs/plan/BUG-6787.md     |
 | - PHASE01    | The text selection and its drawing      | TODO      | (in BUG-6787.md)          |
 | - PHASE02    | Selecting and copying with the pointer  | TODO      | (in BUG-6787.md)          |
