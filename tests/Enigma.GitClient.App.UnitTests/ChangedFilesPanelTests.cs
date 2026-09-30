@@ -607,7 +607,7 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
-    public void HistoryPage_ShowsTheUncommittedChangesLikeAnyOtherRow()
+    public void HistoryPage_ShowsTheUncommittedChangesAsTheWorkingTree()
     {
         _fixture.RunAsync(async () =>
         {
@@ -623,12 +623,17 @@ public sealed class ChangedFilesPanelTests
             await page.ReloadAsync();
 
             page.SelectedRow = page.Rows.Single(row => row.IsUncommitted);
-            await WaitForFilesAsync(page);
+            await WaitUntilAsync(() => page.WorkingTree.HasUnstaged);
 
-            Assert.Equal(["README.md"], PathsOf(page.Files));
+            // Its files are the working tree's, split into what is and is not staged; the list a
+            // commit's files go in has none of them.
+            Assert.True(page.IsWorkingTreeShown);
+            Assert.Equal(["README.md"], PathsOf(page.WorkingTree.Unstaged));
+            Assert.Empty(PathsOf(page.Files));
 
             // The pseudo-row has no commit, so the details header has nothing to describe.
             Assert.False(page.HasSelectedCommit);
+            Assert.False(page.HasDetailsCommit);
         });
     }
 
@@ -819,9 +824,8 @@ public sealed class ChangedFilesPanelTests
                 HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
                 await page.ReloadAsync();
 
-                // The dialog is what draws the panels, and it is asked for rather than implied by
-                // the selection.
-                page.RowCommands.ShowChanges.Execute(page.Rows.Single(row => row.Subject == "Rework the sources"));
+                // Selecting the line is what opens the details panel.
+                page.SelectedRow = page.Rows.Single(row => row.Subject == "Rework the sources");
                 await WaitForFilesAsync(page);
 
                 HistoryPageView view = services.Get<HistoryPageView>();
@@ -829,8 +833,8 @@ public sealed class ChangedFilesPanelTests
 
                 IReadOnlyList<string> texts = RenderAndReadText(view, "history-page-details.png", 1200, 700);
 
-                // The graph is still there, and the details pane now sits under it — its files a
-                // flat list of names, which is what the panel opens on: no directory row.
+                // The graph is still there, and the details panel sits beside it — its files a flat
+                // list of names, which is what the panel opens on: no directory row.
                 Assert.Contains("Rework the sources", texts);
                 Assert.Contains("Program.cs", texts);
                 Assert.DoesNotContain("src/app", texts);

@@ -221,6 +221,9 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-0842 | History: checked-out line, tag focus    | DONE      | docs/plan/FEATURE-0842.md |
 | - PHASE01    | The checked-out line is washed          | DONE      | (in FEATURE-0842.md)      |
 | - PHASE02    | The tag name has the focus              | DONE      | (in FEATURE-0842.md)      |
+| FEATURE-5261 | History details panel                   | DONE      | docs/plan/FEATURE-5261.md |
+| - PHASE01    | A details panel for commits             | DONE      | (in FEATURE-5261.md)      |
+| - PHASE02    | The working tree in the panel           | DONE      | (in FEATURE-5261.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

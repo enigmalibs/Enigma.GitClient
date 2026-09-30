@@ -164,10 +164,10 @@ public sealed record AppSettings
     // ---------------------------------------------------------------- changed files
 
     /// <summary>
-    /// Gets how the changed files are arranged — in the history's diffs, on the changes page and in
-    /// a stash. A flat list by default: a commit touches a handful of files far more often than a
-    /// tree's worth, and a list shows every one of them without a click; the tree is one setting, or
-    /// one toggle on the panel, away.
+    /// Gets how the changed files are arranged — in the history's details panel, for a commit and
+    /// for the working tree, and in a stash. A flat list by default: a commit touches a handful of
+    /// files far more often than a tree's worth, and a list shows every one of them without a click;
+    /// the tree is one setting, or one toggle on the panel, away.
     /// </summary>
     public FilesView FilesView { get; init; } = FilesView.List;
 

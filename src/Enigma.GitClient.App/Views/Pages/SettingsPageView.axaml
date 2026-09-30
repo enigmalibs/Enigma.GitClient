@@ -152,7 +152,7 @@
 
         <!-- Changed files -->
         <controls:SettingsCardExpander Header="Changed files"
-                                       Description="How the changed files are arranged in the history, on the changes page and in the diffs"
+                                       Description="How the changed files are arranged in the history's details panel, for a commit and for the working tree"
                                        IconData="{ei:IconGeometry FileText}">
           <StackPanel Spacing="14">
 
