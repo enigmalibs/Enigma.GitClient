@@ -21,14 +21,9 @@ namespace Enigma.GitClient.App.ViewModels.Pages;
 /// <param name="CreateBranchHere">Creates a branch starting at the row's commit.</param>
 /// <param name="CheckoutCommit">Checks out the row's commit itself, detaching HEAD.</param>
 /// <param name="CreateTagHere">Creates a tag at the row's commit.</param>
-/// <param name="Activate">
-/// What a double-click does: show what the row changed — or, on the uncommitted-changes row, ask
-/// the shell for the working directory. It no longer checks anything out: moving HEAD is the
-/// menu's job, not something to arrive at by clicking twice.
-/// </param>
 /// <param name="ShowChanges">
-/// Shows what the row changed. The same thing a double-click does, offered by name for a reader who
-/// closed the dialog and wants the same commit back — no selection change would announce that.
+/// Shows what the row changed: selects it, and opens the diff on its first file. A click on the line
+/// opens the details panel alone; this is the way straight to a diff, by name.
 /// </param>
 /// <param name="OpenOnHost">Opens the row's commit on the host its remote points at.</param>
 /// <param name="HostLabel">
@@ -65,7 +60,6 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
     AsyncRelayCommand<CommitRowViewModel> CreateTagHere,
-    RelayCommand<CommitRowViewModel> Activate,
     RelayCommand<CommitRowViewModel> ShowChanges,
     AsyncRelayCommand<CommitRowViewModel>? OpenOnHost = null,
     Func<string?>? HostLabel = null,

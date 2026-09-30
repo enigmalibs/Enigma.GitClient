@@ -405,6 +405,26 @@
   </Style>
 
   <!--
+    The history's details panel's edge, which resizes it: the same four-wide rule as the splitters
+    between a file list and its diff, brightening under the pointer as the column grips do.
+  -->
+
+  <Style Selector="Thumb.panelgrip">
+    <Setter Property="Width" Value="4" />
+    <Setter Property="Background" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" />
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="Thumb.panelgrip:pointerover">
+    <Setter Property="Background" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <!--
     The diff viewer. A row's own tint is quiet; the word-level tint drawn behind the changed
     stretches is the loud one, so the eye goes to the words that actually differ rather than to the
     whole line. Both follow the theme, so neither goes unreadable in the light variant.

@@ -57,11 +57,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IDiscardOperations _discards;
     private bool _absoluteDates;
 
+    // What the panel's files are compared against, and the row whose files they are — set together,
+    // once the files have arrived. Until they do, the panel still lists the previous row's, none of
+    // which may be shown against the new commit.
     private DiffTarget? _diffTarget;
-
-    // The row whose files the panel holds. They arrive after the row is selected, and until they do
-    // the panel still lists the previous row's — none of which may be shown against the new commit.
     private CommitRowViewModel? _filesRow;
+
+    // Set while an in-place reload replaces the rows: the list lets go of the selection while it is
+    // emptied, and the reload puts it back on the same line straight after.
+    private bool _keepingPlace;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<HistoryPageViewModel> _logger;
 
@@ -208,7 +212,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
-            new RelayCommand<CommitRowViewModel>(OnActivate, row => row is not null),
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName,
@@ -255,12 +258,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         // The viewer follows the panel rather than the panel driving it: the panel's job ends at
         // "this file is selected", whoever is listening.
-        Files.SelectionChanged += (_, _) => _ = ShowSelectedFileAsync();
+        Files.SelectionChanged += (_, _) => OnFileSelectionChanged();
         _infoBar = infoBar;
         _logger = logger;
 
         CloseDiffViewCommand = new RelayCommand(() => IsDiffViewOpen = false);
-        ShowCommitDetailsCommand = new AsyncRelayCommand(() => OnShowDetailsAsync(SelectedRow), () => SelectedRow?.Commit is not null);
+        CloseDetailsPanelCommand = new RelayCommand(() => SelectedRow = null);
+        ShowCommitDetailsCommand = new AsyncRelayCommand(() => OnShowDetailsAsync(DetailsRow), () => DetailsRow?.Commit is not null);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
@@ -346,15 +350,24 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 OnPropertyChanged(nameof(HasSelection));
                 NotifySelectedCommitDetails();
 
-                // Selecting a line selects it and nothing more: the diffs are asked for, by a
-                // double-click or by the row's menu. Losing the selection — what a reload after a
-                // checkout does — still puts them away, because a page describing a commit nobody
-                // has selected is describing nothing.
+                // Selecting a line opens the details panel and nothing more: the diffs are asked
+                // for, by a file of the panel or by the row's menu. Losing the selection — what a
+                // reload after a checkout does — still puts them away, because a page describing a
+                // commit nobody has selected is describing nothing.
                 if (value is null)
                 {
                     IsDiffViewOpen = false;
                 }
 
+                // An in-place reload lets go of the line only to select it again once the rows are
+                // back: the panel waits for it, rather than closing and emptying under the reader
+                // at every automatic refresh.
+                if (_keepingPlace && value is null)
+                {
+                    return;
+                }
+
+                DetailsRow = value;
                 _ = LoadChangedFilesAsync();
             }
         }
@@ -366,18 +379,100 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public bool HasSelection => SelectedRow is not null;
 
     /// <summary>
-    /// Gets or sets a value indicating whether what the selected commit changed has the page.
+    /// Gets the line the details panel describes: the selected one, and still that one while an
+    /// in-place reload is putting the selection back on it.
+    /// </summary>
+    public CommitRowViewModel? DetailsRow
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(IsDetailsPanelOpen));
+                OnPropertyChanged(nameof(HasDetailsCommit));
+                ShowCommitDetailsCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether the details panel is on screen, which it is for as long as a
+    /// line is selected: the lines are its toggles.
+    /// </summary>
+    public bool IsDetailsPanelOpen => DetailsRow is not null;
+
+    /// <summary>
+    /// Gets a value indicating whether the panel describes a commit there are details of, as opposed
+    /// to the uncommitted line.
+    /// </summary>
+    public bool HasDetailsCommit => DetailsRow?.Commit is not null;
+
+    /// <summary>
+    /// Gets or sets how wide the details panel is.
     /// </summary>
     /// <remarks>
-    /// The page's own statement: the view shows the diffs over the whole of itself while this is
-    /// set, and every way out — the back button, Escape — clears it. Closing deliberately leaves
+    /// The reader's, from the grip on the panel's edge, and kept for as long as the window is open;
+    /// the list beside it is what gives way, and in the list the message column, whose width is
+    /// whatever the other columns leave it.
+    /// </remarks>
+    public double DetailsPanelWidth
+    {
+        get;
+        set => SetProperty(ref field, Math.Clamp(value, MinimumDetailsPanelWidth, MaximumDetailsPanelWidth));
+    } = DefaultDetailsPanelWidth;
+
+    /// <summary>Gets how wide the details panel opens the first time.</summary>
+    public static double DefaultDetailsPanelWidth => 380;
+
+    /// <summary>
+    /// Gets how narrow the details panel may be made: the working tree's headers, with their
+    /// buttons, still fit.
+    /// </summary>
+    public static double MinimumDetailsPanelWidth => 280;
+
+    /// <summary>Gets how wide the details panel may be made.</summary>
+    public static double MaximumDetailsPanelWidth => 720;
+
+    /// <summary>
+    /// Moves the details panel's left edge by what the pointer moved on its grip.
+    /// </summary>
+    /// <param name="delta">How far the pointer moved, positive to the right.</param>
+    /// <remarks>
+    /// The panel is docked on the right, so the edge moving right makes it narrower.
+    /// </remarks>
+    public void ResizeDetailsPanel(double delta) => DetailsPanelWidth -= delta;
+
+    /// <summary>
+    /// What a plain click on a line does: the selected line lets go of the selection, which closes
+    /// the details panel, and any other line takes it.
+    /// </summary>
+    /// <param name="row">The line clicked.</param>
+    public void ToggleSelection(CommitRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        SelectedRow = ReferenceEquals(row, SelectedRow) ? null : row;
+    }
+
+    /// <summary>Gets the command that closes the details panel, letting go of the selected line.</summary>
+    public RelayCommand CloseDetailsPanelCommand { get; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a file's diff is drawn over the graph.
+    /// </summary>
+    /// <remarks>
+    /// The page's own statement: the view shows the diff over the graph while this is set — the
+    /// details panel stays beside it, and is how the reader goes from one file to the next — and
+    /// every way out — the back button, Escape — clears it. Closing deliberately leaves
     /// <see cref="SelectedRow"/> alone, because the selection is also what "create a branch here"
-    /// starts from and what the row highlight shows. Nothing but an explicit request opens it: a
-    /// double-click on a row, or that row's menu.
+    /// starts from, what the row highlight shows and what keeps the panel open. It opens when a file
+    /// of the panel is picked, or from the row's menu.
     /// <para>
-    /// It always opens on the commit's first file — never on the file that was selected before, in
-    /// another commit or the last time this one was open. When the files are still being read, the
-    /// first one is selected as they arrive.
+    /// From the menu it opens on the commit's first file — never on the file that was selected
+    /// before, in another commit or the last time this one was open. When the files are still being
+    /// read, the first one is selected as they arrive. Closing lets go of the file, so that picking
+    /// the same one again opens it again.
     /// </para>
     /// </remarks>
     public bool IsDiffViewOpen
@@ -392,9 +487,17 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
             if (value)
             {
-                SelectFirstFile();
+                if (Files.SelectedFile is null)
+                {
+                    SelectFirstFile();
+                }
             }
-            else if (_refreshPending)
+            else
+            {
+                Files.SelectedNode = null;
+            }
+
+            if (!value && _refreshPending)
             {
                 // What the automatic refresh found while the diffs had the page, drawn now that the
                 // graph is back.
@@ -462,17 +565,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that forgets the merge source.</summary>
     public RelayCommand ClearMergeSourceCommand { get; }
 
-    /// <summary>
-    /// Raised when the uncommitted-changes row is activated, so the shell can move to the page that
-    /// actually does something with it.
-    /// </summary>
-    /// <remarks>
-    /// An event rather than a navigation service: the shell's navigation builds the page ViewModels,
-    /// so a page that asked it for a reference would be asking to be constructed by something it is
-    /// constructing.
-    /// </remarks>
-    public event EventHandler? WorkingDirectoryRequested;
-
     /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
     public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
 
@@ -484,10 +576,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>
     /// Gets the command that shows the selected commit's details — its title, description, author,
-    /// date and hash — from the diff view's header.
+    /// date and hash — from the details panel's header and from the diff view's.
     /// </summary>
     /// <remarks>
-    /// The header carries the subject alone, on one line: everything else about the commit is here,
+    /// The headers carry the subject alone, on one line: everything else about the commit is here,
     /// one click away, as text to select and copy.
     /// </remarks>
     public AsyncRelayCommand ShowCommitDetailsCommand { get; }
@@ -819,23 +911,33 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         // must not quietly undo it.
         int pageSize = _query.Take;
         _query = _query with { Take = Math.Max(pageSize, loaded) };
+        _keepingPlace = true;
 
         try
         {
             await ReloadAsync().ConfigureAwait(true);
+
+            foreach (CommitRowViewModel row in Rows)
+            {
+                if (uncommittedSelected ? row.IsUncommitted : selectedSha is { Length: > 0 } && row.Sha == selectedSha)
+                {
+                    SelectedRow = row;
+                    break;
+                }
+            }
         }
         finally
         {
             _query = _query with { Take = pageSize };
+            _keepingPlace = false;
         }
 
-        foreach (CommitRowViewModel row in Rows)
+        // The line the panel described is gone — its commit is no longer drawn, or the work it
+        // stood for was committed or thrown away — and the panel goes with it.
+        if (SelectedRow is null && DetailsRow is not null)
         {
-            if (uncommittedSelected ? row.IsUncommitted : selectedSha is { Length: > 0 } && row.Sha == selectedSha)
-            {
-                SelectedRow = row;
-                break;
-            }
+            DetailsRow = null;
+            _ = LoadChangedFilesAsync();
         }
 
         RowsReplaced?.Invoke(this, EventArgs.Empty);
@@ -1510,8 +1612,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             ? DiffTarget.Uncommitted()
             : DiffTarget.Commit(row.Sha);
 
-        _diffTarget = target;
-
         try
         {
             IReadOnlyList<Core.Files.ChangedFile> files = await _diffs
@@ -1528,6 +1628,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             // both happen to have.
             Files.WorkTreePath = repository.WorkTreePath;
             Files.SetFiles(files, keepSelection: false);
+            _diffTarget = target;
             _filesRow = row;
 
             if (IsDiffViewOpen)
@@ -1557,6 +1658,30 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         if (_filesRow is not null && ReferenceEquals(_filesRow, SelectedRow))
         {
             Files.SelectFirstFile();
+        }
+    }
+
+    /// <summary>
+    /// Follows the file the panel has selected: the diff viewer shows it, over the graph.
+    /// </summary>
+    /// <remarks>
+    /// A file of the list the panel still holds for the previous line, until the selected line's
+    /// files arrive, is no file of the selected line: it is neither shown nor opened.
+    /// </remarks>
+    private void OnFileSelectionChanged()
+    {
+        bool current = ReferenceEquals(_filesRow, SelectedRow);
+
+        if (Files.SelectedFile is not null && !current)
+        {
+            return;
+        }
+
+        _ = ShowSelectedFileAsync();
+
+        if (Files.SelectedFile is not null)
+        {
+            IsDiffViewOpen = true;
         }
     }
 
@@ -1756,12 +1881,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private static bool HasCommit(CommitRowViewModel? row) => row?.Commit is not null;
 
     /// <summary>
-    /// Shows what a row changed, selecting it first when it is not the selected one.
+    /// Shows what a row changed, selecting it first when it is not the selected one, and opening the
+    /// diff on its first file.
     /// </summary>
     /// <param name="row">The row.</param>
     /// <remarks>
-    /// The one way into the dialog, shared by the row's menu and by a double-click: a selection
-    /// change no longer opens anything, so both gestures ask for it here.
+    /// The row menu's way into the diffs. Selecting a line only opens the details panel, whose files
+    /// are the other way in.
     /// </remarks>
     private void OnShowChanges(CommitRowViewModel? row)
     {
@@ -1831,37 +1957,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
-    /// <summary>
-    /// What a double-click on a row does: show what it changed.
-    /// </summary>
-    /// <param name="row">The row.</param>
-    /// <remarks>
-    /// It used to check the row out, which is now the row menu's job alone — a gesture that moves
-    /// HEAD is not one to arrive at by clicking twice. The uncommitted pseudo-row keeps its own
-    /// meaning: there is nothing there to compare against a parent, and the page that acts on that
-    /// work is the working directory.
-    /// </remarks>
-    private void OnActivate(CommitRowViewModel? row)
-    {
-        if (row is null)
-        {
-            return;
-        }
-
-        if (row.IsUncommitted)
-        {
-            WorkingDirectoryRequested?.Invoke(this, EventArgs.Empty);
-            return;
-        }
-
-        OnShowChanges(row);
-    }
-
     private void NotifySelectedCommitDetails()
     {
         OnPropertyChanged(nameof(SelectedSubject));
         OnPropertyChanged(nameof(HasSelectedCommit));
-        ShowCommitDetailsCommand.NotifyCanExecuteChanged();
     }
 
     private void NotifyEmptyState()

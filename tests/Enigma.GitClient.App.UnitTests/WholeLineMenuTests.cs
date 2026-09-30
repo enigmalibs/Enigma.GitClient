@@ -204,7 +204,7 @@ public sealed class WholeLineMenuTests
     }
 
     [Fact]
-    public void TheHistoryDiffsFileLines_OpenTheirMenusAnywhereOnThem()
+    public void TheHistoryPanelsFileLines_OpenTheirMenusAnywhereOnThem()
     {
         _fixture.RunAsync(async () =>
         {
@@ -222,15 +222,15 @@ public sealed class WholeLineMenuTests
 
             try
             {
-                page.RowCommands.ShowChanges.Execute(page.Rows.First(row => row.Commit is not null));
+                page.SelectedRow = page.Rows.First(row => row.Commit is not null);
                 await WaitUntilAsync(() => page.Files.Nodes.Count > 0);
                 Render(window);
 
-                Border diffs = view.FindControl<Border>("DiffPage")
-                    ?? throw new InvalidOperationException("The history page has no diff view.");
-                Assert.True(diffs.IsVisible);
+                Border panel = view.FindControl<Border>("DetailsPanel")
+                    ?? throw new InvalidOperationException("The history page has no details panel.");
+                Assert.True(panel.IsVisible);
 
-                AssertTheWholeFileLineOpensItsMenu(window, FileLines(diffs).First());
+                AssertTheWholeFileLineOpensItsMenu(window, FileLines(panel).First());
             }
             finally
             {

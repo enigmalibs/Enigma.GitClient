@@ -567,7 +567,7 @@ public sealed class TagsAndCheckoutTests
     }
 
     [Fact]
-    public void History_ActivatingARowChecksNothingOut()
+    public void History_SelectingARowOrShowingItsChangesChecksNothingOut()
     {
         _fixture.RunAsync(async () =>
         {
@@ -585,9 +585,12 @@ public sealed class TagsAndCheckoutTests
 
             Assert.True(row.HasBranch);
 
-            row.Commands!.Activate.Execute(row);
+            history.SelectedRow = row;
+            row.Commands!.ShowChanges.Execute(row);
 
-            // A double-click shows what the row changed; moving HEAD is the menu's job alone.
+            // A click opens the details panel and the menu shows what the row changed; moving HEAD is
+            // the menu's job alone, and only when asked by name.
+            Assert.True(history.IsDetailsPanelOpen);
             Assert.Equal(before, context.Head?.BranchName);
             Assert.False(context.Head?.IsDetached);
             Assert.True(history.IsDiffViewOpen);
