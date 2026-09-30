@@ -54,7 +54,8 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddGitClientApp()
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
-            services.AddSingleton<IRecentRepositoryStore, RecentRepositoryStore>();
+            services.AddSingleton<IRepositoryListStore, RepositoryListStore>();
+            services.AddSingleton<IProfileSelection, ProfileSelection>();
             services.AddSingleton<IHiddenBranchStore, HiddenBranchStore>();
             services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
@@ -64,6 +65,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<IAboutDialogService, AboutDialogService>();
+            services.AddSingleton<IThemeSwitcher, ThemeSwitcher>();
             services.AddSingleton<ICommitDetailsDialogService, CommitDetailsDialogService>();
 
             // The automatic refresh measures its interval on this clock, which a test replaces.

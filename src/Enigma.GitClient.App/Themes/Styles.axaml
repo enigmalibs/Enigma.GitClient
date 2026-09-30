@@ -492,6 +492,7 @@
     <Setter Property="FontSize" Value="{DynamicResource DiffFontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
     <Setter Property="WhitespaceBrush" Value="{DynamicResource DiffWhitespaceBrush}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource DiffTextSelectionBrush}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 

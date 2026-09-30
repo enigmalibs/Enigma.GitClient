@@ -75,8 +75,48 @@ public sealed class IdentityProfileTests
         Assert.Equal(
             "Give the profile a name, such as Work or Personal.",
             IdentityProfileRules.Validate(new IdentityProfile("x", "", "", "")));
-        Assert.Equal("Enter a name.", IdentityProfileRules.Validate(new IdentityProfile("x", "Work", "", "")));
+        Assert.Equal("Enter a name.", IdentityProfileRules.Validate(new IdentityProfile("x", "Work", "", "ada@example.com")));
         Assert.Null(IdentityProfileRules.Validate(new IdentityProfile("x", "Work", "Ada", "ada@example.com")));
         Assert.Throws<ArgumentNullException>(() => IdentityProfileRules.Validate(null!));
+    }
+
+    [Fact]
+    public void Validate_AcceptsAProfileWithNoNameAndNoEmail()
+    {
+        Assert.Null(IdentityProfileRules.Validate(new IdentityProfile("x", "Default", "", "")));
+        Assert.Null(IdentityProfileRules.Validate(new IdentityProfile("x", "Default", "  ", " ")));
+
+        // The label is still required.
+        Assert.NotNull(IdentityProfileRules.Validate(new IdentityProfile("x", "", "", "")));
+    }
+
+    [Theory]
+    [InlineData("Ada", "", "Enter an email.")]
+    [InlineData("", "ada@example.com", "Enter a name.")]
+    [InlineData("Ada", "nope", "An email needs something on both sides of an @.")]
+    public void ValidateIdentity_RefusesHalfAnIdentity(string name, string email, string expected)
+        => Assert.Equal(expected, IdentityProfileRules.ValidateIdentity(new GitIdentity(name, email)));
+
+    [Fact]
+    public void ValidateIdentity_AcceptsNoneOrAWholeOne()
+    {
+        Assert.Null(IdentityProfileRules.ValidateIdentity(GitIdentity.Empty));
+        Assert.Null(IdentityProfileRules.ValidateIdentity(new GitIdentity(" Ada ", " ada@example.com ")));
+        Assert.Throws<ArgumentNullException>(() => IdentityProfileRules.ValidateIdentity(null!));
+    }
+
+    [Fact]
+    public void AProfileWithoutAnIdentity_IsNeverTheOneGitHas()
+    {
+        IdentityProfile none = new("default", "Default", string.Empty, string.Empty);
+        IdentityProfile work = IdentityProfile.Create("Work", new GitIdentity("Ada", "ada@work.example"));
+
+        Assert.False(none.HasIdentity);
+        Assert.True(work.HasIdentity);
+
+        Assert.False(none.Matches(new GitIdentity("Ada", "ada@work.example")));
+        Assert.False(none.Matches(GitIdentity.Empty));
+        Assert.Same(work, IdentityProfile.FirstMatching([none, work], new GitIdentity("Ada", "ada@work.example")));
+        Assert.Null(IdentityProfile.FirstMatching([none], GitIdentity.Empty));
     }
 }

@@ -47,8 +47,11 @@ public sealed class ProfileRowViewModel : ViewModelBase
     /// <summary>Gets what the profile is called.</summary>
     public string Label => Profile.Label;
 
-    /// <summary>Gets the identity the profile sets, written the way a commit writes it.</summary>
-    public string Summary => Profile.Identity.ToString();
+    /// <summary>
+    /// Gets the identity the profile sets, written the way a commit writes it — or, for a profile that
+    /// sets none, a line saying so rather than nothing.
+    /// </summary>
+    public string Summary => Describe(Profile);
 
     /// <summary>
     /// Gets a value indicating whether the profile is the identity git has now.
@@ -61,12 +64,19 @@ public sealed class ProfileRowViewModel : ViewModelBase
             if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(IsNotCurrent));
+                OnPropertyChanged(nameof(CanUse));
             }
         }
     }
 
-    /// <summary>Gets a value indicating whether the profile can be switched to.</summary>
+    /// <summary>Gets a value indicating whether the profile is not the identity git has now.</summary>
     public bool IsNotCurrent => !IsCurrent;
+
+    /// <summary>
+    /// Gets a value indicating whether the profile can be switched to: it is not the current one, and
+    /// it has a name and an email to switch to.
+    /// </summary>
+    public bool CanUse => IsNotCurrent && Profile.HasIdentity;
 
     /// <summary>Gets the command that makes this profile the global identity.</summary>
     public AsyncRelayCommand<ProfileRowViewModel> UseCommand => _owner.UseProfileCommand;
@@ -104,6 +114,14 @@ public sealed class ProfileRowViewModel : ViewModelBase
 
     /// <inheritdoc />
     public override string ToString() => $"{Label}: {Summary}";
+
+    /// <summary>
+    /// Writes what a profile sets, the way the page and its messages show it.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <returns>Its identity as a commit writes it, or "No name or email".</returns>
+    internal static string Describe(IdentityProfile profile)
+        => profile.HasIdentity ? profile.Identity.ToString() : "No name or email";
 }
 
 /// <summary>
@@ -140,6 +158,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 {
     private readonly IGitIdentityService _identity;
     private readonly IIdentityProfileStore _profiles;
+    private readonly IRepositoryListStore _lists;
     private readonly IHostAccountService _accounts;
     private readonly IHostProviderRegistry _registry;
     private readonly IHostLinkService _links;
@@ -156,6 +175,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="identity">Reads and writes git's identity.</param>
     /// <param name="profiles">Keeps the identity profiles.</param>
+    /// <param name="lists">Keeps each profile's list of repositories, which goes with the profile.</param>
     /// <param name="accounts">Keeps the connected accounts and their tokens.</param>
     /// <param name="registry">Finds the provider for an account.</param>
     /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
@@ -169,6 +189,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IRepositoryContext repositoryContext,
         IGitIdentityService identity,
         IIdentityProfileStore profiles,
+        IRepositoryListStore lists,
         IHostAccountService accounts,
         IHostProviderRegistry registry,
         IHostLinkService links,
@@ -182,6 +203,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(lists);
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(links);
@@ -194,6 +216,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
         _identity = identity;
         _profiles = profiles;
+        _lists = lists;
         _accounts = accounts;
         _registry = registry;
         _links = links;
@@ -788,7 +811,9 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
     private async Task OnUseProfileAsync(ProfileRowViewModel? row)
     {
-        if (row is null)
+        // A profile without a name and email has nothing to switch to: writing its empty identity
+        // would unset git's own.
+        if (row is null || !row.Profile.HasIdentity)
         {
             return;
         }
@@ -847,7 +872,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             dialog.Title = "Delete this profile";
             dialog.Content =
                 $"Delete the profile {row.Label} ({row.Summary})?\n\n"
-                + "Your git configuration keeps whatever identity it has."
+                + "Your git configuration keeps whatever identity it has. Its list of repositories goes "
+                + "with it; the repositories themselves stay where they are."
                 + integrations;
             dialog.PrimaryButtonText = "Delete";
             dialog.CloseButtonText = "Keep it";
@@ -880,6 +906,10 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         // integrations — visible, and still removable — rather than under a profile that is gone.
         try
         {
+            // Its list of repositories goes with it: a list nobody can select again would only sit
+            // in the file. The store keeps a failed write to itself, as losing a list is no failure.
+            await _lists.RemoveProfileAsync(row.Profile.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+
             await _accounts.RemoveForProfileAsync(row.Profile.Id, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
 
             Report("Profile deleted", $"{row.Label} is no longer in the list.", InfoBarSeverity.Info);
@@ -973,7 +1003,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             return;
         }
 
-        Report(title, $"{stored.Label}: {stored.Identity}.", InfoBarSeverity.Success);
+        Report(title, $"{stored.Label}: {ProfileRowViewModel.Describe(stored)}.", InfoBarSeverity.Success);
         await LoadProfilesAsync().ConfigureAwait(true);
     }
 

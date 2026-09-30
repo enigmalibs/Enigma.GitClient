@@ -117,7 +117,7 @@
                   Classes="choice"
                   Command="{Binding UseCommand}"
                   CommandParameter="{Binding}"
-                  IsVisible="{Binding IsNotCurrent}"
+                  IsVisible="{Binding CanUse}"
                   VerticalAlignment="Center"
                   ToolTip.Tip="Make this name and email your global git identity"
                   AutomationProperties.Name="Use this profile">

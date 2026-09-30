@@ -224,6 +224,16 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5261 | History details panel                   | DONE      | docs/plan/FEATURE-5261.md |
 | - PHASE01    | A details panel for commits             | DONE      | (in FEATURE-5261.md)      |
 | - PHASE02    | The working tree in the panel           | DONE      | (in FEATURE-5261.md)      |
+| FEATURE-711F | Repository lists per profile            | DONE      | docs/plan/FEATURE-711F.md |
+| - PHASE01    | Profiles without a name and email       | DONE      | (in FEATURE-711F.md)      |
+| - PHASE02    | A repository list per profile           | DONE      | (in FEATURE-711F.md)      |
+| - PHASE03    | The profile picker on the home page     | DONE      | (in FEATURE-711F.md)      |
+| - PHASE04    | Reorder repositories by dragging        | DONE      | (in FEATURE-711F.md)      |
+| - PHASE05    | A theme button beside About             | DONE      | (in FEATURE-711F.md)      |
+| FEATURE-1669 | New repositories start with a README    | DONE      | docs/plan/FEATURE-1669.md |
+| BUG-6787     | Diff text cannot be selected            | DONE      | docs/plan/BUG-6787.md     |
+| - PHASE01    | The text selection and its drawing      | DONE      | (in BUG-6787.md)          |
+| - PHASE02    | Selecting and copying with the pointer  | DONE      | (in BUG-6787.md)          |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

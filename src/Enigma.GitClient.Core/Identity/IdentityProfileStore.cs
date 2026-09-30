@@ -24,6 +24,18 @@ public interface IIdentityProfileStore
     Task<IReadOnlyList<IdentityProfile>> GetAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads every profile, creating the default one (<see cref="IdentityProfile.CreateDefault"/>) first
+    /// when there is none.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the read and the write.</param>
+    /// <returns>The profiles, in the order they were added; never empty.</returns>
+    /// <remarks>
+    /// Every list of repositories belongs to a profile, so there must always be one. This is how there is,
+    /// on the first start and after the last profile was deleted alike.
+    /// </remarks>
+    Task<IReadOnlyList<IdentityProfile>> EnsureAnyAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Adds a profile, or replaces the one with the same identifier where it stands.
     /// </summary>
     /// <param name="profile">The profile.</param>
@@ -100,6 +112,32 @@ public sealed class IdentityProfileStore : IIdentityProfileStore, IDisposable
         try
         {
             return await ReadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<IdentityProfile>> EnsureAnyAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            IReadOnlyList<IdentityProfile> profiles = await ReadAsync(cancellationToken).ConfigureAwait(false);
+
+            if (profiles.Count > 0)
+            {
+                return profiles;
+            }
+
+            List<IdentityProfile> created = [IdentityProfile.CreateDefault()];
+
+            await WriteAsync(created, cancellationToken).ConfigureAwait(false);
+
+            return created;
         }
         finally
         {

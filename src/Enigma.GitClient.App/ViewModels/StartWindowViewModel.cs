@@ -19,7 +19,7 @@ public sealed class StartWindowViewModel : ViewModelBase
     /// Initialises a new instance.
     /// </summary>
     /// <param name="navigation">Owns the start window's rail.</param>
-    /// <param name="repositories">The repositories page, whose recent list is re-read on every showing.</param>
+    /// <param name="repositories">The repositories page, whose list is re-read on every showing.</param>
     public StartWindowViewModel(IStartNavigation navigation, RepositoriesPageViewModel repositories)
     {
         ArgumentNullException.ThrowIfNull(navigation);
@@ -40,8 +40,8 @@ public sealed class StartWindowViewModel : ViewModelBase
 
     /// <summary>
     /// Runs every time the start window opens: the first time, it selects the repositories page;
-    /// afterwards — coming back from a repository — it re-reads the recent list, which that
-    /// repository has just moved to the top.
+    /// afterwards — coming back from a repository — it re-reads the list, which that repository may
+    /// just have joined.
     /// </summary>
     /// <returns>A task that completes once the page is current.</returns>
     public async Task InitialiseAsync()
@@ -52,6 +52,6 @@ public sealed class StartWindowViewModel : ViewModelBase
             return;
         }
 
-        await _repositories.ReloadRecentAsync().ConfigureAwait(true);
+        await _repositories.ReloadListAsync().ConfigureAwait(true);
     }
 }

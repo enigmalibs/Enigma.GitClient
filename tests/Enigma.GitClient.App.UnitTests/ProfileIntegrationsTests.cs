@@ -698,6 +698,9 @@ public sealed class ProfileIntegrationsTests
         public Task<RepositoryHandle> InitAsync(string path, string initialBranch = "main", CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<string> CommitReadmeAsync(RepositoryHandle repository, string title, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public RemoteUrlValidation ValidateCloneUrl(string? url) => RemoteUrlValidator.Validate(url);
     }
 }

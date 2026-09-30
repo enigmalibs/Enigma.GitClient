@@ -74,7 +74,7 @@ public sealed class InstanceTests
             string path = Path.Combine(services.ConfigurationRoot, "other-repo");
             Directory.CreateDirectory(path);
 
-            page.OpenInNewWindowCommand.Execute(new RecentRepository(path, "other-repo", DateTimeOffset.UtcNow));
+            page.OpenInNewWindowCommand.Execute(new ListedRepository(path, "other-repo"));
 
             Assert.Equal([path], services.Launcher.Launched);
             Assert.Empty(services.Windows.Requested);
@@ -92,7 +92,7 @@ public sealed class InstanceTests
 
             string gone = Path.Combine(services.ConfigurationRoot, "gone");
 
-            page.OpenInNewWindowCommand.Execute(new RecentRepository(gone, "gone", DateTimeOffset.UtcNow));
+            page.OpenInNewWindowCommand.Execute(new ListedRepository(gone, "gone"));
 
             Assert.Empty(services.Launcher.Launched);
             Assert.Equal(InfoBarSeverity.Warning, Assert.Single(services.InfoBar.Shown).Severity);
@@ -111,7 +111,7 @@ public sealed class InstanceTests
             string path = Path.Combine(services.ConfigurationRoot, "other-repo");
             Directory.CreateDirectory(path);
 
-            page.OpenInNewWindowCommand.Execute(new RecentRepository(path, "other-repo", DateTimeOffset.UtcNow));
+            page.OpenInNewWindowCommand.Execute(new ListedRepository(path, "other-repo"));
 
             Assert.Equal(InfoBarSeverity.Error, Assert.Single(services.InfoBar.Shown).Severity);
         });

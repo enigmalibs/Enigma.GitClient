@@ -60,6 +60,64 @@ public sealed class RepositoryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CommitReadmeAsync_MakesTheFirstCommitWithTheReadmeAlone()
+    {
+        RepositoryHandle repository = await Service.InitAsync(Path("fresh"), "trunk", TestContext.Current.CancellationToken);
+
+        // Something else in the directory: it is the user's to add, not the first commit's.
+        await File.WriteAllTextAsync(
+            System.IO.Path.Combine(repository.WorkTreePath, "notes.txt"),
+            "mine\n",
+            TestContext.Current.CancellationToken);
+
+        string sha = await Service.CommitReadmeAsync(repository, "fresh", TestContext.Current.CancellationToken);
+
+        Assert.Equal(sha, await Git(repository, "rev-parse", "HEAD"));
+        Assert.Equal("Initial commit", await Git(repository, "log", "--format=%s"));
+        Assert.Equal("README.md", await Git(repository, "ls-tree", "-r", "--name-only", "HEAD"));
+        Assert.Equal("# fresh\n", await GitRaw(repository, "show", "HEAD:README.md"));
+        Assert.Equal("trunk", await Git(repository, "rev-parse", "--abbrev-ref", "HEAD"));
+        Assert.Equal("?? notes.txt", await Git(repository, "status", "--porcelain"));
+
+        byte[] bytes = await File.ReadAllBytesAsync(
+            System.IO.Path.Combine(repository.WorkTreePath, "README.md"),
+            TestContext.Current.CancellationToken);
+        Assert.Equal((byte)'#', bytes[0]);
+    }
+
+    [Fact]
+    public async Task CommitReadmeAsync_CommitsAReadmeThatIsAlreadyThereWithoutTouchingIt()
+    {
+        string path = Path("has-readme");
+        Directory.CreateDirectory(path);
+        await File.WriteAllTextAsync(
+            System.IO.Path.Combine(path, "README.md"),
+            "Written by hand.\r\n",
+            TestContext.Current.CancellationToken);
+
+        RepositoryHandle repository = await Service.InitAsync(path, "main", TestContext.Current.CancellationToken);
+
+        await Service.CommitReadmeAsync(repository, "has-readme", TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            "Written by hand.\r\n",
+            await File.ReadAllTextAsync(System.IO.Path.Combine(path, "README.md"), TestContext.Current.CancellationToken));
+        Assert.Equal("README.md", await Git(repository, "ls-tree", "-r", "--name-only", "HEAD"));
+        Assert.Equal(string.Empty, await Git(repository, "status", "--porcelain"));
+    }
+
+    [Fact]
+    public async Task CommitReadmeAsync_RefusesAnEmptyTitle()
+    {
+        RepositoryHandle repository = await Service.InitAsync(Path("untitled"), "main", TestContext.Current.CancellationToken);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Service.CommitReadmeAsync(repository, " ", TestContext.Current.CancellationToken));
+
+        Assert.False(File.Exists(System.IO.Path.Combine(repository.WorkTreePath, "README.md")));
+    }
+
+    [Fact]
     public async Task InitAsync_DefaultsToMain()
     {
         RepositoryHandle repository = await Service.InitAsync(
@@ -392,4 +450,10 @@ public sealed class RepositoryServiceTests : IAsyncLifetime
             return Task.FromResult(GitCredentials.For([credential!]));
         }
     }
+
+    private async Task<string> Git(RepositoryHandle repository, params string[] arguments)
+        => (await GitRaw(repository, arguments)).Trim();
+
+    private Task<string> GitRaw(RepositoryHandle repository, params string[] arguments)
+        => GitCli.RunAsync(repository.WorkTreePath, _workspace.Environment, arguments);
 }

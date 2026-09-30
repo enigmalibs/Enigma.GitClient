@@ -16,7 +16,7 @@ namespace Enigma.GitClient.App.Navigation;
 /// </summary>
 public enum StartPage
 {
-    /// <summary>Recent repositories, and the open / clone / create actions.</summary>
+    /// <summary>A profile's repositories, and the open / clone / create actions.</summary>
     Repositories,
 
     /// <summary>The profiles — the names and emails git records on a commit — and the global identity.</summary>

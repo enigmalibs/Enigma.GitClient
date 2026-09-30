@@ -54,9 +54,11 @@ Two things matter more than everything else in this app:
   merge or the fast-forward
 - Every merge the app offers records a merge commit, even when the branch could simply be
   fast-forwarded; the fast-forward-only merges are the way to move a branch without one
-- Create, clone and open repositories from a start window with a recent-repositories list; the
-  repository you pick opens in a window of its own, and `Enigma.GitClient.App <path>` opens one
-  straight away
+- Create (with a `README.md` holding its name as the first commit), clone and open repositories from
+  a start window that lists a profile's repositories — pick the profile in the page's header: every
+  profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
+  made when there is none; the repository you pick opens in a window of its own, and
+  `Enigma.GitClient.App <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
@@ -133,10 +135,10 @@ Everything the client remembers about you lives in one per-user directory —
 | File | What is in it |
 |------|---------------|
 | `settings.json` | Your preferences, as plain readable JSON |
-| `recent-repositories.json` | The repositories you have opened, and the ones you pinned |
+| `repository-lists.json` | Each profile's list of repositories, in its order |
 | `host-accounts.json` | The hosting accounts you connected, each under the profile it belongs to — never their tokens |
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
-| `identity-profiles.json` | Your identity profiles: a label, a name and an email each |
+| `identity-profiles.json` | Your profiles: a label each, and the name and email it sets, if any |
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
