@@ -165,7 +165,7 @@ lose push. This phase makes such a profile legal.
 ## PHASE04 — Reorder repositories by dragging
 
 **Branch:** `feature/feature-711f-phase04-drag-reorder`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-711F-PHASE04.md`
 
 ### Steps
 

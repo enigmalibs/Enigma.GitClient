@@ -55,9 +55,9 @@ Two things matter more than everything else in this app:
 - Every merge the app offers records a merge commit, even when the branch could simply be
   fast-forwarded; the fast-forward-only merges are the way to move a branch without one
 - Create, clone and open repositories from a start window that lists a profile's repositories —
-  pick the profile in the page's header: every profile keeps a list of its own, and a "Default"
-  profile is made when there is none; the repository you pick opens in a window of its own, and
-  `Enigma.GitClient.App <path>` opens one straight away
+  pick the profile in the page's header: every profile keeps a list of its own, in the order you drag
+  its rows into, and a "Default" profile is made when there is none; the repository you pick opens in
+  a window of its own, and `Enigma.GitClient.App <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards

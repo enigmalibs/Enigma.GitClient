@@ -228,7 +228,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Profiles without a name and email       | DONE        | (in FEATURE-711F.md)      |
 | - PHASE02    | A repository list per profile           | DONE        | (in FEATURE-711F.md)      |
 | - PHASE03    | The profile picker on the home page     | DONE        | (in FEATURE-711F.md)      |
-| - PHASE04    | Reorder repositories by dragging        | TODO        | (in FEATURE-711F.md)      |
+| - PHASE04    | Reorder repositories by dragging        | DONE        | (in FEATURE-711F.md)      |
 | - PHASE05    | A theme button beside About             | TODO        | (in FEATURE-711F.md)      |
 | FEATURE-1669 | New repositories start with a README    | TODO        | docs/plan/FEATURE-1669.md |
 | BUG-6787     | Diff text cannot be selected            | TODO        | docs/plan/BUG-6787.md     |
