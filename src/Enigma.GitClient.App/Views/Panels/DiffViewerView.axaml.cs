@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Enigma.GitClient.App.Controls.Diff;
 using Enigma.GitClient.App.ViewModels.Panels;
+using Enigma.GitClient.App.Views.Pages;
 
 namespace Enigma.GitClient.App.Views.Panels;
 
@@ -14,9 +17,16 @@ namespace Enigma.GitClient.App.Views.Panels;
 /// The colour-coded diff viewer, unified or side by side.
 /// </summary>
 /// <remarks>
-/// The code behind this view exists for one thing the bindings cannot do: the scroll states are
+/// <para>
+/// The code behind this view exists for two things the bindings cannot do. The scroll states are
 /// counted in characters, and only the view knows how many characters fit — that is a question
 /// about the width of a bar and the width of a glyph, both of which live here.
+/// </para>
+/// <para>
+/// And the reader selects text by pointing at it: where a press lands and where the pointer is
+/// dragged to are questions about realised rows and glyphs. The selection itself is the ViewModel's
+/// (<see cref="DiffRenderOptions.Selection"/>), and nothing here ever changes the text.
+/// </para>
 /// </remarks>
 public partial class DiffViewerView : UserControl
 {
@@ -36,7 +46,13 @@ public partial class DiffViewerView : UserControl
     /// </summary>
     private readonly Dictionary<DiffMinimap, ScrollViewer> _scrolls = [];
 
+    private readonly DispatcherTimer _selectionScroll;
+
     private DiffViewerViewModel? _viewer;
+    private TextGesture? _selecting;
+    private IPointer? _selectionPointer;
+    private Point _selectionPointerAt;
+    private double _selectionScrollBy;
 
     /// <summary>
     /// Initialises a new instance.
@@ -52,6 +68,18 @@ public partial class DiffViewerView : UserControl
         // Tunnelling, because the lists handle the wheel themselves: a sideways wheel has to be
         // claimed on the way down or the vertical scroll swallows it.
         AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
+
+        // Tunnelling too, and never handled on the press: the list goes on selecting the row under
+        // it, as it always has. A selection only takes the pointer once it is being dragged.
+        AddHandler(PointerPressedEvent, OnSelectionPressed, RoutingStrategies.Tunnel);
+        AddHandler(PointerMovedEvent, OnSelectionMoved, RoutingStrategies.Tunnel);
+        AddHandler(PointerReleasedEvent, OnSelectionReleased, RoutingStrategies.Tunnel);
+        AddHandler(PointerCaptureLostEvent, OnSelectionCaptureLost, RoutingStrategies.Tunnel);
+
+        // The pointer stops reporting while it is held still, and a selection held past the bottom
+        // of the list is exactly the gesture that has to keep scrolling.
+        _selectionScroll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        _selectionScroll.Tick += (_, _) => ScrollWhileSelecting();
 
         Maps(UnifiedList, UnifiedMinimap);
         Maps(SideBySideList, SideBySideMinimap);
@@ -138,6 +166,7 @@ public partial class DiffViewerView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         DiffTypography.Changed -= OnTypographyChanged;
+        StopSelecting();
 
         base.OnDetachedFromVisualTree(e);
     }
@@ -312,4 +341,299 @@ public partial class DiffViewerView : UserControl
     /// </remarks>
     private static DiffScrollState PaneUnder(DiffViewerViewModel viewer)
         => viewer.IsUnified ? viewer.Render.UnifiedScroll : viewer.Render.SideBySideScroll;
+
+    // ---------------------------------------------------------------- selecting text
+
+    /// <summary>
+    /// Gets a value indicating whether the reader is dragging a text selection right now.
+    /// </summary>
+    internal bool IsSelectingText => _selecting is { IsDragging: true };
+
+    /// <summary>
+    /// Starts a selection where a press on a line's text lands, or extends the one there is with Shift.
+    /// </summary>
+    private void OnSelectionPressed(object? sender, PointerPressedEventArgs e)
+    {
+        _selecting = null;
+
+        if (e.ClickCount != 1
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+            || DataContext is not DiffViewerViewModel viewer
+            || ListOf(e.Source) is not { } list
+            || ContainerOf(e.Source) is not { DataContext: DiffRowViewModel { IsLine: true } row } container
+            || LineAt(container, e.GetPosition(container)) is not { } line)
+        {
+            return;
+        }
+
+        DiffTextPosition position = new(row.Index, line.IndexAt(e.GetPosition(line)));
+        DiffTextSelection selection = viewer.Render.Selection;
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && selection.IsActive && selection.Pane == line.Pane)
+        {
+            selection.ExtendTo(position);
+        }
+        else
+        {
+            // A plain click starts an empty selection, which is what takes the last one away.
+            selection.Begin(line.Pane, position);
+        }
+
+        _selecting = new TextGesture(list, line.Pane, e.GetPosition(list), IsDragging: false);
+    }
+
+    /// <summary>
+    /// Extends the selection to the character under the pointer, once it has moved far enough to be a
+    /// drag rather than a click.
+    /// </summary>
+    private void OnSelectionMoved(object? sender, PointerEventArgs e)
+    {
+        if (_selecting is not { } gesture)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            StopSelecting();
+            return;
+        }
+
+        Point point = e.GetPosition(gesture.List);
+
+        if (!gesture.IsDragging)
+        {
+            if (!BranchDragGesture.IsDrag(gesture.Origin, point))
+            {
+                return;
+            }
+
+            gesture = gesture with { IsDragging = true };
+            _selecting = gesture;
+
+            // From here every move is reported to the list, wherever the pointer goes — over the
+            // other pane, the toolbar, off the window — and the selection follows it there.
+            _selectionPointer = e.Pointer;
+            _selectionPointer.Capture(gesture.List);
+        }
+
+        _selectionPointerAt = point;
+
+        ExtendSelection(gesture, point);
+        FollowTheEdge(gesture, point);
+
+        e.Handled = true;
+    }
+
+    private void OnSelectionReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        bool dragged = _selecting is { IsDragging: true };
+
+        StopSelecting();
+
+        // A click is still the list's; a drag was the selection's.
+        if (dragged)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void OnSelectionCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_selecting is not { IsDragging: true })
+        {
+            return;
+        }
+
+        // Whoever took the capture owns that pointer now: releasing it here would take it from them.
+        _selectionPointer = null;
+
+        StopSelecting();
+    }
+
+    /// <summary>
+    /// Ends the gesture. What it selected stays selected.
+    /// </summary>
+    private void StopSelecting()
+    {
+        _selecting = null;
+        _selectionScrollBy = 0;
+        _selectionScroll.Stop();
+
+        IPointer? pointer = _selectionPointer;
+        _selectionPointer = null;
+        pointer?.Capture(null);
+    }
+
+    /// <summary>
+    /// Moves the selection's free end to the place under a point: on the row at that height — the first
+    /// or the last one on screen when the pointer is above or below them — and in the pane the
+    /// selection is in, wherever the pointer is sideways.
+    /// </summary>
+    /// <param name="gesture">The gesture under way.</param>
+    /// <param name="point">Where the pointer is, in the list's coordinates.</param>
+    private void ExtendSelection(TextGesture gesture, Point point)
+    {
+        if (DataContext is not DiffViewerViewModel viewer || RowNearest(gesture.List, point.Y) is not { } container)
+        {
+            return;
+        }
+
+        if (container.DataContext is not DiffRowViewModel row)
+        {
+            return;
+        }
+
+        int column = 0;
+
+        if (row.IsLine && LineIn(container, gesture.Pane) is { } line
+            && gesture.List.TranslatePoint(point, line) is { } inLine)
+        {
+            column = line.IndexAt(inLine);
+        }
+
+        viewer.Render.Selection.ExtendTo(new DiffTextPosition(row.Index, column));
+    }
+
+    /// <summary>
+    /// Starts, steers or stops the scrolling a selection held near an edge asks for.
+    /// </summary>
+    private void FollowTheEdge(TextGesture gesture, Point point)
+    {
+        if (ScrollOf(gesture.List) is not { } scroll || gesture.List.TranslatePoint(point, scroll) is not { } inScroll)
+        {
+            return;
+        }
+
+        _selectionScrollBy = BranchDragGesture.ScrollFor(inScroll.Y, scroll.Viewport.Height);
+
+        if (_selectionScrollBy == 0)
+        {
+            _selectionScroll.Stop();
+        }
+        else if (!_selectionScroll.IsEnabled)
+        {
+            _selectionScroll.Start();
+        }
+    }
+
+    /// <summary>
+    /// Moves the list by one tick's worth and takes the selection along to the rows that came into view.
+    /// </summary>
+    private void ScrollWhileSelecting()
+    {
+        if (_selecting is not { IsDragging: true } gesture || ScrollOf(gesture.List) is not { } scroll)
+        {
+            _selectionScroll.Stop();
+            return;
+        }
+
+        double furthest = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+        double moved = Math.Clamp(scroll.Offset.Y + _selectionScrollBy, 0, furthest);
+
+        if (moved == scroll.Offset.Y)
+        {
+            return;
+        }
+
+        scroll.Offset = new Vector(scroll.Offset.X, moved);
+        scroll.UpdateLayout();
+
+        ExtendSelection(gesture, _selectionPointerAt);
+    }
+
+    /// <summary>
+    /// The rendering's list an event landed in, or <see langword="null"/> when it landed elsewhere.
+    /// </summary>
+    private ListBox? ListOf(object? source)
+        => source is Visual visual
+            ? visual.GetSelfAndVisualAncestors().OfType<ListBox>().FirstOrDefault(list => list == UnifiedList || list == SideBySideList)
+            : null;
+
+    private static ListBoxItem? ContainerOf(object? source)
+        => source is Visual visual ? visual.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault() : null;
+
+    /// <summary>
+    /// The line whose text column a point is in: inside the line's pane, and not on its gutter or
+    /// marker. A press on the numbers is still a press on the row.
+    /// </summary>
+    /// <param name="container">The row.</param>
+    /// <param name="point">The point, in the row's coordinates.</param>
+    private static DiffLineText? LineAt(ListBoxItem container, Point point)
+    {
+        foreach (DiffLineText line in container.GetVisualDescendants().OfType<DiffLineText>())
+        {
+            if (!line.IsEffectivelyVisible
+                || line.GetVisualAncestors().OfType<Border>().FirstOrDefault(border => border.Classes.Contains("diffrow")) is not { } pane
+                || pane.TranslatePoint(default, container) is not { } paneAt
+                || line.TranslatePoint(default, container) is not { } lineAt)
+            {
+                continue;
+            }
+
+            Rect paneBounds = new(paneAt, pane.Bounds.Size);
+
+            if (paneBounds.Contains(point) && point.X >= lineAt.X)
+            {
+                return line;
+            }
+        }
+
+        return null;
+    }
+
+    private static DiffLineText? LineIn(ListBoxItem container, DiffPane pane)
+        => container.GetVisualDescendants().OfType<DiffLineText>().FirstOrDefault(line => line.Pane == pane && line.IsEffectivelyVisible);
+
+    /// <summary>
+    /// The realised row at a height in the list, or the nearest one when the height is above or below
+    /// them all.
+    /// </summary>
+    private static ListBoxItem? RowNearest(ListBox list, double y)
+    {
+        ListBoxItem? nearest = null;
+        double distance = double.MaxValue;
+
+        foreach (ListBoxItem container in list.GetRealizedContainers().OfType<ListBoxItem>())
+        {
+            if (!container.IsEffectivelyVisible || container.TranslatePoint(default, list) is not { } at)
+            {
+                continue;
+            }
+
+            double top = at.Y;
+            double bottom = at.Y + container.Bounds.Height;
+
+            if (y >= top && y < bottom)
+            {
+                return container;
+            }
+
+            double away = y < top ? top - y : y - bottom;
+
+            if (away < distance)
+            {
+                distance = away;
+                nearest = container;
+            }
+        }
+
+        return nearest;
+    }
+
+    private ScrollViewer? ScrollOf(ListBox list)
+    {
+        DiffMinimap map = list == UnifiedList ? UnifiedMinimap : SideBySideMinimap;
+
+        return _scrolls.TryGetValue(map, out ScrollViewer? scroll) ? scroll : null;
+    }
+
+    /// <summary>
+    /// A press on a line's text, and — once it has moved far enough — the drag extending the selection.
+    /// </summary>
+    /// <param name="List">The rendering's list.</param>
+    /// <param name="Pane">The pane the selection is in.</param>
+    /// <param name="Origin">Where the press landed, in the list's coordinates.</param>
+    /// <param name="IsDragging">Whether the pointer has moved past the drag threshold.</param>
+    private sealed record TextGesture(ListBox List, DiffPane Pane, Point Origin, bool IsDragging);
 }
