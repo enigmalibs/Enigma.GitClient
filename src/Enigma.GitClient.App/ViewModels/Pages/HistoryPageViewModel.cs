@@ -108,6 +108,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
     /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
     /// <param name="discards">Throws the uncommitted work away, from the uncommitted line.</param>
+    /// <param name="workingTreePanel">What the details panel holds for the uncommitted line.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
@@ -131,6 +132,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IStashOperations stashOperations,
         ICommitDetailsDialogService details,
         IDiscardOperations discards,
+        WorkingTreePanelViewModel workingTreePanel,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -154,6 +156,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(details);
         ArgumentNullException.ThrowIfNull(discards);
+        ArgumentNullException.ThrowIfNull(workingTreePanel);
         ArgumentNullException.ThrowIfNull(logger);
 
         _reader = reader;
@@ -177,6 +180,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _interop = interop;
         _details = details;
         _discards = discards;
+
+        WorkingTree = workingTreePanel;
+        WorkingTree.SelectionChanged += (_, _) => OnWorkingTreeSelectionChanged();
+        WorkingTree.Changed += (_, e) => OnWorkingTreeChanged(e);
 
         // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
         CopyCommand = new AsyncRelayCommand<string>(
@@ -391,7 +398,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             {
                 OnPropertyChanged(nameof(IsDetailsPanelOpen));
                 OnPropertyChanged(nameof(HasDetailsCommit));
+                OnPropertyChanged(nameof(IsWorkingTreeShown));
                 ShowCommitDetailsCommand.NotifyCanExecuteChanged();
+
+                // The working tree reads itself only while it is the panel's: a panel nobody sees
+                // has no reason to run git status at every refresh.
+                WorkingTree.IsActive = IsWorkingTreeShown;
+
+                if (value is { IsUncommitted: true } row)
+                {
+                    _ = ShowWorkingTreeAsync(row);
+                }
+                else
+                {
+                    // A file left picked would be picked again by the next reading, and open its
+                    // diff the moment the uncommitted line is selected.
+                    WorkingTree.ClearSelection();
+                }
             }
         }
     }
@@ -407,6 +430,18 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// to the uncommitted line.
     /// </summary>
     public bool HasDetailsCommit => DetailsRow?.Commit is not null;
+
+    /// <summary>
+    /// Gets a value indicating whether the panel holds the working tree — what the uncommitted line
+    /// stands for — rather than a commit's files.
+    /// </summary>
+    public bool IsWorkingTreeShown => DetailsRow?.IsUncommitted == true;
+
+    /// <summary>
+    /// Gets what the details panel holds for the uncommitted line: what is not staged, what is, and
+    /// the commit form.
+    /// </summary>
+    public WorkingTreePanelViewModel WorkingTree { get; }
 
     /// <summary>
     /// Gets or sets how wide the details panel is.
@@ -487,7 +522,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
             if (value)
             {
-                if (Files.SelectedFile is null)
+                if (!HasSelectedFile)
                 {
                     SelectFirstFile();
                 }
@@ -495,6 +530,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             else
             {
                 Files.SelectedNode = null;
+                WorkingTree.ClearSelection();
             }
 
             if (!value && _refreshPending)
@@ -673,7 +709,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             ? "Open a repository to see its history, with the graph, the authors, the timestamps and the short hashes."
             : _query.IsFiltered
                 ? "No commit matches the current filter."
-                : "This repository has no commits yet. Make one from the Changes page.";
+                : "This repository has no commits yet. Change a file, then commit it from the uncommitted line.";
 
     /// <summary>
     /// Gets the width the graph column needs for the rows currently loaded.
@@ -1594,23 +1630,30 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Reads what the selected row changed into the files panel.
     /// </summary>
     /// <returns>A task that completes once the panel has been filled.</returns>
+    /// <remarks>
+    /// The uncommitted line has no files of its own here: the panel shows the working tree for it,
+    /// which reads itself.
+    /// </remarks>
     private async Task LoadChangedFilesAsync()
     {
         CommitRowViewModel? row = SelectedRow;
         RepositoryHandle? repository = RepositoryContext.Repository;
 
-        if (row is null || repository is null)
+        if (row is null || repository is null || row.IsUncommitted)
         {
             _diffTarget = null;
-            _filesRow = null;
+            _filesRow = row;
             Files.Clear();
-            Diff.Clear();
+
+            if (row is null)
+            {
+                Diff.Clear();
+            }
+
             return;
         }
 
-        DiffTarget target = row.IsUncommitted
-            ? DiffTarget.Uncommitted()
-            : DiffTarget.Commit(row.Sha);
+        DiffTarget target = DiffTarget.Commit(row.Sha);
 
         try
         {
@@ -1650,11 +1693,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
+    /// Gets a value indicating whether the panel has a file picked, in whichever list it shows.
+    /// </summary>
+    private bool HasSelectedFile
+        => IsWorkingTreeShown ? WorkingTree.SelectedChange is not null : Files.SelectedFile is not null;
+
+    /// <summary>
     /// Selects the first file of the selected row, once the panel holds that row's files — which is
     /// what the diff view opens on.
     /// </summary>
     private void SelectFirstFile()
     {
+        if (IsWorkingTreeShown)
+        {
+            WorkingTree.SelectFirstFile();
+            return;
+        }
+
         if (_filesRow is not null && ReferenceEquals(_filesRow, SelectedRow))
         {
             Files.SelectFirstFile();
@@ -1666,10 +1721,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// </summary>
     /// <remarks>
     /// A file of the list the panel still holds for the previous line, until the selected line's
-    /// files arrive, is no file of the selected line: it is neither shown nor opened.
+    /// files arrive, is no file of the selected line: it is neither shown nor opened. Neither is
+    /// anything the list does while the panel shows the working tree instead.
     /// </remarks>
     private void OnFileSelectionChanged()
     {
+        if (IsWorkingTreeShown)
+        {
+            return;
+        }
+
         bool current = ReferenceEquals(_filesRow, SelectedRow);
 
         if (Files.SelectedFile is not null && !current)
@@ -1683,6 +1744,65 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             IsDiffViewOpen = true;
         }
+    }
+
+    /// <summary>
+    /// Reads the working tree into the panel for the uncommitted line, and opens the diff on its first
+    /// file when "Show what it changed" asked for it before the files were there.
+    /// </summary>
+    /// <param name="row">The uncommitted line.</param>
+    /// <returns>A task that completes once the panel is up to date.</returns>
+    private async Task ShowWorkingTreeAsync(CommitRowViewModel row)
+    {
+        await WorkingTree.RefreshAsync().ConfigureAwait(true);
+
+        if (IsDiffViewOpen && ReferenceEquals(DetailsRow, row) && WorkingTree.SelectedChange is null)
+        {
+            WorkingTree.SelectFirstFile();
+        }
+    }
+
+    /// <summary>
+    /// Follows the file picked in the working tree, as <see cref="OnFileSelectionChanged"/> follows a
+    /// commit's: its diff — of what is not staged, or of what is — over the graph.
+    /// </summary>
+    private void OnWorkingTreeSelectionChanged()
+    {
+        if (!IsWorkingTreeShown)
+        {
+            return;
+        }
+
+        RepositoryHandle? repository = RepositoryContext.Repository;
+
+        if (repository is null || WorkingTree.SelectedChange is not { } change)
+        {
+            Diff.Clear();
+            return;
+        }
+
+        _ = Diff.ShowAsync(repository, change.Target, change.File);
+        IsDiffViewOpen = true;
+    }
+
+    /// <summary>
+    /// Brings the history up to date after the working tree panel changed something: a commit is a
+    /// new line, and a tree left clean has no uncommitted line any more.
+    /// </summary>
+    /// <param name="e">What the operation did.</param>
+    /// <remarks>
+    /// The diff of a file that the operation took out of both lists — committed, discarded, stashed —
+    /// is put away first: there is nothing left for it to describe, and the graph it covered is
+    /// where the result is.
+    /// </remarks>
+    private void OnWorkingTreeChanged(WorkingTreeChangedEventArgs e)
+    {
+        if (IsDiffViewOpen && IsWorkingTreeShown && WorkingTree.SelectedChange is null)
+        {
+            IsDiffViewOpen = false;
+        }
+
+        _ = RefreshInPlaceAsync(referencesMoved: e.Committed);
     }
 
     /// <summary>

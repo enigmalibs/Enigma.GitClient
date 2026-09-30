@@ -98,12 +98,12 @@ public sealed class WholeLineMenuTests
             RepositoryHandle repository = await BuildRepositoryAsync(services);
             File.WriteAllText(Path.Combine(repository.WorkTreePath, "README.md"), "# edited\n");
 
-            ChangesPageViewModel page = services.Get<ChangesPageViewModel>();
-            await page.OnAppearingAsync();
+            WorkingTreePanelViewModel page = services.Get<WorkingTreePanelViewModel>();
+            page.IsActive = true;
+            await page.RefreshAsync();
             await WaitUntilAsync(() => page.HasUnstaged);
 
-            ChangesPageView view = services.Get<ChangesPageView>();
-            view.DataContext = page;
+            WorkingTreePanelView view = new() { DataContext = page };
 
             Window window = new() { Content = view, Width = 1200, Height = 700 };
             window.Show();
@@ -163,7 +163,7 @@ public sealed class WholeLineMenuTests
     }
 
     [Fact]
-    public void TheChangesPagesFileLines_OpenTheirMenusAnywhereOnThem()
+    public void TheWorkingTreesFileLines_OpenTheirMenusAnywhereOnThem()
     {
         _fixture.RunAsync(async () =>
         {
@@ -173,12 +173,12 @@ public sealed class WholeLineMenuTests
             File.WriteAllText(Path.Combine(repository.WorkTreePath, "staged.txt"), "staged\n");
             Git(repository, "add", "staged.txt");
 
-            ChangesPageViewModel page = services.Get<ChangesPageViewModel>();
-            await page.OnAppearingAsync();
+            WorkingTreePanelViewModel page = services.Get<WorkingTreePanelViewModel>();
+            page.IsActive = true;
+            await page.RefreshAsync();
             await WaitUntilAsync(() => page.HasUnstaged && page.HasStaged);
 
-            ChangesPageView view = services.Get<ChangesPageView>();
-            view.DataContext = page;
+            WorkingTreePanelView view = new() { DataContext = page };
 
             Window window = new() { Content = view, Width = 1200, Height = 700 };
             window.Show();

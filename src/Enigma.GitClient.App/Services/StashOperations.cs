@@ -19,9 +19,9 @@ namespace Enigma.GitClient.App.Services;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One place for the four operations, so the history and the Changes page behave alike: the same
-/// questions, the same messages, and the same answer to the one case that is neither a success nor a
-/// failure — a stash that comes back with conflicts.
+/// One place for the four operations, so the history's toolbar, its lines and its working-tree panel
+/// behave alike: the same questions, the same messages, and the same answer to the one case that is
+/// neither a success nor a failure — a stash that comes back with conflicts.
 /// </para>
 /// <para>
 /// Applying keeps the entry, always. Popping removes it once its changes are uncommitted changes
@@ -227,7 +227,7 @@ public sealed class StashOperations : IStashOperations
         {
             _infoBar.Notify(
                 "The stash applied with conflicts",
-                $"Some changes of \"{name}\" conflict with the files as they are. Resolve them on the Changes page; the stash is kept, so none of its work is lost.",
+                $"Some changes of \"{name}\" conflict with the files as they are. Resolve them from the history's uncommitted line; the stash is kept, so none of its work is lost.",
                 InfoBarSeverity.Warning);
 
             return true;

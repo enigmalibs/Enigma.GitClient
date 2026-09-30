@@ -353,7 +353,7 @@ public sealed class PorcelainV2ParserTests
         Assert.Equal(7, status.Count);
         Assert.False(status.IsClean);
 
-        // The "not staged" view is what the left half of the changes page shows.
+        // The "not staged" view is what the working-tree panel's first half shows.
         Assert.Equal(
             ["conflict.txt", "edited.txt", "both.txt", "untracked.txt"],
             status.NotStaged().Select(file => file.Path));

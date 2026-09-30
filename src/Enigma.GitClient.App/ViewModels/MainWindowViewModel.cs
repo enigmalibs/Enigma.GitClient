@@ -43,7 +43,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="history">
     /// The graph page, which the toolbar's fetch, pull and push bring up to date.
     /// </param>
-    /// <param name="changes">The working directory page, whose back button returns to the graph.</param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
     /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
@@ -60,7 +59,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         IInstanceLauncher launcher,
         IInfoBarService infoBar,
         HistoryPageViewModel history,
-        ChangesPageViewModel changes,
         ConflictResolutionPageViewModel conflicts,
         ISyncOperations sync,
         IMergeOperations merges,
@@ -74,7 +72,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(history);
-        ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(conflicts);
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
@@ -82,12 +79,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(about);
 
-        // The working directory page's way back to the graph: the shell is the only thing that knows
-        // how to get there.
-        changes.HistoryRequested += (_, _) => shell.GoTo(ShellPage.History);
-
-        // The pages that follow the repository's state (branches, tags, changes, this strip) follow
-        // the refresh on their own; the graph is told, because redrawing it is what costs the reader
+        // What follows the repository's state (branches, tags, the working tree, this strip) follows
+        // the refresh on its own; the graph is told, because redrawing it is what costs the reader
         // their place, and it only does so when there is something new — or when the reader pressed
         // refresh, which is asking for exactly that.
         autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed || result.Requested);

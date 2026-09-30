@@ -1,6 +1,6 @@
 # FEATURE-5261 — History details panel
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** vibe/2026-09-30-history-details-panel
@@ -121,7 +121,7 @@ A GitKraken-style panel on the right of the history:
 ## PHASE02 — The working tree in the panel
 
 **Branch:** `feature/feature-5261-phase02-working-tree-panel`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5261-PHASE02.md`
 
 ### Steps
 
