@@ -134,6 +134,10 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
         Unstaged.SelectionChanged += (_, _) => OnSelected(Unstaged, Staged);
         Staged.SelectionChanged += (_, _) => OnSelected(Staged, Unstaged);
 
+        // Either half letting go of its file on a click is the panel letting go of it.
+        Unstaged.SelectionReleased += (_, _) => SelectionReleased?.Invoke(this, EventArgs.Empty);
+        Staged.SelectionReleased += (_, _) => SelectionReleased?.Invoke(this, EventArgs.Empty);
+
         StageCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnStageAsync, node => node is not null);
         UnstageCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnUnstageAsync, node => node is not null);
         DiscardCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(OnDiscardAsync, node => node is not null);
@@ -176,6 +180,15 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
     /// Raised when the picked file changes, or is picked again by a refresh that re-read it.
     /// </summary>
     public event EventHandler? SelectionChanged;
+
+    /// <summary>
+    /// Raised when a click let go of the picked file, in either half, after the selection is cleared.
+    /// </summary>
+    /// <remarks>
+    /// Never raised by a refresh that reads the files again, or by one half giving the selection up to
+    /// the other: only by the reader putting the file down.
+    /// </remarks>
+    public event EventHandler? SelectionReleased;
 
     /// <summary>
     /// Raised after an operation changed the working tree, the index or HEAD, and the panel has read

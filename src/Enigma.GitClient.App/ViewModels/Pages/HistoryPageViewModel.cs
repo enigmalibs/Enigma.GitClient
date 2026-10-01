@@ -183,6 +183,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         WorkingTree = workingTreePanel;
         WorkingTree.SelectionChanged += (_, _) => OnWorkingTreeSelectionChanged();
+
+        // As for a commit's files: letting go of a working-tree file puts its diff away.
+        WorkingTree.SelectionReleased += (_, _) => IsDiffViewOpen = false;
         WorkingTree.Changed += (_, e) => OnWorkingTreeChanged(e);
 
         // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
@@ -266,6 +269,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         // The viewer follows the panel rather than the panel driving it: the panel's job ends at
         // "this file is selected", whoever is listening.
         Files.SelectionChanged += (_, _) => OnFileSelectionChanged();
+
+        // A click that lets go of the file puts its diff away, as closing the diff lets go of the
+        // file: the graph comes back, and the line and its panel stay.
+        Files.SelectionReleased += (_, _) => IsDiffViewOpen = false;
         _infoBar = infoBar;
         _logger = logger;
 
