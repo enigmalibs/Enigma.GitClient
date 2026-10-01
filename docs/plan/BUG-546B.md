@@ -1,6 +1,6 @@
 # BUG-546B — Tool dialog headers stay on top
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-546B.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-546b-fixed-tool-dialog-headers`
 **Run:** feature/2026-10-01-polish-release-5-1
