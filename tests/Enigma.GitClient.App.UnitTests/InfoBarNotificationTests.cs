@@ -1,5 +1,11 @@
 using System;
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
@@ -89,6 +95,55 @@ public sealed class InfoBarNotificationTests
             {
                 host.Close();
                 window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheRealBar_PaintsItsMessageWithTheLibrarysMessageBrush_InBothThemes()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+
+            InfoBar host = new();
+            Window window = new() { Content = host, Width = 600, Height = 200 };
+            window.Show();
+
+            InfoBarService infoBar = new();
+            infoBar.RegisterHost(host);
+
+            try
+            {
+                infoBar.Notify("Pushed", "Everything \"main\" had is on origin.", InfoBarSeverity.Info);
+
+                // The message brush is Enigma.Avalonia.Desktop 1.2.0's, made for its softer fills:
+                // the dictionary the app merges is that one, and nothing in the app shadows it.
+                foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+                {
+                    application.RequestedThemeVariant = variant;
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
+
+                    Assert.True(
+                        window.TryFindResource("EnigmaInfoBarMessageForegroundBrush", window.ActualThemeVariant, out object? brush),
+                        $"the {variant} theme has no info bar message brush");
+
+                    TextBlock message = host.GetVisualDescendants()
+                        .OfType<TextBlock>()
+                        .Single(text => text.Text == "Everything \"main\" had is on origin.");
+
+                    Assert.Equal(
+                        Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color,
+                        Assert.IsAssignableFrom<ISolidColorBrush>(message.Foreground).Color);
+                }
+            }
+            finally
+            {
+                host.Close();
+                window.Close();
+                application.RequestedThemeVariant = original;
             }
         });
     }

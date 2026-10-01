@@ -1,6 +1,6 @@
 # FEATURE-85E2 — Enigma.Avalonia.Desktop 1.2.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-85E2.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-85e2-enigma-avalonia-desktop-1-2-0`
 **Run:** feature/2026-10-01-polish-release-5-1
