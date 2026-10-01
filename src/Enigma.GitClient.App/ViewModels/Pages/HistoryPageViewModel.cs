@@ -183,6 +183,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         WorkingTree = workingTreePanel;
         WorkingTree.SelectionChanged += (_, _) => OnWorkingTreeSelectionChanged();
+
+        // As for a commit's files: letting go of a working-tree file puts its diff away.
+        WorkingTree.SelectionReleased += (_, _) => IsDiffViewOpen = false;
         WorkingTree.Changed += (_, e) => OnWorkingTreeChanged(e);
 
         // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.

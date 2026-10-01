@@ -1,6 +1,6 @@
 # FEATURE-A35A — A selected file lets go on a click
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-01-polish-release-5-1
@@ -82,7 +82,7 @@ back. Closing the diff already lets go of the file.
 ## PHASE02 — The working tree's files too
 
 **Branch:** `feature/feature-a35a-phase02-working-tree-toggle`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A35A-PHASE02.md`
 
 ### Steps
 

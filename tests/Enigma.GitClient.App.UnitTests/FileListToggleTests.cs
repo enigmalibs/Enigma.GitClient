@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -242,6 +243,99 @@ public sealed class FileListToggleTests
         });
     }
 
+    // ---------------------------------------------------------------- the working tree's files
+
+    [Theory]
+    [InlineData("UnstagedFiles", "README.md")]
+    [InlineData("StagedFiles", "docs/staged.md")]
+    public void TheSelectedWorkingTreeFile_LetsGoOnAClick_AndItsDiffGoesWithIt(string list, string path)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view) = await ShowWorkingTreeAsync(services);
+
+            CommitRowViewModel uncommitted = model.SelectedRow!;
+            ChangedFilesPanelViewModel half = list == "UnstagedFiles" ? model.WorkingTree.Unstaged : model.WorkingTree.Staged;
+            ChangedFileNodeViewModel file = FileNode(half, path);
+
+            Click(window, OnFile(view, list, file, window));
+
+            Assert.Equal(path, model.WorkingTree.SelectedChange?.File.Path);
+            Assert.True(model.IsDiffViewOpen);
+
+            // The same file again: it lets go, the diff goes, and the uncommitted line keeps its panel.
+            Click(window, OnFile(view, list, file, window, 180));
+
+            Assert.Null(half.SelectedNode);
+            Assert.Null(model.WorkingTree.SelectedChange);
+            Assert.False(model.IsDiffViewOpen);
+            Assert.Same(uncommitted, model.SelectedRow);
+            Assert.True(model.IsWorkingTreeShown);
+
+            // And it comes back with the next click.
+            Click(window, OnFile(view, list, file, window));
+
+            Assert.Equal(path, model.WorkingTree.SelectedChange?.File.Path);
+            Assert.True(model.IsDiffViewOpen);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheSelectedFilesStageButton_StagesIt_AndDoesNotLetGo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view) = await ShowWorkingTreeAsync(services);
+
+            ChangedFileNodeViewModel readme = FileNode(model.WorkingTree.Unstaged, "README.md");
+            Click(window, OnFile(view, "UnstagedFiles", readme, window));
+
+            Assert.Same(readme, model.WorkingTree.Unstaged.SelectedNode);
+            Assert.True(model.IsDiffViewOpen);
+
+            // The row's own button, on the selected line: it stages the file, and the file stays picked
+            // on its way to the other half, its diff still open.
+            Button stage = RowButtonOf(view, "UnstagedFiles", readme, "Stage");
+            Click(window, stage.TranslatePoint(new Point(stage.Bounds.Width / 2, stage.Bounds.Height / 2), window)!.Value);
+
+            await WaitUntilAsync(() => model.WorkingTree.Staged.FileCount == 2);
+            Settle(window);
+
+            Assert.Equal(0, model.WorkingTree.Unstaged.FileCount);
+            Assert.Equal("README.md", model.WorkingTree.Staged.SelectedNode?.Path);
+            Assert.True(model.IsDiffViewOpen);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void AFileInTheOtherHalf_TakesTheSelection_AndTheDiffStaysOpenOnIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view) = await ShowWorkingTreeAsync(services);
+
+            ChangedFileNodeViewModel readme = FileNode(model.WorkingTree.Unstaged, "README.md");
+            ChangedFileNodeViewModel staged = FileNode(model.WorkingTree.Staged, "docs/staged.md");
+
+            Click(window, OnFile(view, "UnstagedFiles", readme, window));
+            Click(window, OnFile(view, "StagedFiles", staged, window, 180));
+
+            Assert.Null(model.WorkingTree.Unstaged.SelectedNode);
+            Assert.Same(staged, model.WorkingTree.Staged.SelectedNode);
+            Assert.Equal("docs/staged.md", model.WorkingTree.SelectedChange?.File.Path);
+            Assert.True(model.IsDiffViewOpen);
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- the panel's own toggle
 
     [Fact]
@@ -306,6 +400,37 @@ public sealed class FileListToggleTests
 
         model.SelectedRow = model.Rows.First(row => row.Subject == "Add the guide and the notes");
         await WaitUntilAsync(() => model.Files.FileCount == 2);
+        Settle(window);
+
+        return (window, model, view);
+    }
+
+    /// <summary>
+    /// The same repository with one change not staged (<c>README.md</c>) and one staged
+    /// (<c>docs/staged.md</c>), shown with the uncommitted line selected and its working tree read.
+    /// </summary>
+    private static async Task<(Window Window, HistoryPageViewModel Model, HistoryPageView View)> ShowWorkingTreeAsync(TestServices services)
+    {
+        RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+        await WriteAsync(repository, "README.md", "# toggles\n\nmore\n");
+        await WriteAsync(repository, "docs/staged.md", "staged\n");
+        Git(repository, "add", "docs/staged.md");
+
+        await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+        HistoryPageViewModel model = services.Get<HistoryPageViewModel>();
+        await model.ReloadAsync();
+
+        HistoryPageView view = services.Get<HistoryPageView>();
+        view.DataContext = model;
+
+        Window window = new() { Content = view, Width = 1200, Height = 900 };
+        window.Show();
+        window.UpdateLayout();
+
+        model.SelectedRow = model.Rows.First(row => row.IsUncommitted);
+        await WaitUntilAsync(() => model.WorkingTree.Unstaged.FileCount == 1 && model.WorkingTree.Staged.FileCount == 1);
         Settle(window);
 
         return (window, model, view);
@@ -399,6 +524,16 @@ public sealed class FileListToggleTests
 
         return new Point(left.X, middle.Y);
     }
+
+    private static Button RowButtonOf(Control page, string panelName, ChangedFileNodeViewModel node, string label)
+        => page.GetVisualDescendants()
+            .OfType<ChangedFilesPanelView>()
+            .Single(candidate => candidate.Name == panelName)
+            .GetVisualDescendants()
+            .OfType<Button>()
+            .Single(button => button.IsEffectivelyVisible
+                && ReferenceEquals(button.DataContext, node)
+                && AutomationProperties.GetName(button) == label);
 
     private static ToggleButton ChevronOf(Control page, ChangedFileNodeViewModel folder)
     {
