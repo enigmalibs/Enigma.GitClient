@@ -1,6 +1,6 @@
 # BUG-7E41 — App assembly renamed to .Desktop
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-10-01-rename-app-to-desktop
@@ -121,7 +121,7 @@ Its test project follows the siblings' `<Project>.UnitTests` shape and becomes
 ## PHASE02 — Rename the test project
 
 **Branch:** `bugfix/bug-7e41-phase02-rename-test-project`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-7E41-PHASE02.md`
 
 ### Steps
 

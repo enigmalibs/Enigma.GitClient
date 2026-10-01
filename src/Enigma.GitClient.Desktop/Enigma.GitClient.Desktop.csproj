@@ -33,6 +33,6 @@
   </ItemGroup>
   <!-- The app's entry point and composition root stay internal; the unit-test project drives them. -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Enigma.GitClient.App.UnitTests" />
+    <InternalsVisibleTo Include="Enigma.GitClient.Desktop.UnitTests" />
   </ItemGroup>
 </Project>
