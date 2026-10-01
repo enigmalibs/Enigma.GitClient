@@ -5,8 +5,15 @@
              xmlns:vm="using:Enigma.GitClient.App.ViewModels.Dialogs"
              x:Class="Enigma.GitClient.App.Views.Dialogs.HostRepositoriesDialogView"
              x:DataType="vm:HostRepositoriesDialogViewModel"
-             Width="760"
+             Width="660"
              Height="480">
+
+  <!--
+    No wider than the card holds. Both windows show this on a HostDialog at most 720 wide, and the card
+    gives its content 670 of that (measured, BUG-15B8): the 760 this used to ask for was centred in
+    those 670 and cut off by 45 on each side. 660 keeps a little room to spare; the rows' star column
+    takes the difference, and the name and description trim.
+  -->
 
   <UserControl.Resources>
 
