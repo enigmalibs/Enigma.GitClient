@@ -389,7 +389,7 @@ public sealed class MergeOperationTests
 
             RecordedNotification note = services.InfoBar.Last!;
             Assert.Equal("Merged", note.Title);
-            Assert.Equal(TimeSpan.FromSeconds(5), note.DisplayDuration);
+            Assert.Equal(InfoBarServiceExtensions.TransientDisplayDuration, note.DisplayDuration);
         });
     }
 
@@ -417,7 +417,7 @@ public sealed class MergeOperationTests
             Assert.True(await merges.AbortAsync().WaitAsync(Patience));
             Assert.True(services.InfoBar.IsOpen);
             Assert.Equal("Merge abandoned", services.InfoBar.Last!.Title);
-            Assert.Equal(TimeSpan.FromSeconds(5), services.InfoBar.Last.DisplayDuration);
+            Assert.Equal(InfoBarServiceExtensions.TransientDisplayDuration, services.InfoBar.Last.DisplayDuration);
         });
     }
 

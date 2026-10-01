@@ -20,8 +20,9 @@
 
   <!-- Desktop (Avalonia) — a version-coupled ecosystem: Avalonia, its Desktop/Fluent/Inter
        companions and the Enigma control and icon libraries are bumped TOGETHER, never one
-       package at a time. 12.1.1 is the exact set Enigma.Avalonia.Desktop 1.1.0 is built
-       against, as 1.0.0 was (its nuspec pins Avalonia 12.1.1 and CommunityToolkit.Mvvm 8.4.2). -->
+       package at a time. 12.1.1 is the exact set Enigma.Avalonia.Desktop 1.2.0 is built
+       against, as 1.0.0 and 1.1.0 were (its nuspec pins Avalonia 12.1.1 and
+       CommunityToolkit.Mvvm 8.4.2). -->
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.1.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
@@ -29,7 +30,7 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageVersion Include="Enigma.Avalonia.Desktop" Version="1.1.0" />
+    <PackageVersion Include="Enigma.Avalonia.Desktop" Version="1.2.0" />
     <PackageVersion Include="Enigma.Icons.Avalonia" Version="1.0.0" />
   </ItemGroup>
 

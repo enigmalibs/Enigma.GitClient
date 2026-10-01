@@ -1,5 +1,72 @@
 # Release notes
 
+## 5.1.0 — 2026-10-01
+
+A minor release. A click on the selected file in the history's details panel lets go of it and puts
+its diff away, as a click on the selected line already closes the panel. The Branches, Tags and
+Remotes dialogs keep their header at the top while a long list scrolls, and the info bars are softer
+in the dark theme and close sooner. It also fixes the repository browser, which was cut off at both
+sides. Nothing is removed, and nothing that is stored changes.
+
+### The history's details panel
+
+- **A click on the selected file lets go of it.** This works in a commit's files and in the
+  uncommitted line's *Not staged* and *Staged*, as a list or a tree:
+  - its diff goes with it and the graph comes back;
+  - the line stays selected and its panel stays open;
+  - the next click picks the file and opens its diff again.
+- **These leave the selection as it was:**
+  - a double-click;
+  - a right-click, which opens the file's menu;
+  - a Shift or Ctrl click;
+  - the row's own *Stage* and *Unstage* buttons.
+
+  A folder's chevron in the tree only folds it.
+
+### The dialogs
+
+- **The Branches, Tags and Remotes dialogs keep their header at the top** (the filter, the sort and
+  *Create*) while a long list scrolls under it. In Branches the manual merge band stays there too.
+  Only the list scrolls now, not the whole dialog.
+
+### The info bars
+
+- **Softer colours in the dark theme.** The four kinds of info bar are drawn in lighter, pastel tints
+  that no longer sink into the panels around them, with a message colour made for them. The light
+  theme is unchanged.
+- **A success or an informational message closes itself after 2.5 seconds** instead of 5. A warning
+  or an error still stays until you close it.
+
+### Fixes
+
+- **The repository browser is shown whole.** The dialog listing an account's repositories (*Browse*
+  on a profile's integration) was wider than the dialog holding it, and was cut off on both sides:
+  part of its filter and visibility toggles, and each row's *Open* and *Clone* buttons. It now fits,
+  in both windows.
+
+### Upgrading from 5.0
+
+- Nothing changes in the way you work, and nothing is migrated. These stay as 5.0 wrote them, so going
+  back to 5.0 keeps them: `settings.json`, `repository-lists.json`, `host-accounts.json`,
+  `identity-profiles.json` and the tokens.
+
+### Dependencies
+
+- **Enigma.Avalonia.Desktop 1.2.0** (from 1.1.0), for the info bars' colours. It is built against
+  the same Avalonia 12.1.1, CommunityToolkit.Mvvm 8.4.2 and Enigma.Core 1.0.0 as 1.1.0, so nothing
+  else moves.
+- No other package had an update outside the Avalonia set.
+- The Avalonia set is still held back at **12.1.1**: Avalonia, Avalonia.Desktop,
+  Avalonia.Themes.Fluent, Avalonia.Fonts.Inter, and Avalonia.Headless and Avalonia.Skia in the tests.
+  That is the set Enigma.Avalonia.Desktop 1.2.0 is built against. 12.1.3 is out; the set moves as a
+  whole, as a decision of its own.
+
+### Version
+
+- **5.1.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (a
+  click that lets go of the selected file, shorter-lived info bars) along with fixes. Nothing is
+  removed or changed incompatibly, and nothing that is stored changes.
+
 ## 5.0.0 — 2026-09-30
 
 A major release. The history has a details panel beside it: a click on a line lists the files it

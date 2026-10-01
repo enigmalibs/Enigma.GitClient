@@ -1,6 +1,10 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.ViewModels.Pages;
@@ -141,6 +145,8 @@ public sealed class ToolDialogService : IToolDialogService
 
         IsOpen = true;
 
+        page.AttachedToVisualTree += BoundByTheCard;
+
         // The page carries its own title, so the card does not repeat it.
         host.Title = null;
         host.IconData = null;
@@ -171,6 +177,7 @@ public sealed class ToolDialogService : IToolDialogService
             }
 
             host.Content = null;
+            page.AttachedToVisualTree -= BoundByTheCard;
             IsOpen = false;
 
             if (lifecycle is not null)
@@ -183,6 +190,42 @@ public sealed class ToolDialogService : IToolDialogService
         _reveal = null;
 
         return reveal;
+    }
+
+    /// <summary>
+    /// Stops the card scrolling a tool page, so the page's list scrolls itself under the page's header.
+    /// </summary>
+    /// <param name="sender">The page.</param>
+    /// <param name="e">The attachment.</param>
+    /// <remarks>
+    /// <para>
+    /// The card wraps its content in a <see cref="ScrollViewer"/>, which is right for a dialog whose
+    /// content is a paragraph. A scrolling <see cref="ScrollViewer"/> measures its child at infinite
+    /// height, though: each page was laid out at its list's full height (1 593 px for 40 branches, in
+    /// a card 653 high), its list had nothing of its own to scroll, and the card's bar moved the whole
+    /// page — the header with the filter, the sort and <i>Create</i>, and the branches' manual merge
+    /// band — out of sight (BUG-546B).
+    /// </para>
+    /// <para>
+    /// <see cref="ScrollBarVisibility.Disabled"/> is the one state in which the presenter measures its
+    /// child against the room it has. The card's size does not depend on its content — the window sets
+    /// it — so every page is bounded by the card, its docked strips stay at the top and the list scrolls
+    /// under them, realising only the rows on screen. BUG-1AEA did the same for the diff dialog.
+    /// </para>
+    /// <para>
+    /// Guarded rather than asserted: a future version of the control library that templates its card
+    /// differently leaves the page as it is rather than throwing.
+    /// </para>
+    /// </remarks>
+    private static void BoundByTheCard(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is not Visual page || page.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault() is not { } card)
+        {
+            return;
+        }
+
+        card.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        card.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
     }
 
     /// <inheritdoc />

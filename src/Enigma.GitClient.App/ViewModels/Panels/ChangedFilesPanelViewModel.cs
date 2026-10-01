@@ -514,6 +514,36 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// </summary>
     public event EventHandler? SelectionChanged;
 
+    /// <summary>
+    /// Raised when a click let go of the selected line (<see cref="ToggleSelection"/>), after the
+    /// selection is cleared.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="SelectionChanged"/> going to nothing, which also happens on every
+    /// rebuild — a filter, a refresh, a switch between list and tree — on the way to selecting the same
+    /// path again. Only this one is the reader putting the file down.
+    /// </remarks>
+    public event EventHandler? SelectionReleased;
+
+    /// <summary>
+    /// What a plain click on a line does: the selected line lets go of the selection, and any other
+    /// line takes it.
+    /// </summary>
+    /// <param name="node">The line clicked.</param>
+    public void ToggleSelection(ChangedFileNodeViewModel node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+
+        if (!ReferenceEquals(node, SelectedNode))
+        {
+            SelectedNode = node;
+            return;
+        }
+
+        SelectedNode = null;
+        SelectionReleased?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Gets the command that switches to the flat list.</summary>
     public RelayCommand ShowAsListCommand { get; }
 

@@ -1,5 +1,11 @@
 using System;
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
@@ -15,7 +21,7 @@ namespace Enigma.GitClient.App.UnitTests;
 [Collection(HeadlessCollection.Name)]
 public sealed class InfoBarNotificationTests
 {
-    private static readonly TimeSpan FiveSeconds = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan TwoAndAHalfSeconds = TimeSpan.FromSeconds(2.5);
 
     private readonly HeadlessAvaloniaFixture _fixture;
 
@@ -38,7 +44,7 @@ public sealed class InfoBarNotificationTests
             Assert.Equal("Pushed", note.Title);
             Assert.Equal("Everything \"main\" had is on origin.", note.Message);
             Assert.Equal(severity, note.Severity);
-            Assert.Equal(timed ? FiveSeconds : null, note.DisplayDuration);
+            Assert.Equal(timed ? TwoAndAHalfSeconds : null, note.DisplayDuration);
         });
     }
 
@@ -74,7 +80,7 @@ public sealed class InfoBarNotificationTests
 
                 Assert.True(host.IsOpen);
                 Assert.Equal("Merged", host.Title);
-                Assert.Equal(FiveSeconds, host.DisplayDuration);
+                Assert.Equal(TwoAndAHalfSeconds, host.DisplayDuration);
 
                 // An error arriving on the open bar replaces the message and must not inherit its
                 // countdown: it stays until the user has read it.
@@ -89,6 +95,55 @@ public sealed class InfoBarNotificationTests
             {
                 host.Close();
                 window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheRealBar_PaintsItsMessageWithTheLibrarysMessageBrush_InBothThemes()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+
+            InfoBar host = new();
+            Window window = new() { Content = host, Width = 600, Height = 200 };
+            window.Show();
+
+            InfoBarService infoBar = new();
+            infoBar.RegisterHost(host);
+
+            try
+            {
+                infoBar.Notify("Pushed", "Everything \"main\" had is on origin.", InfoBarSeverity.Info);
+
+                // The message brush is Enigma.Avalonia.Desktop 1.2.0's, made for its softer fills:
+                // the dictionary the app merges is that one, and nothing in the app shadows it.
+                foreach (ThemeVariant variant in (ThemeVariant[])[ThemeVariant.Dark, ThemeVariant.Light])
+                {
+                    application.RequestedThemeVariant = variant;
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
+
+                    Assert.True(
+                        window.TryFindResource("EnigmaInfoBarMessageForegroundBrush", window.ActualThemeVariant, out object? brush),
+                        $"the {variant} theme has no info bar message brush");
+
+                    TextBlock message = host.GetVisualDescendants()
+                        .OfType<TextBlock>()
+                        .Single(text => text.Text == "Everything \"main\" had is on origin.");
+
+                    Assert.Equal(
+                        Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color,
+                        Assert.IsAssignableFrom<ISolidColorBrush>(message.Foreground).Color);
+                }
+            }
+            finally
+            {
+                host.Close();
+                window.Close();
+                application.RequestedThemeVariant = original;
             }
         });
     }

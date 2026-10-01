@@ -13,6 +13,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.App.ViewModels.Panels;
@@ -248,7 +249,7 @@ public sealed class SettingsPageTests
 
             RecordedNotification note = services.InfoBar.Last!;
             Assert.Equal("Preferences reset", note.Title);
-            Assert.Equal(TimeSpan.FromSeconds(5), note.DisplayDuration);
+            Assert.Equal(InfoBarServiceExtensions.TransientDisplayDuration, note.DisplayDuration);
         });
     }
 
