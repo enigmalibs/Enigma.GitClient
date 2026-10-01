@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -396,6 +398,180 @@ public sealed class ToolDialogTests
             .Single(border => border.Name == "PART_Card" && ReferenceEquals(border.TemplatedParent, dialog));
 
         return Assert.IsAssignableFrom<ISolidColorBrush>(card.Background).Color;
+    }
+
+    [Theory]
+    [InlineData(ToolDialog.Branches, "BranchList", 2)]
+    [InlineData(ToolDialog.Tags, "TagList", 1)]
+    [InlineData(ToolDialog.Remotes, "RemoteList", 1)]
+    public void ALongList_ScrollsUnderItsHeader_WhichStaysAtTheTop(ToolDialog dialog, string listName, int strips)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true, configure: collection =>
+            {
+                collection.RemoveAll<IContentDialogService>();
+                collection.AddSingleton<IContentDialogService, ContentDialogService>();
+            });
+
+            await services.Get<IRepositoryContext>().OpenAsync(await BuildCrowdedRepositoryAsync(services));
+
+            MainWindow window = Show(services);
+            IToolDialogService tools = services.Get<IToolDialogService>();
+
+            try
+            {
+                Task showing = tools.ShowAsync(dialog);
+
+                Control page = Assert.IsAssignableFrom<Control>(window.ToolDialog.Content);
+                ListBox list = page.FindControl<ListBox>(listName)
+                    ?? throw new InvalidOperationException($"The page has no {listName}.");
+
+                await WaitUntilAsync(() => list.ItemCount >= 30);
+                Settle(window);
+
+                // The card has nothing to scroll: the page is laid out in the room the card has, and the
+                // list, bounded by it, scrolls itself.
+                ScrollViewer card = page.GetVisualAncestors().OfType<ScrollViewer>().First();
+                ScrollViewer own = list.GetVisualDescendants().OfType<ScrollViewer>().First();
+
+                Assert.True(
+                    card.Extent.Height <= card.Viewport.Height + 0.5,
+                    $"the card scrolls the page: an extent of {card.Extent.Height} in a viewport of {card.Viewport.Height}");
+                Assert.True(
+                    own.Extent.Height > own.Viewport.Height,
+                    $"the list has nothing of its own to scroll: an extent of {own.Extent.Height} in a viewport of {own.Viewport.Height}");
+
+                // The header — and in Branches the manual merge band — are where they were once the
+                // list has been scrolled to its end, and drawn whole.
+                Control[] docked = [.. page.GetVisualDescendants()
+                    .OfType<DockPanel>()
+                    .First()
+                    .Children
+                    .Where(child => child.IsVisible && DockPanel.GetDock(child) == Dock.Top)];
+
+                Assert.Equal(strips, docked.Length);
+
+                Point[] before = [.. docked.Select(strip => strip.TranslatePoint(default, window.ToolDialog)!.Value)];
+
+                own.Offset = new Vector(0, own.Extent.Height - own.Viewport.Height);
+                Settle(window);
+
+                Assert.True(own.Offset.Y > 0, "the list did not scroll");
+                Assert.Equal(before, docked.Select(strip => strip.TranslatePoint(default, window.ToolDialog)!.Value));
+
+                foreach (Control strip in docked)
+                {
+                    AssertWhollyShown(strip);
+                }
+
+                await window.ToolDialog.HideAsync().WaitAsync(Patience);
+                await showing.WaitAsync(Patience);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Asserts a control is drawn whole: inside every ancestor that clips what it holds.
+    /// </summary>
+    private static void AssertWhollyShown(Control control)
+    {
+        Rect own = new(control.Bounds.Size);
+
+        foreach (Visual ancestor in control.GetVisualAncestors().Where(ancestor => ancestor.ClipToBounds))
+        {
+            Rect shown = own.TransformToAABB(control.TransformToVisual(ancestor)!.Value);
+
+            Assert.True(
+                new Rect(ancestor.Bounds.Size).Inflate(0.5).Contains(shown),
+                $"{control.GetType().Name} is drawn at {shown} in a {ancestor.GetType().Name} of {ancestor.Bounds.Size}: it is cut off");
+        }
+    }
+
+    /// <summary>
+    /// A real repository with more of everything than a tool dialog can show at once: 40 branches,
+    /// 40 tags and 30 remotes.
+    /// </summary>
+    private static async Task<RepositoryHandle> BuildCrowdedRepositoryAsync(TestServices services)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        RepositoryHandle repository = await services.Get<IRepositoryService>()
+            .InitAsync(Path.Combine(root, "crowded"), "main");
+
+        await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# crowded\n");
+        Git(repository, null, "add", "--all");
+        Git(repository, null, "commit", "-m", "Add the readme");
+
+        string sha = Git(repository, null, "rev-parse", "HEAD").Trim();
+
+        // One process for every reference, rather than eighty.
+        System.Text.StringBuilder references = new();
+
+        for (int index = 1; index <= 40; index++)
+        {
+            string number = index.ToString("00", CultureInfo.InvariantCulture);
+            references.Append(CultureInfo.InvariantCulture, $"create refs/heads/branch-{number} {sha}\n");
+            references.Append(CultureInfo.InvariantCulture, $"create refs/tags/1.{number}.0 {sha}\n");
+        }
+
+        Git(repository, references.ToString(), "update-ref", "--stdin");
+
+        System.Text.StringBuilder remotes = new();
+
+        for (int index = 1; index <= 30; index++)
+        {
+            string name = "remote-" + index.ToString("00", CultureInfo.InvariantCulture);
+            remotes.Append(CultureInfo.InvariantCulture, $"[remote \"{name}\"]\n\turl = https://example.com/{name}.git\n\tfetch = +refs/heads/*:refs/remotes/{name}/*\n");
+        }
+
+        await File.AppendAllTextAsync(Path.Combine(repository.GitDirectory, "config"), remotes.ToString());
+
+        return repository;
+    }
+
+    private static string Git(RepositoryHandle repository, string? input, params string[] arguments)
+    {
+        System.Diagnostics.ProcessStartInfo startInfo = new()
+        {
+            FileName = "git",
+            WorkingDirectory = repository.WorkTreePath,
+            UseShellExecute = false,
+            RedirectStandardInput = input is not null,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        startInfo.Environment["GIT_AUTHOR_NAME"] = "Ada Lovelace";
+        startInfo.Environment["GIT_AUTHOR_EMAIL"] = "ada@example.com";
+        startInfo.Environment["GIT_COMMITTER_NAME"] = "Ada Lovelace";
+        startInfo.Environment["GIT_COMMITTER_EMAIL"] = "ada@example.com";
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using System.Diagnostics.Process process = System.Diagnostics.Process.Start(startInfo)!;
+
+        if (input is not null)
+        {
+            process.StandardInput.Write(input);
+            process.StandardInput.Close();
+        }
+
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        return process.ExitCode == 0
+            ? output
+            : throw new InvalidOperationException($"git {string.Join(' ', arguments)} failed: {error}");
     }
 
     [Fact]
