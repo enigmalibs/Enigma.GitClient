@@ -15,17 +15,17 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
-using Enigma.GitClient.App.Navigation;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Navigation;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Drives the conflict resolution page against real conflicting merges: the regions it builds, the
@@ -786,7 +786,7 @@ public sealed class ConflictResolutionPageTests
                 List<string> lines =
                 [
                     .. view.GetVisualDescendants()
-                        .OfType<Enigma.GitClient.App.Controls.Diff.DiffLineText>()
+                        .OfType<Enigma.GitClient.Desktop.Controls.Diff.DiffLineText>()
                         .Select(line => line.Text ?? string.Empty),
                 ];
 

@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Identity;
+using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Whose list of repositories the start window shows: the default profile when there is no other,

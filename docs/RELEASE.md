@@ -4,7 +4,7 @@ Reusable checklist for cutting a new **Enigma.GitClient** version.
 
 Replace `X.Y.Z` with the version being released (e.g. `1.1.0`) throughout. The version lives in
 `Directory.Build.props` (`<Version>`) and covers the whole solution: `Enigma.GitClient.Core` and
-`Enigma.GitClient.App` ship as one application, so they never carry separate numbers.
+`Enigma.GitClient.Desktop` ship as one application, so they never carry separate numbers.
 
 **Nothing here is published to NuGet.** Neither project has a `PackageId`, so there is no `pack`
 step, no `nuget push`, and no package metadata to keep in order. What a release produces is a tag on
@@ -32,7 +32,7 @@ Run from the repository root, on the branch that will be merged:
       commit the build was cut from, `X.Y.Z+<sha>`, which is what the About dialog's build line
       shortens:
       ```bash
-      strings src/Enigma.GitClient.App/bin/Release/net10.0/Enigma.GitClient.Core.dll | grep -m1 -o 'X\.Y\.Z+[0-9a-f]*'
+      strings src/Enigma.GitClient.Desktop/bin/Release/net10.0/Enigma.GitClient.Core.dll | grep -m1 -o 'X\.Y\.Z+[0-9a-f]*'
       ```
 
 ## 2. Merge into `develop`, then into `main`
@@ -68,7 +68,7 @@ A release build for a specific platform, with the .NET runtime bundled so the re
 that has no .NET installed:
 
 ```bash
-dotnet publish src/Enigma.GitClient.App -c Release -r linux-x64 --self-contained true -o ./artifacts
+dotnet publish src/Enigma.GitClient.Desktop -c Release -r linux-x64 --self-contained true -o ./artifacts
 ```
 
 Substitute the runtime identifier for the target platform — `linux-arm64`, `win-x64`.

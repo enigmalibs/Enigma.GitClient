@@ -9,14 +9,14 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.Views;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.Views;
 using Enigma.Icons.Avalonia;
 using Enigma.Icons.Phosphor;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// What a toolbar button looks like when it can be pressed and when it cannot: its glyph in the full

@@ -2,13 +2,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Drives one branch being dropped onto another, against a real repository: the answers the flow

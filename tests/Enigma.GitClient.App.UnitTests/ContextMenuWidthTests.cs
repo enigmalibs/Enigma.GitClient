@@ -4,10 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// A context menu item's title is always drawn whole: a line's menu names branches, and a branch

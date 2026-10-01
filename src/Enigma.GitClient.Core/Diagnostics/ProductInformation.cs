@@ -34,8 +34,8 @@ public static class ProductInformation
     /// The version and the revision this build was cut from, read once from this assembly.
     /// </summary>
     /// <remarks>
-    /// From <b>this</b> assembly rather than the entry assembly: Core and App carry one version between
-    /// them, and under a test host the entry assembly is the runner.
+    /// From <b>this</b> assembly rather than the entry assembly: Core and Desktop carry one version
+    /// between them, and under a test host the entry assembly is the runner.
     /// </remarks>
     private static readonly ProductVersion Product = ProductVersion.From(
         typeof(ProductInformation).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,

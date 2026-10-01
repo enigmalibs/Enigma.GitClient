@@ -8,18 +8,18 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.Views;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Renders the real window off-screen and asserts that pixels actually came out.

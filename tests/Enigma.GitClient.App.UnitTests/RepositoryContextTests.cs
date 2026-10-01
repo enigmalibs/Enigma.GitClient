@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Exercises the repository context on its own. It touches no Avalonia type, so these tests run

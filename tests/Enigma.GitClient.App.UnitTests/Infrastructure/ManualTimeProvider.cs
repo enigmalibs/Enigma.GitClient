@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// A clock that only moves when a test moves it, so a service that ticks every fifteen seconds can be

@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Drives merging from the places a user starts one: the branches page, the graph's row menu and

@@ -9,18 +9,18 @@ using Avalonia.Headless;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.ViewModels.Panels;
-using Enigma.GitClient.App.Views.Pages;
-using Enigma.GitClient.App.Views.Panels;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.ViewModels.Panels;
+using Enigma.GitClient.Desktop.Views.Pages;
+using Enigma.GitClient.Desktop.Views.Panels;
 using Enigma.Icons.Avalonia;
 using Enigma.Icons.Phosphor;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Every action of every context menu carries a glyph for its kind of action.
@@ -127,7 +127,7 @@ public sealed class MenuIconTests
             try
             {
                 ContextMenu[] menus = [.. view.GetVisualDescendants()
-                    .OfType<Enigma.GitClient.App.Controls.RefBadge>()
+                    .OfType<Enigma.GitClient.Desktop.Controls.RefBadge>()
                     .Select(badge => badge.ContextMenu)
                     .OfType<ContextMenu>()];
 

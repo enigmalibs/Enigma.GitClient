@@ -5,16 +5,16 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The branches and tags dialogs' lines, ordered by name or by date, either way — newest first unless

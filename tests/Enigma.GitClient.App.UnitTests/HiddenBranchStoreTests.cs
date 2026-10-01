@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 public sealed class HiddenBranchStoreTests : IDisposable
 {

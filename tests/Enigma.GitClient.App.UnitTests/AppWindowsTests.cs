@@ -4,19 +4,19 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
-using Enigma.GitClient.App.Navigation;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Navigation;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The start window, the repository window, and the hand-over between them — with real windows on

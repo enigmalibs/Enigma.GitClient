@@ -12,14 +12,14 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Enigma.GitClient.App.Controls;
-using Enigma.GitClient.App.Controls.Graph;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Desktop.Controls;
+using Enigma.GitClient.Desktop.Controls.Graph;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Exercises the control that draws the commit graph — measurement, the palette, and what actually

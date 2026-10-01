@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.Desktop.Views.Dialogs.AboutView"
+             x:DataType="vm:AboutViewModel"
+             Width="380">
+
+  <!-- Enigma.MarkdownEditor's About view, at the same size and in the same style. -->
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.productName">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.version">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    </Style>
+    <!-- The build line is quieter than the version: it identifies the build for a bug report, and
+         nobody reads it otherwise. -->
+    <Style Selector=":is(TextBlock).build">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.copyright">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.credit">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.license">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Spacing="14">
+
+    <!-- The PNG rather than app.ico: which frame Skia picks out of an icon is unspecified, and the
+         256-pixel one is the only frame worth showing at this size. -->
+    <Image Source="/Assets/app-256.png"
+           Width="96"
+           Height="96"
+           HorizontalAlignment="Center" />
+
+    <StackPanel Spacing="3">
+      <TextBlock Classes="productName" Text="{Binding DisplayName}" />
+
+      <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+        <TextBlock Classes="version" Text="Version" />
+        <TextBlock Classes="version" Text="{Binding Version}" />
+      </StackPanel>
+
+      <!-- Absent, not blank, when the build recorded no revision. -->
+      <StackPanel x:Name="BuildLine"
+                  Orientation="Horizontal"
+                  Spacing="5"
+                  HorizontalAlignment="Center"
+                  IsVisible="{Binding HasBuildSha}">
+        <TextBlock Classes="build" Text="Build" />
+        <!-- Selectable so it can be copied straight into a bug report; the label beside it is not, so
+             what lands in the clipboard is the revision alone. -->
+        <SelectableTextBlock x:Name="BuildSha" Classes="build" Text="{Binding BuildSha}" />
+      </StackPanel>
+    </StackPanel>
+
+    <TextBlock x:Name="Copyright"
+               Classes="copyright"
+               TextWrapping="Wrap"
+               IsVisible="{Binding HasCopyright}"
+               Text="{Binding Copyright}" />
+
+    <Border Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="12,10">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="caption" Text="BUILT WITH" />
+        <ItemsControl x:Name="Credits" ItemsSource="{Binding Credits}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:CreditEntry">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                <TextBlock Grid.Column="0"
+                           Classes="credit"
+                           Text="{Binding Name}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1"
+                           Classes="license"
+                           Margin="12,0,0,0"
+                           VerticalAlignment="Center"
+                           Text="{Binding License}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+  </StackPanel>
+</UserControl>

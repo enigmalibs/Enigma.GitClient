@@ -14,19 +14,19 @@ using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Dialogs;
-using Enigma.GitClient.App.Views;
-using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Security;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.Views;
+using Enigma.GitClient.Desktop.Views.Dialogs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Drives the dialog listing what one account can reach — the paged listing, the filter, the

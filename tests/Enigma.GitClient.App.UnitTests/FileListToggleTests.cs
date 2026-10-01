@@ -10,18 +10,18 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.ViewModels.Panels;
-using Enigma.GitClient.App.Views.Pages;
-using Enigma.GitClient.App.Views.Panels;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.ViewModels.Panels;
+using Enigma.GitClient.Desktop.Views.Pages;
+using Enigma.GitClient.Desktop.Views.Panels;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The details panel's file lists answer a click as the history's lines do: the selected file lets go

@@ -6,21 +6,21 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Dialogs;
-using Enigma.GitClient.App.ViewModels.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The automatic fetch and refresh: when it runs, what it does quietly, and what the graph does with

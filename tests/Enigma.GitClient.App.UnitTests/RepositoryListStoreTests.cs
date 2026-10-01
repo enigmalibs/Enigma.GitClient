@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Each profile's list of repositories: its order, which is the user's, and the file every instance

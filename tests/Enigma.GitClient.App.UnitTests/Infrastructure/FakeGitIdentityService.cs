@@ -6,7 +6,7 @@ using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// An <see cref="IGitIdentityService"/> that keeps the identities in memory.

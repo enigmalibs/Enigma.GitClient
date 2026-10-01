@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using Enigma.GitClient.Core.Repositories;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// Reads a real repository back with git itself.

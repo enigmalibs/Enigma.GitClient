@@ -6,15 +6,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Dialogs;
-using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Stashes;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.Views.Dialogs;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The stash operations every page shares, against real git: what they ask, what they do, and what

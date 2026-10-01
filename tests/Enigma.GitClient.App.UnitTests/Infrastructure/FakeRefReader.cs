@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// An <see cref="IRefReader"/> that answers immediately from memory.

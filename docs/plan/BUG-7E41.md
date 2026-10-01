@@ -1,6 +1,6 @@
 # BUG-7E41 — App assembly renamed to .Desktop
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-10-01-rename-app-to-desktop
@@ -66,7 +66,7 @@ Its test project follows the siblings' `<Project>.UnitTests` shape and becomes
 ## PHASE01 — Rename the app project
 
 **Branch:** `bugfix/bug-7e41-phase01-rename-app-project`
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-7E41-PHASE01.md`
 
 ### Steps
 
@@ -78,11 +78,16 @@ Its test project follows the siblings' `<Project>.UnitTests` shape and becomes
    (namespaces, usings, `x:Class`, `using:` xmlns, `avares://` URIs). Then `app.manifest`'s
    `assemblyIdentity name`.
 4. `Enigma.GitClient.slnx`: the project path.
-5. The test project, which keeps its own name in this phase:
+5. The test project, which keeps its directory, project file and assembly name in this phase:
    - its `ProjectReference`;
    - its `using Enigma.GitClient.App…` directives and fully qualified references;
    - `global::Enigma.GitClient.App.App`;
-   - the launcher paths in `InstanceTests`.
+   - the launcher paths in `InstanceTests`;
+   - *(adapted at build time)* its `RootNamespace` and every namespace, to
+     `Enigma.GitClient.Desktop.UnitTests`. The tests reach the app's types by short names (`App`,
+     `Views.MainWindow`, `ViewModels.…`, `Controls.…`) through the enclosing namespace. Under
+     `Enigma.GitClient.App.UnitTests` those names stop resolving once the app has left
+     `Enigma.GitClient.App`.
 6. Packaging:
    - `APP_EXE='Enigma.GitClient.Desktop'` in both scripts;
    - the publish path and the `--from` help text in `install.sh`;
@@ -104,7 +109,7 @@ Its test project follows the siblings' `<Project>.UnitTests` shape and becomes
 - `src/Enigma.GitClient.Desktop/Enigma.GitClient.Desktop.csproj` builds the assembly
   `Enigma.GitClient.Desktop`.
 - `git grep 'Enigma\.GitClient\.App\b'` outside the historical records finds only:
-  - the test project's own name and namespace (renamed in PHASE02);
+  - the test project's directory, project file and assembly name (renamed in PHASE02);
   - `InternalsVisibleTo`;
   - the legacy launcher name in `uninstall.sh`;
   - the test fixtures or comments that name it as the former name on purpose.
@@ -122,9 +127,8 @@ Its test project follows the siblings' `<Project>.UnitTests` shape and becomes
 
 1. `git mv tests/Enigma.GitClient.App.UnitTests tests/Enigma.GitClient.Desktop.UnitTests`, then its
    project file to `Enigma.GitClient.Desktop.UnitTests.csproj`.
-2. `RootNamespace` → `Enigma.GitClient.Desktop.UnitTests`. Every namespace in the project follows.
-   `global::Enigma.GitClient.Desktop.App` may become plain `App` where the new namespace no longer
-   hides it.
+2. *(Done in PHASE01, see its step 5)* `RootNamespace` and the namespaces are already
+   `Enigma.GitClient.Desktop.UnitTests`.
 3. `InternalsVisibleTo Include="Enigma.GitClient.Desktop.UnitTests"` in the app's project.
 4. `Enigma.GitClient.slnx` and the README's *Repository layout* row.
 5. Build (zero warnings), whole suite.
