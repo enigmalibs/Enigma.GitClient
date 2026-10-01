@@ -6,6 +6,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Enigma.GitClient.Core.UnitTests/Enigma.GitClient.Core.UnitTests.csproj" />
     <Project Path="tests/Enigma.GitClient.Core.IntegrationTests/Enigma.GitClient.Core.IntegrationTests.csproj" />
-    <Project Path="tests/Enigma.GitClient.App.UnitTests/Enigma.GitClient.App.UnitTests.csproj" />
+    <Project Path="tests/Enigma.GitClient.Desktop.UnitTests/Enigma.GitClient.Desktop.UnitTests.csproj" />
   </Folder>
 </Solution>

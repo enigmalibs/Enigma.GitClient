@@ -198,7 +198,7 @@ removes those four things and nothing else: your settings, accounts and tokens i
 | `src/Enigma.GitClient.Desktop`             | The Avalonia 12 desktop application                   |
 | `tests/Enigma.GitClient.Core.UnitTests`    | Pure-logic tests (parsers, algorithms, validation)    |
 | `tests/Enigma.GitClient.Core.IntegrationTests` | Tests driving a real `git` against temporary repositories |
-| `tests/Enigma.GitClient.App.UnitTests`     | ViewModel and headless render tests                   |
+| `tests/Enigma.GitClient.Desktop.UnitTests` | ViewModel and headless render tests                   |
 | `docs/`                                    | Roadmap, per-item plans and completion records        |
 
 ## Licence
