@@ -9,7 +9,10 @@
 set -euo pipefail
 
 readonly APP_ID='enigma-git-client'
-readonly APP_EXE='Enigma.GitClient.App'
+readonly APP_EXE='Enigma.GitClient.Desktop'
+# The launcher's name up to 5.1.0. An installation made then links to it, and is still ours to
+# remove when this script runs before any reinstall has re-pointed the symlink.
+readonly FORMER_APP_EXE='Enigma.GitClient.App'
 readonly ICON_SIZES=(16 32 48 64 128 256)
 
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
@@ -77,7 +80,7 @@ fi
 if [[ -L ${symlink} ]]; then
     target=$(readlink -- "${symlink}")
 
-    if [[ ${target} = "${install_dir}/${APP_EXE}" ]]; then
+    if [[ ${target} = "${install_dir}/${APP_EXE}" || ${target} = "${install_dir}/${FORMER_APP_EXE}" ]]; then
         rm -f -- "${symlink}"
         step "Removed ${symlink}"
         removed=$((removed + 1))

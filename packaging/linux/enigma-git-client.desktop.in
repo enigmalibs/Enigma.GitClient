@@ -10,4 +10,4 @@ Terminal=false
 Categories=Development;RevisionControl;
 Keywords=git;version control;repository;commit;branch;merge;diff;history;
 StartupNotify=true
-StartupWMClass=Enigma.GitClient.App
+StartupWMClass=Enigma.GitClient.Desktop

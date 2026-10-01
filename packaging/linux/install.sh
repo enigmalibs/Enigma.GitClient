@@ -12,7 +12,7 @@
 set -euo pipefail
 
 readonly APP_ID='enigma-git-client'
-readonly APP_EXE='Enigma.GitClient.App'
+readonly APP_EXE='Enigma.GitClient.Desktop'
 readonly ICON_SIZES=(16 32 48 64 128 256)
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -44,7 +44,7 @@ application from this repository, bundling the .NET runtime, and installs the re
 
 Options:
   --from DIR              Install an already-published directory instead of building one.
-                          DIR must contain the Enigma.GitClient.App launcher.
+                          DIR must contain the Enigma.GitClient.Desktop launcher.
   --framework-dependent   Build against an installed .NET 10 runtime instead of bundling
                           one: about 37 MB rather than 116 MB, but the machine then needs
                           the runtime somewhere the application can find it.
@@ -151,7 +151,7 @@ else
         step "Building for ${rid}, against an installed .NET runtime"
     fi
 
-    dotnet publish "${repo_root}/src/Enigma.GitClient.App" \
+    dotnet publish "${repo_root}/src/Enigma.GitClient.Desktop" \
         --configuration Release \
         --runtime "${rid}" \
         --self-contained "${self_contained}" \

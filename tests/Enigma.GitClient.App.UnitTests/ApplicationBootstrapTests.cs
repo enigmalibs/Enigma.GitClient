@@ -1,8 +1,8 @@
 using Avalonia;
-using Enigma.GitClient.App;
+using Enigma.GitClient.Desktop;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Smoke test proving the application's <see cref="AppBuilder"/> can be constructed, which is what
@@ -16,6 +16,6 @@ public sealed class ApplicationBootstrapTests
         AppBuilder builder = Program.BuildAvaloniaApp();
 
         Assert.NotNull(builder);
-        Assert.Equal(typeof(global::Enigma.GitClient.App.App), builder.ApplicationType);
+        Assert.Equal(typeof(global::Enigma.GitClient.Desktop.App), builder.ApplicationType);
     }
 }

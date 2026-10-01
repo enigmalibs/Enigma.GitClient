@@ -8,17 +8,17 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
-using Enigma.GitClient.App.Controls;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Controls;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
 using Enigma.Icons.Phosphor;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Copying from the history: a branch's or a tag's name from its badge, a commit's hash from its line.

@@ -1,20 +1,20 @@
 using System;
 using System.Collections.Generic;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.App;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.ViewModels.Panels;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Guards the composition root. A missing registration or a captive dependency is invisible until

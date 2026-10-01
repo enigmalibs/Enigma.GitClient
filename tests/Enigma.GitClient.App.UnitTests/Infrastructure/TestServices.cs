@@ -1,15 +1,15 @@
 using System;
 using System.IO;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.App.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// Builds the application's container for a test, with the two things a test must never share with

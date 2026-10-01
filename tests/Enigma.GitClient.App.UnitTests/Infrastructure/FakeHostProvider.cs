@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Security;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// A hosting provider that answers from a script, so the page can be driven with no network and no

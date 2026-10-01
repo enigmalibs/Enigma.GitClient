@@ -7,7 +7,7 @@ using Avalonia.Headless;
 using Avalonia.Threading;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// Stands up a headless Avalonia platform once per test run and gives tests a way to run work on

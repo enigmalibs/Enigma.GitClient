@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Enigma.GitClient.Core/Enigma.GitClient.Core.csproj" />
-    <Project Path="src/Enigma.GitClient.App/Enigma.GitClient.App.csproj" />
+    <Project Path="src/Enigma.GitClient.Desktop/Enigma.GitClient.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Enigma.GitClient.Core.UnitTests/Enigma.GitClient.Core.UnitTests.csproj" />

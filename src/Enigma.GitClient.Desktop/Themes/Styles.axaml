@@ -1,0 +1,817 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+        xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
+        xmlns:diff="using:Enigma.GitClient.Desktop.Controls.Diff">
+
+  <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
+       Enigma* brushes so they follow a theme switch. -->
+
+  <!--
+    The icon scale. An icon states the role it plays and takes its size from that role, so the
+    application has one scale rather than a number per icon — and so making every toolbar a little
+    easier to hit is one edit here instead of a hundred in the views.
+
+      header   a title's icon, beside the name of a page or of the open repository
+      toolbar  an icon-only button, or a segmented toggle, on a toolbar strip
+      row      an icon on a line: a list row's leading glyph, its own actions, a banner
+      pill     an icon inside a badge, a counter or a group heading
+
+    An icon that belongs to a control template (RefBadge, EmptyState) is that control's business
+    and keeps its own size.
+  -->
+  <Style Selector="ei|Icon.header">
+    <Setter Property="Size" Value="20" />
+  </Style>
+
+  <Style Selector="ei|Icon.toolbar">
+    <Setter Property="Size" Value="18" />
+  </Style>
+
+  <Style Selector="ei|Icon.row">
+    <Setter Property="Size" Value="16" />
+  </Style>
+
+  <Style Selector="ei|Icon.pill">
+    <Setter Property="Size" Value="12" />
+  </Style>
+
+  <!-- Beside a context menu's item: the size the menu's icon column is laid out for. -->
+  <Style Selector="ei|Icon.menu">
+    <Setter Property="Size" Value="16" />
+  </Style>
+
+  <!--
+    Toolbar buttons: the actions that sit on a surface strip. FluentTheme's default button paints a
+    filled plate in every state, which reads as a box floating on the strip; a toolbar button is
+    drawn as its glyph in the full foreground inside a one-pixel frame instead, so an enabled button
+    is never mistaken for a disabled one, and the strip is not a row of boxes.
+
+    A disabled toolbar button drops the frame and the full foreground: it is its glyph in the
+    secondary grey, and nothing else. It is not faded — a faded grey glyph on the strip's surface
+    read as a smudge rather than as a button that cannot be pressed right now.
+
+    The frame is stated on the button and repeated on the presenter for every state, because
+    FluentTheme's own :pointerover, :pressed and :disabled rules set the presenter's brushes directly
+    and would otherwise win. The padding is what makes the frame a square around the glyph rather than
+    a bar: it is stated against the toolbar icon size above, less the frame's pixel, so the two move
+    together and a button keeps the size it always had.
+  -->
+  <Style Selector="Button.toolbar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,5" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaPressedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!--
+    The way back from a page that stands in for the history — the diffs over the graph, the working
+    directory — painted in the application's blue with a white arrow, so it is the first thing the eye
+    finds on the page. After the toolbar's own states on purpose: in Avalonia the later style wins, and
+    these have to win in every one of them.
+  -->
+  <Style Selector="Button.toolbar.back">
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.back /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.back:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentHoverBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.back:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentPressedBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+  </Style>
+
+  <!--
+    A toolbar button on a line of a list or a tree is a row's own action (see below), and a frame
+    around it on every row of a list is noise: there it is its glyph alone, as it always was, with
+    the padding it always had.
+  -->
+  <Style Selector="ListBoxItem Button.toolbar, TreeViewItem Button.toolbar">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="7,6" />
+  </Style>
+
+  <!--
+    Dimmed text, and the one place it stops being dim.
+
+    A line of a list carries one thing to read and several to glance at — an author, a date, a short
+    hash, an upstream, a counter — and those are drawn in the two quieter foregrounds. On the row
+    the reader has selected, that grey sits on the selection's own colour and stops being readable,
+    so a selected container raises both roles to the full foreground: the line being read is the
+    line that reads.
+
+    Stated as classes rather than as a Foreground per element **because a local value outranks every
+    style setter in Avalonia**: a TextBlock that names its own brush in markup can never be
+    restyled, which is exactly why two views carried a `:selected` rule of their own that had never
+    once fired.
+  -->
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="ei|Icon.dim">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="ei|Icon.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected TextBlock.dim,
+                   ListBoxItem:selected TextBlock.faint,
+                   TreeViewItem:selected TextBlock.dim,
+                   TreeViewItem:selected TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected ei|Icon.dim,
+                   ListBoxItem:selected ei|Icon.faint,
+                   TreeViewItem:selected ei|Icon.dim,
+                   TreeViewItem:selected ei|Icon.faint">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <!--
+    And a row's own actions, which are the case neither of those rules covers.
+
+    An icon-only action on a line is a `Button.toolbar` holding an `ei:Icon.row` — that pair is a row
+    action everywhere in the application, and a header's button holds an `Icon.toolbar` instead, so the
+    two are told apart without a class nobody would remember to write. The button lends its content the
+    secondary grey, and the icon, stating no foreground of its own, *inherits* it: on the plate a
+    selected row paints, grey on grey, which is the action nobody could see. An inherited value is
+    beaten by a style setter on the element itself, so one rule here settles every state — and it is
+    the full foreground rather than a brighter grey, because an action legible only while its row is
+    hovered or selected is an action nobody finds.
+
+    The leading glyph of a row keeps its `dim` class and stays quiet: it repeats what the row is, it is
+    not a thing to press.
+
+    That same setter would keep a disabled row action in the full foreground, looking pressable, so
+    the disabled one is stated after it and wins: grey, as every disabled toolbar button is.
+  -->
+  <Style Selector="Button.toolbar ei|Icon.row">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar:disabled ei|Icon.row">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
+  <Style Selector="Border.pill">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Short hashes and file content read as code, so they get the monospace stack. -->
+  <Style Selector="TextBlock.monospace">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+  </Style>
+
+  <!--
+    The status chip beside a changed file. The letter is git's own (A, M, D, R, C, T, U) and the
+    colour repeats the meaning, so the column is readable at a glance and still readable without
+    colour.
+  -->
+  <Style Selector="Border.status">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource DiffStatusModifiedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.added">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusAddedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.deleted">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusDeletedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.renamed">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusRenamedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status.conflicted">
+    <Setter Property="Background" Value="{DynamicResource DiffStatusConflictedBrush}" />
+  </Style>
+
+  <Style Selector="Border.status > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource DiffStatusForegroundBrush}" />
+  </Style>
+
+  <!--
+    A pair of toggles acting as one segmented control — the list/tree switch, the diff's renderings —
+    and the diff viewer's on/off toggles. They are toolbar buttons and read the same way: the full
+    foreground inside a frame when they can be pressed, the selection plate behind the one that is
+    on, and the secondary grey with no frame when they cannot.
+  -->
+  <Style Selector="ToggleButton.segment">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="5,4" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaPressedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="ToggleButton.segment:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!--
+    A history row, and a history row the search found.
+
+    The transparent background is the row's hit area: a Grid with no brush lets a pointer through
+    wherever a child is not, and the row's menu opens from anywhere on the line. It is stated here
+    rather than in the template because the wash below has to be able to beat it — a local value in
+    markup outranks every style setter, which is precisely why this wash never once appeared.
+
+    A wash rather than a border: the row already carries a graph, a badge strip and four columns of
+    text, and a ring around all of that reads as a second selection. Quiet enough that the selected
+    row is still obviously the selected one.
+  -->
+
+  <Style Selector="Grid.commitrow">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!--
+    The checked-out line, which already carries the current branch's blue badge and the ringed node,
+    washed in a light blue across its whole width so it can be found in a long list without reading
+    the badges. Like the search's wash, it is the row's own and covers the container's plates, so it
+    answers for hover — a shade further — and for selection, where it gives way to the ordinary
+    selection: a selected line looks selected, whichever line it is.
+
+    Declared before the search's wash on purpose: a checked-out line the search found shows what the
+    reader is doing now, and the badge and the ring still say which line HEAD is.
+  -->
+
+  <Style Selector="Grid.commitrow.head">
+    <Setter Property="Background" Value="{DynamicResource HeadRowBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:pointerover Grid.commitrow.head">
+    <Setter Property="Background" Value="{DynamicResource HeadRowHoverBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected Grid.commitrow.head">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+  </Style>
+
+  <Style Selector="Grid.commitrow.match">
+    <Setter Property="Background" Value="{DynamicResource SearchMatchBrush}" />
+  </Style>
+
+  <!--
+    And the same row hovered, and selected.
+
+    The wash is the row's, not the container's, so it covers the plate the ListBoxItem paints for
+    :pointerover and for :selected — a found row that could not be seen to be hovered and could not
+    be seen to be selected. The row therefore answers for all three states itself, in the same hue
+    carried further each time, so a found row stays recognisably found while the pointer is on it
+    and while it is the row being acted on. A row the search did not find is transparent and its
+    container goes on painting those states, which is why only these two selectors are needed.
+
+    Declared after the wash on purpose: style setters are taken in order, so these are the ones that
+    win when a row is both found and hovered or selected.
+  -->
+
+  <Style Selector="ListBoxItem:pointerover Grid.commitrow.match">
+    <Setter Property="Background" Value="{DynamicResource SearchMatchHoverBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected Grid.commitrow.match">
+    <Setter Property="Background" Value="{DynamicResource SearchMatchSelectedBrush}" />
+  </Style>
+
+  <!--
+    The history list's column header. The title is quiet — it names the column and then gets out of
+    the way of the commits — and the grip is a hit area rather than a control: what the reader sees
+    at a column boundary is the one-pixel rule inside it, which brightens under the pointer to say
+    it can be dragged.
+  -->
+
+  <Style Selector="TextBlock.columnheader">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="Thumb.columngrip">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="{TemplateBinding Background}">
+          <Border Name="PART_Rule"
+                  Width="1"
+                  Margin="0,5"
+                  HorizontalAlignment="Center"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="Thumb.columngrip:pointerover /template/ Border#PART_Rule">
+    <Setter Property="Width" Value="2" />
+    <Setter Property="Margin" Value="0,2" />
+    <Setter Property="Background" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <!--
+    The history's details panel's edge, which resizes it: the same four-wide rule as the splitters
+    between a file list and its diff, brightening under the pointer as the column grips do.
+  -->
+
+  <Style Selector="Thumb.panelgrip">
+    <Setter Property="Width" Value="4" />
+    <Setter Property="Background" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" />
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="Thumb.panelgrip:pointerover">
+    <Setter Property="Background" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+  </Style>
+
+  <!--
+    The diff viewer. A row's own tint is quiet; the word-level tint drawn behind the changed
+    stretches is the loud one, so the eye goes to the words that actually differ rather than to the
+    whole line. Both follow the theme, so neither goes unreadable in the light variant.
+  -->
+
+  <Style Selector="Border.diffrow">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.diffrow.added">
+    <Setter Property="Background" Value="{DynamicResource DiffAddedLineBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffrow.removed">
+    <Setter Property="Background" Value="{DynamicResource DiffRemovedLineBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffrow.filler">
+    <Setter Property="Background" Value="{DynamicResource DiffFillerBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffgutter">
+    <Setter Property="Background" Value="{DynamicResource DiffGutterBrush}" />
+  </Style>
+
+  <!--
+    The gutter, the marker and the text itself all take their face, their size and their width from
+    the DiffTypography resources, so the diff font preference reaches every diff the application
+    draws — both of the viewer's renderings and the conflict page's three panes — without a binding
+    per row. The widths are derived from the measured character width: a column fixed at 48 px
+    clips a six-digit line number the moment the face grows.
+  -->
+  <Style Selector="TextBlock.diffnumber">
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffLineNumberFontSize}" />
+    <Setter Property="Width" Value="{DynamicResource DiffGutterWidth}" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffGutterForegroundBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Right" />
+    <Setter Property="Padding" Value="0,0,8,0" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker">
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffFontSize}" />
+    <Setter Property="Width" Value="{DynamicResource DiffMarkerWidth}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker.added">
+    <Setter Property="Foreground" Value="{DynamicResource DiffAddedMarkerBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.diffmarker.removed">
+    <Setter Property="Foreground" Value="{DynamicResource DiffRemovedMarkerBrush}" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText">
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffFontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    <Setter Property="WhitespaceBrush" Value="{DynamicResource DiffWhitespaceBrush}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource DiffTextSelectionBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText.added">
+    <Setter Property="HighlightBrush" Value="{DynamicResource DiffAddedWordBrush}" />
+  </Style>
+
+  <Style Selector="diff|DiffLineText.removed">
+    <Setter Property="HighlightBrush" Value="{DynamicResource DiffRemovedWordBrush}" />
+  </Style>
+
+  <Style Selector="Border.diffband">
+    <Setter Property="Background" Value="{DynamicResource DiffHunkBandBrush}" />
+    <Setter Property="Padding" Value="10,3" />
+  </Style>
+
+  <!-- The band is the affordance for "show me more of this file": it is already where the reader
+       is looking, and a toolbar button for it would be a second place to learn. -->
+  <Style Selector="Button.band">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <Style Selector="Button.band /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Border.diffband TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffHunkForegroundBrush}" />
+  </Style>
+
+  <!-- A diff row is a line of code, not a list entry: no rounded plate and no inset. -->
+  <Style Selector="ListBox.diff ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+
+  <!--
+    A selected line keeps its own colour and gains a bar in the gutter. Painting the selection over
+    the row instead would hide the one thing the row exists to show — whether the line was added or
+    removed — which is exactly backwards for a view whose selection is there to be copied from.
+  -->
+  <Style Selector="ListBox.diff ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Border.diffselection">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Width" Value="3" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="ListBox.diff ListBoxItem:selected Border.diffselection">
+    <Setter Property="Background" Value="{DynamicResource DiffSelectionBrush}" />
+  </Style>
+
+  <!-- The one button on a page that performs the page's whole purpose. Exactly one per page:
+       two accented buttons beside each other is two buttons with no accent. -->
+  <Style Selector="Button.accent">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.accent /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+  </Style>
+
+  <!--
+    Red: an action that throws work away, and the button that confirms it. The same red in both places,
+    so the question looks like the button that asked it.
+
+    A toolbar button in red is red only while it can be pressed. Disabled, it is the ordinary disabled
+    toolbar button, because a red button that does nothing would say "careful" about nothing.
+  -->
+  <Style Selector="Button.toolbar.danger">
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerHoverBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerPressedBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <Style Selector="Button.toolbar.danger:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!--
+    A question asked as plain text goes onto as many lines as it needs. Left to itself, the dialog's
+    content presenter draws a string on one line, and the card is bounded (DialogMaxWidth), so a long
+    question — the discard of the uncommitted work, a tag or a branch with a long name — was cut at
+    the card's edge. Wrap, not WrapWithOverflow: a word with no break in it, a path or a long name, is
+    broken too rather than left to run past the edge.
+
+    What is styled is the text block the presenter makes for a string, and nothing else:
+    - Not a ContentTemplate. A content presenter applies its template to a view (a Control) too, not
+      only to data. A template for strings does not match a view, and the presenter falls back to its
+      default one: a text block showing the view's type name, with the view never attached. That is
+      what 4.1.0 did to every dialog whose content is a view (BUG-7E5C).
+    - Not TextWrapping on the presenter. That property is inherited, and would have made every text
+      block of every dialog's own view wrap; the tools' lists and the forms lay out their own text.
+    The dialog's template names no part PART_ContentPresenter, so the presenter keeps the text block
+    it makes as its own logical child, and "ContentPresenter > TextBlock" reaches it. A view given as
+    the content is the dialog's logical child, and so are the text blocks inside it: none of them
+    matches.
+  -->
+  <Style Selector="contentDialog|ContentDialog /template/ ContentPresenter > TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+  </Style>
+
+  <!--
+    A question whose answer throws work away confirms in red. The class is put on the dialog host for
+    that one question and taken off again (ContentDialogServiceExtensions.ConfirmDestructiveAsync):
+    the host is shared by every dialog of the window, and its service does not reset its classes.
+    After the accent styles above, which the confirm button, an accent button, would otherwise take.
+  -->
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <Style Selector="contentDialog|ContentDialog.danger /template/ Button#PART_PrimaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActionDangerPressedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionDangerForegroundBrush}" />
+  </Style>
+
+  <!-- A counter that has passed its guide says so by colour rather than by a second control. -->
+  <Style Selector="TextBlock.overlong">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaWarningBrush}" />
+  </Style>
+
+  <!--
+    The conflict panes. Each side keeps one quiet tint for its whole column rather than tinting every
+    line, so a region reads as "this block is ours, that block is theirs" at a glance, and the text
+    inside stays as readable as it is in the editor the user came from.
+  -->
+
+  <Style Selector="Border.conflictcard">
+    <Setter Property="Background" Value="{DynamicResource ConflictCardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Margin" Value="8,6" />
+  </Style>
+
+  <Style Selector="Border.conflictheader">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+    <Setter Property="Padding" Value="10,5" />
+  </Style>
+
+  <Style Selector="Border.conflictside">
+    <Setter Property="Padding" Value="0,0,0,4" />
+  </Style>
+
+  <Style Selector="Border.conflictside.ours">
+    <Setter Property="Background" Value="{DynamicResource ConflictOursLineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ConflictOursAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+
+  <Style Selector="Border.conflictside.theirs">
+    <Setter Property="Background" Value="{DynamicResource ConflictTheirsLineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ConflictTheirsAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+
+  <Style Selector="Border.conflictside.base">
+    <Setter Property="Background" Value="{DynamicResource ConflictBaseLineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ConflictBaseAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+
+  <!-- A side's heading is the only place its colour is stated in words, so it carries the hue. -->
+  <Style Selector="TextBlock.conflictlabel">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="8,3" />
+  </Style>
+
+  <Style Selector="TextBlock.conflictlabel.ours">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictOursAccentBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.conflictlabel.theirs">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictTheirsAccentBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.conflictlabel.base">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictBaseAccentBrush}" />
+  </Style>
+
+  <!-- Resolved and still-to-do are the two states a reader scans this page for, so they are the two
+       states that get a colour. -->
+  <Style Selector="Border.conflictstate">
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource ConflictPendingBrush}" />
+  </Style>
+
+  <Style Selector="Border.conflictstate TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource ConflictPendingForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Border.conflictstate.resolved">
+    <Setter Property="Background" Value="{DynamicResource ConflictResolvedBrush}" />
+  </Style>
+
+  <Style Selector="Border.conflictstate.resolved TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource ConflictResolvedForegroundBrush}" />
+  </Style>
+
+  <!-- The choice a region is set to is shown by the pressed-in look of the button that set it. -->
+  <Style Selector="Button.choice">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="Button.choice.chosen">
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+  </Style>
+
+  <Style Selector="Button.choice.chosen /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSelectionBrush}" />
+  </Style>
+
+  <!-- The preview is read, not edited: it looks like the file it stands for and nothing else. -->
+  <Style Selector="TextBox.preview">
+    <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,4" />
+  </Style>
+
+  <!-- A row's action stays out of the way until the row is hovered or the action is focused. -->
+  <Style Selector="Button.rowaction">
+    <Setter Property="Padding" Value="4,1" />
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+
+  <Style Selector="Button.rowaction:pointerover">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!--
+    A context menu is as wide as its widest item. FluentTheme caps every menu at its flyout width
+    (456 px) and an item's title has no trimming, so a title longer than that — a line's menu naming
+    two long branches, say — was simply cut off, at the branch name the reader needed. The cap is
+    lifted for every menu in the application, and a title wider than even the screen the menu opens
+    on breaks onto a second line rather than running off its edge: whatever the length, all of it is
+    there to read.
+  -->
+  <Style Selector="ContextMenu">
+    <Setter Property="MaxWidth" Value="Infinity" />
+  </Style>
+
+  <Style Selector="MenuItem /template/ ContentPresenter#PART_HeaderPresenter">
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+</Styles>

@@ -10,21 +10,21 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Dialogs;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views.Dialogs;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Security;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views.Dialogs;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The integrations on the profiles page: connecting an account to a profile, listing each profile's

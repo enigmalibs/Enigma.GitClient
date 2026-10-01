@@ -6,22 +6,22 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.Navigation;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.App.Navigation;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Navigation;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Drives the real shell — the window, its ViewModel and the navigation rail — on the headless

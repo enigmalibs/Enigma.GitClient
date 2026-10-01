@@ -3,12 +3,12 @@ using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Media;
-using Enigma.GitClient.App.Controls.Diff;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Desktop.Controls.Diff;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The diff's typography: what the two font preferences turn into, what the application publishes

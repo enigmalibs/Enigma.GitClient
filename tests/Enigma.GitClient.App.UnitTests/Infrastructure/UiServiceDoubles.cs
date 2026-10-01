@@ -6,9 +6,9 @@ using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.App.Services;
+using Enigma.GitClient.Desktop.Services;
 
-namespace Enigma.GitClient.App.UnitTests.Infrastructure;
+namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 
 /// <summary>
 /// What a page asked the info bar to show.

@@ -7,18 +7,18 @@ using Avalonia.Controls;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
-using Enigma.GitClient.App.Formatting;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels.Dialogs;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Formatting;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views.Dialogs;
 using Enigma.Icons.Phosphor;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The commit details dialog: what it says about a commit, and that all of it is text to select, not

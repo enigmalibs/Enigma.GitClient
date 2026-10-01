@@ -15,20 +15,20 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Dialogs;
-using Enigma.GitClient.App.ViewModels.Pages;
-using Enigma.GitClient.App.Views;
-using Enigma.GitClient.App.Views.Dialogs;
-using Enigma.GitClient.App.Views.Pages;
 using Enigma.GitClient.Core.Diagnostics;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views;
+using Enigma.GitClient.Desktop.Views.Dialogs;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The About dialog: what it says, how it is shown, and where it is opened from.

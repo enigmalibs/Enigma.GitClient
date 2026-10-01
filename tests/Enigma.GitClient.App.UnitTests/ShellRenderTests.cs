@@ -7,13 +7,13 @@ using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using Enigma.GitClient.App.Controls;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.Views.Pages;
+using Enigma.GitClient.Desktop.Controls;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Builds real controls on a headless Avalonia platform. These are the tests that catch a broken

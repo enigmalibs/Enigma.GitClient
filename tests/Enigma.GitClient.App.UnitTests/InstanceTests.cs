@@ -3,13 +3,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
-using Enigma.GitClient.App.Services;
-using Enigma.GitClient.App.UnitTests.Infrastructure;
-using Enigma.GitClient.App.ViewModels;
-using Enigma.GitClient.App.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Xunit;
 
-namespace Enigma.GitClient.App.UnitTests;
+namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// Several instances side by side: how another one is started, and the two places that ask for one.
@@ -25,11 +25,11 @@ public sealed class InstanceTests
     public void BuildStartInfo_RunsTheExecutableAgainWithThePathAsOneArgument()
     {
         ProcessStartInfo start = InstanceLauncher.BuildStartInfo(
-            "/opt/enigma/Enigma.GitClient.App",
-            "/opt/enigma/Enigma.GitClient.App.dll",
+            "/opt/enigma/Enigma.GitClient.Desktop",
+            "/opt/enigma/Enigma.GitClient.Desktop.dll",
             "/src/a repo; rm -rf ~")!;
 
-        Assert.Equal("/opt/enigma/Enigma.GitClient.App", start.FileName);
+        Assert.Equal("/opt/enigma/Enigma.GitClient.Desktop", start.FileName);
         Assert.Equal(["/src/a repo; rm -rf ~"], start.ArgumentList);
         Assert.False(start.UseShellExecute);
     }
@@ -37,7 +37,7 @@ public sealed class InstanceTests
     [Fact]
     public void BuildStartInfo_WithNoRepository_StartsOnTheStartWindow()
     {
-        ProcessStartInfo start = InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.App", null, null)!;
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.Desktop", null, null)!;
 
         Assert.Empty(start.ArgumentList);
     }
@@ -50,10 +50,10 @@ public sealed class InstanceTests
             ? @"C:\Program Files\dotnet\dotnet.exe"
             : "/usr/share/dotnet/dotnet";
 
-        ProcessStartInfo start = InstanceLauncher.BuildStartInfo(host, "/opt/enigma/Enigma.GitClient.App.dll", "/src/repo")!;
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo(host, "/opt/enigma/Enigma.GitClient.Desktop.dll", "/src/repo")!;
 
         Assert.Equal(host, start.FileName);
-        Assert.Equal(["/opt/enigma/Enigma.GitClient.App.dll", "/src/repo"], start.ArgumentList);
+        Assert.Equal(["/opt/enigma/Enigma.GitClient.Desktop.dll", "/src/repo"], start.ArgumentList);
     }
 
     [Theory]
