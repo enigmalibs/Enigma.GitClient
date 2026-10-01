@@ -4,16 +4,20 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
+using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.App.Services;
 using Enigma.GitClient.App.UnitTests.Infrastructure;
 using Enigma.GitClient.App.ViewModels.Dialogs;
+using Enigma.GitClient.App.Views;
 using Enigma.GitClient.App.Views.Dialogs;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Security;
@@ -439,6 +443,112 @@ public sealed class HostRepositoriesDialogTests
 
             Assert.True(colours >= 8, $"the frame holds only {colours.ToString(System.Globalization.CultureInfo.InvariantCulture)} distinct colours");
         });
+    }
+
+    [Theory]
+    [InlineData(typeof(MainWindow))]
+    [InlineData(typeof(StartWindow))]
+    public void TheDialogFitsTheWindowsDialogCard_NothingCutAtEitherSide(Type windowType)
+    {
+        _fixture.RunAsync(async () =>
+        {
+            FakeHostProvider provider = new();
+            provider.Returns(new HostRepositoryPage(
+            [
+                Repository("octocat/hello-world", description: "My first repository, with a description long enough to be trimmed at its row's edge"),
+                Repository("contoso/secret-plans", isPrivate: true, description: "Nothing to see here"),
+                Repository("contoso/a-repository-whose-name-goes-on-and-on-and-on-and-on"),
+            ]));
+
+            // The real dialog service on the window's own host: the card's bounds are the window's.
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IRepositoryHostProvider>();
+                collection.AddSingleton<IRepositoryHostProvider>(provider);
+                collection.RemoveAll<IContentDialogService>();
+                collection.AddSingleton<IContentDialogService, ContentDialogService>();
+            });
+
+            Window window = (Window)services.Provider.GetRequiredService(windowType);
+            window.Width = 1280;
+            window.Height = 800;
+            ContentDialog host = ((IHostWindow)window).DialogHost;
+            services.Get<IContentDialogService>().RegisterHost(host);
+            window.Show();
+
+            HostAccount account = await ConnectedAsync(services);
+
+            try
+            {
+                Task<HostRepository?> browsing = services.Get<IHostRepositoryBrowser>().BrowseAsync(account);
+
+                await WaitUntilAsync(() => host.Content is HostRepositoriesDialogView { DataContext: HostRepositoriesDialogViewModel { Repositories.Count: 3 } });
+
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Loaded);
+                    window.UpdateLayout();
+                }
+
+                HostRepositoriesDialogView view = Assert.IsType<HostRepositoriesDialogView>(host.Content);
+
+                AssertWhollyShown(view, "the dialog's content");
+
+                foreach (string name in (string[])["Filter repositories", "All repositories", "Public repositories", "Private repositories"])
+                {
+                    AssertWhollyShown(Named(view, name).Single(), name);
+                }
+
+                Control[] clones = [.. Named(view, "Clone this repository")];
+                Control[] opens = [.. Named(view, "Open on the host")];
+
+                Assert.Equal(3, clones.Length);
+                Assert.Equal(3, opens.Length);
+
+                foreach (Control button in clones.Concat(opens))
+                {
+                    AssertWhollyShown(button, AutomationProperties.GetName(button)!);
+                }
+
+                await host.HideAsync();
+                Assert.Null(await browsing);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private static IEnumerable<Control> Named(Visual root, string automationName)
+        => root.GetVisualDescendants()
+            .OfType<Control>()
+            .Where(control => control.IsEffectivelyVisible && AutomationProperties.GetName(control) == automationName);
+
+    /// <summary>
+    /// Asserts a control is drawn whole: inside every ancestor that clips what it holds, up to the
+    /// window.
+    /// </summary>
+    private static void AssertWhollyShown(Control control, string what)
+    {
+        Rect own = new(control.Bounds.Size);
+
+        foreach (Visual ancestor in control.GetVisualAncestors())
+        {
+            if (!ancestor.ClipToBounds && ancestor is not TopLevel)
+            {
+                continue;
+            }
+
+            Matrix transform = control.TransformToVisual(ancestor)
+                ?? throw new InvalidOperationException($"{what} is not under {ancestor.GetType().Name}.");
+            Rect shown = own.TransformToAABB(transform);
+            Rect room = new Rect(ancestor.Bounds.Size).Inflate(0.5);
+
+            Assert.True(
+                room.Contains(shown),
+                $"{what} is drawn at {shown} in a {ancestor.GetType().Name} of {ancestor.Bounds.Size}: it is cut off");
+        }
     }
 
     private static unsafe int CountColours(string path)

@@ -238,7 +238,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5DFF | Release 5.0.0                           | DONE      | docs/plan/FEATURE-5DFF.md |
 | FEATURE-85E2 | Enigma.Avalonia.Desktop 1.2.0           | DONE      | docs/plan/FEATURE-85E2.md |
 | FEATURE-45D3 | Info bars close after 2.5 seconds       | DONE      | docs/plan/FEATURE-45D3.md |
-| BUG-15B8     | The repository browser is cut off       | TODO      | docs/plan/BUG-15B8.md     |
+| BUG-15B8     | The repository browser is cut off       | DONE      | docs/plan/BUG-15B8.md     |
 | FEATURE-A35A | A selected file lets go on a click      | TODO      | docs/plan/FEATURE-A35A.md |
 | - PHASE01    | The commit's files are toggles          | TODO      | (in FEATURE-A35A.md)      |
 | - PHASE02    | The working tree's files too            | TODO      | (in FEATURE-A35A.md)      |

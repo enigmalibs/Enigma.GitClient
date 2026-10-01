@@ -1,6 +1,6 @@
 # BUG-15B8 — The repository browser is cut off
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-15B8.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-15b8-repository-browser-width`
 **Run:** feature/2026-10-01-polish-release-5-1
