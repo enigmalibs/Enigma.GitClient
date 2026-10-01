@@ -213,7 +213,7 @@ public sealed class ProfilesPageTests
             Assert.Equal(InfoBarSeverity.Success, note.Severity);
 
             // A success needs no answer, so it closes itself.
-            Assert.Equal(TimeSpan.FromSeconds(5), note.DisplayDuration);
+            Assert.Equal(InfoBarServiceExtensions.TransientDisplayDuration, note.DisplayDuration);
         });
     }
 

@@ -1,6 +1,6 @@
 # FEATURE-45D3 — Info bars close after 2.5 seconds
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-45D3.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-45d3-info-bars-2-5-seconds`
 **Run:** feature/2026-10-01-polish-release-5-1

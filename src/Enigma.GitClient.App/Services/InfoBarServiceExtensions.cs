@@ -14,7 +14,7 @@ public static class InfoBarServiceExtensions
     /// <summary>
     /// How long a success or an informational message stays before it closes itself.
     /// </summary>
-    public static readonly TimeSpan TransientDisplayDuration = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan TransientDisplayDuration = TimeSpan.FromSeconds(2.5);
 
     extension(IInfoBarService infoBar)
     {

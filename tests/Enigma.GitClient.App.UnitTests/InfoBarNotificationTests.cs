@@ -21,7 +21,7 @@ namespace Enigma.GitClient.App.UnitTests;
 [Collection(HeadlessCollection.Name)]
 public sealed class InfoBarNotificationTests
 {
-    private static readonly TimeSpan FiveSeconds = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan TwoAndAHalfSeconds = TimeSpan.FromSeconds(2.5);
 
     private readonly HeadlessAvaloniaFixture _fixture;
 
@@ -44,7 +44,7 @@ public sealed class InfoBarNotificationTests
             Assert.Equal("Pushed", note.Title);
             Assert.Equal("Everything \"main\" had is on origin.", note.Message);
             Assert.Equal(severity, note.Severity);
-            Assert.Equal(timed ? FiveSeconds : null, note.DisplayDuration);
+            Assert.Equal(timed ? TwoAndAHalfSeconds : null, note.DisplayDuration);
         });
     }
 
@@ -80,7 +80,7 @@ public sealed class InfoBarNotificationTests
 
                 Assert.True(host.IsOpen);
                 Assert.Equal("Merged", host.Title);
-                Assert.Equal(FiveSeconds, host.DisplayDuration);
+                Assert.Equal(TwoAndAHalfSeconds, host.DisplayDuration);
 
                 // An error arriving on the open bar replaces the message and must not inherit its
                 // countdown: it stays until the user has read it.
