@@ -236,6 +236,14 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Selecting and copying with the pointer  | DONE      | (in BUG-6787.md)          |
 | FEATURE-3988 | The name Enigma Git Client              | DONE      | docs/plan/FEATURE-3988.md |
 | FEATURE-5DFF | Release 5.0.0                           | DONE      | docs/plan/FEATURE-5DFF.md |
+| FEATURE-85E2 | Enigma.Avalonia.Desktop 1.2.0           | TODO      | docs/plan/FEATURE-85E2.md |
+| FEATURE-45D3 | Info bars close after 2.5 seconds       | TODO      | docs/plan/FEATURE-45D3.md |
+| BUG-15B8     | The repository browser is cut off       | TODO      | docs/plan/BUG-15B8.md     |
+| FEATURE-A35A | A selected file lets go on a click      | TODO      | docs/plan/FEATURE-A35A.md |
+| - PHASE01    | The commit's files are toggles          | TODO      | (in FEATURE-A35A.md)      |
+| - PHASE02    | The working tree's files too            | TODO      | (in FEATURE-A35A.md)      |
+| BUG-546B     | Tool dialog headers stay on top         | TODO      | docs/plan/BUG-546B.md     |
+| FEATURE-0C53 | Release 5.1.0                           | TODO      | docs/plan/FEATURE-0C53.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
