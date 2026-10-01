@@ -243,7 +243,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | The commit's files are toggles          | DONE      | (in FEATURE-A35A.md)      |
 | - PHASE02    | The working tree's files too            | DONE      | (in FEATURE-A35A.md)      |
 | BUG-546B     | Tool dialog headers stay on top         | DONE      | docs/plan/BUG-546B.md     |
-| FEATURE-0C53 | Release 5.1.0                           | TODO      | docs/plan/FEATURE-0C53.md |
+| FEATURE-0C53 | Release 5.1.0                           | DONE      | docs/plan/FEATURE-0C53.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

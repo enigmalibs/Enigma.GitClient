@@ -10,12 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.0** — a details panel beside the history: a line's files, and on the uncommitted
-> line the working tree and the commit box, in place of the Changes page. The start window lists the
-> repositories of the profile you pick, in the order you drag them into. The diff's text can be
-> selected and copied, a new repository starts with a README, and the application is now **Enigma Git
-> Client**. 5.0 removes the Changes page, the double-click on a line and *Pin to the top*, and starts
-> the repository list afresh — see *Upgrading from 4.x* in [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.1** — a click on the selected file in the history's details panel lets go of it
+> and puts its diff away; the Branches, Tags and Remotes dialogs keep their header (and the manual
+> merge band) at the top while a long list scrolls; the info bars are softer in the dark theme, and a
+> success or an informational one closes after 2.5 seconds; the repository browser is no longer cut
+> off. Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -28,7 +28,8 @@ Two things matter more than everything else in this app:
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit in a panel beside the history, as GitKraken has it — click a
   line to open it, click the line again to close it — shown as a **list or a tree** (your choice);
-  pick a file and its diff opens over the graph, with the panel still beside it
+  pick a file and its diff opens over the graph, with the panel still beside it, and click the file
+  again to put the diff away
 - A commit's details — its title, description, author and email, date and how long ago that was, and
   full hash — in a dialog opened from the details panel's header, the diff view's or the commit's
   line menu, every value selectable to copy

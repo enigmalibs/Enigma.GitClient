@@ -1,6 +1,6 @@
 # FEATURE-0C53 — Release 5.1.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0C53.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-0c53-release-5-1-0`
 **Run:** feature/2026-10-01-polish-release-5-1
