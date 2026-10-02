@@ -253,7 +253,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | One badge for a branch and its remote   | DONE      | (in FEATURE-551C.md)      |
 | - PHASE02    | Reset local to the remote's commit      | DONE      | (in FEATURE-551C.md)      |
 | - PHASE03    | Double-click a badge to check out       | DONE      | (in FEATURE-551C.md)      |
-| FEATURE-4D5A | Release 5.2.0                           | TODO      | docs/plan/FEATURE-4D5A.md |
+| FEATURE-4D5A | Release 5.2.0                           | DONE      | docs/plan/FEATURE-4D5A.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
