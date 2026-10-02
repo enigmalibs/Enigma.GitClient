@@ -29,12 +29,14 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <param name="delete">The command that deletes the tag.</param>
     /// <param name="selectInHistory">The command that selects the tagged commit in the history.</param>
     /// <param name="push">The command that pushes the tag to the remote.</param>
+    /// <param name="deleteRemote">The command that deletes the tag from the remote.</param>
     public TagRowViewModel(
         GitTag tag,
         AsyncRelayCommand<TagRowViewModel> checkout,
         AsyncRelayCommand<TagRowViewModel> delete,
         RelayCommand<TagRowViewModel>? selectInHistory = null,
-        AsyncRelayCommand<TagRowViewModel>? push = null)
+        AsyncRelayCommand<TagRowViewModel>? push = null,
+        AsyncRelayCommand<TagRowViewModel>? deleteRemote = null)
     {
         ArgumentNullException.ThrowIfNull(tag);
         ArgumentNullException.ThrowIfNull(checkout);
@@ -45,6 +47,7 @@ public sealed class TagRowViewModel : ViewModelBase
         DeleteCommand = delete;
         SelectInHistoryCommand = selectInHistory;
         PushCommand = push;
+        DeleteRemoteCommand = deleteRemote;
     }
 
     /// <summary>Gets the tag this row stands for.</summary>
@@ -88,6 +91,12 @@ public sealed class TagRowViewModel : ViewModelBase
 
     /// <summary>Gets a value indicating whether the row's menu offers the push.</summary>
     public bool CanPush => PushCommand is not null;
+
+    /// <summary>Gets the command that deletes the tag from the remote, keeping it here.</summary>
+    public AsyncRelayCommand<TagRowViewModel>? DeleteRemoteCommand { get; }
+
+    /// <summary>Gets a value indicating whether the row's menu offers the remote delete.</summary>
+    public bool CanDeleteRemote => DeleteRemoteCommand is not null;
 
     /// <inheritdoc />
     public override string ToString() => Name;
@@ -162,6 +171,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
         CheckoutCommand = new AsyncRelayCommand<TagRowViewModel>(OnCheckoutAsync, row => row is not null);
         DeleteCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteAsync, row => row is not null);
+        DeleteRemoteCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteRemoteAsync, row => row is not null);
         PushCommand = new AsyncRelayCommand<TagRowViewModel>(OnPushAsync, row => row is not null);
     }
 
@@ -288,6 +298,9 @@ public sealed class TagsPageViewModel : PageViewModelBase
     /// <summary>Gets the command that deletes a tag.</summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteCommand { get; }
 
+    /// <summary>Gets the command that deletes a tag from the remote, keeping it here.</summary>
+    public AsyncRelayCommand<TagRowViewModel> DeleteRemoteCommand { get; }
+
     /// <summary>Gets the command that pushes a tag, on its own, to the remote.</summary>
     public AsyncRelayCommand<TagRowViewModel> PushCommand { get; }
 
@@ -380,7 +393,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
         foreach (GitTag tag in RefSort.Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection))
         {
-            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand));
+            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand, DeleteRemoteCommand));
         }
 
         SelectedTag = selected is null
@@ -415,6 +428,14 @@ public sealed class TagsPageViewModel : PageViewModelBase
         if (row is not null)
         {
             await Run(() => _tagOperations.DeleteAsync(row.Name)).ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnDeleteRemoteAsync(TagRowViewModel? row)
+    {
+        if (row is not null)
+        {
+            await Run(() => _tagOperations.DeleteRemoteAsync(row.Name)).ConfigureAwait(true);
         }
     }
 

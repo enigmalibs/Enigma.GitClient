@@ -55,6 +55,12 @@ public sealed record HistoryBranchCommands(
 /// the page tells every line when it does (<see cref="NotifyMergeSourceChanged"/>), and the line tells
 /// its branches.
 /// </para>
+/// <para>
+/// A local branch and its upstream on the same commit are one badge, as GitKraken draws them: the
+/// local one, carrying the remote as <see cref="Remote"/>. Its menu is the local branch's — checking
+/// out, merging, pulling and pushing act on the local one, and on the same commit the remote would do
+/// the same — plus deleting the remote, the one thing that differs.
+/// </para>
 /// </remarks>
 public sealed class HistoryBranchViewModel : ViewModelBase
 {
@@ -63,13 +69,18 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     /// </summary>
     /// <param name="badge">The badge the branch is drawn as.</param>
     /// <param name="commands">The page's branch commands.</param>
-    public HistoryBranchViewModel(RefBadgeItem badge, HistoryBranchCommands commands)
+    /// <param name="remote">
+    /// The upstream drawn in the same badge, on the same commit; <see langword="null"/> for a badge of
+    /// its own.
+    /// </param>
+    public HistoryBranchViewModel(RefBadgeItem badge, HistoryBranchCommands commands, HistoryBranchViewModel? remote = null)
     {
         ArgumentNullException.ThrowIfNull(badge);
         ArgumentNullException.ThrowIfNull(commands);
 
         Badge = badge;
         Commands = commands;
+        Remote = remote;
     }
 
     /// <summary>Gets the badge the branch is drawn as.</summary>
@@ -77,6 +88,17 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets the page's branch commands.</summary>
     public HistoryBranchCommands Commands { get; }
+
+    /// <summary>
+    /// Gets the upstream this badge draws too, on the same commit, or <see langword="null"/>.
+    /// </summary>
+    public HistoryBranchViewModel? Remote { get; }
+
+    /// <summary>Gets a value indicating whether the badge stands for the branch and its upstream.</summary>
+    public bool HasRemote => Remote is not null;
+
+    /// <summary>Gets what the item that deletes the upstream drawn with the branch says.</summary>
+    public string DeleteRemoteHeader => $"Delete \"{Remote?.Name}\"…";
 
     /// <summary>Gets the branch's short name.</summary>
     public string Name => Badge.Name;
@@ -95,6 +117,12 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets a value indicating whether this branch is the merge source.</summary>
     public bool IsMergeSource => Source is { } source && string.Equals(source.Name, Name, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Gets a value indicating whether the badge is ringed as the merge source: this branch is, or the
+    /// upstream drawn with it is — the line's own menu can still pick either.
+    /// </summary>
+    public bool IsDrawnAsMergeSource => IsMergeSource || Remote?.IsMergeSource == true;
 
     /// <summary>Gets a value indicating whether this branch can be made the merge source.</summary>
     public bool CanSetAsMergeSource => !IsMergeSource;
@@ -167,6 +195,7 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(Source));
         OnPropertyChanged(nameof(IsMergeSource));
+        OnPropertyChanged(nameof(IsDrawnAsMergeSource));
         OnPropertyChanged(nameof(CanSetAsMergeSource));
         OnPropertyChanged(nameof(MergeRequest));
         OnPropertyChanged(nameof(CanMergeInto));
@@ -180,12 +209,22 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
 /// <summary>
 /// A tag's badge on a history line: the one reference on a line that brings a menu of its own besides
-/// the branches — pushing the tag to the remote, and what it is called, to copy.
+/// the branches — pushing the tag to the remote, deleting it here or there, and what it is called, to
+/// copy.
 /// </summary>
 /// <param name="Badge">The badge as drawn.</param>
 /// <param name="Copy">Copies a text to the clipboard.</param>
 /// <param name="Push">Pushes a tag, by its name, to the remote; the push is not offered without it.</param>
-public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<string> Copy, AsyncRelayCommand<string>? Push = null)
+/// <param name="Delete">Deletes a tag here, by its name, after asking; not offered without it.</param>
+/// <param name="DeleteRemote">
+/// Deletes a tag, by its name, from the remote its push goes to, after asking; not offered without it.
+/// </param>
+public sealed record HistoryTagViewModel(
+    RefBadgeItem Badge,
+    AsyncRelayCommand<string> Copy,
+    AsyncRelayCommand<string>? Push = null,
+    AsyncRelayCommand<string>? Delete = null,
+    AsyncRelayCommand<string>? DeleteRemote = null)
 {
     /// <summary>Gets the tag's name, as the badge shows it.</summary>
     public string Name => Badge.Name;
@@ -195,6 +234,30 @@ public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<s
 
     /// <summary>Gets what the push item says: the branch badge's words, for a tag.</summary>
     public string PushHeader => $"Push \"{Name}\"";
+
+    /// <summary>Gets a value indicating whether the badge's menu can delete the tag here.</summary>
+    public bool CanDelete => Delete is not null;
+
+    /// <summary>Gets what the local delete item says.</summary>
+    public string DeleteHeader => $"Delete \"{Name}\" locally…";
+
+    /// <summary>Gets a value indicating whether the badge's menu can delete the tag from the remote.</summary>
+    public bool CanDeleteRemote => DeleteRemote is not null;
+
+    /// <summary>
+    /// Gets what the remote delete item says. The remote is named by the question it asks rather than
+    /// here: which one it is follows the current branch, which can change while the line is on screen.
+    /// </summary>
+    public string DeleteRemoteHeader => $"Delete \"{Name}\" from the remote…";
+
+    /// <summary>Gets a value indicating whether the menu has a delete item.</summary>
+    public bool CanDeleteAny => CanDelete || CanDeleteRemote;
+
+    /// <summary>Gets a value indicating whether the push and the deletes are both offered, with a separator between.</summary>
+    public bool SeparatesPushFromDeletes => CanPush && CanDeleteAny;
+
+    /// <summary>Gets a value indicating whether any action comes before the copy item, with a separator between.</summary>
+    public bool HasActions => CanPush || CanDeleteAny;
 
     /// <inheritdoc />
     public override string ToString() => Name;

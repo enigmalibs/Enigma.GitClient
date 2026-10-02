@@ -332,6 +332,83 @@ public sealed class BranchServiceTests : IAsyncLifetime
                 cancellationToken: TestContext.Current.CancellationToken));
     }
 
+    // ---------------------------------------------------------------- reset local to here
+
+    [Fact]
+    public async Task ResetAndCheckoutAsync_MovesTheLocalBranchOntoTheRemoteOne_AndChecksItOut()
+    {
+        await BuildRemoteAsync();
+        await Service.CreateAsync(_handle, "published", cancellationToken: TestContext.Current.CancellationToken);
+
+        await Service.ResetAndCheckoutAsync(_handle, "published", "origin/published", TestContext.Current.CancellationToken);
+
+        GitBranch published = (await RefsAsync()).LocalBranches.Single(branch => branch.ShortName == "published");
+
+        Assert.Equal(await _repository.ResolveAsync("origin/published"), published.TargetSha);
+        Assert.Equal("origin/published", published.UpstreamShortName);
+        Assert.Equal("published", (await HeadAsync()).BranchName);
+    }
+
+    [Fact]
+    public async Task ResetAndCheckoutAsync_MovesTheBranchThatIsCheckedOut()
+    {
+        await BuildRemoteAsync();
+        await Service.CreateAsync(_handle, "published", checkout: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        await Service.ResetAndCheckoutAsync(_handle, "published", "origin/published", TestContext.Current.CancellationToken);
+
+        Assert.Equal(await _repository.ResolveAsync("origin/published"), await _repository.ResolveAsync("HEAD"));
+        Assert.Equal("published", (await HeadAsync()).BranchName);
+        Assert.True(System.IO.File.Exists(System.IO.Path.Combine(_repository.Path, "src", "published.txt")));
+    }
+
+    [Fact]
+    public async Task ResetAndCheckoutAsync_CarriesAnUncommittedChange()
+    {
+        await BuildRemoteAsync();
+        await Service.CreateAsync(_handle, "published", cancellationToken: TestContext.Current.CancellationToken);
+
+        string readme = System.IO.Path.Combine(_repository.Path, "README.md");
+        await System.IO.File.WriteAllTextAsync(readme, "# one, edited\n", TestContext.Current.CancellationToken);
+
+        await Service.ResetAndCheckoutAsync(_handle, "published", "origin/published", TestContext.Current.CancellationToken);
+
+        Assert.Equal("published", (await HeadAsync()).BranchName);
+        Assert.Equal("# one, edited\n", await System.IO.File.ReadAllTextAsync(readme, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ResetAndCheckoutAsync_MovesNothingRatherThanOverwriteAFile()
+    {
+        await BuildRemoteAsync();
+        await Service.CreateAsync(_handle, "published", cancellationToken: TestContext.Current.CancellationToken);
+        string before = await _repository.ResolveAsync("published");
+
+        // The remote branch brings this file; the one here was never committed and would be lost.
+        string mine = System.IO.Path.Combine(_repository.Path, "src", "published.txt");
+        await System.IO.File.WriteAllTextAsync(mine, "mine\n", TestContext.Current.CancellationToken);
+
+        await Assert.ThrowsAsync<GitCommandException>(
+            () => Service.ResetAndCheckoutAsync(_handle, "published", "origin/published", TestContext.Current.CancellationToken));
+
+        Assert.Equal(before, await _repository.ResolveAsync("published"));
+        Assert.Equal("main", (await HeadAsync()).BranchName);
+        Assert.Equal("mine\n", await System.IO.File.ReadAllTextAsync(mine, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("published", "--orphan")]
+    [InlineData("bad..name", "origin/published")]
+    public async Task ResetAndCheckoutAsync_RefusesWhatCannotBeABranchOrAStartPoint(string name, string remoteBranch)
+    {
+        await BuildRemoteAsync();
+
+        await Assert.ThrowsAsync<GitOperationRefusedException>(
+            () => Service.ResetAndCheckoutAsync(_handle, name, remoteBranch, TestContext.Current.CancellationToken));
+
+        Assert.Equal("main", (await HeadAsync()).BranchName);
+    }
+
     // ---------------------------------------------------------------- upstream
 
     [Fact]

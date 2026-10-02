@@ -870,9 +870,11 @@ public sealed class RemotesAndSyncTests
                 ContextMenu menu = line.ContextMenu!;
                 menu.Open(line);
 
-                // Right after the checkout, before the delete and its separator.
+                // Right after the checkout, before the deletes and their separator.
                 string?[] headers = [.. menu.Items.OfType<MenuItem>().Select(item => item.Header as string)];
-                Assert.Equal(["Select in the history", "Check out (detaches HEAD)", "Push to the remote", "Delete…"], headers);
+                Assert.Equal(
+                    ["Select in the history", "Check out (detaches HEAD)", "Push to the remote", "Delete locally…", "Delete from the remote…"],
+                    headers);
 
                 MenuItem push = menu.Items.OfType<MenuItem>().Single(item => (item.Header as string) == "Push to the remote");
                 Assert.True(push.IsVisible);
@@ -937,6 +939,251 @@ public sealed class RemotesAndSyncTests
             Assert.Contains("origin already has a tag \"1.0.0\", on another commit", failure.Message, StringComparison.Ordinal);
             Assert.DoesNotContain("Pull first", failure.Message, StringComparison.Ordinal);
             Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, failure.Severity);
+        });
+    }
+
+    // ---------------------------------------------------------------- deleting a tag, here or there
+
+    /// <summary>
+    /// The world, with the tag <c>1.0.0</c> here and on <c>origin</c>.
+    /// </summary>
+    private static async Task<World> BuildWorldWithAPublishedTagAsync(TestServices services)
+    {
+        World world = await BuildWorldAsync(services);
+
+        await GitAsync(world.Local.WorkTreePath, "tag", "-a", "1.0.0", "-m", "First release");
+        await GitAsync(world.Local.WorkTreePath, "push", "origin", "refs/tags/1.0.0");
+
+        return world;
+    }
+
+    private static async Task<HistoryTagViewModel> TagInHistoryAsync(TestServices services, string name)
+    {
+        HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+        await history.ReloadAsync();
+
+        return history.Rows.SelectMany(row => row.Badges).OfType<HistoryTagViewModel>().Single(tag => tag.Name == name);
+    }
+
+    [Fact]
+    public void History_ATagBadgesMenu_OffersTheDeleteHereAndTheDeleteOnTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            HistoryPageView view = services.Get<HistoryPageView>();
+            view.DataContext = history;
+            Window window = new() { Content = view, Width = 1200, Height = 700 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+
+                Controls.RefBadge badge = view.GetVisualDescendants()
+                    .OfType<Controls.RefBadge>()
+                    .Single(candidate => candidate.DataContext is HistoryTagViewModel { Name: "1.0.0" });
+                ContextMenu menu = badge.ContextMenu!;
+                menu.Open(badge);
+                Dispatcher.UIThread.RunJobs();
+
+                // The push, the two deletes, the copy — each group behind its own separator.
+                string?[] shown = [.. menu.Items.OfType<Control>()
+                    .Where(item => item.IsVisible)
+                    .Select(item => item is MenuItem entry ? entry.Header as string : "-")];
+                Assert.Equal(
+                    ["Push \"1.0.0\"", "-", "Delete \"1.0.0\" locally…", "Delete \"1.0.0\" from the remote…", "-", "Copy tag name"],
+                    shown);
+
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void History_ATagBadgeDeletesItsTagHere_AfterAsking_AndTheRemoteKeepsIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryTagViewModel tag = await TagInHistoryAsync(services, "1.0.0");
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await tag.Delete!.ExecuteAsync(tag.Name);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete tag", question.Title);
+            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+
+            Assert.Equal(string.Empty, await ReadGitAsync(world.Local.WorkTreePath, "tag", "--list"));
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+
+            // The history is read again, and its badge has gone with it.
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            Assert.Empty(history.Rows.SelectMany(row => row.Badges).OfType<HistoryTagViewModel>());
+        });
+    }
+
+    [Fact]
+    public void History_ATagBadgeDeletesItsTagFromTheRemote_AfterAsking_AndKeepsItHere()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            HistoryTagViewModel tag = await TagInHistoryAsync(services, "1.0.0");
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await tag.DeleteRemote!.ExecuteAsync(tag.Name);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete remote tag", question.Title);
+            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.Contains("\"1.0.0\" from \"origin\"", question.Content as string, StringComparison.Ordinal);
+
+            Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Equal("1.0.0", await ReadGitAsync(world.Local.WorkTreePath, "tag", "--list"));
+
+            RecordedNotification deleted = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Deleted from the remote", deleted.Title);
+            Assert.Equal("\"origin\" no longer has the tag \"1.0.0\".", deleted.Message);
+        });
+    }
+
+    [Fact]
+    public void TagDeletes_DeleteNothingWhenTheQuestionIsCancelled()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            services.Dialogs.Result = DialogResult.Close;
+            ITagOperations tags = services.Get<ITagOperations>();
+
+            Assert.False(await tags.DeleteAsync("1.0.0"));
+            Assert.False(await tags.DeleteRemoteAsync("1.0.0"));
+
+            Assert.Equal(2, services.Dialogs.Shown.Count);
+            Assert.Equal("1.0.0", await ReadGitAsync(world.Local.WorkTreePath, "tag", "--list"));
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void TagRemoteDelete_GoesWhereTheCurrentBranchPushes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+
+            // main tracks a second remote, which has the tag too: that is the one it is deleted from.
+            string upstreamPath = Path.Combine(Path.GetDirectoryName(world.OriginPath)!, "upstream.git");
+            Directory.CreateDirectory(upstreamPath);
+            await GitAsync(world.Local.WorkTreePath, "init", "--bare", upstreamPath);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "upstream", upstreamPath);
+            await GitAsync(world.Local.WorkTreePath, "push", "--set-upstream", "upstream", "main");
+            await GitAsync(world.Local.WorkTreePath, "push", "upstream", "refs/tags/1.0.0");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+            services.Dialogs.Result = DialogResult.Primary;
+
+            Assert.True(await services.Get<ITagOperations>().DeleteRemoteAsync("1.0.0"));
+
+            Assert.Contains("\"upstream\"", services.Dialogs.Last!.Content as string, StringComparison.Ordinal);
+            Assert.Equal(string.Empty, await ReadGitAsync(upstreamPath, "tag", "--list"));
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+        });
+    }
+
+    [Fact]
+    public void TagRemoteDelete_NeverDeletesUnderAProfileWithoutAnIntegrationForTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await WorkProfileAsync(services, world);
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+            services.Dialogs.Result = DialogResult.Primary;
+
+            Assert.False(await services.Get<ITagOperations>().DeleteRemoteAsync("1.0.0"));
+
+            // Refused before anything is asked: there is no question worth answering.
+            Assert.Empty(services.Dialogs.Shown);
+            Assert.Equal("1.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title.StartsWith("Work does not push to", StringComparison.Ordinal));
+        });
+    }
+
+    [Fact]
+    public void TagRemoteDelete_SaysWhatGitSaidWhenItFails()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "tag", "1.0.0");
+
+            // No origin any more, and main no upstream: the delete goes to "origin", which git cannot
+            // reach. (A tag the remote merely lacks is no failure to recent git: it warns, and the
+            // remote ends up without the tag, which is what was asked.)
+            await GitAsync(world.Local.WorkTreePath, "remote", "remove", "origin");
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+            services.Dialogs.Result = DialogResult.Primary;
+
+            Assert.False(await services.Get<ITagOperations>().DeleteRemoteAsync("1.0.0"));
+
+            RecordedNotification failure = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Could not delete \"1.0.0\" from \"origin\"", failure.Title);
+            Assert.Equal("1.0.0", await ReadGitAsync(world.Local.WorkTreePath, "tag", "--list"));
+        });
+    }
+
+    [Fact]
+    public void TagsDialog_ARowsMenuDeletesThatRowsTagFromTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "tag", "2.0.0");
+            await GitAsync(world.Local.WorkTreePath, "push", "origin", "refs/tags/2.0.0");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            TagsPageViewModel page = services.Get<TagsPageViewModel>();
+            await page.OnAppearingAsync();
+
+            TagRowViewModel row = page.Tags.Single(tag => tag.Name == "1.0.0");
+            Assert.True(row.CanDeleteRemote);
+
+            services.Dialogs.Result = DialogResult.Primary;
+            await row.DeleteRemoteCommand!.ExecuteAsync(row);
+
+            // That row's tag, and not the other one; and both are still here.
+            Assert.Equal("2.0.0", await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Equal(["1.0.0", "2.0.0"], page.Tags.Select(tag => tag.Name).Order());
         });
     }
 

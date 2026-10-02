@@ -270,11 +270,7 @@ public sealed class SyncOperations : ISyncOperations
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tag);
 
-        string? upstream = _context.Refs.CurrentBranch is { Tracking.IsUpstreamGone: false } current
-            ? current.UpstreamShortName
-            : null;
-
-        string remote = upstream is { Length: > 0 } ? SplitUpstream(upstream).Remote : GitRemote.DefaultName;
+        string remote = TagRemote(_context.Refs);
 
         if (!await MayPushAsync(remote).ConfigureAwait(true))
         {
@@ -357,6 +353,23 @@ public sealed class SyncOperations : ISyncOperations
         Report(title, message, InfoBarSeverity.Warning);
 
         return false;
+    }
+
+    /// <summary>
+    /// The remote a tag is pushed to, or deleted from: the one the current branch pushes to, or
+    /// <c>origin</c> when it has no upstream — or one that is gone.
+    /// </summary>
+    /// <param name="refs">The repository's references, as the context last read them.</param>
+    /// <returns>The remote's name.</returns>
+    internal static string TagRemote(RefCollection refs)
+    {
+        ArgumentNullException.ThrowIfNull(refs);
+
+        string? upstream = refs.CurrentBranch is { Tracking.IsUpstreamGone: false } current
+            ? current.UpstreamShortName
+            : null;
+
+        return upstream is { Length: > 0 } ? SplitUpstream(upstream).Remote : GitRemote.DefaultName;
     }
 
     /// <summary>

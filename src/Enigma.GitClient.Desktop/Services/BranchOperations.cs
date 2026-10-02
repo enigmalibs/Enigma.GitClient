@@ -60,6 +60,11 @@ public interface IBranchOperations
     /// <param name="name">The branch to check out.</param>
     /// <param name="isRemote">Whether the branch lives on a remote.</param>
     /// <returns><see langword="true"/> when HEAD moved.</returns>
+    /// <remarks>
+    /// A remote branch whose local branch already exists checks that local branch out: at once when
+    /// the two are on the same commit, and otherwise after asking whether to reset it to the remote's
+    /// commit first — GitKraken's "reset local to here".
+    /// </remarks>
     Task<bool> CheckoutAsync(string name, bool isRemote);
 
     /// <summary>
@@ -76,6 +81,12 @@ public interface IBranchOperations
 /// </summary>
 public sealed class BranchOperations : IBranchOperations
 {
+    /// <summary>What the button that resets the local branch to the remote's commit says.</summary>
+    public const string ResetLocalToHere = "Reset local to here";
+
+    /// <summary>How many of the commits a reset leaves behind its question names.</summary>
+    public const int MaximumListedCommits = 10;
+
     private readonly IRepositoryContext _context;
     private readonly IBranchService _branches;
     private readonly IContentDialogService _dialogs;
@@ -236,6 +247,14 @@ public sealed class BranchOperations : IBranchOperations
                 $"Could not check out \"{name}\"").ConfigureAwait(true);
         }
 
+        // The local branch of that name is there already: it is the one to check out, where it is or
+        // where the remote is.
+        if (Find(_context.Refs.LocalBranches, BranchService.LocalNameFor(name)) is { } existing
+            && Find(_context.Refs.RemoteBranches, name) is { } remote)
+        {
+            return await CheckoutExistingAsync(existing, remote).ConfigureAwait(true);
+        }
+
         string created = string.Empty;
 
         bool done = await RunAsync(
@@ -297,6 +316,151 @@ public sealed class BranchOperations : IBranchOperations
         return await RunAsync(
             (handle, token) => _branches.SetUpstreamAsync(handle, name, upstream, token),
             $"Could not set the upstream of \"{name}\"").ConfigureAwait(true);
+    }
+
+    // ---------------------------------------------------------------- reset local to here
+
+    /// <summary>
+    /// Checks out a remote branch whose local branch already exists: the local one, at once when the
+    /// two are level, and otherwise after asking whether to reset it to the remote's commit.
+    /// </summary>
+    /// <param name="local">The local branch of the remote branch's name.</param>
+    /// <param name="remote">The remote branch that was asked for.</param>
+    /// <returns><see langword="true"/> when HEAD moved.</returns>
+    private async Task<bool> CheckoutExistingAsync(GitBranch local, GitBranch remote)
+    {
+        string name = local.ShortName;
+
+        if (string.Equals(local.TargetSha, remote.TargetSha, StringComparison.Ordinal))
+        {
+            if (local.IsCurrent)
+            {
+                Report("Already checked out", $"\"{name}\" is checked out, on the same commit as \"{remote.ShortName}\".", InfoBarSeverity.Info);
+                return false;
+            }
+
+            return await RunAsync(
+                (handle, token) => _branches.CheckoutAsync(handle, name, token),
+                $"Could not check out \"{name}\"").ConfigureAwait(true);
+        }
+
+        if (_context.Repository is not { } repository)
+        {
+            return false;
+        }
+
+        // An answer from git's exit code, not from an empty list: a list that could not be read must
+        // not pass for "nothing is left behind".
+        bool nothingLeftBehind = await _branches
+            .IsMergedAsync(repository, name, remote.ShortName, _context.RepositoryLifetime)
+            .ConfigureAwait(true);
+
+        IReadOnlyList<string> leftBehind = nothingLeftBehind
+            ? []
+            : await _branches
+                .GetUnmergedCommitsAsync(repository, name, remote.ShortName, MaximumListedCommits + 1, _context.RepositoryLifetime)
+                .ConfigureAwait(true);
+
+        string message = DescribeReset(local, remote, nothingLeftBehind, leftBehind);
+
+        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = $"Reset \"{name}\" to \"{remote.ShortName}\"?";
+            dialog.Content = message;
+            dialog.PrimaryButtonText = ResetLocalToHere;
+
+            // Checking the branch out where it is means nothing when it is already checked out.
+            if (!local.IsCurrent)
+            {
+                dialog.SecondaryButtonText = $"Check out \"{name}\"";
+            }
+
+            dialog.CloseButtonText = "Cancel";
+
+            // The reset is the default only when it costs nothing: with commits to leave behind, a
+            // stray Enter must not be what leaves them.
+            dialog.DefaultButton = nothingLeftBehind ? DefaultButton.Primary : DefaultButton.Close;
+        }).ConfigureAwait(true);
+
+        if (answer == DialogResult.Secondary && !local.IsCurrent)
+        {
+            return await RunAsync(
+                (handle, token) => _branches.CheckoutAsync(handle, name, token),
+                $"Could not check out \"{name}\"").ConfigureAwait(true);
+        }
+
+        if (answer != DialogResult.Primary)
+        {
+            return false;
+        }
+
+        bool reset = await RunAsync(
+            (handle, token) => _branches.ResetAndCheckoutAsync(handle, name, remote.ShortName, token),
+            $"Could not reset \"{name}\"").ConfigureAwait(true);
+
+        if (reset)
+        {
+            Report(
+                $"\"{name}\" reset to \"{remote.ShortName}\"",
+                $"\"{name}\" is checked out, on {ShortSha(remote.TargetSha)}.",
+                InfoBarSeverity.Success);
+        }
+
+        return reset;
+    }
+
+    /// <summary>
+    /// What the "reset local to here" question says: where the two branches are, what the reset does,
+    /// and what it leaves behind.
+    /// </summary>
+    internal static string DescribeReset(GitBranch local, GitBranch remote, bool nothingLeftBehind, IReadOnlyList<string> leftBehind)
+    {
+        ArgumentNullException.ThrowIfNull(local);
+        ArgumentNullException.ThrowIfNull(remote);
+        ArgumentNullException.ThrowIfNull(leftBehind);
+
+        string name = local.ShortName;
+
+        string where = $"\"{name}\" is on {ShortSha(local.TargetSha)} here, and \"{remote.ShortName}\" on {ShortSha(remote.TargetSha)}. "
+            + $"{ResetLocalToHere} moves \"{name}\" to \"{remote.ShortName}\" and checks it out.";
+
+        string cost;
+
+        if (nothingLeftBehind)
+        {
+            cost = $"Nothing is left behind: \"{remote.ShortName}\" already has every commit of \"{name}\".";
+        }
+        else
+        {
+            List<string> lines = [.. leftBehind];
+
+            if (lines.Count > MaximumListedCommits)
+            {
+                lines.RemoveRange(MaximumListedCommits, lines.Count - MaximumListedCommits);
+                lines.Add("…and more");
+            }
+
+            cost = lines.Count == 0
+                ? $"The commits only \"{name}\" has are left behind."
+                : $"These commits are only on \"{name}\", and are left behind:\n\n{string.Join('\n', lines)}";
+        }
+
+        return $"{where}\n\n{cost}\n\nUncommitted changes come along, as for any checkout: git stops instead of overwriting one.";
+    }
+
+    private static string ShortSha(string sha) => sha.Length > 7 ? sha[..7] : sha;
+
+    private static GitBranch? Find(IReadOnlyList<GitBranch> branches, string shortName)
+    {
+        foreach (GitBranch branch in branches)
+        {
+            if (string.Equals(branch.ShortName, shortName, StringComparison.Ordinal))
+            {
+                return branch;
+            }
+        }
+
+        return null;
     }
 
     // ---------------------------------------------------------------- plumbing
