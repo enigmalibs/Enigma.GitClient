@@ -61,7 +61,7 @@ Two things matter more than everything else in this app:
   a start window that lists a profile's repositories — pick the profile in the page's header: every
   profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
   made when there is none; the repository you pick opens in a window of its own, and
-  `Enigma.GitClient.App <path>` opens one straight away
+  `Enigma.GitClient.Desktop <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
@@ -163,7 +163,7 @@ to nothing else.
 ```bash
 dotnet build Enigma.GitClient.slnx
 dotnet test --solution Enigma.GitClient.slnx
-dotnet run --project src/Enigma.GitClient.App
+dotnet run --project src/Enigma.GitClient.Desktop
 ```
 
 ## Install on Linux
@@ -195,10 +195,10 @@ removes those four things and nothing else: your settings, accounts and tokens i
 | Path                                       | What it is                                            |
 |--------------------------------------------|-------------------------------------------------------|
 | `src/Enigma.GitClient.Core`                | The headless git engine: process wrapper, parsers, graph layout, diff model |
-| `src/Enigma.GitClient.App`                 | The Avalonia 12 desktop application                   |
+| `src/Enigma.GitClient.Desktop`             | The Avalonia 12 desktop application                   |
 | `tests/Enigma.GitClient.Core.UnitTests`    | Pure-logic tests (parsers, algorithms, validation)    |
 | `tests/Enigma.GitClient.Core.IntegrationTests` | Tests driving a real `git` against temporary repositories |
-| `tests/Enigma.GitClient.App.UnitTests`     | ViewModel and headless render tests                   |
+| `tests/Enigma.GitClient.Desktop.UnitTests` | ViewModel and headless render tests                   |
 | `docs/`                                    | Roadmap, per-item plans and completion records        |
 
 ## Licence

@@ -1,0 +1,138 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:panels="using:Enigma.GitClient.Desktop.Views.Panels"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Panels"
+             x:Class="Enigma.GitClient.Desktop.Views.Panels.WorkingTreePanelView"
+             x:DataType="vm:WorkingTreePanelViewModel">
+
+  <!-- The two halves of the change, and the commit box under them. -->
+  <Grid RowDefinitions="*,Auto,*,Auto">
+
+    <DockPanel Grid.Row="0">
+      <Border DockPanel.Dock="Top"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="10,6">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+          <TextBlock Grid.Column="0"
+                     Text="Not staged"
+                     VerticalAlignment="Center"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <!-- Red, the colour of what cannot be undone, for as long as there is anything to lose. -->
+          <Button Grid.Column="1"
+                  Name="DiscardAll"
+                  Classes="toolbar danger"
+                  Command="{Binding DiscardAllCommand}"
+                  ToolTip.Tip="Discard everything"
+                  AutomationProperties.Name="Discard everything">
+            <ei:Icon Kind="TrashSimple" Classes="toolbar" />
+          </Button>
+          <Button Grid.Column="2"
+                  Name="StashAll"
+                  Classes="toolbar"
+                  Command="{Binding StashAllCommand}"
+                  ToolTip.Tip="Stash all changes: put everything aside on the stash"
+                  AutomationProperties.Name="Stash all changes">
+            <ei:Icon Kind="Archive" Classes="toolbar" />
+          </Button>
+          <Button Grid.Column="3"
+                  Name="StageAll"
+                  Classes="toolbar"
+                  Command="{Binding StageAllCommand}"
+                  ToolTip.Tip="Stage everything"
+                  AutomationProperties.Name="Stage everything">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
+              <TextBlock Text="Stage all" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <panels:ChangedFilesPanelView Name="UnstagedFiles" DataContext="{Binding Unstaged}" />
+    </DockPanel>
+
+    <GridSplitter Grid.Row="1"
+                  Height="4"
+                  ResizeDirection="Rows"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+    <DockPanel Grid.Row="2">
+      <Border DockPanel.Dock="Top"
+              BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+              BorderThickness="0,1,0,1"
+              Padding="10,6">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+          <TextBlock Grid.Column="0"
+                     Text="Staged"
+                     VerticalAlignment="Center"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <Button Grid.Column="1"
+                  Name="UnstageAll"
+                  Classes="toolbar"
+                  Command="{Binding UnstageAllCommand}"
+                  ToolTip.Tip="Unstage everything"
+                  AutomationProperties.Name="Unstage everything">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <ei:Icon Kind="Minus" Classes="toolbar" VerticalAlignment="Center" />
+              <TextBlock Text="Unstage all" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <panels:ChangedFilesPanelView Name="StagedFiles" DataContext="{Binding Staged}" />
+    </DockPanel>
+
+    <!-- The commit box. Ctrl+Enter commits, which is what every other client does. -->
+    <Border Grid.Row="3"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,1,0,0"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            Padding="10">
+      <StackPanel Spacing="8">
+
+        <TextBox Name="MessageBox"
+                 Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 Height="92"
+                 PlaceholderText="Summarise the change, then explain why"
+                 AutomationProperties.Name="Commit message" />
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <StackPanel Grid.Column="0"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center">
+            <TextBlock Text="{Binding SubjectLength}"
+                       Classes.overlong="{Binding IsSubjectTooLong}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       ToolTip.Tip="Characters in the subject line; 50 is the usual guide"
+                       Classes="faint" />
+            <TextBlock Text="long lines"
+                       IsVisible="{Binding HasLongBodyLine}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       ToolTip.Tip="A body line is past 72 characters and will not wrap well"
+                       Foreground="{DynamicResource EnigmaWarningBrush}" />
+          </StackPanel>
+
+          <Button Grid.Column="1"
+                  Name="Commit"
+                  Classes="accent"
+                  Content="Commit"
+                  Command="{Binding CommitCommand}"
+                  AutomationProperties.Name="Commit" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

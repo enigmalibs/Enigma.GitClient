@@ -1,0 +1,148 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
+using Enigma.GitClient.Desktop.Services;
+using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
+using Enigma.GitClient.Desktop.ViewModels;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Xunit;
+
+namespace Enigma.GitClient.Desktop.UnitTests;
+
+/// <summary>
+/// Several instances side by side: how another one is started, and the two places that ask for one.
+/// </summary>
+[Collection(HeadlessCollection.Name)]
+public sealed class InstanceTests
+{
+    private readonly HeadlessAvaloniaFixture _fixture;
+
+    public InstanceTests(HeadlessAvaloniaFixture fixture) => _fixture = fixture;
+
+    [Fact]
+    public void BuildStartInfo_RunsTheExecutableAgainWithThePathAsOneArgument()
+    {
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo(
+            "/opt/enigma/Enigma.GitClient.Desktop",
+            "/opt/enigma/Enigma.GitClient.Desktop.dll",
+            "/src/a repo; rm -rf ~")!;
+
+        Assert.Equal("/opt/enigma/Enigma.GitClient.Desktop", start.FileName);
+        Assert.Equal(["/src/a repo; rm -rf ~"], start.ArgumentList);
+        Assert.False(start.UseShellExecute);
+    }
+
+    [Fact]
+    public void BuildStartInfo_WithNoRepository_StartsOnTheStartWindow()
+    {
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.Desktop", null, null)!;
+
+        Assert.Empty(start.ArgumentList);
+    }
+
+    [Fact]
+    public void BuildStartInfo_UnderTheDotnetHost_HandsItTheAssemblyAgain()
+    {
+        // The host's own path shape: a path is only split on the separators of the platform it runs on.
+        string host = OperatingSystem.IsWindows()
+            ? @"C:\Program Files\dotnet\dotnet.exe"
+            : "/usr/share/dotnet/dotnet";
+
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo(host, "/opt/enigma/Enigma.GitClient.Desktop.dll", "/src/repo")!;
+
+        Assert.Equal(host, start.FileName);
+        Assert.Equal(["/opt/enigma/Enigma.GitClient.Desktop.dll", "/src/repo"], start.ArgumentList);
+    }
+
+    [Theory]
+    [InlineData(null, "/x.dll")]
+    [InlineData("", "/x.dll")]
+    [InlineData("/usr/bin/dotnet", null)]
+    public void BuildStartInfo_WithNothingToStart_ReturnsNothing(string? processPath, string? assembly)
+        => Assert.Null(InstanceLauncher.BuildStartInfo(processPath, assembly, "/src/repo"));
+
+    [Fact]
+    public void OpenInNewWindow_StartsAnotherInstanceOnThatRepositoryAndLeavesThisWindowAlone()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            string path = Path.Combine(services.ConfigurationRoot, "other-repo");
+            Directory.CreateDirectory(path);
+
+            page.OpenInNewWindowCommand.Execute(new ListedRepository(path, "other-repo"));
+
+            Assert.Equal([path], services.Launcher.Launched);
+            Assert.Empty(services.Windows.Requested);
+            Assert.False(services.Get<IRepositoryContext>().IsRepositoryOpen);
+        });
+    }
+
+    [Fact]
+    public void OpenInNewWindow_OnARepositoryThatMoved_SaysSoAndStartsNothing()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            string gone = Path.Combine(services.ConfigurationRoot, "gone");
+
+            page.OpenInNewWindowCommand.Execute(new ListedRepository(gone, "gone"));
+
+            Assert.Empty(services.Launcher.Launched);
+            Assert.Equal(InfoBarSeverity.Warning, Assert.Single(services.InfoBar.Shown).Severity);
+        });
+    }
+
+    [Fact]
+    public void OpenInNewWindow_WhenTheInstanceCannotStart_SaysSo()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Launcher.Succeeds = false;
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            string path = Path.Combine(services.ConfigurationRoot, "other-repo");
+            Directory.CreateDirectory(path);
+
+            page.OpenInNewWindowCommand.Execute(new ListedRepository(path, "other-repo"));
+
+            Assert.Equal(InfoBarSeverity.Error, Assert.Single(services.InfoBar.Shown).Severity);
+        });
+    }
+
+    [Fact]
+    public void NewWindow_StartsAnotherInstanceOnItsStartWindow()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+
+            shell.NewWindowCommand.Execute(null);
+
+            Assert.Equal([null], services.Launcher.Launched);
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void NewWindow_WhenTheInstanceCannotStart_SaysSo()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Launcher.Succeeds = false;
+
+            services.Get<MainWindowViewModel>().NewWindowCommand.Execute(null);
+
+            Assert.Equal("No new window", Assert.Single(services.InfoBar.Shown).Title);
+        });
+    }
+}

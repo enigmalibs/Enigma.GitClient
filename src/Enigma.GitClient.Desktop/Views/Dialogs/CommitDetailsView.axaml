@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.Desktop.Views.Dialogs.CommitDetailsView"
+             x:DataType="vm:CommitDetailsViewModel"
+             Width="560">
+
+  <!--
+    Everything worth copying about a commit, as text to select rather than fields to edit: every value
+    is a SelectableTextBlock, and the labels beside them are not, so a drag over a value selects that
+    value alone.
+  -->
+
+  <UserControl.Styles>
+    <!-- :is(), because a type selector matches that type exactly, and SelectableTextBlock only
+         derives from TextBlock. -->
+    <Style Selector=":is(TextBlock).subject">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+    <Style Selector=":is(TextBlock).body">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector=":is(TextBlock).value">
+      <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    </Style>
+    <Style Selector=":is(TextBlock).sha">
+      <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Spacing="14">
+
+    <SelectableTextBlock Name="Subject"
+                         Classes="subject"
+                         Text="{Binding Subject}"
+                         TextWrapping="Wrap" />
+
+    <SelectableTextBlock Name="Body"
+                         Classes="body"
+                         Text="{Binding Body}"
+                         IsVisible="{Binding HasBody}"
+                         TextWrapping="Wrap" />
+
+    <Border Height="1" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="8">
+      <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Author" />
+      <SelectableTextBlock Grid.Row="0"
+                           Grid.Column="1"
+                           Name="Author"
+                           Classes="value"
+                           Text="{Binding Author}"
+                           TextWrapping="Wrap" />
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Date" />
+      <SelectableTextBlock Grid.Row="1"
+                           Grid.Column="1"
+                           Name="Date"
+                           Classes="value"
+                           Text="{Binding DateWithAge}"
+                           TextWrapping="Wrap" />
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Commit" />
+      <SelectableTextBlock Grid.Row="2"
+                           Grid.Column="1"
+                           Name="Sha"
+                           Classes="value sha"
+                           Text="{Binding Sha}"
+                           TextWrapping="Wrap" />
+    </Grid>
+  </StackPanel>
+</UserControl>
