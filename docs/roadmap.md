@@ -251,7 +251,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6149 | Delete tags locally and on the remote   | DONE        | docs/plan/FEATURE-6149.md |
 | FEATURE-551C | Branches: grouping, reset, double-click | IN PROGRESS | docs/plan/FEATURE-551C.md |
 | - PHASE01    | One badge for a branch and its remote   | DONE        | (in FEATURE-551C.md)      |
-| - PHASE02    | Reset local to the remote's commit      | TODO        | (in FEATURE-551C.md)      |
+| - PHASE02    | Reset local to the remote's commit      | DONE        | (in FEATURE-551C.md)      |
 | - PHASE03    | Double-click a badge to check out       | TODO        | (in FEATURE-551C.md)      |
 | FEATURE-4D5A | Release 5.2.0                           | TODO        | docs/plan/FEATURE-4D5A.md |
 

@@ -74,7 +74,7 @@ Three GitKraken behaviours for the history's branch badges:
 ## PHASE02 — Reset local to the remote's commit
 
 **Branch:** `feature/feature-551c-phase02-reset-local-to-here`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-551C-PHASE02.md`
 
 ### Steps
 
