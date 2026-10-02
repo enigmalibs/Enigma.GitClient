@@ -300,9 +300,19 @@ public partial class HistoryPageView : UserControl
         _pending = null;
         _toggle = null;
 
+        bool left = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed;
+
+        // A double-click on a branch badge checks that branch out, as GitKraken does — through the
+        // badge's own "Check out", so a remote one asks what its menu would.
+        if (left && e.ClickCount == 2 && BadgeAt(e.Source)?.DataContext is HistoryBranchViewModel badge)
+        {
+            CheckOut(badge);
+            return;
+        }
+
         // The second press of a double-click is neither a drag nor a toggle: a double-click on a line
         // leaves it selected, however the first press found it.
-        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.ClickCount != 1 || !left)
         {
             return;
         }
@@ -567,6 +577,23 @@ public partial class HistoryPageView : UserControl
             scroll.Offset = new Vector(scroll.Offset.X, moved);
         }
     }
+
+    /// <summary>
+    /// Checks out the branch a double-click landed on, unless it is the one checked out.
+    /// </summary>
+    /// <param name="branch">The badge's branch: the local one, for a branch drawn with its upstream.</param>
+    /// <remarks>
+    /// Posted, as letting go of a line is: the list finishes with the press first, and the checkout's
+    /// question — or the reload after it — does not land in the middle of the gesture.
+    /// </remarks>
+    private static void CheckOut(HistoryBranchViewModel branch)
+        => Dispatcher.UIThread.Post(() =>
+        {
+            if (branch.Commands.Checkout.CanExecute(branch))
+            {
+                branch.Commands.Checkout.Execute(branch);
+            }
+        });
 
     private sealed record PendingBadgeDrag(HistoryBranchViewModel Branch, Point Origin);
 
