@@ -246,7 +246,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             DiscardUncommitted: new AsyncRelayCommand<CommitRowViewModel>(
                 _ => OnDiscardUncommittedAsync(),
                 row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted),
-            PushTag: new AsyncRelayCommand<string>(OnPushTagAsync, tag => !string.IsNullOrEmpty(tag)));
+            PushTag: new AsyncRelayCommand<string>(OnPushTagAsync, tag => !string.IsNullOrEmpty(tag)),
+            DeleteTag: new AsyncRelayCommand<string>(OnDeleteTagAsync, tag => !string.IsNullOrEmpty(tag)),
+            DeleteRemoteTag: new AsyncRelayCommand<string>(OnDeleteRemoteTagAsync, tag => !string.IsNullOrEmpty(tag)));
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -1900,6 +1902,26 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// </remarks>
     private Task OnPushTagAsync(string? tag)
         => tag is { Length: > 0 } ? _syncOperations.PushTagAsync(tag) : Task.CompletedTask;
+
+    /// <summary>
+    /// Deletes a tag here, from its badge, and re-reads the history so the badge goes.
+    /// </summary>
+    private async Task OnDeleteTagAsync(string? tag)
+    {
+        if (tag is { Length: > 0 } && await _tagOperations.DeleteAsync(tag).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Deletes a tag from the remote, from its badge.
+    /// </summary>
+    /// <remarks>
+    /// No reload, as for the push: the tag here stays, and a remote's tags are not drawn.
+    /// </remarks>
+    private Task OnDeleteRemoteTagAsync(string? tag)
+        => tag is { Length: > 0 } ? _tagOperations.DeleteRemoteAsync(tag) : Task.CompletedTask;
 
     private void OnSetMergeSource(HistoryBranchViewModel? branch)
     {

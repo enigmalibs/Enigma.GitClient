@@ -51,7 +51,7 @@ public sealed class HistoryCopyTests
     }
 
     [Fact]
-    public void ATagBadge_HasAMenuThatPushesTheTagAndCopiesItsName()
+    public void ATagBadge_HasAMenuThatPushesDeletesAndCopiesTheTag()
     {
         _fixture.RunAsync(async () =>
         {
@@ -76,9 +76,10 @@ public sealed class HistoryCopyTests
                 ContextMenu menu = Assert.IsType<ContextMenu>(badge.ContextMenu);
                 menu.Open(badge);
 
-                // The branch badge's shape: the push first, a separator, the copy last.
+                // The branch badge's shape: the push first, the deletes — here, then on the remote —
+                // each group behind a separator, the copy last.
                 Control[] items = [.. menu.Items.OfType<Control>()];
-                Assert.Equal(3, items.Length);
+                Assert.Equal(6, items.Length);
 
                 MenuItem push = Assert.IsType<MenuItem>(items[0]);
                 Assert.Equal("Push \"v1.0\"", push.Header);
@@ -89,7 +90,19 @@ public sealed class HistoryCopyTests
 
                 Assert.IsType<Separator>(items[1]);
 
-                MenuItem item = Assert.IsType<MenuItem>(items[2]);
+                MenuItem delete = Assert.IsType<MenuItem>(items[2]);
+                Assert.Equal("Delete \"v1.0\" locally…", delete.Header);
+                Assert.Equal(PhosphorIcon.Trash, Assert.IsType<Icon>(delete.Icon).Kind);
+                Assert.Same(tag.Delete, delete.Command);
+
+                MenuItem deleteRemote = Assert.IsType<MenuItem>(items[3]);
+                Assert.Equal("Delete \"v1.0\" from the remote…", deleteRemote.Header);
+                Assert.Equal(PhosphorIcon.CloudX, Assert.IsType<Icon>(deleteRemote.Icon).Kind);
+                Assert.Same(tag.DeleteRemote, deleteRemote.Command);
+
+                Assert.IsType<Separator>(items[4]);
+
+                MenuItem item = Assert.IsType<MenuItem>(items[5]);
                 Assert.Equal("Copy tag name", item.Header);
 
                 await ((IAsyncRelayCommand)item.Command!).ExecuteAsync(item.CommandParameter);

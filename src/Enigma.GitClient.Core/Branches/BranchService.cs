@@ -123,6 +123,27 @@ public interface IBranchService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Moves a local branch to a remote branch's commit and checks it out, tracking that remote branch
+    /// — "reset local to here".
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="name">The local branch, which may be the one checked out.</param>
+    /// <param name="remoteBranch">The remote branch, as <c>remote/branch</c>, it moves to.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once HEAD is on the branch, at the remote branch's commit.</returns>
+    /// <remarks>
+    /// <c>git checkout --track -B</c>: one step that moves and checks out together. Uncommitted changes
+    /// come along as for any checkout, and git refuses — moving nothing — when one would be
+    /// overwritten. Nothing uncommitted is ever thrown away. The commits only the branch had are left
+    /// behind, and stay in its reflog.
+    /// </remarks>
+    Task ResetAndCheckoutAsync(
+        RepositoryHandle repository,
+        string name,
+        string remoteBranch,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Answers whether every commit on one branch is already on another.
     /// </summary>
     /// <param name="repository">The repository to read.</param>
@@ -354,6 +375,29 @@ public sealed class BranchService : IBranchService
             .ConfigureAwait(false);
 
         return local;
+    }
+
+    /// <inheritdoc />
+    public async Task ResetAndCheckoutAsync(
+        RepositoryHandle repository,
+        string name,
+        string remoteBranch,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteBranch);
+
+        Require(RefNameValidator.ValidateBranch(name));
+
+        // A start point that git would read as an option is refused rather than quoted: there is no
+        // name a remote branch can have that starts with a dash.
+        if (remoteBranch.StartsWith('-'))
+        {
+            throw new GitOperationRefusedException($"\"{remoteBranch}\" is not a branch to reset to.");
+        }
+
+        await RunAsync(repository, ["checkout", "--track", "-B", name, remoteBranch], cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <inheritdoc />

@@ -10,13 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.1.1** — the program is now `Enigma.GitClient.Desktop`, as for every other Enigma
-> desktop application; the `enigma-git-client` command, the launcher entry and your settings stay as
-> they were. On Linux, run the installer again (see *Upgrading from 5.1.0*). 5.1 added a click on
-> the selected file in the history's details panel that lets go of it and puts its diff away,
-> headers (and the manual merge band) that stay at the top of the Branches, Tags and Remotes
-> dialogs, softer info bars in the dark theme that close sooner, and a repository browser no longer
-> cut off. Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 5.2** — delete a tag here or on the remote, from its badge in the history or its
+> line in the Tags dialog; a branch and its upstream on the same commit are one badge, as in
+> GitKraken; checking out a remote branch whose local branch is elsewhere offers to *reset local to
+> here*; and a double-click on a branch badge checks it out. Coming from 5.1.0? The program was
+> renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the
+> installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
@@ -48,8 +47,8 @@ Two things matter more than everything else in this app:
   the list scrolls while you hold a branch near its edge
 - Sort the branches and the tags by name or by date, either way — newest first unless you choose
   otherwise, and remembered; select a branch's or a tag's line in the history from its menu
-- Tag management — create (lightweight or annotated), delete, and push one tag to the remote from
-  its badge in the history or its line in the tags dialog
+- Tag management — create (lightweight or annotated), push one tag to the remote, and delete one
+  here or on the remote, from its badge in the history or its line in the tags dialog
 - Checkout of anything in the graph: a branch from its badge's menu, a commit — detached — from its
   line's menu
 - Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
