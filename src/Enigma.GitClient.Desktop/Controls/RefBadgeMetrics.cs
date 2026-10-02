@@ -20,7 +20,8 @@ namespace Enigma.GitClient.Desktop.Controls;
 /// <para>
 /// The constants below mirror <c>Themes/Controls.axaml</c>'s <see cref="RefBadge"/> template: an
 /// 8 px horizontal padding on each side — 7 of padding and the 1 px border — a 13 px icon, and a
-/// 5 px gap between the icon and the label. They are checked by a test rather than bound, because a
+/// 5 px gap between the icon and the label. A branch drawn with its upstream has a second icon, the
+/// remote's, with the same gap after it. They are checked by a test rather than bound, because a
 /// per-badge binding to a theme resource would measure thousands of rows through the resource
 /// system to answer one number that only changes when the template does.
 /// </para>
@@ -78,7 +79,7 @@ public static class RefBadgeMetrics
 
         foreach (ViewModels.Pages.RefBadgeItem badge in badges)
         {
-            width += MeasureBadge(badge.Name);
+            width += MeasureBadge(badge.Name, badge.HasUpstream);
         }
 
         return width + (BadgeSpacing * (badges.Count - 1));
@@ -88,11 +89,11 @@ public static class RefBadgeMetrics
     /// Measures one badge.
     /// </summary>
     /// <param name="label">The reference's short name.</param>
+    /// <param name="withUpstream">Whether the badge draws its branch's upstream too, and so a second icon.</param>
     /// <returns>The badge's width.</returns>
-    public static double MeasureBadge(string? label)
+    public static double MeasureBadge(string? label, bool withUpstream = false)
         => (HorizontalPadding * 2)
-            + IconSize
-            + IconSpacing
+            + ((IconSize + IconSpacing) * (withUpstream ? 2 : 1))
             + MeasureLabel(label ?? string.Empty);
 
     private static double MeasureLabel(string label)

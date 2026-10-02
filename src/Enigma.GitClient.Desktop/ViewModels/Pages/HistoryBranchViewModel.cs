@@ -55,6 +55,12 @@ public sealed record HistoryBranchCommands(
 /// the page tells every line when it does (<see cref="NotifyMergeSourceChanged"/>), and the line tells
 /// its branches.
 /// </para>
+/// <para>
+/// A local branch and its upstream on the same commit are one badge, as GitKraken draws them: the
+/// local one, carrying the remote as <see cref="Remote"/>. Its menu is the local branch's — checking
+/// out, merging, pulling and pushing act on the local one, and on the same commit the remote would do
+/// the same — plus deleting the remote, the one thing that differs.
+/// </para>
 /// </remarks>
 public sealed class HistoryBranchViewModel : ViewModelBase
 {
@@ -63,13 +69,18 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     /// </summary>
     /// <param name="badge">The badge the branch is drawn as.</param>
     /// <param name="commands">The page's branch commands.</param>
-    public HistoryBranchViewModel(RefBadgeItem badge, HistoryBranchCommands commands)
+    /// <param name="remote">
+    /// The upstream drawn in the same badge, on the same commit; <see langword="null"/> for a badge of
+    /// its own.
+    /// </param>
+    public HistoryBranchViewModel(RefBadgeItem badge, HistoryBranchCommands commands, HistoryBranchViewModel? remote = null)
     {
         ArgumentNullException.ThrowIfNull(badge);
         ArgumentNullException.ThrowIfNull(commands);
 
         Badge = badge;
         Commands = commands;
+        Remote = remote;
     }
 
     /// <summary>Gets the badge the branch is drawn as.</summary>
@@ -77,6 +88,17 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets the page's branch commands.</summary>
     public HistoryBranchCommands Commands { get; }
+
+    /// <summary>
+    /// Gets the upstream this badge draws too, on the same commit, or <see langword="null"/>.
+    /// </summary>
+    public HistoryBranchViewModel? Remote { get; }
+
+    /// <summary>Gets a value indicating whether the badge stands for the branch and its upstream.</summary>
+    public bool HasRemote => Remote is not null;
+
+    /// <summary>Gets what the item that deletes the upstream drawn with the branch says.</summary>
+    public string DeleteRemoteHeader => $"Delete \"{Remote?.Name}\"…";
 
     /// <summary>Gets the branch's short name.</summary>
     public string Name => Badge.Name;
@@ -95,6 +117,12 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets a value indicating whether this branch is the merge source.</summary>
     public bool IsMergeSource => Source is { } source && string.Equals(source.Name, Name, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Gets a value indicating whether the badge is ringed as the merge source: this branch is, or the
+    /// upstream drawn with it is — the line's own menu can still pick either.
+    /// </summary>
+    public bool IsDrawnAsMergeSource => IsMergeSource || Remote?.IsMergeSource == true;
 
     /// <summary>Gets a value indicating whether this branch can be made the merge source.</summary>
     public bool CanSetAsMergeSource => !IsMergeSource;
@@ -167,6 +195,7 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(Source));
         OnPropertyChanged(nameof(IsMergeSource));
+        OnPropertyChanged(nameof(IsDrawnAsMergeSource));
         OnPropertyChanged(nameof(CanSetAsMergeSource));
         OnPropertyChanged(nameof(MergeRequest));
         OnPropertyChanged(nameof(CanMergeInto));

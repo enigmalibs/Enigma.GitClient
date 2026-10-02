@@ -1,6 +1,6 @@
 # FEATURE-551C — Branches: grouping, reset, double-click
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-02-tags-branches-release
@@ -43,7 +43,7 @@ Three GitKraken behaviours for the history's branch badges:
 ## PHASE01 — One badge for a branch and its remote
 
 **Branch:** `feature/feature-551c-phase01-grouped-badge`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-551C-PHASE01.md`
 
 ### Steps
 
