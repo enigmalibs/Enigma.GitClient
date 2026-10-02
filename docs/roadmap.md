@@ -248,7 +248,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Rename the app project                  | DONE      | (in BUG-7E41.md)          |
 | - PHASE02    | Rename the test project                 | DONE      | (in BUG-7E41.md)          |
 | FEATURE-42B2 | Release 5.1.1                           | DONE      | docs/plan/FEATURE-42B2.md |
-| FEATURE-6149 | Delete tags locally and on the remote   | TODO      | docs/plan/FEATURE-6149.md |
+| FEATURE-6149 | Delete tags locally and on the remote   | DONE      | docs/plan/FEATURE-6149.md |
 | FEATURE-551C | Branches: grouping, reset, double-click | TODO      | docs/plan/FEATURE-551C.md |
 | - PHASE01    | One badge for a branch and its remote   | TODO      | (in FEATURE-551C.md)      |
 | - PHASE02    | Reset local to the remote's commit      | TODO      | (in FEATURE-551C.md)      |

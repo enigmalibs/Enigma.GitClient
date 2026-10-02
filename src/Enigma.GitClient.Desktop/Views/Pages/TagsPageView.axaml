@@ -149,11 +149,21 @@
                     </MenuItem.Icon>
                   </MenuItem>
                   <Separator />
-                  <MenuItem Header="Delete…"
+                  <!-- Here, or on the remote the push goes to: the history's tag badge offers the same
+                       two, and the question each asks names which copy goes. -->
+                  <MenuItem Header="Delete locally…"
                             Command="{Binding DeleteCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
                       <ei:Icon Kind="Trash" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Delete from the remote…"
+                            IsVisible="{Binding CanDeleteRemote}"
+                            Command="{Binding DeleteRemoteCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="CloudX" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
                 </ContextMenu>
