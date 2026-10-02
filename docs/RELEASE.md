@@ -4,7 +4,7 @@ Reusable checklist for cutting a new **Enigma.GitClient** version.
 
 Replace `X.Y.Z` with the version being released (e.g. `1.1.0`) throughout. The version lives in
 `Directory.Build.props` (`<Version>`) and covers the whole solution: `Enigma.GitClient.Core` and
-`Enigma.GitClient.App` ship as one application, so they never carry separate numbers.
+`Enigma.GitClient.Desktop` ship as one application, so they never carry separate numbers.
 
 **Nothing here is published to NuGet.** Neither project has a `PackageId`, so there is no `pack`
 step, no `nuget push`, and no package metadata to keep in order. What a release produces is a tag on
@@ -32,7 +32,7 @@ Run from the repository root, on the branch that will be merged:
       commit the build was cut from, `X.Y.Z+<sha>`, which is what the About dialog's build line
       shortens:
       ```bash
-      strings src/Enigma.GitClient.App/bin/Release/net10.0/Enigma.GitClient.Core.dll | grep -m1 -o 'X\.Y\.Z+[0-9a-f]*'
+      strings src/Enigma.GitClient.Desktop/bin/Release/net10.0/Enigma.GitClient.Core.dll | grep -m1 -o 'X\.Y\.Z+[0-9a-f]*'
       ```
 
 ## 2. Merge into `develop`, then into `main`
@@ -68,7 +68,7 @@ A release build for a specific platform, with the .NET runtime bundled so the re
 that has no .NET installed:
 
 ```bash
-dotnet publish src/Enigma.GitClient.App -c Release -r linux-x64 --self-contained true -o ./artifacts
+dotnet publish src/Enigma.GitClient.Desktop -c Release -r linux-x64 --self-contained true -o ./artifacts
 ```
 
 Substitute the runtime identifier for the target platform — `linux-arm64`, `win-x64`.
@@ -114,7 +114,7 @@ Windows has no installer: publish as in step 5 and run the result.
 ## Why there is no MSI profile
 
 `dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0, 1.1.0,
-2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0, 4.1.1, 5.0.0 and 5.1.0: the releases' packaging is the Linux
-installer. When a Windows installer is wanted, generate the **first** profile then — its
+2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0, 4.1.1, 5.0.0, 5.1.0 and 5.1.1: the releases' packaging is the
+Linux installer. When a Windows installer is wanted, generate the **first** profile then — its
 `upgradeCode` is created once and reused verbatim in every later version, while `productId` is new
 each time.

@@ -10,11 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.1** — a click on the selected file in the history's details panel lets go of it
-> and puts its diff away; the Branches, Tags and Remotes dialogs keep their header (and the manual
-> merge band) at the top while a long list scrolls; the info bars are softer in the dark theme, and a
-> success or an informational one closes after 2.5 seconds; the repository browser is no longer cut
-> off. Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 5.1.1** — the program is now `Enigma.GitClient.Desktop`, as for every other Enigma
+> desktop application; the `enigma-git-client` command, the launcher entry and your settings stay as
+> they were. On Linux, run the installer again (see *Upgrading from 5.1.0*). 5.1 added a click on
+> the selected file in the history's details panel that lets go of it and puts its diff away,
+> headers (and the manual merge band) that stay at the top of the Branches, Tags and Remotes
+> dialogs, softer info bars in the dark theme that close sooner, and a repository browser no longer
+> cut off. Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
@@ -61,7 +63,7 @@ Two things matter more than everything else in this app:
   a start window that lists a profile's repositories — pick the profile in the page's header: every
   profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
   made when there is none; the repository you pick opens in a window of its own, and
-  `Enigma.GitClient.App <path>` opens one straight away
+  `Enigma.GitClient.Desktop <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
@@ -163,7 +165,7 @@ to nothing else.
 ```bash
 dotnet build Enigma.GitClient.slnx
 dotnet test --solution Enigma.GitClient.slnx
-dotnet run --project src/Enigma.GitClient.App
+dotnet run --project src/Enigma.GitClient.Desktop
 ```
 
 ## Install on Linux
@@ -195,10 +197,10 @@ removes those four things and nothing else: your settings, accounts and tokens i
 | Path                                       | What it is                                            |
 |--------------------------------------------|-------------------------------------------------------|
 | `src/Enigma.GitClient.Core`                | The headless git engine: process wrapper, parsers, graph layout, diff model |
-| `src/Enigma.GitClient.App`                 | The Avalonia 12 desktop application                   |
+| `src/Enigma.GitClient.Desktop`             | The Avalonia 12 desktop application                   |
 | `tests/Enigma.GitClient.Core.UnitTests`    | Pure-logic tests (parsers, algorithms, validation)    |
 | `tests/Enigma.GitClient.Core.IntegrationTests` | Tests driving a real `git` against temporary repositories |
-| `tests/Enigma.GitClient.App.UnitTests`     | ViewModel and headless render tests                   |
+| `tests/Enigma.GitClient.Desktop.UnitTests` | ViewModel and headless render tests                   |
 | `docs/`                                    | Roadmap, per-item plans and completion records        |
 
 ## Licence
