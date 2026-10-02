@@ -445,6 +445,10 @@ public sealed class AutoRefreshTests
 
     private static readonly RefBadgeItem OriginMain = new(GitRefKind.RemoteBranch, "origin/main", false);
 
+    // Once pushed, main and origin/main are on one commit, and drawn as one badge: main's, carrying
+    // its upstream.
+    private static readonly RefBadgeItem MainWithOriginMain = new(GitRefKind.LocalBranch, "main", true, "origin/main");
+
     [Fact]
     public void TheHistory_RedrawsARemoteBranchAPushMovedSinceItWasDrawn()
     {
@@ -470,7 +474,7 @@ public sealed class AutoRefreshTests
             await history.RefreshInPlaceAsync(referencesMoved: false);
 
             Assert.Equal(1, replaced);
-            Assert.Contains(OriginMain, Row(history, "Pushed later").Refs);
+            Assert.Contains(MainWithOriginMain, Row(history, "Pushed later").Refs);
             Assert.DoesNotContain(OriginMain, Row(history, "Add the readme").Refs);
 
             // Drawn from where the references are now: the next refresh has nothing to redraw.
@@ -534,7 +538,7 @@ public sealed class AutoRefreshTests
             await redrawn.Task.WaitAsync(Patience);
 
             Assert.False(tick.Changed);
-            Assert.Contains(OriginMain, Row(history, "Pushed later").Refs);
+            Assert.Contains(MainWithOriginMain, Row(history, "Pushed later").Refs);
         });
     }
 
@@ -566,7 +570,7 @@ public sealed class AutoRefreshTests
 
             await shell.PushCommand.ExecuteAsync(null);
 
-            Assert.Contains(OriginMain, Row(history, "Pushed later").Refs);
+            Assert.Contains(MainWithOriginMain, Row(history, "Pushed later").Refs);
             Assert.Equal(selected, history.SelectedRow?.Sha);
             Assert.Equal(0, services.Get<ScriptedSync>().QuietFetches);
             Assert.False(shell.IsBusy);

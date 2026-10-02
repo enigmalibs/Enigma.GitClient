@@ -109,13 +109,20 @@ public sealed record HistoryResetRequest(CommitRowViewModel Row, string Branch);
 /// <param name="Kind">What the reference is, which decides the badge's colour and icon.</param>
 /// <param name="Name">The reference's short name.</param>
 /// <param name="IsCurrent">Whether this is the branch HEAD points at.</param>
+/// <param name="Upstream">
+/// For a local branch drawn together with its upstream — both on this commit — the upstream's short
+/// name (<c>origin/main</c>); <see langword="null"/> for every other badge.
+/// </param>
 /// <remarks>
 /// Flattened out of <see cref="GitRef"/> on purpose: only <see cref="GitBranch"/> knows whether it
 /// is checked out, and a template bound to the base type cannot see that — which is exactly how the
 /// checked-out branch ends up drawn like any other.
 /// </remarks>
-public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent)
+public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent, string? Upstream = null)
 {
+    /// <summary>Gets a value indicating whether the badge stands for a local branch and its upstream.</summary>
+    public bool HasUpstream => Upstream is { Length: > 0 };
+
     /// <summary>
     /// Projects a reference onto a badge.
     /// </summary>
@@ -574,9 +581,20 @@ public sealed class CommitRowViewModel : ViewModelBase
         {
             if (commands is not null && badge.Kind is GitRefKind.LocalBranch or GitRefKind.RemoteBranch)
             {
-                HistoryBranchViewModel branch = new(badge, commands);
+                // A local branch drawn with its upstream: one badge, whose menu reaches the remote too.
+                // The line's own menu still names both, so both are among its branches.
+                HistoryBranchViewModel? remote = badge.Upstream is { Length: > 0 } upstream
+                    ? new HistoryBranchViewModel(new RefBadgeItem(GitRefKind.RemoteBranch, upstream, false), commands)
+                    : null;
+
+                HistoryBranchViewModel branch = new(badge, commands, remote);
                 branches.Add(branch);
                 badges.Add(branch);
+
+                if (remote is not null)
+                {
+                    branches.Add(remote);
+                }
             }
             else if (copy is not null && badge.Kind == GitRefKind.Tag)
             {
@@ -607,12 +625,63 @@ public sealed class CommitRowViewModel : ViewModelBase
             items.Add(new RefBadgeItem(GitRefKind.Stash, stash.Reference, false));
         }
 
+        Dictionary<string, string> joined = JoinUpstreams(refs);
+
         foreach (GitRef reference in refs)
         {
-            items.Add(RefBadgeItem.From(reference));
+            if (reference is GitBranch { IsRemote: true } remote && joined.ContainsValue(remote.ShortName))
+            {
+                // Drawn by the local branch that tracks it.
+                continue;
+            }
+
+            items.Add(reference is GitBranch { IsRemote: false } local && joined.TryGetValue(local.ShortName, out string? upstream)
+                ? new RefBadgeItem(GitRefKind.LocalBranch, local.ShortName, local.IsCurrent, upstream)
+                : RefBadgeItem.From(reference));
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// Pairs every local branch on the line with its upstream when the upstream is on the line too:
+    /// the two are on the same commit, and GitKraken draws them as one badge.
+    /// </summary>
+    /// <param name="refs">The line's references, which all point at its commit.</param>
+    /// <returns>Each paired local branch's short name, with its upstream's.</returns>
+    /// <remarks>
+    /// The configured upstream, not a name that merely matches: that is the pairing git itself records,
+    /// so an <c>upstream/main</c> beside <c>origin/main</c> keeps its own badge. A remote branch two
+    /// local branches track is drawn with the first of them only, so it never appears twice.
+    /// </remarks>
+    private static Dictionary<string, string> JoinUpstreams(IReadOnlyList<GitRef> refs)
+    {
+        Dictionary<string, string> joined = new(StringComparer.Ordinal);
+        HashSet<string> remotes = new(StringComparer.Ordinal);
+
+        foreach (GitRef reference in refs)
+        {
+            if (reference is GitBranch { IsRemote: true } remote)
+            {
+                remotes.Add(remote.ShortName);
+            }
+        }
+
+        if (remotes.Count == 0)
+        {
+            return joined;
+        }
+
+        foreach (GitRef reference in refs)
+        {
+            if (reference is GitBranch { IsRemote: false, UpstreamShortName: { Length: > 0 } upstream } local
+                && remotes.Remove(upstream))
+            {
+                joined[local.ShortName] = upstream;
+            }
+        }
+
+        return joined;
     }
 
     /// <inheritdoc />

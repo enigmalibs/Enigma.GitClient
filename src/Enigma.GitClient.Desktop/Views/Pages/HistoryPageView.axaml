@@ -459,12 +459,15 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.DataTemplates>
                       <!-- A branch brings its own menu: on a line carrying several, the badge is the one
-                           place that says unambiguously which branch an action is about. -->
+                           place that says unambiguously which branch an action is about. A local branch
+                           and its upstream on this commit are one badge, the local one's, whose menu
+                           can delete the remote too. -->
                       <DataTemplate DataType="vm:HistoryBranchViewModel" x:DataType="vm:HistoryBranchViewModel">
                         <controls:RefBadge Kind="{Binding Badge.Kind}"
                                            Text="{Binding Name}"
+                                           Upstream="{Binding Badge.Upstream}"
                                            IsCurrent="{Binding IsCurrent}"
-                                           Classes.mergesource="{Binding IsMergeSource}">
+                                           Classes.mergesource="{Binding IsDrawnAsMergeSource}">
                           <controls:RefBadge.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="{Binding CheckoutHeader}"
@@ -537,6 +540,14 @@
                                         CommandParameter="{Binding}">
                                 <MenuItem.Icon>
                                   <ei:Icon Kind="Trash" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="{Binding DeleteRemoteHeader}"
+                                        IsVisible="{Binding HasRemote}"
+                                        Command="{Binding Commands.Delete}"
+                                        CommandParameter="{Binding Remote}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="CloudX" Classes="menu" />
                                 </MenuItem.Icon>
                               </MenuItem>
                               <Separator IsVisible="{Binding CanCopyName}" />
