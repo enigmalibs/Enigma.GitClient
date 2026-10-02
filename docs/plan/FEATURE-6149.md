@@ -1,6 +1,6 @@
 # FEATURE-6149 — Delete tags locally and on the remote
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6149.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-6149-delete-tags`
 **Run:** feature/2026-10-02-tags-branches-release

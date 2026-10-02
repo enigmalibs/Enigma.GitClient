@@ -553,8 +553,9 @@
                         </controls:RefBadge>
                       </DataTemplate>
 
-                      <!-- A tag brings a menu of its own too: pushing it to the remote, on its own, and
-                           its name, to copy — the branch badge's shape, actions first. -->
+                      <!-- A tag brings a menu of its own too: pushing it to the remote, on its own,
+                           deleting it here or there, and its name, to copy — the branch badge's shape,
+                           actions first. -->
                       <DataTemplate DataType="vm:HistoryTagViewModel" x:DataType="vm:HistoryTagViewModel">
                         <controls:RefBadge Kind="{Binding Badge.Kind}"
                                            Text="{Binding Name}">
@@ -568,7 +569,24 @@
                                   <ei:Icon Kind="ArrowUp" Classes="menu" />
                                 </MenuItem.Icon>
                               </MenuItem>
-                              <Separator IsVisible="{Binding CanPush}" />
+                              <Separator IsVisible="{Binding SeparatesPushFromDeletes}" />
+                              <MenuItem Header="{Binding DeleteHeader}"
+                                        IsVisible="{Binding CanDelete}"
+                                        Command="{Binding Delete}"
+                                        CommandParameter="{Binding Name}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="Trash" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="{Binding DeleteRemoteHeader}"
+                                        IsVisible="{Binding CanDeleteRemote}"
+                                        Command="{Binding DeleteRemote}"
+                                        CommandParameter="{Binding Name}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="CloudX" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <Separator IsVisible="{Binding HasActions}" />
                               <MenuItem Header="Copy tag name"
                                         Command="{Binding Copy}"
                                         CommandParameter="{Binding Name}">

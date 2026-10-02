@@ -56,6 +56,10 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// <param name="PushTag">
 /// Pushes one tag, by its name, to the remote; offered from every tag badge on a line.
 /// </param>
+/// <param name="DeleteTag">Deletes one tag here, by its name, after asking; from every tag badge.</param>
+/// <param name="DeleteRemoteTag">
+/// Deletes one tag, by its name, from the remote its push goes to, after asking; from every tag badge.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -71,7 +75,9 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<string>? Copy = null,
     AsyncRelayCommand<CommitRowViewModel>? ShowDetails = null,
     AsyncRelayCommand<CommitRowViewModel>? DiscardUncommitted = null,
-    AsyncRelayCommand<string>? PushTag = null);
+    AsyncRelayCommand<string>? PushTag = null,
+    AsyncRelayCommand<string>? DeleteTag = null,
+    AsyncRelayCommand<string>? DeleteRemoteTag = null);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -169,7 +175,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Row = row;
         Stash = stash;
         Refs = Project(refs, stash);
-        (Branches, Badges) = BuildBranches(Refs, commands?.Branches, commands?.Copy, commands?.PushTag);
+        (Branches, Badges) = BuildBranches(Refs, commands);
         IsHead = isHead;
 
         Subject = commit.Subject;
@@ -551,14 +557,15 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     private static (IReadOnlyList<HistoryBranchViewModel> Branches, IReadOnlyList<object> Badges) BuildBranches(
         IReadOnlyList<RefBadgeItem> refs,
-        HistoryBranchCommands? commands,
-        AsyncRelayCommand<string>? copy,
-        AsyncRelayCommand<string>? pushTag)
+        HistoryRowCommands? rowCommands)
     {
         if (refs.Count == 0)
         {
             return (NoBranches, []);
         }
+
+        HistoryBranchCommands? commands = rowCommands?.Branches;
+        AsyncRelayCommand<string>? copy = rowCommands?.Copy;
 
         List<HistoryBranchViewModel> branches = [];
         List<object> badges = new(refs.Count);
@@ -573,7 +580,7 @@ public sealed class CommitRowViewModel : ViewModelBase
             }
             else if (copy is not null && badge.Kind == GitRefKind.Tag)
             {
-                badges.Add(new HistoryTagViewModel(badge, copy, pushTag));
+                badges.Add(new HistoryTagViewModel(badge, copy, rowCommands?.PushTag, rowCommands?.DeleteTag, rowCommands?.DeleteRemoteTag));
             }
             else
             {

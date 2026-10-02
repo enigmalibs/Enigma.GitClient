@@ -180,12 +180,22 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
 /// <summary>
 /// A tag's badge on a history line: the one reference on a line that brings a menu of its own besides
-/// the branches — pushing the tag to the remote, and what it is called, to copy.
+/// the branches — pushing the tag to the remote, deleting it here or there, and what it is called, to
+/// copy.
 /// </summary>
 /// <param name="Badge">The badge as drawn.</param>
 /// <param name="Copy">Copies a text to the clipboard.</param>
 /// <param name="Push">Pushes a tag, by its name, to the remote; the push is not offered without it.</param>
-public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<string> Copy, AsyncRelayCommand<string>? Push = null)
+/// <param name="Delete">Deletes a tag here, by its name, after asking; not offered without it.</param>
+/// <param name="DeleteRemote">
+/// Deletes a tag, by its name, from the remote its push goes to, after asking; not offered without it.
+/// </param>
+public sealed record HistoryTagViewModel(
+    RefBadgeItem Badge,
+    AsyncRelayCommand<string> Copy,
+    AsyncRelayCommand<string>? Push = null,
+    AsyncRelayCommand<string>? Delete = null,
+    AsyncRelayCommand<string>? DeleteRemote = null)
 {
     /// <summary>Gets the tag's name, as the badge shows it.</summary>
     public string Name => Badge.Name;
@@ -195,6 +205,30 @@ public sealed record HistoryTagViewModel(RefBadgeItem Badge, AsyncRelayCommand<s
 
     /// <summary>Gets what the push item says: the branch badge's words, for a tag.</summary>
     public string PushHeader => $"Push \"{Name}\"";
+
+    /// <summary>Gets a value indicating whether the badge's menu can delete the tag here.</summary>
+    public bool CanDelete => Delete is not null;
+
+    /// <summary>Gets what the local delete item says.</summary>
+    public string DeleteHeader => $"Delete \"{Name}\" locally…";
+
+    /// <summary>Gets a value indicating whether the badge's menu can delete the tag from the remote.</summary>
+    public bool CanDeleteRemote => DeleteRemote is not null;
+
+    /// <summary>
+    /// Gets what the remote delete item says. The remote is named by the question it asks rather than
+    /// here: which one it is follows the current branch, which can change while the line is on screen.
+    /// </summary>
+    public string DeleteRemoteHeader => $"Delete \"{Name}\" from the remote…";
+
+    /// <summary>Gets a value indicating whether the menu has a delete item.</summary>
+    public bool CanDeleteAny => CanDelete || CanDeleteRemote;
+
+    /// <summary>Gets a value indicating whether the push and the deletes are both offered, with a separator between.</summary>
+    public bool SeparatesPushFromDeletes => CanPush && CanDeleteAny;
+
+    /// <summary>Gets a value indicating whether any action comes before the copy item, with a separator between.</summary>
+    public bool HasActions => CanPush || CanDeleteAny;
 
     /// <inheritdoc />
     public override string ToString() => Name;

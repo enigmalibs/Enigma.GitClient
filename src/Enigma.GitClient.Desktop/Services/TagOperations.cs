@@ -7,6 +7,7 @@ using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Tags;
@@ -35,6 +36,14 @@ public interface ITagOperations
     /// <param name="name">The tag to delete.</param>
     /// <returns><see langword="true"/> when the tag was deleted.</returns>
     Task<bool> DeleteAsync(string name);
+
+    /// <summary>
+    /// Confirms, then deletes the tag from the remote a tag is pushed to — the one the current branch
+    /// pushes to, or <c>origin</c>. The tag here is kept.
+    /// </summary>
+    /// <param name="name">The tag to delete from the remote.</param>
+    /// <returns><see langword="true"/> when the remote no longer has the tag.</returns>
+    Task<bool> DeleteRemoteAsync(string name);
 }
 
 /// <summary>
@@ -44,6 +53,7 @@ public sealed class TagOperations : ITagOperations
 {
     private readonly IRepositoryContext _context;
     private readonly ITagService _tags;
+    private readonly IPushGuard _pushGuard;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<TagOperations> _logger;
@@ -53,24 +63,28 @@ public sealed class TagOperations : ITagOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="tags">Performs the tag operations.</param>
+    /// <param name="pushGuard">Says whether the repository's profile may push to the remote.</param>
     /// <param name="dialogs">Raises the form and the confirmation.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public TagOperations(
         IRepositoryContext context,
         ITagService tags,
+        IPushGuard pushGuard,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         ILogger<TagOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(tags);
+        ArgumentNullException.ThrowIfNull(pushGuard);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _tags = tags;
+        _pushGuard = pushGuard;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _logger = logger;
@@ -157,6 +171,84 @@ public sealed class TagOperations : ITagOperations
         return await RunAsync(
             (handle, token) => _tags.DeleteAsync(handle, name, token),
             $"Could not delete \"{name}\"").ConfigureAwait(true);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A deletion on a remote is a push, so it goes where the tag's push goes and asks the push guard
+    /// first: a profile that never pushes there never deletes there either. No overlay, as for a remote
+    /// branch: it is one short round trip.
+    /// </remarks>
+    public async Task<bool> DeleteRemoteAsync(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (_context.Repository is not { } repository)
+        {
+            return false;
+        }
+
+        string remote = SyncOperations.TagRemote(_context.Refs);
+
+        if (!await MayPushAsync(repository, remote).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = "Delete remote tag";
+            dialog.Content =
+                $"Delete the tag \"{name}\" from \"{remote}\"? This changes the remote for everyone who uses it. "
+                + "The tag here is kept.";
+            dialog.PrimaryButtonText = "Delete";
+            dialog.CloseButtonText = "Cancel";
+            dialog.DefaultButton = DefaultButton.Close;
+        }).ConfigureAwait(true);
+
+        if (answer != DialogResult.Primary)
+        {
+            return false;
+        }
+
+        bool deleted = await RunAsync(
+            (handle, token) => _tags.DeleteRemoteAsync(handle, remote, name, token),
+            $"Could not delete \"{name}\" from \"{remote}\"").ConfigureAwait(true);
+
+        if (deleted)
+        {
+            // Nothing on screen changes — a remote's tags are not drawn — so the sentence is the proof.
+            Report("Deleted from the remote", $"\"{remote}\" no longer has the tag \"{name}\".", InfoBarSeverity.Success);
+        }
+
+        return deleted;
+    }
+
+    /// <summary>
+    /// Asks whether the repository's profile may push to a remote, and says why not when it may not.
+    /// </summary>
+    private async Task<bool> MayPushAsync(RepositoryHandle repository, string remote)
+    {
+        PushPermission permission;
+
+        try
+        {
+            permission = await _pushGuard.CheckAsync(repository, remote, _context.RepositoryLifetime).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+
+        if (permission.IsAllowed)
+        {
+            return true;
+        }
+
+        (string title, string message) = SyncOperations.DescribeRefusal(permission);
+        Report(title, message, InfoBarSeverity.Warning);
+
+        return false;
     }
 
     private IReadOnlyList<BranchStartPoint> BuildTargets(string? target, string? label)
