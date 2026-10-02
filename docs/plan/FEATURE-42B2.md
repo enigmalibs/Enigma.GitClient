@@ -1,6 +1,6 @@
 # FEATURE-42B2 — Release 5.1.1
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-42B2.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-42b2-release-5-1-1`
 **Run:** feature/2026-10-02-release-5-1-1
