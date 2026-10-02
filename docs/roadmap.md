@@ -247,6 +247,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-7E41     | App assembly renamed to .Desktop        | DONE      | docs/plan/BUG-7E41.md     |
 | - PHASE01    | Rename the app project                  | DONE      | (in BUG-7E41.md)          |
 | - PHASE02    | Rename the test project                 | DONE      | (in BUG-7E41.md)          |
+| FEATURE-42B2 | Release 5.1.1                           | DONE      | docs/plan/FEATURE-42B2.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

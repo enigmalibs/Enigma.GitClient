@@ -10,11 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.1** — a click on the selected file in the history's details panel lets go of it
-> and puts its diff away; the Branches, Tags and Remotes dialogs keep their header (and the manual
-> merge band) at the top while a long list scrolls; the info bars are softer in the dark theme, and a
-> success or an informational one closes after 2.5 seconds; the repository browser is no longer cut
-> off. Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 5.1.1** — the program is now `Enigma.GitClient.Desktop`, as for every other Enigma
+> desktop application; the `enigma-git-client` command, the launcher entry and your settings stay as
+> they were. On Linux, run the installer again (see *Upgrading from 5.1.0*). 5.1 added a click on
+> the selected file in the history's details panel that lets go of it and puts its diff away,
+> headers (and the manual merge band) that stay at the top of the Branches, Tags and Remotes
+> dialogs, softer info bars in the dark theme that close sooner, and a repository browser no longer
+> cut off. Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
