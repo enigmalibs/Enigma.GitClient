@@ -1,5 +1,70 @@
 # Release notes
 
+## 5.2.0 — 2026-10-02
+
+A minor release. A tag can be deleted here or on the remote, from its badge in the history and from
+its line in the Tags dialog. In the history, a branch and its upstream on the same commit are one
+badge, as in GitKraken. Checking out a remote branch whose local branch is elsewhere offers to reset
+the local branch to it, and a double-click on a branch badge checks the branch out. Nothing is
+removed, and nothing that is stored changes.
+
+### The tags
+
+- **Delete a tag here or on the remote.** A tag badge's menu in the history now reads *Push "x"*,
+  *Delete "x" locally…*, *Delete "x" from the remote…*, *Copy tag name*. A line's menu in the Tags
+  dialog has *Delete locally…* and *Delete from the remote…*, and its trash button still deletes
+  locally.
+- **Both ask first, with *Cancel* as the default.** The remote delete names the remote and keeps the
+  tag here. It goes to the remote a tag push goes to: the one the current branch pushes to, or
+  `origin`.
+- **A profile that does not push to that remote does not delete there either.** The delete is
+  refused with the push's own explanation, before anything is asked.
+
+### The branch badges
+
+- **One badge for a branch and its upstream.** When a local branch and the remote branch it tracks
+  are on the same commit, the history draws one badge:
+  - it is the local branch's, with the branch icon and the remote's cloud;
+  - its tooltip names both (*main and origin/main*);
+  - its menu is the local branch's, plus *Delete "origin/main"…*.
+
+  Only the configured upstream joins. Any other remote branch on the commit keeps its own badge, and
+  the line's own menu still names both.
+- **Reset local to here.** Checking out a remote branch whose local branch is on another commit (from
+  its badge, from the Branches dialog or with a double-click) asks *Reset "main" to "origin/main"?*:
+  - **Reset local to here** moves the local branch to the remote's commit and checks it out;
+  - **Check out "main"** checks the local branch out where it is (not offered when it is already
+    checked out);
+  - **Cancel**.
+
+  The question lists the commits only the local branch has, which a reset would leave behind. The
+  reset is the default button only when there are none. Uncommitted changes come along, as for any
+  checkout, and git stops rather than overwrite one. Before 5.2, this checkout was refused with *A
+  branch called "main" already exists*. When the two branches are on the same commit, the local one
+  is checked out without a question.
+- **A double-click on a branch badge checks the branch out**, exactly as its menu's *Check out* does.
+  On the checked-out branch it does nothing, and a double-click on the line beside the badges is
+  unchanged.
+
+### Upgrading from 5.1
+
+- Nothing changes in the way you work, and nothing is migrated. These stay as 5.1 wrote them, so going
+  back to 5.1 keeps them: `settings.json`, `repository-lists.json`, `host-accounts.json`,
+  `identity-profiles.json` and the tokens.
+- **Coming from 5.1.0**, read *Upgrading from 5.1.0* under 5.1.1 too: the program was renamed
+  `Enigma.GitClient.Desktop` there, and on Linux `packaging/linux/install.sh` has to run again.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set, which is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.2.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  tag deletes, the grouped badge, the reset question, the double-click). Nothing is removed or changed
+  incompatibly, and nothing that is stored changes.
+
 ## 5.1.1 — 2026-10-02
 
 A patch release. The application now carries the name every other Enigma desktop application does:

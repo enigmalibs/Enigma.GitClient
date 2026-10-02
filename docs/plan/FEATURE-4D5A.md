@@ -1,6 +1,6 @@
 # FEATURE-4D5A — Release 5.2.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-4D5A.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-4d5a-release-5-2-0`
 **Run:** feature/2026-10-02-tags-branches-release
