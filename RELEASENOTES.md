@@ -1,5 +1,50 @@
 # Release notes
 
+## 5.1.1 — 2026-10-02
+
+A patch release. The application now carries the name every other Enigma desktop application does:
+the program is `Enigma.GitClient.Desktop`, no longer `Enigma.GitClient.App`. The `enigma-git-client`
+command, the launcher entry and everything that is stored stay as they were. Nothing is added or
+removed.
+
+### Fixes
+
+- **The application's files take the Enigma desktop name.** The program the build produces, and the
+  one the Linux installer puts in place, is `Enigma.GitClient.Desktop`
+  (`Enigma.GitClient.Desktop.exe` on Windows), as it is for the other Enigma desktop applications. On
+  Linux:
+  - the window takes its class from the new name, and the installed desktop entry expects it, so the
+    launcher still groups the running window under its icon;
+  - `uninstall.sh` also removes an installation made by 5.1.0 or earlier, whose `enigma-git-client`
+    link still points at the former program.
+
+### Upgrading from 5.1.0
+
+- **On Linux, run `packaging/linux/install.sh` again.** It replaces the installed application,
+  re-points `~/.local/bin/enigma-git-client` and rewrites the desktop entry for the new program. The
+  command and the launcher entry keep their names.
+- **A script or a shortcut that starts `Enigma.GitClient.App` directly** must start
+  `Enigma.GitClient.Desktop` instead (`.exe` on Windows). One that starts `enigma-git-client` needs
+  no change.
+- **Publish into an empty folder.** `dotnet publish -o` keeps what the folder already holds, so a
+  publish over a 5.1.0 one leaves the old `Enigma.GitClient.App` files beside the new ones.
+- Nothing is migrated. These stay as 5.1.0 wrote them, so going back to 5.1.0 keeps them:
+  `settings.json`, `repository-lists.json`, `host-accounts.json`, `identity-profiles.json` and the
+  tokens.
+- **Building from source:** the project is `src/Enigma.GitClient.Desktop`
+  (`dotnet run --project src/Enigma.GitClient.Desktop`), and its tests are
+  `tests/Enigma.GitClient.Desktop.UnitTests`.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set, which is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.1.1** is a patch release under Semantic Versioning: the application's files are renamed, and
+  nothing is added, removed or changed in what it does. Nothing that is stored changes.
+
 ## 5.1.0 — 2026-10-01
 
 A minor release. A click on the selected file in the history's details panel lets go of it and puts
