@@ -113,14 +113,21 @@ public sealed class DiffTextSelectingTests
             Shown shown = await ShowAsync(SamplePatch);
 
             shown.Viewer.ShowUnifiedCommand.Execute(null);
-            await WaitUntilAsync(() => shown.Viewer.IsUnified && Lines(shown.View, DiffPane.Unified).Any(line => line.Text == "four"));
 
-            DiffLineText from = Line(shown, DiffPane.Unified, "three");
-            DiffLineText to = Line(shown, DiffPane.Unified, "four");
+            DiffTextEditor editor = shown.View.FindControl<DiffTextEditor>("UnifiedEditor")!;
+            await WaitUntilAsync(() => shown.Viewer.IsUnified && editor.Document.Text.Contains("four", StringComparison.Ordinal) && editor.TextArea.TextView.VisualLinesValid);
 
-            Drag(shown.Window, StartOf(from, shown.Window), PastTheEndOf(to, shown.Window));
+            // Rows 3 to 6 of the unified rendering — "three" to "four" — are document lines 4 to 7.
+            Drag(shown.Window, At(editor, line: 4, column: 1, shown.Window), At(editor, line: 7, column: 5, shown.Window));
 
+            Assert.Equal(DiffPane.Unified, shown.Viewer.Render.Selection.Pane);
             Assert.Equal("three\ntwo changed\nthree changed\nfour", shown.Viewer.SelectedText());
+
+            // The editor has the keyboard now, and the copy gesture is the viewer's: code only.
+            shown.Window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
+            await WaitUntilAsync(() => shown.Interop.Copied.Count == 1);
+
+            Assert.Equal("three\ntwo changed\nthree changed\nfour", Assert.Single(shown.Interop.Copied));
 
             shown.Window.Close();
         });
@@ -315,6 +322,21 @@ public sealed class DiffTextSelectingTests
     private static Point PastTheEndOf(DiffLineText line, Visual relativeTo)
         => line.TranslatePoint(new Point(line.Bounds.Width - 2, line.Bounds.Height / 2), relativeTo)
             ?? throw new InvalidOperationException("The line is not in the window.");
+
+    /// <summary>
+    /// Where a character of an editor's document is on screen: the middle of its line, at the
+    /// character's left edge.
+    /// </summary>
+    private static Point At(DiffTextEditor editor, int line, int column, Visual relativeTo)
+    {
+        AvaloniaEdit.Rendering.TextView view = editor.TextArea.TextView;
+        Point visual = view.GetVisualPosition(
+            new AvaloniaEdit.TextViewPosition(line, column),
+            AvaloniaEdit.Rendering.VisualYPosition.LineMiddle);
+
+        return view.TranslatePoint(visual - view.ScrollOffset, relativeTo)
+            ?? throw new InvalidOperationException("The editor is not in the window.");
+    }
 
     private static void Drag(Window window, Point from, Point to)
     {

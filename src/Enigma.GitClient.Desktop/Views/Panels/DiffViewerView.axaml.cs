@@ -61,7 +61,6 @@ public partial class DiffViewerView : UserControl
     {
         InitializeComponent();
 
-        UnifiedBar.SizeChanged += OnBarResized;
         LeftBar.SizeChanged += OnBarResized;
         RightBar.SizeChanged += OnBarResized;
 
@@ -81,7 +80,7 @@ public partial class DiffViewerView : UserControl
         _selectionScroll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
         _selectionScroll.Tick += (_, _) => ScrollWhileSelecting();
 
-        Maps(UnifiedList, UnifiedMinimap);
+        Maps(UnifiedEditor, UnifiedMinimap);
         Maps(SideBySideList, SideBySideMinimap);
     }
 
@@ -102,6 +101,40 @@ public partial class DiffViewerView : UserControl
         list.TemplateApplied += (_, e) =>
         {
             if (e.NameScope.Find<ScrollViewer>("PART_ScrollViewer") is not { } scroll)
+            {
+                return;
+            }
+
+            _scrolls[map] = scroll;
+            scroll.ScrollChanged += (_, _) => Report(scroll, map);
+
+            Report(scroll, map);
+        };
+
+        map.ScrollRequested += (_, start) =>
+        {
+            if (_scrolls.TryGetValue(map, out ScrollViewer? scroll))
+            {
+                ScrollTo(scroll, start);
+            }
+        };
+    }
+
+    /// <summary>
+    /// Ties a rendering's minimap to an editor's scroll, the same way.
+    /// </summary>
+    /// <param name="editor">The editor showing the patch.</param>
+    /// <param name="map">The map beside it.</param>
+    /// <remarks>
+    /// The editor's text area is a logical scrollable that counts in pixels, so its scroll viewer's
+    /// offset, extent and viewport are the same three numbers a list's are, and the map is told them
+    /// the same way.
+    /// </remarks>
+    private void Maps(DiffTextEditor editor, DiffMinimap map)
+    {
+        editor.TemplateApplied += (_, _) =>
+        {
+            if (editor.ScrollHost is not { } scroll)
             {
                 return;
             }
@@ -220,10 +253,26 @@ public partial class DiffViewerView : UserControl
                     return;
                 }
 
-                Align(UnifiedMinimap, viewer.UnifiedFirstChangeRow, viewer.UnifiedRows.Count);
+                Align(UnifiedEditor, viewer.UnifiedFirstChangeRow);
                 Align(SideBySideMinimap, viewer.SideBySideFirstChangeRow, viewer.SideBySideRows.Count);
             },
             DispatcherPriority.Background);
+
+    /// <summary>
+    /// Scrolls an editor to the row its first change begins at.
+    /// </summary>
+    /// <param name="editor">The editor.</param>
+    /// <param name="firstChangeRow">The row that change begins at.</param>
+    /// <remarks>
+    /// One move, and exact: an editor knows where every line is, where a virtualising list only knew
+    /// the rows it had realised. A row is a document line, so the line to put at the top is the row
+    /// <see cref="ContextRows"/> above the change.
+    /// </remarks>
+    private static void Align(DiffTextEditor editor, int firstChangeRow)
+    {
+        editor.UpdateLayout();
+        editor.ScrollToRow(Math.Max(0, firstChangeRow - ContextRows));
+    }
 
     /// <summary>
     /// Scrolls one rendering to the row its first change begins at.
@@ -274,9 +323,8 @@ public partial class DiffViewerView : UserControl
     /// Tells each pane how many characters of it are on screen.
     /// </summary>
     /// <remarks>
-    /// A bar spans its whole pane, so what it can show is its own width less the gutters and the
-    /// marker beside the text — the unified rendering carries two line-number columns, each pane of
-    /// the side-by-side rendering carries one.
+    /// A bar spans its whole pane, so what it can show is its own width less the gutter and the marker
+    /// beside the text. The unified rendering is an editor, which measures its own.
     /// </remarks>
     private void ReportViewports()
     {
@@ -287,9 +335,6 @@ public partial class DiffViewerView : UserControl
 
         DiffMetrics metrics = DiffTypography.Current;
         double side = metrics.GutterWidth + metrics.MarkerWidth;
-
-        viewer.Render.UnifiedScroll.Viewport =
-            Columns(UnifiedBar.Bounds.Width - metrics.GutterWidth - side, metrics);
 
         // The narrower of the two panes: they share one offset, so neither may be scrolled past
         // what it can itself show. In practice the two are equal — the panes are a 50/50 split —
@@ -304,7 +349,8 @@ public partial class DiffViewerView : UserControl
 
     private void OnWheel(object? sender, PointerWheelEventArgs e)
     {
-        if (DataContext is not DiffViewerViewModel viewer)
+        // The unified rendering is an editor, which scrolls sideways by itself.
+        if (DataContext is not DiffViewerViewModel { IsSideBySide: true } viewer)
         {
             return;
         }
@@ -320,7 +366,7 @@ public partial class DiffViewerView : UserControl
             return;
         }
 
-        DiffScrollState pane = PaneUnder(viewer);
+        DiffScrollState pane = viewer.Render.SideBySideScroll;
 
         if (!pane.IsScrollable)
         {
@@ -330,17 +376,6 @@ public partial class DiffViewerView : UserControl
         pane.Offset -= delta * WheelColumns;
         e.Handled = true;
     }
-
-    /// <summary>
-    /// Works out which scroll a sideways wheel moves, which is the one the rendering on screen has.
-    /// </summary>
-    /// <remarks>
-    /// The side-by-side rendering has one scroll for both panes, so where the pointer is over it no
-    /// longer matters: a wheel anywhere in it moves both sides together, which is what the two
-    /// being synchronised means.
-    /// </remarks>
-    private static DiffScrollState PaneUnder(DiffViewerViewModel viewer)
-        => viewer.IsUnified ? viewer.Render.UnifiedScroll : viewer.Render.SideBySideScroll;
 
     // ---------------------------------------------------------------- selecting text
 
@@ -547,7 +582,7 @@ public partial class DiffViewerView : UserControl
     /// </summary>
     private ListBox? ListOf(object? source)
         => source is Visual visual
-            ? visual.GetSelfAndVisualAncestors().OfType<ListBox>().FirstOrDefault(list => list == UnifiedList || list == SideBySideList)
+            ? visual.GetSelfAndVisualAncestors().OfType<ListBox>().FirstOrDefault(list => list == SideBySideList)
             : null;
 
     private static ListBoxItem? ContainerOf(object? source)
@@ -622,11 +657,7 @@ public partial class DiffViewerView : UserControl
     }
 
     private ScrollViewer? ScrollOf(ListBox list)
-    {
-        DiffMinimap map = list == UnifiedList ? UnifiedMinimap : SideBySideMinimap;
-
-        return _scrolls.TryGetValue(map, out ScrollViewer? scroll) ? scroll : null;
-    }
+        => list == SideBySideList && _scrolls.TryGetValue(SideBySideMinimap, out ScrollViewer? scroll) ? scroll : null;
 
     /// <summary>
     /// A press on a line's text, and — once it has moved far enough — the drag extending the selection.

@@ -151,8 +151,8 @@ public sealed class DiffRenderOptions : ViewModelBase
             if (SetProperty(ref field, value))
             {
                 // Wrapping and scrolling are the two answers to the same question, so turning one
-                // on puts the other away — bars and offsets both.
-                UnifiedScroll.IsEnabled = !value;
+                // on puts the other away — bars and offsets both. The unified editor does the same
+                // for itself.
                 SideBySideScroll.IsEnabled = !value;
             }
         }
@@ -160,9 +160,6 @@ public sealed class DiffRenderOptions : ViewModelBase
 
     /// <summary>Gets or sets how many columns a tab advances to.</summary>
     public int TabWidth { get; set => SetProperty(ref field, value); } = 4;
-
-    /// <summary>Gets how far the unified rendering is scrolled sideways.</summary>
-    public DiffScrollState UnifiedScroll { get; } = new();
 
     /// <summary>
     /// Gets how far the side-by-side rendering is scrolled sideways — both panes at once.
@@ -189,7 +186,6 @@ public sealed class DiffRenderOptions : ViewModelBase
     /// <returns>The scroll states.</returns>
     public IEnumerable<DiffScrollState> Panes()
     {
-        yield return UnifiedScroll;
         yield return SideBySideScroll;
     }
 }
@@ -500,11 +496,17 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// <summary>Gets the rendering choices shared by every row.</summary>
     public DiffRenderOptions Render { get; } = new();
 
-    /// <summary>Gets the rows of the unified rendering.</summary>
-    public ObservableCollection<DiffRowViewModel> UnifiedRows { get; } = [];
+    /// <summary>
+    /// Gets the rows of the unified rendering.
+    /// </summary>
+    /// <remarks>
+    /// Replaced whole, once per patch, rather than cleared and filled: an editor builds its document
+    /// from the rows, and one notification is one document where a row-by-row fill would be one per row.
+    /// </remarks>
+    public IReadOnlyList<DiffRowViewModel> UnifiedRows { get; private set => SetProperty(ref field, value); } = [];
 
-    /// <summary>Gets the rows of the side-by-side rendering.</summary>
-    public ObservableCollection<DiffRowViewModel> SideBySideRows { get; } = [];
+    /// <summary>Gets the rows of the side-by-side rendering, replaced whole as the unified ones are.</summary>
+    public IReadOnlyList<DiffRowViewModel> SideBySideRows { get; private set => SetProperty(ref field, value); } = [];
 
     /// <summary>Gets the rows the reader has selected, which a copy collects from.</summary>
     public ObservableCollection<object> Selection { get; } = [];
@@ -827,7 +829,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
     public string SelectedText()
     {
         DiffTextSelection selection = Render.Selection;
-        ObservableCollection<DiffRowViewModel> rows = selection.Pane == DiffPane.Unified ? UnifiedRows : SideBySideRows;
+        IReadOnlyList<DiffRowViewModel> rows = selection.Pane == DiffPane.Unified ? UnifiedRows : SideBySideRows;
 
         return selection.Text(row =>
             row >= 0 && row < rows.Count && rows[row].CellFor(selection.Pane)?.Line is { Kind: not DiffLineKind.NoNewline } line
@@ -843,7 +845,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
     private async Task CopySelectionAsync()
     {
         List<DiffLine> lines = [];
-        ObservableCollection<DiffRowViewModel> rows = IsUnified ? UnifiedRows : SideBySideRows;
+        IReadOnlyList<DiffRowViewModel> rows = IsUnified ? UnifiedRows : SideBySideRows;
 
         // Walked in row order rather than in the order the rows were clicked, so a copied block
         // reads the way it looks.
@@ -896,39 +898,43 @@ public sealed class DiffViewerViewModel : ViewModelBase
     {
         _patch = patch;
 
-        UnifiedRows.Clear();
-        SideBySideRows.Clear();
         Selection.Clear();
 
         // Selected text is counted in rows, and these rows are about to be another file's.
         Render.Selection.Clear();
 
+        List<DiffRowViewModel> unified = [];
+        List<DiffRowViewModel> sideBySide = [];
+
         if (patch is not null)
         {
             foreach (DiffRow row in DiffRowBuilder.BuildUnified(patch))
             {
-                UnifiedRows.Add(row.Kind == DiffRowKind.HunkHeader
-                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = UnifiedRows.Count }
+                unified.Add(row.Kind == DiffRowKind.HunkHeader
+                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = unified.Count }
                     : new DiffRowViewModel(new DiffCellViewModel(row.Line, Render), null, null, Render)
                     {
-                        Index = UnifiedRows.Count,
+                        Index = unified.Count,
                     });
             }
 
             foreach (DiffPairRow row in DiffRowBuilder.BuildSideBySide(patch))
             {
-                SideBySideRows.Add(row.Kind == DiffRowKind.HunkHeader
-                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = SideBySideRows.Count }
+                sideBySide.Add(row.Kind == DiffRowKind.HunkHeader
+                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = sideBySide.Count }
                     : new DiffRowViewModel(
                         null,
                         new DiffCellViewModel(row.Left, Render, showOldNumber: true, showNewNumber: false),
                         new DiffCellViewModel(row.Right, Render, showOldNumber: false, showNewNumber: true),
                         Render)
                     {
-                        Index = SideBySideRows.Count,
+                        Index = sideBySide.Count,
                     });
             }
         }
+
+        UnifiedRows = unified;
+        SideBySideRows = sideBySide;
 
         UnifiedMap = BuildMap(UnifiedRows);
         SideBySideMap = BuildMap(SideBySideRows);
@@ -1079,8 +1085,6 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// </remarks>
     private void MeasureExtents()
     {
-        Render.UnifiedScroll.Columns = LongestLine(UnifiedRows, row => row.Single);
-
         // The wider of the two sides: one shared extent, so either pane can be scrolled to the end
         // of the longest line on either of them and the two bars agree about how far there is left.
         Render.SideBySideScroll.Columns = Math.Max(
