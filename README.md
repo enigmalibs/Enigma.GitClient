@@ -53,6 +53,9 @@ Two things matter more than everything else in this app:
   line's menu
 - Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
   staged; hard discards them, after naming the files it takes
+- Revert any commit from its line menu: after one question, a new commit on the branch you are on
+  undoes what it changed (a merge against the branch it went into); a revert that would conflict is
+  abandoned on the spot, naming the files, and leaves everything as it was
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
   into any other local branch the same way — or drag one branch badge onto another, and pick the
   merge or the fast-forward

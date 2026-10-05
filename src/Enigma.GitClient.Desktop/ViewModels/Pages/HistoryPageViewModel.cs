@@ -44,6 +44,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IResetOperations _resetOperations;
+    private readonly IRevertOperations _revertOperations;
     private readonly IBranchDropOperations _dropOperations;
     private readonly ISyncOperations _syncOperations;
     private readonly IHostLinkService _links;
@@ -102,6 +103,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
     /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
+    /// <param name="revertOperations">Records a commit undoing a line's commit on the branch that is checked out.</param>
     /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
     /// <param name="syncOperations">Pulls and pushes a branch from its badge, and pushes a tag from its own.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
@@ -120,6 +122,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IResetOperations resetOperations,
+        IRevertOperations revertOperations,
         IBranchDropOperations dropOperations,
         ISyncOperations syncOperations,
         IHostLinkService links,
@@ -144,6 +147,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(resetOperations);
+        ArgumentNullException.ThrowIfNull(revertOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
         ArgumentNullException.ThrowIfNull(syncOperations);
         ArgumentNullException.ThrowIfNull(links);
@@ -168,6 +172,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _resetOperations = resetOperations;
+        _revertOperations = revertOperations;
         _dropOperations = dropOperations;
         _syncOperations = syncOperations;
         _links = links;
@@ -248,7 +253,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted),
             PushTag: new AsyncRelayCommand<string>(OnPushTagAsync, tag => !string.IsNullOrEmpty(tag)),
             DeleteTag: new AsyncRelayCommand<string>(OnDeleteTagAsync, tag => !string.IsNullOrEmpty(tag)),
-            DeleteRemoteTag: new AsyncRelayCommand<string>(OnDeleteRemoteTagAsync, tag => !string.IsNullOrEmpty(tag)));
+            DeleteRemoteTag: new AsyncRelayCommand<string>(OnDeleteRemoteTagAsync, tag => !string.IsNullOrEmpty(tag)),
+            Revert: new AsyncRelayCommand<CommitRowViewModel>(OnRevertAsync, HasCommit));
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -2091,6 +2097,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         if (await _resetOperations.ResetAsync(row.Sha, row.ShortSha, request.Branch, mode).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Records a commit undoing a line's commit on the branch that is checked out, and re-reads the
+    /// history when one was recorded.
+    /// </summary>
+    private async Task OnRevertAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is not { } commit)
+        {
+            return;
+        }
+
+        if (await _revertOperations.RevertAsync(row.Sha, row.ShortSha, row.Subject, commit.IsMerge).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }
