@@ -58,7 +58,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="repositories">Opens, creates and clones repositories.</param>
     /// <param name="lists">Keeps each profile's list of repositories.</param>
     /// <param name="selection">Says whose list is shown.</param>
-    /// <param name="identity">Sets git's global identity to the profile picked.</param>
+    /// <param name="identity">
+    /// Sets git's global identity to the profile picked, and offers it to a new clone as its own.
+    /// </param>
     /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
@@ -514,6 +516,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         Progress<CloneProgress> progress = new(card.Apply);
 
         await _overlay.ShowAsync(card).ConfigureAwait(true);
+        bool overlayShown = true;
         IsBusy = true;
 
         try
@@ -527,6 +530,13 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             {
                 CloneParentDirectory = System.IO.Path.GetFullPath(request.ParentDirectory),
             });
+
+            // The progress is over, and the overlay is drawn above the dialogs: it goes before the
+            // question is asked.
+            await _overlay.HideAsync().ConfigureAwait(true);
+            overlayShown = false;
+
+            await OfferGlobalIdentityAsync(repository).ConfigureAwait(true);
 
             await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
             await AddToListAsync(repository).ConfigureAwait(true);
@@ -553,7 +563,72 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             _cloneCancellation = null;
 
             // Always: an overlay left open makes the whole window unusable.
-            await _overlay.HideAsync().ConfigureAwait(true);
+            if (overlayShown)
+            {
+                await _overlay.HideAsync().ConfigureAwait(true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asks whether a new clone should commit as the global identity whatever it later becomes, and
+    /// writes it into the clone's own configuration when told to.
+    /// </summary>
+    /// <param name="repository">The clone.</param>
+    /// <returns>A task that completes once the question is answered and the answer applied.</returns>
+    /// <remarks>
+    /// Nothing is asked without a complete global identity — there is nothing to copy — and nothing is
+    /// written unless the reader says so. A write that fails leaves the clone as git made it, and says
+    /// so. Names and emails are never logged.
+    /// </remarks>
+    private async Task OfferGlobalIdentityAsync(RepositoryHandle repository)
+    {
+        GitIdentity global;
+
+        try
+        {
+            global = (await _identity.GetGlobalAsync().ConfigureAwait(true)).Normalised();
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException)
+        {
+            _logger.LogWarning("Reading the global git identity after a clone failed ({Kind})", exception.GetType().Name);
+            return;
+        }
+
+        if (!global.IsComplete)
+        {
+            return;
+        }
+
+        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = "Use your identity in this repository";
+            dialog.Content =
+                $"Make {global} the name and email of {repository.Name}?\n\n"
+                + "They are written to the repository's own configuration, so its commits are made as "
+                + "them whatever the global identity becomes later.";
+            dialog.PrimaryButtonText = "Use it";
+            dialog.CloseButtonText = "Not now";
+            dialog.DefaultButton = DefaultButton.Close;
+        }).ConfigureAwait(true);
+
+        if (answer != DialogResult.Primary)
+        {
+            return;
+        }
+
+        try
+        {
+            await _identity.SetLocalAsync(repository, global).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException or ArgumentException)
+        {
+            _logger.LogWarning("Writing the global git identity into a clone failed ({Kind})", exception.GetType().Name);
+
+            Report(
+                "The clone has no identity of its own",
+                $"{repository.Name} commits with the global identity. {ProfilesPageViewModel.Describe(exception)}",
+                InfoBarSeverity.Warning);
         }
     }
 

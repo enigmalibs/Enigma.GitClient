@@ -649,6 +649,110 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the clone's own identity
+
+    private static async Task<(RepositoriesPageViewModel Page, CloneRequest Request)> ReadyToCloneAsync(TestServices services)
+    {
+        RepositoryHandle source = await SourceRepositoryAsync(services);
+
+        return (
+            services.Get<RepositoriesPageViewModel>(),
+            new CloneRequest
+            {
+                Url = source.WorkTreePath,
+                ParentDirectory = Path.Combine(services.ConfigurationRoot, "clones"),
+                DirectoryName = "cloned",
+            });
+    }
+
+    [Fact]
+    public void ACloneOffersTheGlobalIdentity_AndUseItWritesItIntoTheClone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+
+            // The question must be asked over the window, not under the clone's progress overlay.
+            bool overlayOpenWhenAsked = true;
+            services.Dialogs.OnShown = _ => overlayOpenWhenAsked = services.Overlay.IsOpen;
+            services.Dialogs.Script(DialogResult.Primary);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Use your identity in this repository", question.Title);
+            Assert.Contains("Ada Lovelace <ada@work.example>", question.Content as string, StringComparison.Ordinal);
+            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.False(overlayOpenWhenAsked);
+
+            RepositoryHandle clone = services.Get<IRepositoryContext>().Repository!;
+            Assert.Equal("cloned", clone.Name);
+            Assert.Equal(WorkIdentity, services.Identity.LocalOf(clone.WorkTreePath));
+
+            // The global identity itself is left as it was.
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.False(services.Overlay.IsOpen);
+        });
+    }
+
+    [Fact]
+    public void NotNow_LeavesTheCloneWithoutAnIdentityOfItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+            services.Dialogs.Script(DialogResult.None);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            Assert.Single(services.Dialogs.Shown);
+            Assert.Empty(services.Identity.LocalWrites);
+            Assert.Equal("cloned", services.Get<IRepositoryContext>().Repository?.Name);
+        });
+    }
+
+    [Fact]
+    public void WithoutAGlobalIdentity_ACloneAsksNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = new GitIdentity("Ada Lovelace", string.Empty);
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            Assert.Empty(services.Dialogs.Shown);
+            Assert.Empty(services.Identity.LocalWrites);
+        });
+    }
+
+    [Fact]
+    public void AFailedWrite_WarnsAndStillOpensTheClone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+
+            // git's configuration is locked from the moment the question is on screen.
+            services.Dialogs.OnShown = _ => services.Identity.Failure = FakeGitIdentityService.LockFailure();
+            services.Dialogs.Script(DialogResult.Primary);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            RecordedNotification warning = services.InfoBar.Shown.Single(note => note.Severity == InfoBarSeverity.Warning);
+            Assert.Equal("The clone has no identity of its own", warning.Title);
+            Assert.Equal("cloned", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Clone finished");
+        });
+    }
+
     [Fact]
     public void ACloneThatFailed_LeavesTheSuggestionWhereItWas()
     {
