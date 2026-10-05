@@ -24,8 +24,8 @@ using Xunit;
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
-/// Selected text in the diff: what a selection covers row by row, the text it copies, the character a
-/// point lands on, and what the line draws for it.
+/// Selected text in the diff: what a selection covers row by row, the text it copies, and how an
+/// editor's own selection is mirrored into it.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class DiffTextSelectionTests
@@ -251,101 +251,101 @@ public sealed class DiffTextSelectionTests
         });
     }
 
-    // ---------------------------------------------------------------- the line
+    // ---------------------------------------------------------------- the editors
 
     [Fact]
-    public void IndexAt_FindsThePlaceBetweenTwoCharacters_TabsAndScrollIncluded()
+    public void AnEditorsSelection_IsMirroredInRowsAndCharacters()
     {
         _fixture.Run(() =>
         {
-            FontFamily? family = DiffTypography.MonospaceFamilies().FirstOrDefault();
-            Assert.SkipWhen(family is null, "no monospace face on this machine");
-
-            // "a", a tab drawn over three columns (to the stop at 4), then "bc".
-            DiffLineText line = new() { Text = "a\tbc", TabWidth = 4, FontFamily = family!, FontSize = 14 };
-            line.Measure(Size.Infinity);
-            line.Arrange(new Rect(line.DesiredSize));
-
-            double column = DiffTypography.MeasureCharacterWidth(family!, 14);
-            double y = line.DesiredSize.Height / 2;
-
-            Assert.Equal(0, line.IndexAt(new Point(-20, y)));
-            Assert.Equal(0, line.IndexAt(new Point(column * 0.3, y)));
-            Assert.Equal(1, line.IndexAt(new Point(column * 0.7, y)));
-            Assert.Equal(1, line.IndexAt(new Point(column * 1.8, y)));
-            Assert.Equal(2, line.IndexAt(new Point(column * 3.3, y)));
-            Assert.Equal(3, line.IndexAt(new Point(column * 4.7, y)));
-            Assert.Equal(4, line.IndexAt(new Point(column * 40, y)));
-
-            // Scrolled a column to the right: the same point is a column further into the text.
-            line.HorizontalOffset = 1;
-            Assert.Equal(1, line.IndexAt(new Point(column * 0.3, y)));
-        });
-    }
-
-    [Fact]
-    public void IndexAt_OnAnEmptyLineIsItsStart()
-    {
-        _fixture.Run(() =>
-        {
-            DiffLineText line = new() { Text = string.Empty };
-            line.Measure(Size.Infinity);
-
-            Assert.Equal(0, line.IndexAt(new Point(50, 5)));
-        });
-    }
-
-    [Fact]
-    public void TheLineTintsExactlyItsSelectedCharacters()
-    {
-        _fixture.Run(() =>
-        {
-            FontFamily? family = DiffTypography.MonospaceFamilies().FirstOrDefault();
-            Assert.SkipWhen(family is null, "no monospace face on this machine");
-
             DiffTextSelection selection = new();
-            DiffLineText line = new()
-            {
-                Text = "abcdefgh",
-                FontFamily = family!,
-                FontSize = 20,
-                Foreground = Brushes.Transparent,
-                SelectionBrush = Brushes.Red,
-                Selection = selection,
-                Row = 4,
-                Pane = DiffPane.Right,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Top,
-            };
+            DiffTextEditor editor = Editor(DiffPane.Unified, selection);
 
-            Window window = new() { Content = line, Width = 400, Height = 60, Background = Brushes.White };
+            // From the "w" of "two" (row 2) to just after "three" (row 3).
+            int start = editor.Document.GetLineByNumber(3).Offset + 1;
+            int end = editor.Document.GetLineByNumber(4).EndOffset;
+
+            editor.Select(start, end - start);
+
+            Assert.True(selection.IsActive);
+            Assert.Equal(DiffPane.Unified, selection.Pane);
+            Assert.Equal(new DiffTextPosition(2, 1), selection.Start);
+            Assert.Equal(new DiffTextPosition(3, 5), selection.End);
+
+            // Nothing selected in the editor is nothing selected at all.
+            editor.TextArea.ClearSelection();
+
+            Assert.False(selection.IsActive);
+        });
+    }
+
+    [Fact]
+    public void APane_LetsItsSelectionGo_WhenAnotherPaneTakesTheSharedOne()
+    {
+        _fixture.Run(() =>
+        {
+            DiffTextSelection selection = new();
+            DiffTextEditor left = Editor(DiffPane.Left, selection);
+            DiffTextEditor right = Editor(DiffPane.Right, selection);
+            Window window = new() { Content = new StackPanel { Children = { left, right } }, Width = 400, Height = 300 };
             window.Show();
 
-            double column = DiffTypography.MeasureCharacterWidth(family!, 20);
+            left.Select(left.Document.GetLineByNumber(2).Offset, 3);
+            Assert.Equal(DiffPane.Left, selection.Pane);
 
-            // Selected in the other pane, then on another row: nothing on this line.
-            selection.Begin(DiffPane.Left, new DiffTextPosition(4, 2));
-            selection.ExtendTo(new DiffTextPosition(4, 5));
-            Assert.False(RedAt(window, column * 3.5, 10));
+            right.Select(right.Document.GetLineByNumber(3).Offset, 3);
 
-            selection.Begin(DiffPane.Right, new DiffTextPosition(4, 2));
-            selection.ExtendTo(new DiffTextPosition(4, 5));
+            // One selection at a time: the right pane has it, and the left one shows none.
+            Assert.Equal(DiffPane.Right, selection.Pane);
+            Assert.True(selection.IsActive);
+            Assert.True(left.TextArea.Selection.IsEmpty);
+            Assert.False(right.TextArea.Selection.IsEmpty);
 
-            using (Bitmap frame = Frame(window))
-            {
-                Assert.True(IsRed(frame, column * 3.5, 10), "a selected character must be tinted");
-                Assert.False(IsRed(frame, column * 1.5, 10), "a character before the selection must not be");
-                Assert.False(IsRed(frame, column * 6.5, 10), "a character after the selection must not be");
-            }
-
+            // Clearing the shared selection — a new patch, a new rendering — clears the editor too.
             selection.Clear();
-            Assert.False(RedAt(window, column * 3.5, 10));
+
+            Assert.True(right.TextArea.Selection.IsEmpty);
 
             window.Close();
         });
     }
 
     // ---------------------------------------------------------------- helpers
+
+    private static DiffTextEditor Editor(DiffPane pane, DiffTextSelection selection)
+    {
+        DiffRenderOptions options = new();
+        System.Collections.Generic.List<DiffRowViewModel> rows = [];
+        FilePatch patch = UnifiedDiffParser.Parse(SamplePatch).Files[0];
+
+        if (pane == DiffPane.Unified)
+        {
+            foreach (DiffRow row in DiffRowBuilder.BuildUnified(patch))
+            {
+                rows.Add(row.Kind == DiffRowKind.HunkHeader
+                    ? new DiffRowViewModel(row.Hunk!, options) { Index = rows.Count }
+                    : new DiffRowViewModel(new DiffCellViewModel(row.Line, options), null, null, options) { Index = rows.Count });
+            }
+        }
+        else
+        {
+            foreach (DiffPairRow row in DiffRowBuilder.BuildSideBySide(patch))
+            {
+                rows.Add(row.Kind == DiffRowKind.HunkHeader
+                    ? new DiffRowViewModel(row.Hunk!, options) { Index = rows.Count }
+                    : new DiffRowViewModel(
+                        null,
+                        new DiffCellViewModel(row.Left, options, showOldNumber: true, showNewNumber: false),
+                        new DiffCellViewModel(row.Right, options, showOldNumber: false, showNewNumber: true),
+                        options)
+                    {
+                        Index = rows.Count,
+                    });
+            }
+        }
+
+        return new DiffTextEditor { Rows = rows, Pane = pane, TextSelection = selection, Height = 120 };
+    }
 
     private static async Task<DiffViewerViewModel> ShownAsync(string patch)
     {
@@ -376,42 +376,4 @@ public sealed class DiffTextSelectionTests
         throw new InvalidOperationException("No row matched.");
     }
 
-    private static Bitmap Frame(Window window)
-    {
-        for (int attempt = 0; attempt < 5; attempt++)
-        {
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
-        }
-
-        return window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-    }
-
-    private static bool RedAt(Window window, double x, double y)
-    {
-        using Bitmap frame = Frame(window);
-        return IsRed(frame, x, y);
-    }
-
-    private static bool IsRed(Bitmap frame, double x, double y)
-    {
-        byte[] pixel = new byte[4];
-        GCHandle handle = GCHandle.Alloc(pixel, GCHandleType.Pinned);
-
-        try
-        {
-            frame.CopyPixels(new PixelRect((int)x, (int)y, 1, 1), handle.AddrOfPinnedObject(), pixel.Length, 4);
-        }
-        finally
-        {
-            handle.Free();
-        }
-
-        // The frame is in whichever byte order the platform renders in.
-        bool rgba = frame.Format == PixelFormats.Rgba8888;
-        byte red = rgba ? pixel[0] : pixel[2];
-        byte blue = rgba ? pixel[2] : pixel[0];
-
-        return red > 200 && pixel[1] < 80 && blue < 80;
-    }
 }

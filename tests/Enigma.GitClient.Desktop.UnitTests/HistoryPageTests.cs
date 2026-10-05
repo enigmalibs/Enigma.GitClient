@@ -3058,13 +3058,18 @@ public sealed class HistoryPageTests
     }
 
     /// <summary>
-    /// The scroll of the one list a panel is currently showing.
+    /// The scroll of the one list — or the one diff editor — a panel is currently showing.
     /// </summary>
     private static ScrollViewer ScrollOf(Control panel)
         => panel.GetVisualDescendants()
-            .OfType<ListBox>()
-            .Where(list => list.IsVisible && list.Bounds.Height > 0)
-            .SelectMany(list => list.GetVisualDescendants().OfType<ScrollViewer>())
+            .OfType<Controls.Diff.DiffTextEditor>()
+            .Where(editor => editor.IsEffectivelyVisible && editor.Bounds.Height > 0)
+            .Select(editor => editor.ScrollHost)
+            .OfType<ScrollViewer>()
+            .Concat(panel.GetVisualDescendants()
+                .OfType<ListBox>()
+                .Where(list => list.IsVisible && list.Bounds.Height > 0)
+                .SelectMany(list => list.GetVisualDescendants().OfType<ScrollViewer>()))
             .First();
 
     private static async Task WaitUntilAsync(Func<bool> condition, int attempts = 200)

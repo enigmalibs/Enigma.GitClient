@@ -166,7 +166,7 @@
 ## PHASE03 — Side by side on two editors
 
 **Branch:** `feature/feature-bb60-phase03-side-by-side-editors`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-BB60-PHASE03.md`
 
 ### Steps
 
