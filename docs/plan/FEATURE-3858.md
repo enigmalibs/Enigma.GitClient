@@ -1,6 +1,6 @@
 # FEATURE-3858 — Release 5.3.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3858.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-3858-release-5-3-0`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release

@@ -10,13 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.2** — delete a tag here or on the remote, from its badge in the history or its
-> line in the Tags dialog; a branch and its upstream on the same commit are one badge, as in
-> GitKraken; checking out a remote branch whose local branch is elsewhere offers to *reset local to
-> here*; and a double-click on a branch badge checks it out. Coming from 5.1.0? The program was
-> renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the
-> installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
-> [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.3** — picking a profile in the start window makes it git's identity, and a new
+> clone offers to keep it; the uncommitted line is joined to the checked-out commit by a dashed line,
+> as in GitKraken; the repository window opens maximised, on its history, fetches as it opens, and
+> opens the repository's folder or a terminal in it from its toolbar; and a refresh no longer reopens
+> the folders you closed. Coming from 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in
+> 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the installer again). Coming from 4.x? Read
+> *Upgrading from 4.x* under 5.0.0 first. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 

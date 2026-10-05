@@ -265,7 +265,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-3B4E | Open the folder and a terminal          | DONE      | docs/plan/FEATURE-3B4E.md |
 | FEATURE-426F | A fetch when a repository opens         | DONE      | docs/plan/FEATURE-426F.md |
 | FEATURE-6108 | Clone offers the global identity        | DONE      | docs/plan/FEATURE-6108.md |
-| FEATURE-3858 | Release 5.3.0                           | TODO      | docs/plan/FEATURE-3858.md |
+| FEATURE-3858 | Release 5.3.0                           | DONE      | docs/plan/FEATURE-3858.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
