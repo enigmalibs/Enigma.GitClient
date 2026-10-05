@@ -279,6 +279,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The unified diff on the editor          | DONE      | (in FEATURE-BB60.md)      |
 | - PHASE03    | Side by side on two editors             | DONE      | (in FEATURE-BB60.md)      |
 | - PHASE04    | Syntax highlighting in diffs            | DONE      | (in FEATURE-BB60.md)      |
+| BUG-7823     | A drag to the diff's end hangs the app  | TODO      | docs/plan/BUG-7823.md     |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
