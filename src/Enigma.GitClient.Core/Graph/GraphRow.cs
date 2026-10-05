@@ -48,7 +48,11 @@ public enum GraphEdgeKind
 /// The palette index of the line this segment belongs to. It is an index, never a colour value:
 /// the theme owns what each index actually looks like in Dark and Light.
 /// </param>
-public readonly record struct GraphEdge(int FromLane, int ToLane, GraphEdgeKind Kind, int Colour)
+/// <param name="IsDashed">
+/// Whether the segment belongs to the line joining the uncommitted work to HEAD's commit, which is
+/// not history and is drawn dashed.
+/// </param>
+public readonly record struct GraphEdge(int FromLane, int ToLane, GraphEdgeKind Kind, int Colour, bool IsDashed = false)
 {
     /// <summary>
     /// Gets a value indicating whether the segment stays in one lane, and so is drawn as a straight
