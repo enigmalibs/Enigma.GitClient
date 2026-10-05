@@ -266,6 +266,14 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-426F | A fetch when a repository opens         | DONE      | docs/plan/FEATURE-426F.md |
 | FEATURE-6108 | Clone offers the global identity        | DONE      | docs/plan/FEATURE-6108.md |
 | FEATURE-3858 | Release 5.3.0                           | DONE      | docs/plan/FEATURE-3858.md |
+| FEATURE-659E | Revert a commit from the history        | TODO      | docs/plan/FEATURE-659E.md |
+| - PHASE01    | The revert engine                       | TODO      | (in FEATURE-659E.md)      |
+| - PHASE02    | Revert in the line menu                 | TODO      | (in FEATURE-659E.md)      |
+| FEATURE-1CCB | Changed files as a tree by default      | TODO      | docs/plan/FEATURE-1CCB.md |
+| FEATURE-1E0D | A base directory per profile            | TODO      | docs/plan/FEATURE-1E0D.md |
+| - PHASE01    | The profile keeps a base directory      | TODO      | (in FEATURE-1E0D.md)      |
+| - PHASE02    | Open, clone and create start there      | TODO      | (in FEATURE-1E0D.md)      |
+| FEATURE-4707 | Release 5.4.0                           | TODO      | docs/plan/FEATURE-4707.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
