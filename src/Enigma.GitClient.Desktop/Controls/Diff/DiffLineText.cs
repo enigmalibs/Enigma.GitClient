@@ -6,7 +6,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
-using Avalonia.Media.TextFormatting;
 using Enigma.GitClient.Core.Diff;
 
 namespace Enigma.GitClient.Desktop.Controls.Diff;
@@ -21,7 +20,7 @@ namespace Enigma.GitClient.Desktop.Controls.Diff;
 /// A <c>TextBlock</c> with <c>Inlines</c> could carry the word-level tint, but it re-creates an
 /// inline collection per row and gives no control over tab expansion or whitespace rendering. One
 /// <see cref="FormattedText"/> per row draws the same thing in a single pass and measures its own
-/// width, which is what the shared horizontal scrollbar needs.
+/// width.
 /// </para>
 /// <para>
 /// Tabs are expanded here rather than left to the text engine on purpose: a tab's width in a
@@ -29,17 +28,12 @@ namespace Enigma.GitClient.Desktop.Controls.Diff;
 /// would not line up. Expanding to a fixed column width is what makes indented code readable.
 /// </para>
 /// <para>
-/// It also draws its share of the reader's text selection (<see cref="Selection"/>), and says which
-/// character is under a point (<see cref="IndexAt"/>), which is what selecting with the pointer needs.
-/// It never edits anything: there is no caret and nothing to type into.
+/// The conflict-resolution page draws its three panes with it. The diff viewer draws with
+/// <see cref="DiffTextEditor"/>, which selects, scrolls and searches on its own.
 /// </para>
 /// <para>
-/// The control clips itself. It is the one control here that draws outside its own bounds by
-/// construction — past its right edge, because it measures to the line's natural width, and past
-/// its left one, because <see cref="HorizontalOffset"/> is applied to the render origin rather than
-/// to the layout. Leaving that ink to an ancestor is what let a scrolled line paint over the line
-/// numbers beside it: the clip on the pane holds the gutter as well as the text, so "inside the
-/// pane" was never "inside the text column".
+/// The control clips itself: it measures to the line's natural width, so a line wider than its
+/// column would otherwise be drawn past its right edge, over whatever is beside it.
 /// </para>
 /// </remarks>
 public sealed class DiffLineText : Control
@@ -72,26 +66,6 @@ public sealed class DiffLineText : Control
     public static readonly StyledProperty<int> TabWidthProperty =
         AvaloniaProperty.Register<DiffLineText, int>(nameof(TabWidth), 4);
 
-    /// <summary>Defines the <see cref="HorizontalOffset"/> property.</summary>
-    public static readonly StyledProperty<double> HorizontalOffsetProperty =
-        AvaloniaProperty.Register<DiffLineText, double>(nameof(HorizontalOffset));
-
-    /// <summary>Defines the <see cref="Selection"/> property.</summary>
-    public static readonly StyledProperty<DiffTextSelection?> SelectionProperty =
-        AvaloniaProperty.Register<DiffLineText, DiffTextSelection?>(nameof(Selection));
-
-    /// <summary>Defines the <see cref="Row"/> property.</summary>
-    public static readonly StyledProperty<int> RowProperty =
-        AvaloniaProperty.Register<DiffLineText, int>(nameof(Row), -1);
-
-    /// <summary>Defines the <see cref="Pane"/> property.</summary>
-    public static readonly StyledProperty<DiffPane> PaneProperty =
-        AvaloniaProperty.Register<DiffLineText, DiffPane>(nameof(Pane));
-
-    /// <summary>Defines the <see cref="SelectionBrush"/> property.</summary>
-    public static readonly StyledProperty<IBrush?> SelectionBrushProperty =
-        AvaloniaProperty.Register<DiffLineText, IBrush?>(nameof(SelectionBrush));
-
     /// <summary>Defines the <see cref="Foreground"/> property.</summary>
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
         TextElement.ForegroundProperty.AddOwner<DiffLineText>();
@@ -105,16 +79,13 @@ public sealed class DiffLineText : Control
         TextElement.FontSizeProperty.AddOwner<DiffLineText>();
 
     private FormattedText? _formatted;
-    private TextLayout? _hitTesting;
-    private double _wrapWidth = double.PositiveInfinity;
     private string _expanded = string.Empty;
     private int[] _map = [];
 
     static DiffLineText()
     {
         // A default rather than an attribute on each template: the containment belongs to the
-        // control that renders outside its bounds, not to the three rows and the conflict pane that
-        // happen to hold one.
+        // control that renders outside its bounds, not to the panes that happen to hold one.
         ClipToBoundsProperty.OverrideDefaultValue<DiffLineText>(true);
 
         AffectsMeasure<DiffLineText>(
@@ -129,12 +100,7 @@ public sealed class DiffLineText : Control
         AffectsRender<DiffLineText>(
             ForegroundProperty,
             HighlightBrushProperty,
-            WhitespaceBrushProperty,
-            HorizontalOffsetProperty,
-            SelectionProperty,
-            RowProperty,
-            PaneProperty,
-            SelectionBrushProperty);
+            WhitespaceBrushProperty);
     }
 
     /// <summary>Gets or sets the line's text, without its diff marker.</summary>
@@ -184,58 +150,6 @@ public sealed class DiffLineText : Control
     {
         get => GetValue(TabWidthProperty);
         set => SetValue(TabWidthProperty, value);
-    }
-
-    /// <summary>
-    /// Gets or sets how far the text is scrolled, in characters.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Render-only, and deliberately so: the pane it sits in scrolls, the row does not re-measure,
-    /// and the line numbers and the marker beside it stay exactly where they are — which is what
-    /// makes a scrolled diff still readable. Its unit is the character rather than the pixel
-    /// because the whole control already reasons in columns.
-    /// </para>
-    /// <para>
-    /// A wrapped line has no overflow to scroll to, so the offset is ignored while
-    /// <see cref="WrapLines"/> is on rather than left to shift text out of view.
-    /// </para>
-    /// </remarks>
-    public double HorizontalOffset
-    {
-        get => GetValue(HorizontalOffsetProperty);
-        set => SetValue(HorizontalOffsetProperty, value);
-    }
-
-    /// <summary>
-    /// Gets or sets the viewer's text selection, which this line draws its part of; <see langword="null"/>
-    /// for a line that is never selected.
-    /// </summary>
-    public DiffTextSelection? Selection
-    {
-        get => GetValue(SelectionProperty);
-        set => SetValue(SelectionProperty, value);
-    }
-
-    /// <summary>Gets or sets the index of the row this line is on, which the selection is counted in.</summary>
-    public int Row
-    {
-        get => GetValue(RowProperty);
-        set => SetValue(RowProperty, value);
-    }
-
-    /// <summary>Gets or sets the pane this line is in.</summary>
-    public DiffPane Pane
-    {
-        get => GetValue(PaneProperty);
-        set => SetValue(PaneProperty, value);
-    }
-
-    /// <summary>Gets or sets the tint drawn behind the selected characters.</summary>
-    public IBrush? SelectionBrush
-    {
-        get => GetValue(SelectionBrushProperty);
-        set => SetValue(SelectionBrushProperty, value);
     }
 
     /// <summary>Gets or sets the brush the text is drawn in.</summary>
@@ -307,138 +221,6 @@ public sealed class DiffLineText : Control
         return (builder.ToString(), map.ToArray());
     }
 
-    /// <summary>
-    /// Counts the columns a line occupies once its tabs are expanded.
-    /// </summary>
-    /// <param name="text">The raw line.</param>
-    /// <param name="tabWidth">How many columns a tab advances to.</param>
-    /// <returns>The column count.</returns>
-    /// <remarks>
-    /// The same arithmetic as <see cref="Expand"/> without the string: the widest line of a patch is
-    /// asked for every pane of every file, over thousands of lines, and building each expansion to
-    /// measure its length would allocate the whole patch again to learn one number.
-    /// </remarks>
-    public static int ExpandedLength(string text, int tabWidth)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-
-        int width = tabWidth < 1 ? 1 : tabWidth;
-        int length = 0;
-
-        foreach (char character in text)
-        {
-            length += character == '\t' ? width - (length % width) : 1;
-        }
-
-        return length;
-    }
-
-    /// <summary>
-    /// Finds the place in the line's raw text nearest to a point.
-    /// </summary>
-    /// <param name="point">The point, in this control's coordinates.</param>
-    /// <returns>
-    /// The index the place is before: 0 left of the text, the text's length right of it. A point inside a
-    /// tab lands before or after the tab, whichever half it is in.
-    /// </returns>
-    /// <remarks>
-    /// The text engine does the hit test, on the text as it is drawn — scrolled, tabs expanded, wrapped —
-    /// and the expansion's map turns its answer back into the raw text the selection counts in.
-    /// </remarks>
-    public int IndexAt(Point point)
-    {
-        string text = Text ?? string.Empty;
-
-        if (_formatted is null || _expanded.Length == 0 || text.Length == 0)
-        {
-            return 0;
-        }
-
-        // FormattedText draws but does not hit-test; a layout of the same drawn text, in the same face
-        // and at the same width, does. Built on the first question after each measure, not on every
-        // row that is merely drawn.
-        _hitTesting ??= new TextLayout(
-            _expanded,
-            new Typeface(FontFamily),
-            EffectiveFontSize,
-            Foreground ?? Brushes.Gray,
-            textWrapping: double.IsInfinity(_wrapWidth) ? TextWrapping.NoWrap : TextWrapping.Wrap,
-            maxWidth: _wrapWidth);
-
-        TextHitTestResult hit = _hitTesting.HitTestPoint(new Point(point.X + ScrolledPixels(), point.Y));
-        int drawn = Math.Clamp(hit.TextPosition, 0, _expanded.Length);
-
-        if (drawn >= _map.Length)
-        {
-            return text.Length;
-        }
-
-        // A drawn character is one raw character, except a tab, which is drawn as several: the place
-        // goes before the tab in its first half and after it in its second.
-        int source = _map[drawn];
-        int first = drawn;
-        int last = drawn;
-
-        while (first > 0 && _map[first - 1] == source)
-        {
-            first--;
-        }
-
-        while (last < _map.Length - 1 && _map[last + 1] == source)
-        {
-            last++;
-        }
-
-        int width = last - first + 1;
-
-        return width > 1 && (drawn - first) * 2 >= width ? source + 1 : source;
-    }
-
-    /// <inheritdoc />
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToVisualTree(e);
-
-        // Only while it is on screen: the selection belongs to the viewer and outlives every row, and a
-        // row it still held a handler of could never be collected.
-        if (Selection is { } selection)
-        {
-            selection.Changed += OnSelectionChanged;
-        }
-    }
-
-    /// <inheritdoc />
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        if (Selection is { } selection)
-        {
-            selection.Changed -= OnSelectionChanged;
-        }
-
-        ForgetHitTesting();
-
-        base.OnDetachedFromVisualTree(e);
-    }
-
-    /// <inheritdoc />
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-
-        if (change.Property == SelectionProperty && VisualRoot is not null)
-        {
-            if (change.OldValue is DiffTextSelection old)
-            {
-                old.Changed -= OnSelectionChanged;
-            }
-
-            if (change.NewValue is DiffTextSelection now)
-            {
-                now.Changed += OnSelectionChanged;
-            }
-        }
-    }
-
     /// <inheritdoc />
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -459,7 +241,7 @@ public sealed class DiffLineText : Control
             return;
         }
 
-        Point origin = new(-ScrolledPixels(), 0);
+        Point origin = new(0, 0);
         IBrush? highlight = HighlightBrush;
         IReadOnlyList<DiffSegment>? segments = Segments;
 
@@ -480,8 +262,7 @@ public sealed class DiffLineText : Control
                 }
 
                 // The text engine knows where the glyphs for a range actually landed, wrapping and
-                // shaping included; asking it beats measuring substrings ourselves. Built at the
-                // scrolled origin so the tint travels with the words it is behind.
+                // shaping included; asking it beats measuring substrings ourselves.
                 Geometry? area = formatted.BuildHighlightGeometry(origin, start, end - start);
 
                 if (area is not null)
@@ -491,79 +272,7 @@ public sealed class DiffLineText : Control
             }
         }
 
-        DrawSelection(context, formatted, origin);
-
         context.DrawText(formatted, origin);
-    }
-
-    private void OnSelectionChanged(object? sender, EventArgs e) => InvalidateVisual();
-
-    /// <summary>
-    /// Tints this line's part of the selection, behind the glyphs and over the word-level tint.
-    /// </summary>
-    private void DrawSelection(DrawingContext context, FormattedText formatted, Point origin)
-    {
-        if (SelectionBrush is not { } brush
-            || Selection?.RangeOn(Row, Pane, (Text ?? string.Empty).Length) is not { } range
-            || range.End <= range.Start)
-        {
-            return;
-        }
-
-        (int start, int end) = Drawn(range.Start, range.End);
-
-        if (end <= start)
-        {
-            return;
-        }
-
-        Geometry? area = formatted.BuildHighlightGeometry(origin, start, end - start);
-
-        if (area is not null)
-        {
-            context.DrawGeometry(brush, null, area);
-        }
-    }
-
-    /// <summary>
-    /// Turns a range of the raw text into the range of drawn characters that shows it: a selected tab
-    /// covers its whole width.
-    /// </summary>
-    private (int Start, int End) Drawn(int start, int end)
-    {
-        int from = _map.Length;
-        int to = _map.Length;
-
-        for (int index = 0; index < _map.Length; index++)
-        {
-            if (from == _map.Length && _map[index] >= start)
-            {
-                from = index;
-            }
-
-            if (_map[index] >= end)
-            {
-                to = index;
-                break;
-            }
-        }
-
-        return (from, to);
-    }
-
-    /// <summary>
-    /// Turns the offset, which is counted in characters, into the pixels the text moves by.
-    /// </summary>
-    private double ScrolledPixels()
-    {
-        double offset = HorizontalOffset;
-
-        if (WrapLines || offset <= 0)
-        {
-            return 0;
-        }
-
-        return offset * DiffTypography.MeasureCharacterWidth(FontFamily, EffectiveFontSize);
     }
 
     private double EffectiveFontSize => FontSize > 0 ? FontSize : 12;
@@ -591,18 +300,10 @@ public sealed class DiffLineText : Control
         return start < 0 ? (0, 0) : (start, end);
     }
 
-    private void ForgetHitTesting()
-    {
-        _hitTesting?.Dispose();
-        _hitTesting = null;
-    }
-
     private FormattedText? Build(double availableWidth)
     {
         string text = Text ?? string.Empty;
-
-        ForgetHitTesting();
-        _wrapWidth = WrapLines && !double.IsInfinity(availableWidth) && availableWidth > 0
+        double wrapWidth = WrapLines && !double.IsInfinity(availableWidth) && availableWidth > 0
             ? availableWidth
             : double.PositiveInfinity;
 
@@ -624,9 +325,9 @@ public sealed class DiffLineText : Control
             size,
             Foreground ?? Brushes.Gray);
 
-        if (!double.IsInfinity(_wrapWidth))
+        if (!double.IsInfinity(wrapWidth))
         {
-            formatted.MaxTextWidth = _wrapWidth;
+            formatted.MaxTextWidth = wrapWidth;
         }
 
         if (ShowWhitespace && WhitespaceBrush is not null)

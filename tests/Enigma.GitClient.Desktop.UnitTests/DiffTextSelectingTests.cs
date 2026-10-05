@@ -23,8 +23,8 @@ using Xunit;
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
-/// Selecting a diff's text with a real pointer on the headless platform, and copying it: both panes of
-/// the side-by-side rendering, the unified one, Shift+click, a click that clears, and the menu.
+/// Selecting a diff's text with a real pointer on the headless platform, and copying it: both editors
+/// of the side-by-side rendering, the unified one, Shift+click, a click that clears, and the menu.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class DiffTextSelectingTests
@@ -66,12 +66,8 @@ public sealed class DiffTextSelectingTests
         {
             Shown shown = await ShowAsync(SamplePatch);
 
-            DiffLineText from = Line(shown, DiffPane.Left, "one");
-            DiffLineText to = Line(shown, DiffPane.Left, "three");
+            Drag(shown.Window, StartOf(shown, DiffPane.Left, "one"), PastTheEndOf(shown, DiffPane.Left, "three"));
 
-            Drag(shown.Window, StartOf(from, shown.Window), PastTheEndOf(to, shown.Window));
-
-            Assert.False(shown.View.IsSelectingText);
             Assert.Equal(DiffPane.Left, shown.Viewer.Render.Selection.Pane);
             Assert.Equal("one\ntwo\nthree", shown.Viewer.SelectedText());
 
@@ -91,15 +87,15 @@ public sealed class DiffTextSelectingTests
         {
             Shown shown = await ShowAsync(SamplePatch);
 
-            DiffLineText from = Line(shown, DiffPane.Right, "two changed");
-            DiffLineText over = Line(shown, DiffPane.Left, "five");
-
             // Ends over the old file's last line: the selection stays in the new file, on that row —
             // at its start, since the pointer is left of the new file's text.
-            Drag(shown.Window, StartOf(from, shown.Window), PastTheEndOf(over, shown.Window));
+            Drag(shown.Window, StartOf(shown, DiffPane.Right, "two changed"), PastTheEndOf(shown, DiffPane.Left, "five"));
 
             Assert.Equal(DiffPane.Right, shown.Viewer.Render.Selection.Pane);
             Assert.Equal("two changed\nthree changed\nfour\n", shown.Viewer.SelectedText());
+
+            // And the old file shows no selection of its own.
+            Assert.True(Editor(shown, DiffPane.Left).TextArea.Selection.IsEmpty);
 
             shown.Window.Close();
         });
@@ -113,14 +109,21 @@ public sealed class DiffTextSelectingTests
             Shown shown = await ShowAsync(SamplePatch);
 
             shown.Viewer.ShowUnifiedCommand.Execute(null);
-            await WaitUntilAsync(() => shown.Viewer.IsUnified && Lines(shown.View, DiffPane.Unified).Any(line => line.Text == "four"));
 
-            DiffLineText from = Line(shown, DiffPane.Unified, "three");
-            DiffLineText to = Line(shown, DiffPane.Unified, "four");
+            DiffTextEditor editor = shown.View.FindControl<DiffTextEditor>("UnifiedEditor")!;
+            await WaitUntilAsync(() => shown.Viewer.IsUnified && editor.Document.Text.Contains("four", StringComparison.Ordinal) && editor.TextArea.TextView.VisualLinesValid);
 
-            Drag(shown.Window, StartOf(from, shown.Window), PastTheEndOf(to, shown.Window));
+            // Rows 3 to 6 of the unified rendering — "three" to "four" — are document lines 4 to 7.
+            Drag(shown.Window, At(editor, line: 4, column: 1, shown.Window), At(editor, line: 7, column: 5, shown.Window));
 
+            Assert.Equal(DiffPane.Unified, shown.Viewer.Render.Selection.Pane);
             Assert.Equal("three\ntwo changed\nthree changed\nfour", shown.Viewer.SelectedText());
+
+            // The editor has the keyboard now, and the copy gesture is the viewer's: code only.
+            shown.Window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
+            await WaitUntilAsync(() => shown.Interop.Copied.Count == 1);
+
+            Assert.Equal("three\ntwo changed\nthree changed\nfour", Assert.Single(shown.Interop.Copied));
 
             shown.Window.Close();
         });
@@ -134,21 +137,21 @@ public sealed class DiffTextSelectingTests
             Shown shown = await ShowAsync(SamplePatch);
             DiffTextSelection selection = shown.Viewer.Render.Selection;
 
-            Drag(
-                shown.Window,
-                StartOf(Line(shown, DiffPane.Left, "one"), shown.Window),
-                PastTheEndOf(Line(shown, DiffPane.Left, "two"), shown.Window));
+            Drag(shown.Window, StartOf(shown, DiffPane.Left, "one"), PastTheEndOf(shown, DiffPane.Left, "two"));
             Assert.False(selection.IsEmpty);
 
-            Point start = StartOf(Line(shown, DiffPane.Left, "three"), shown.Window);
+            Point start = StartOf(shown, DiffPane.Left, "three");
             shown.Window.MouseDown(start, MouseButton.Left);
             shown.Window.MouseUp(start, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
             Assert.True(selection.IsEmpty);
 
-            Point end = PastTheEndOf(Line(shown, DiffPane.Left, "five"), shown.Window);
+            Point end = PastTheEndOf(shown, DiffPane.Left, "five");
             shown.Window.MouseDown(end, MouseButton.Left, RawInputModifiers.Shift);
             shown.Window.MouseUp(end, MouseButton.Left, RawInputModifiers.Shift);
+            Dispatcher.UIThread.RunJobs();
 
+            // The filler between them has no text, so the copy leaves it out.
             Assert.Equal("three\nfive", shown.Viewer.SelectedText());
 
             shown.Window.Close();
@@ -161,93 +164,92 @@ public sealed class DiffTextSelectingTests
         _fixture.RunAsync(async () =>
         {
             Shown shown = await ShowAsync(SamplePatch);
+            DiffTextEditor left = Editor(shown, DiffPane.Left);
 
-            DiffLineText line = Line(shown, DiffPane.Left, "one");
-            Point numbers = line.TranslatePoint(new Point(-40, line.Bounds.Height / 2), shown.Window)!.Value;
+            Point numbers = left.Gutter.TranslatePoint(new Point(4, Middle(left, line: 3)), shown.Window)!.Value;
+            shown.Window.MouseDown(numbers, MouseButton.Left);
+            shown.Window.MouseUp(numbers, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
 
-            Drag(shown.Window, numbers, PastTheEndOf(Line(shown, DiffPane.Left, "three"), shown.Window));
-
-            Assert.False(shown.Viewer.Render.Selection.IsActive);
+            Assert.True(shown.Viewer.Render.Selection.IsEmpty);
+            Assert.False(shown.Viewer.CopyCommand.CanExecute(null));
 
             shown.Window.Close();
         });
     }
 
     [Fact]
-    public void TheListsCopyMenuCopiesTheSelectedText_OrElseTheSelectedRows()
+    public void EachEditorsCopyMenuCopiesTheSelectedText()
     {
         _fixture.RunAsync(async () =>
         {
             Shown shown = await ShowAsync(SamplePatch);
 
-            foreach (ListBox list in shown.View.GetVisualDescendants().OfType<ListBox>())
+            foreach (DiffTextEditor editor in shown.View.GetVisualDescendants().OfType<DiffTextEditor>())
             {
-                MenuItem copy = Assert.IsType<MenuItem>(Assert.Single(list.ContextMenu!.Items));
+                MenuItem copy = Assert.IsType<MenuItem>(Assert.Single(editor.ContextMenu!.Items));
                 Assert.Equal("Copy", copy.Header);
                 Assert.NotNull(copy.Icon);
 
-                // A menu takes its list's DataContext when it opens, which is when its command binds.
-                if (list.IsEffectivelyVisible)
+                // A menu takes its editor's DataContext when it opens, which is when its command binds.
+                if (editor.IsEffectivelyVisible)
                 {
-                    list.ContextMenu.Open(list);
+                    editor.ContextMenu.Open(editor);
                     Dispatcher.UIThread.RunJobs();
 
                     Assert.Same(shown.Viewer.CopyCommand, copy.Command);
 
-                    list.ContextMenu.Close();
+                    editor.ContextMenu.Close();
                     Dispatcher.UIThread.RunJobs();
                 }
             }
 
             Assert.False(shown.Viewer.CopyCommand.CanExecute(null));
 
-            Drag(
-                shown.Window,
-                StartOf(Line(shown, DiffPane.Right, "four"), shown.Window),
-                PastTheEndOf(Line(shown, DiffPane.Right, "five"), shown.Window));
+            Drag(shown.Window, StartOf(shown, DiffPane.Right, "four"), PastTheEndOf(shown, DiffPane.Right, "five"));
 
             Assert.True(shown.Viewer.CopyCommand.CanExecute(null));
             await shown.Viewer.CopyCommand.ExecuteAsync(null);
             Assert.Equal("four\nfive", shown.Interop.Copied[^1]);
-
-            // No text selected: the rows the list has selected are what is copied.
-            shown.Viewer.Render.Selection.Clear();
-            shown.Viewer.Selection.Clear();
-            shown.Viewer.Selection.Add(shown.Viewer.SideBySideRows.First(row => row.Left?.Text == "one"));
-
-            await shown.Viewer.CopyCommand.ExecuteAsync(null);
-            Assert.Equal("one", shown.Interop.Copied[^1].TrimEnd('\n'));
 
             shown.Window.Close();
         });
     }
 
     [Fact]
-    public void HoldingTheSelectionBelowTheList_ScrollsItAndSelectsWhatComesIntoView()
+    public void HoldingTheSelectionBelowAnEditor_ScrollsItAndSelectsWhatComesIntoView()
     {
         _fixture.RunAsync(async () =>
         {
             Shown shown = await ShowAsync(LongPatch(400), height: 300);
+            DiffTextEditor left = Editor(shown, DiffPane.Left);
+            ScrollViewer scroll = left.ScrollHost!;
 
-            DiffLineText first = Lines(shown.View, DiffPane.Left).OrderBy(line => line.Row).First(line => line.Text?.Length > 0);
-            ListBox list = shown.View.GetVisualDescendants().OfType<ListBox>().Single(box => box.Name == "SideBySideList");
-            ScrollViewer scroll = list.GetVisualDescendants().OfType<ScrollViewer>().First();
-
-            Point start = StartOf(first, shown.Window);
-            Point below = list.TranslatePoint(new Point(list.Bounds.Width / 4, list.Bounds.Height - 2), shown.Window)!.Value;
+            Point start = At(left, line: 2, column: 1, shown.Window);
+            Point below = left.TranslatePoint(new Point(left.Bounds.Width / 2, left.Bounds.Height + 40), shown.Window)!.Value;
 
             shown.Window.MouseDown(start, MouseButton.Left);
             shown.Window.MouseMove(new Point(start.X + 8, start.Y + 8), RawInputModifiers.LeftMouseButton);
-            shown.Window.MouseMove(below, RawInputModifiers.LeftMouseButton);
 
-            Assert.True(shown.View.IsSelectingText);
+            int endBefore = -1;
 
-            int endBefore = shown.Viewer.Render.Selection.End.Row;
-            await WaitUntilAsync(() => scroll.Offset.Y > 100 && shown.Viewer.Render.Selection.End.Row > endBefore + 3);
+            for (int step = 0; step < 20 && scroll.Offset.Y <= 100; step++)
+            {
+                shown.Window.MouseMove(new Point(below.X, below.Y + step), RawInputModifiers.LeftMouseButton);
+                Dispatcher.UIThread.RunJobs();
+
+                if (endBefore < 0)
+                {
+                    endBefore = shown.Viewer.Render.Selection.End.Row;
+                }
+
+                await Task.Delay(10);
+            }
+
+            Assert.True(scroll.Offset.Y > 0, "holding the selection below the editor did not scroll it");
+            Assert.True(shown.Viewer.Render.Selection.End.Row > endBefore, "the selection did not follow the scroll");
 
             shown.Window.MouseUp(below, MouseButton.Left);
-            Assert.False(shown.View.IsSelectingText);
-
             shown.Window.Close();
         });
     }
@@ -302,19 +304,53 @@ public sealed class DiffTextSelectingTests
         return patch.ToString();
     }
 
-    private static DiffLineText[] Lines(DiffViewerView view, DiffPane pane)
-        => [.. view.GetVisualDescendants().OfType<DiffLineText>().Where(line => line.Pane == pane && line.IsEffectivelyVisible)];
+    private static DiffTextEditor Editor(Shown shown, DiffPane pane)
+        => shown.View.FindControl<DiffTextEditor>(pane switch
+        {
+            DiffPane.Left => "LeftEditor",
+            DiffPane.Right => "RightEditor",
+            _ => "UnifiedEditor",
+        })!;
 
-    private static DiffLineText Line(Shown shown, DiffPane pane, string text)
-        => Lines(shown.View, pane).First(line => line.Text == text);
+    /// <summary>The document line of a pane that holds a text, counted from one.</summary>
+    private static int LineOf(DiffTextEditor editor, string text)
+        => Array.IndexOf(editor.Document.Text.Split('\n'), text) + 1;
 
-    private static Point StartOf(DiffLineText line, Visual relativeTo)
-        => line.TranslatePoint(new Point(1, line.Bounds.Height / 2), relativeTo)
-            ?? throw new InvalidOperationException("The line is not in the window.");
+    private static Point StartOf(Shown shown, DiffPane pane, string text)
+    {
+        DiffTextEditor editor = Editor(shown, pane);
 
-    private static Point PastTheEndOf(DiffLineText line, Visual relativeTo)
-        => line.TranslatePoint(new Point(line.Bounds.Width - 2, line.Bounds.Height / 2), relativeTo)
-            ?? throw new InvalidOperationException("The line is not in the window.");
+        return At(editor, LineOf(editor, text), 1, shown.Window);
+    }
+
+    private static Point PastTheEndOf(Shown shown, DiffPane pane, string text)
+    {
+        DiffTextEditor editor = Editor(shown, pane);
+
+        return At(editor, LineOf(editor, text), text.Length + 1, shown.Window) + new Point(6, 0);
+    }
+
+    private static double Middle(DiffTextEditor editor, int line)
+    {
+        AvaloniaEdit.Rendering.TextView view = editor.TextArea.TextView;
+
+        return view.GetVisualTopByDocumentLine(line) - view.VerticalOffset + (view.DefaultLineHeight / 2);
+    }
+
+    /// <summary>
+    /// Where a character of an editor's document is on screen: the middle of its line, at the
+    /// character's left edge.
+    /// </summary>
+    private static Point At(DiffTextEditor editor, int line, int column, Visual relativeTo)
+    {
+        AvaloniaEdit.Rendering.TextView view = editor.TextArea.TextView;
+        Point visual = view.GetVisualPosition(
+            new AvaloniaEdit.TextViewPosition(line, column),
+            AvaloniaEdit.Rendering.VisualYPosition.LineMiddle);
+
+        return view.TranslatePoint(visual - view.ScrollOffset, relativeTo)
+            ?? throw new InvalidOperationException("The editor is not in the window.");
+    }
 
     private static void Drag(Window window, Point from, Point to)
     {

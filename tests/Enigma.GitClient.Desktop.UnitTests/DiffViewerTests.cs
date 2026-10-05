@@ -535,7 +535,7 @@ public sealed class DiffViewerTests
     }
 
     [Fact]
-    public void Viewer_RealisesOnlyTheRowsOnScreen()
+    public void Viewer_LaysOutOnlyTheLinesOnScreen()
     {
         _fixture.RunAsync(async () =>
         {
@@ -553,11 +553,15 @@ public sealed class DiffViewerTests
                 Dispatcher.UIThread.RunJobs();
             }
 
-            int realised = view.GetVisualDescendants().OfType<DiffLineText>().Count();
+            // A 600px window holds a few dozen lines. Anything near five thousand means a side laid
+            // the whole file out, which is what freezes a viewer on a generated file.
+            foreach (string name in new[] { "LeftEditor", "RightEditor" })
+            {
+                DiffTextEditor editor = view.FindControl<DiffTextEditor>(name)!;
 
-            // A 600px window holds a few dozen rows. Anything near five thousand means the list
-            // built the whole file, which is what freezes a viewer on a generated file.
-            Assert.InRange(realised, 1, 200);
+                Assert.Equal(harness.Viewer.SideBySideRows.Count, editor.Document.LineCount);
+                Assert.InRange(editor.TextArea.TextView.VisualLines.Count, 1, 200);
+            }
 
             window.Content = null;
             window.Close();
@@ -588,42 +592,44 @@ public sealed class DiffViewerTests
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
-            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            Harness harness = await UnifiedAsync();
+            IReadOnlyList<DiffRowViewModel> rows = harness.Viewer.UnifiedRows;
 
-            Assert.False(harness.Viewer.CopySelectionCommand.CanExecute(null));
+            Assert.False(harness.Viewer.CopyCommand.CanExecute(null));
 
-            foreach (DiffRowViewModel row in harness.Viewer.UnifiedRows.Where(row => row.Single?.IsAdded == true))
-            {
-                harness.Viewer.Selection.Add(row);
-            }
+            int first = IndexOf(rows, row => row.Single?.Text == "two changed");
+            int last = IndexOf(rows, row => row.Single?.Text == "four");
 
-            Assert.True(harness.Viewer.CopySelectionCommand.CanExecute(null));
+            harness.Viewer.Render.Selection.Begin(DiffPane.Unified, new DiffTextPosition(first, 0));
+            harness.Viewer.Render.Selection.ExtendTo(new DiffTextPosition(last, 4));
 
-            await harness.Viewer.CopySelectionCommand.ExecuteAsync(null);
+            Assert.True(harness.Viewer.CopyCommand.CanExecute(null));
 
-            Assert.Equal("two changed\nthree changed\nfour\n", Assert.Single(harness.Interop.Copied));
+            await harness.Viewer.CopyCommand.ExecuteAsync(null);
+
+            // The code as it reads: no markers, no numbers.
+            Assert.Equal("two changed\nthree changed\nfour", Assert.Single(harness.Interop.Copied));
         });
     }
 
     [Fact]
-    public void Viewer_CopiesASelectionInRowOrderWhateverOrderItWasClickedIn()
+    public void Viewer_CopiesASelectionInReadingOrderWhicheverWayItWasDragged()
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
-            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            Harness harness = await UnifiedAsync();
+            IReadOnlyList<DiffRowViewModel> rows = harness.Viewer.UnifiedRows;
 
-            List<DiffRowViewModel> added =
-                [.. harness.Viewer.UnifiedRows.Where(row => row.Single?.IsAdded == true)];
+            int first = IndexOf(rows, row => row.Single?.Text == "two changed");
+            int last = IndexOf(rows, row => row.Single?.Text == "four");
 
-            harness.Viewer.Selection.Add(added[2]);
-            harness.Viewer.Selection.Add(added[0]);
-            harness.Viewer.Selection.Add(added[1]);
+            // Dragged from the end back up to the start.
+            harness.Viewer.Render.Selection.Begin(DiffPane.Unified, new DiffTextPosition(last, 4));
+            harness.Viewer.Render.Selection.ExtendTo(new DiffTextPosition(first, 0));
 
-            await harness.Viewer.CopySelectionCommand.ExecuteAsync(null);
+            await harness.Viewer.CopyCommand.ExecuteAsync(null);
 
-            Assert.Equal("two changed\nthree changed\nfour\n", Assert.Single(harness.Interop.Copied));
+            Assert.Equal("two changed\nthree changed\nfour", Assert.Single(harness.Interop.Copied));
         });
     }
 
@@ -635,13 +641,16 @@ public sealed class DiffViewerTests
             Harness harness = await ShownAsync();
             harness.Viewer.ShowSideBySideCommand.Execute(null);
 
-            harness.Viewer.Selection.Add(harness.Viewer.SideBySideRows.First(row => row.Left?.IsContext == true));
+            int row = IndexOf(harness.Viewer.SideBySideRows, candidate => candidate.Left?.IsContext == true);
 
-            await harness.Viewer.CopySelectionCommand.ExecuteAsync(null);
+            harness.Viewer.Render.Selection.Begin(DiffPane.Left, new DiffTextPosition(row, 0));
+            harness.Viewer.Render.Selection.ExtendTo(new DiffTextPosition(row, 3));
 
-            // The same line appears on both sides; copying it twice would double every unchanged
-            // line of a selection.
-            Assert.Equal("one\n", Assert.Single(harness.Interop.Copied));
+            await harness.Viewer.CopyCommand.ExecuteAsync(null);
+
+            // The same line appears on both sides; a selection is in one of them, so it is copied
+            // once.
+            Assert.Equal("one", Assert.Single(harness.Interop.Copied));
         });
     }
 
@@ -650,19 +659,33 @@ public sealed class DiffViewerTests
     {
         _fixture.RunAsync(async () =>
         {
-            Harness harness = await ShownAsync();
-            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            Harness harness = await UnifiedAsync();
 
-            harness.Viewer.Selection.Add(harness.Viewer.UnifiedRows[1]);
+            harness.Viewer.Render.Selection.Begin(DiffPane.Unified, new DiffTextPosition(1, 0));
+            harness.Viewer.Render.Selection.ExtendTo(new DiffTextPosition(1, 3));
             harness.Viewer.ShowSideBySideCommand.Execute(null);
 
-            // The rows are different objects in the other shape; keeping them would copy rows that
-            // are no longer on screen.
-            Assert.Empty(harness.Viewer.Selection);
+            // Its rows are counted in the other shape's rows; keeping it would copy rows that are no
+            // longer on screen.
+            Assert.False(harness.Viewer.Render.Selection.IsActive);
+            Assert.False(harness.Viewer.CopyCommand.CanExecute(null));
         });
     }
 
-    // ---------------------------------------------------------------- the line control
+    private static int IndexOf(IReadOnlyList<DiffRowViewModel> rows, Func<DiffRowViewModel, bool> match)
+    {
+        for (int index = 0; index < rows.Count; index++)
+        {
+            if (match(rows[index]))
+            {
+                return index;
+            }
+        }
+
+        throw new InvalidOperationException("No row matched.");
+    }
+
+    // ---------------------------------------------------------------- the conflict page's line control
 
     [Theory]
     [InlineData("\tvalue", "    value")]
@@ -700,455 +723,6 @@ public sealed class DiffViewerTests
     public void DiffLineText_TreatsAnImpossibleTabWidthAsOne()
         => Assert.Equal("a b", DiffLineText.Expand("a\tb", 0, showWhitespace: false).Expanded);
 
-    [Theory]
-    [InlineData("", 4)]
-    [InlineData("plain text", 4)]
-    [InlineData("\tindented", 4)]
-    [InlineData("a\tb\tc", 4)]
-    [InlineData("a\tb\tc", 8)]
-    [InlineData("a\tb\tc", 1)]
-    [InlineData("a\tb", 0)]
-    [InlineData("\t\t\t", 3)]
-    public void DiffLineText_CountsTheColumnsItWouldHaveExpandedTo(string text, int tabWidth)
-    {
-        // The counted length is what a pane's scroll extent is built from, for thousands of lines at
-        // a time; it has to be the expansion's own arithmetic, not an approximation of it.
-        Assert.Equal(
-            DiffLineText.Expand(text, tabWidth, showWhitespace: false).Expanded.Length,
-            DiffLineText.ExpandedLength(text, tabWidth));
-    }
-
-    [Fact]
-    public void DiffLineText_MeasuresTheSameWhateverItIsScrolledTo()
-    {
-        _fixture.Run(() =>
-        {
-            DiffLineText line = new() { Text = "public sealed record Commit(string Hash, string Subject);" };
-
-            line.Measure(Size.Infinity);
-            Size unscrolled = line.DesiredSize;
-
-            line.HorizontalOffset = 20;
-            line.Measure(Size.Infinity);
-
-            // A pane scrolling must not resize its rows: the gutter beside this line, and every
-            // other row of the patch, would move with it.
-            Assert.Equal(unscrolled, line.DesiredSize);
-        });
-    }
-
-    [Fact]
-    public void DiffLineText_DrawsItsTextFurtherLeftWhenScrolled()
-    {
-        _fixture.Run(() =>
-        {
-            DiffLineText line = new()
-            {
-                Text = "0123456789",
-                Foreground = Brushes.White,
-            };
-
-            Assert.True(Rendered(line) > 1, "the unscrolled line drew nothing at all");
-
-            // Far past the end of a ten-character line: every glyph is now left of the origin.
-            line.HorizontalOffset = 60;
-
-            Assert.Equal(1, Rendered(line));
-
-            // And back again, so the offset is a view of the line rather than a change to it.
-            line.HorizontalOffset = 0;
-
-            Assert.True(Rendered(line) > 1);
-        });
-    }
-
-    [Fact]
-    public void DiffLineText_IgnoresAnOffsetWhileItWraps()
-    {
-        _fixture.Run(() =>
-        {
-            DiffLineText line = new()
-            {
-                Text = "0123456789",
-                Foreground = Brushes.White,
-                WrapLines = true,
-                HorizontalOffset = 60,
-            };
-
-            // Wrapped text has no overflow to scroll to, so a leftover offset must not push it out
-            // of view.
-            Assert.True(Rendered(line) > 1);
-        });
-    }
-
-    [Fact]
-    public void DiffLineText_KeepsAScrolledLineOutOfTheGutterBesideIt()
-    {
-        _fixture.Run(() =>
-        {
-            const int gutter = 80;
-
-            PixelSize frame = new(320, 24);
-            PixelRect numbers = new(0, 0, gutter, frame.Height);
-            PixelRect text = new(gutter, 0, frame.Width - gutter, frame.Height);
-
-            DiffLineText line = new()
-            {
-                Text = new string('W', 200),
-                Foreground = Brushes.White,
-                FontSize = 12,
-                HorizontalOffset = 40,
-            };
-
-            // A row in miniature: a strip standing in for the line-number gutter, and the line in
-            // the column beside it. Nothing here clips, so the only containment is the control's.
-            Grid row = new()
-            {
-                Background = Brushes.Black,
-                ColumnDefinitions = new ColumnDefinitions($"{gutter},*"),
-            };
-
-            row.Children.Add(line);
-            Grid.SetColumn(line, 1);
-
-            // The control owns it, so a template that says nothing about clipping still gets it.
-            Assert.True(line.ClipToBounds, "a diff line no longer contains its own ink");
-
-            // The reported bug, reproduced by taking the containment away: the text scrolled left of
-            // its own origin lands in the strip the line numbers occupy.
-            line.ClipToBounds = false;
-
-            Assert.True(
-                ColoursIn(row, frame, numbers) > 1,
-                "the scrolled line never reached the gutter, so this frame cannot show it kept out");
-
-            line.ClipToBounds = true;
-
-            Assert.Equal(1, ColoursIn(row, frame, numbers));
-
-            Assert.True(
-                ColoursIn(row, frame, text) > 1,
-                "the clipped line drew nothing at all, so an untouched gutter proves nothing");
-        });
-    }
-
-    /// <summary>
-    /// Lays a tree out at a fixed size, renders it, and counts the colours one region of the frame
-    /// came out in — "was anything painted <em>here</em>", which is what a clip is judged on.
-    /// </summary>
-    private static int ColoursIn(Control root, PixelSize frame, PixelRect region)
-    {
-        root.InvalidateMeasure();
-        root.Measure(new Size(frame.Width, frame.Height));
-        root.Arrange(new Rect(0, 0, frame.Width, frame.Height));
-
-        using RenderTargetBitmap target = new(frame, new Vector(96, 96));
-        target.Render(root);
-
-        using MemoryStream stream = new();
-        target.Save(stream, PngBitmapEncoderOptions.Default);
-        stream.Position = 0;
-
-        return SnapshotColours.Count(stream, region);
-    }
-
-    /// <summary>
-    /// Draws one line on its own and counts the colours that came out: one means nothing was
-    /// painted, which is how "the glyphs moved out of view" is told from "the glyphs are there".
-    /// </summary>
-    private static int Rendered(DiffLineText line)
-    {
-        const int width = 220;
-        const int height = 40;
-
-        line.InvalidateMeasure();
-        line.Measure(new Size(width, height));
-        line.Arrange(new Rect(0, 0, width, height));
-
-        using RenderTargetBitmap target = new(new PixelSize(width, height), new Vector(96, 96));
-        target.Render(line);
-
-        using MemoryStream stream = new();
-        target.Save(stream, PngBitmapEncoderOptions.Default);
-        stream.Position = 0;
-
-        return SnapshotColours.Count(stream);
-    }
-
-    // ---------------------------------------------------------------- horizontal scrolling
-
-    [Fact]
-    public void ScrollState_OffersWhatDoesNotFit()
-    {
-        DiffScrollState pane = new() { Columns = 100, Viewport = 40 };
-
-        Assert.Equal(60, pane.Maximum);
-        Assert.True(pane.IsScrollable);
-        Assert.Equal(39, pane.PageSize);
-
-        pane.Offset = 25;
-
-        Assert.Equal(25, pane.Offset);
-    }
-
-    [Fact]
-    public void ScrollState_HasNothingToOfferWhenEverythingFits()
-    {
-        DiffScrollState pane = new() { Columns = 30, Viewport = 80 };
-
-        Assert.Equal(0, pane.Maximum);
-        Assert.False(pane.IsScrollable);
-
-        pane.Offset = 25;
-
-        Assert.Equal(0, pane.Offset);
-    }
-
-    [Fact]
-    public void ScrollState_ComesBackWhenWhatItWasShowingShrinks()
-    {
-        DiffScrollState pane = new() { Columns = 200, Viewport = 50, Offset = 150 };
-
-        Assert.Equal(150, pane.Offset);
-
-        // Another file, a shorter longest line: an offset past its end would show blank space.
-        pane.Columns = 80;
-
-        Assert.Equal(30, pane.Offset);
-    }
-
-    [Fact]
-    public void ScrollState_GoesQuietWhenItIsTurnedOff()
-    {
-        DiffScrollState pane = new() { Columns = 200, Viewport = 50, Offset = 100 };
-
-        pane.IsEnabled = false;
-
-        Assert.Equal(0, pane.Offset);
-        Assert.False(pane.IsScrollable);
-
-        pane.Offset = 90;
-
-        Assert.Equal(0, pane.Offset);
-    }
-
-    [Fact]
-    public void Viewer_MeasuresTheSideBySideRenderingByItsWiderSide()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(LongLinePatch));
-
-            // The 400-character line, plus the column of air that keeps it off the edge. The new
-            // side holds only "short" and the context line, but the two panes share one extent, so
-            // either can be scrolled to the end of the longest line on either of them.
-            Assert.Equal(401, harness.Viewer.Render.SideBySideScroll.Columns);
-            Assert.Equal(401, harness.Viewer.Render.UnifiedScroll.Columns);
-        });
-    }
-
-    [Fact]
-    public void Viewer_RemeasuresThePanesWhenATabGetsWider()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(TabbedPatch));
-
-            double narrow = harness.Viewer.Render.SideBySideScroll.Columns;
-
-            harness.Viewer.Render.TabWidth = 8;
-
-            Assert.True(
-                harness.Viewer.Render.SideBySideScroll.Columns > narrow,
-                "a wider tab did not make the line it indents any wider");
-        });
-    }
-
-    [Fact]
-    public void Viewer_ScrollsBothSidesTogether()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(LongLinePatch));
-
-            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
-
-            Assert.True(harness.Viewer.Render.SideBySideScroll.IsScrollable);
-
-            harness.Viewer.Render.SideBySideScroll.Offset = 120;
-
-            // One offset behind both sides: every DiffLineText of the rendering, old side and new,
-            // is drawn at the same column. That is what "synchronised" means here — there is
-            // nothing to keep in step, because there is only one thing.
-            Assert.All(
-                harness.Viewer.SideBySideRows,
-                row =>
-                {
-                    Assert.Same(harness.Viewer.Render.SideBySideScroll, row.Options.SideBySideScroll);
-                    Assert.Equal(120, row.Options.SideBySideScroll.Offset);
-                });
-
-            // And the unified rendering keeps its own, which the two share nothing with.
-            Assert.Equal(0, harness.Viewer.Render.UnifiedScroll.Offset);
-        });
-    }
-
-    [Fact]
-    public void Viewer_HasOneVerticalScrollForBothSides()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(SamplePatch));
-
-            // The two sides are cells of one row rather than two lists, so nothing can make them
-            // drift vertically: scrolling the rendering scrolls both by construction.
-            Assert.NotEmpty(harness.Viewer.SideBySideRows);
-
-            Assert.All(
-                harness.Viewer.SideBySideRows,
-                row => Assert.True(
-                    row.IsHunkHeader || row.Left is not null || row.Right is not null,
-                    "a side-by-side row carried neither side"));
-
-            Assert.Contains(harness.Viewer.SideBySideRows, row => row.Left is not null && row.Right is not null);
-        });
-    }
-
-    [Fact]
-    public void Viewer_PutsItsPanesAwayWhileLinesWrap()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(LongLinePatch));
-
-            harness.Viewer.Render.UnifiedScroll.Viewport = 40;
-            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
-            harness.Viewer.Render.SideBySideScroll.Offset = 120;
-
-            harness.Viewer.Render.WrapLines = true;
-
-            Assert.All(harness.Viewer.Render.Panes(), pane =>
-            {
-                Assert.False(pane.IsScrollable);
-                Assert.Equal(0, pane.Offset);
-            });
-
-            harness.Viewer.Render.WrapLines = false;
-
-            Assert.True(harness.Viewer.Render.SideBySideScroll.IsScrollable);
-        });
-    }
-
-    [Fact]
-    public void Viewer_StartsEveryFileAtItsBeginning()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(LongLinePatch));
-
-            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
-            harness.Viewer.Render.SideBySideScroll.Offset = 200;
-
-            harness.Diffs.Patch = Parse(SamplePatch);
-
-            await harness.Viewer.ReloadAsync();
-
-            Assert.All(harness.Viewer.Render.Panes(), pane => Assert.Equal(0, pane.Offset));
-        });
-    }
-
-    [Fact]
-    public void Viewer_KeepsALongLineInsideItsOwnPane()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(LongLinePatch));
-
-            DiffViewerView view = new() { DataContext = harness.Viewer };
-            Window window = new() { Content = view, Width = 900, Height = 420 };
-            window.Show();
-
-            for (int attempt = 0; attempt < 10; attempt++)
-            {
-                Dispatcher.UIThread.RunJobs();
-                AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
-                Dispatcher.UIThread.RunJobs();
-            }
-
-            DiffLineText wide = view.GetVisualDescendants()
-                .OfType<DiffLineText>()
-                .Single(line => line.Text?.Length == 400);
-
-            Border pane = wide.GetVisualAncestors()
-                .OfType<Border>()
-                .First(border => border.Classes.Contains("diffrow"));
-
-            // The premise: this line really is wider than the pane holding it. Measured from the
-            // text rather than read off DesiredSize, which a layout pass has already constrained to
-            // the space the pane offered.
-            double drawn = wide.Text!.Length * DiffTypography.Current.CharacterWidth;
-
-            Assert.True(
-                drawn > pane.Bounds.Width,
-                $"the sample line is {drawn} wide against a {pane.Bounds.Width} pane, so it never overflowed");
-
-            // And the fix: the pane contains it, instead of letting it paint over the other side.
-            Assert.True(pane.ClipToBounds, "the pane does not clip, so a long line reaches the pane beside it");
-            Assert.True(pane.Bounds.Width < window.Width, "the pane is not half of a side-by-side row");
-
-            // The view reported what it can show, which is what makes the bar appear at all.
-            Assert.True(harness.Viewer.Render.SideBySideScroll.Viewport > 0);
-            Assert.True(harness.Viewer.Render.SideBySideScroll.IsScrollable);
-
-            window.Content = null;
-            window.Close();
-        });
-    }
-
-    [Fact]
-    public void Viewer_KeepsAScrolledLineClearOfItsLineNumbers()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            Harness harness = await ShownAsync(Parse(LongLinePatch));
-
-            DiffViewerView view = new() { DataContext = harness.Viewer };
-            Window window = new() { Content = view, Width = 900, Height = 420 };
-            window.Show();
-
-            harness.Viewer.Render.SideBySideScroll.Viewport = 40;
-            harness.Viewer.Render.SideBySideScroll.Offset = 120;
-
-            for (int attempt = 0; attempt < 10; attempt++)
-            {
-                Dispatcher.UIThread.RunJobs();
-                AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
-                Dispatcher.UIThread.RunJobs();
-            }
-
-            DiffLineText wide = view.GetVisualDescendants()
-                .OfType<DiffLineText>()
-                .Single(line => line.Text?.Length == 400);
-
-            Assert.Equal(120, wide.HorizontalOffset);
-
-            // The pane's own clip cannot do this one: it holds the gutter and the marker as well as
-            // the text, so a line scrolled left of its column is still inside it.
-            Assert.True(wide.ClipToBounds, "the scrolled line paints over the line numbers again");
-
-            // And the column it is clipped to really is the one beside the numbers: the gutter and
-            // the marker are laid out before it, and neither moves when the pane scrolls.
-            DiffMetrics metrics = DiffTypography.Current;
-
-            Assert.True(
-                wide.Bounds.X >= metrics.GutterWidth + metrics.MarkerWidth - 0.5,
-                $"the text column starts at {wide.Bounds.X}, inside the gutter and marker beside it");
-
-            window.Content = null;
-            window.Close();
-        });
-    }
-
     // ---------------------------------------------------------------- rendering
 
     [Fact]
@@ -1171,22 +745,30 @@ public sealed class DiffViewerTests
 
                 Assert.Contains("src/app.txt", unified);
                 Assert.Contains("+3 −2", unified);
-                Assert.Contains("@@ -1,4 +1,5 @@", unified);
-                Assert.Contains("+", unified);
-                Assert.Contains("−", unified);
 
-                // A selected line keeps its own colour: the selection is the bar in the gutter.
-                harness.Viewer.Selection.Add(harness.Viewer.UnifiedRows.First(row => row.Single?.IsRemoved == true));
+                // The unified rendering is an editor: its lines are a document, and the band, the
+                // numbers and the markers are drawn around them rather than being text blocks.
+                DiffTextEditor editor = view.FindControl<DiffTextEditor>("UnifiedEditor")!;
 
-                IReadOnlyList<string> selected = RenderAndReadText(view, "diff-unified-selected.png");
-
-                Assert.Contains("@@ -1,4 +1,5 @@", selected);
+                Assert.Contains("two changed", editor.Document.Text, StringComparison.Ordinal);
+                Assert.Equal("@@ -1,4 +1,5 @@", editor.Diff.Lines[0].HeaderText);
+                Assert.Contains(editor.Diff.Lines, line => line.Marker == "+");
+                Assert.Contains(editor.Diff.Lines, line => line.Marker == "−");
 
                 harness.Viewer.ShowSideBySideCommand.Execute(null);
 
                 IReadOnlyList<string> side = RenderAndReadText(view, "diff-side-by-side.png");
 
-                Assert.Contains("@@ -1,4 +1,5 @@", side);
+                Assert.Contains("src/app.txt", side);
+
+                // Two editors, the old file and the new, level row for row.
+                DiffTextEditor left = view.FindControl<DiffTextEditor>("LeftEditor")!;
+                DiffTextEditor right = view.FindControl<DiffTextEditor>("RightEditor")!;
+
+                Assert.Equal("@@ -1,4 +1,5 @@", left.Diff.Lines[0].HeaderText);
+                Assert.Contains("three", left.Document.Text, StringComparison.Ordinal);
+                Assert.Contains("three changed", right.Document.Text, StringComparison.Ordinal);
+                Assert.Equal(left.Document.LineCount, right.Document.LineCount);
             }
             finally
             {
@@ -1246,23 +828,25 @@ public sealed class DiffViewerTests
                     Dispatcher.UIThread.RunJobs();
                 }
 
-                List<DiffLineText> texts = [.. view.GetVisualDescendants().OfType<DiffLineText>()];
+                // The editor paints the word tint behind the changed stretch of a changed line, and
+                // none at all behind context.
+                DiffTextEditor added = view.FindControl<DiffTextEditor>(sideBySide ? "RightEditor" : "UnifiedEditor")!;
+                DiffTextEditor removed = view.FindControl<DiffTextEditor>(sideBySide ? "LeftEditor" : "UnifiedEditor")!;
 
-                DiffLineText addedLine = texts.Single(text => text.Text == "two changed");
-                DiffLineText contextLine = texts.First(text => text.Text == "one");
+                DiffDocumentLine addedLine = LineOf(added, "two changed");
+                DiffDocumentLine contextLine = LineOf(added, "one");
 
-                // The class the template binds is what carries the brush; a changed line with no
-                // highlight brush draws its word-level segments as plain text and the whole point
-                // of the word diff is lost.
                 Assert.Equal(
                     Colour("DiffAddedWordColor", ThemeVariant.Dark),
-                    Assert.IsType<SolidColorBrush>(addedLine.HighlightBrush).Color);
+                    Assert.IsType<SolidColorBrush>(added.AddedWordBrush).Color);
+                Assert.Equal(
+                    Colour("DiffRemovedWordColor", ThemeVariant.Dark),
+                    Assert.IsType<SolidColorBrush>(removed.RemovedWordBrush).Color);
 
-                Assert.NotEmpty(addedLine.Segments!);
-                Assert.Contains(addedLine.Segments!, segment => segment.IsChanged);
-
-                // Context is unchanged, so it must not be tinted at all.
-                Assert.Null(contextLine.HighlightBrush);
+                Assert.Equal(DiffDocumentLineKind.Added, addedLine.Kind);
+                Assert.Contains(addedLine.Segments, segment => segment.IsChanged);
+                Assert.Equal(DiffDocumentLineKind.Context, contextLine.Kind);
+                Assert.DoesNotContain(contextLine.Segments, segment => segment.IsChanged);
 
                 window.Content = null;
                 window.Close();
@@ -1273,6 +857,9 @@ public sealed class DiffViewerTests
             }
         });
     }
+
+    private static DiffDocumentLine LineOf(DiffTextEditor editor, string text)
+        => editor.Diff.Lines[Array.IndexOf(editor.Document.Text.Split('\n'), text)];
 
     [Theory]
     [InlineData("Dark")]
@@ -1466,17 +1053,18 @@ public sealed class DiffViewerTests
 
                 IReadOnlyList<string> texts = RenderAndReadText(view, "history-page-diff.png", 1280, 760);
 
-                // The band is a TextBlock; the code lines are drawn by DiffLineText, so both have
-                // to be looked for to prove the pane really rendered the patch.
-                Assert.Contains(texts, text => text.StartsWith("@@", StringComparison.Ordinal));
                 Assert.Contains("src/app.txt", texts);
 
-                List<string> lines = [.. view.GetVisualDescendants()
-                    .OfType<DiffLineText>()
-                    .Select(line => line.Text ?? string.Empty)];
+                // The patch is in the editors on screen: the band and the code lines both, to prove
+                // the pane really rendered the patch.
+                DiffTextEditor[] editors = [.. view.GetVisualDescendants()
+                    .OfType<DiffTextEditor>()
+                    .Where(editor => editor.IsEffectivelyVisible)];
 
-                Assert.Contains("two edited", lines);
-                Assert.Contains("two", lines);
+                Assert.NotEmpty(editors);
+                Assert.Contains(editors, editor => editor.Diff.Lines.Any(line => line.HeaderText.StartsWith("@@", StringComparison.Ordinal)));
+                Assert.Contains(editors, editor => editor.Document.Text.Split('\n').Contains("two edited"));
+                Assert.Contains(editors, editor => editor.Document.Text.Split('\n').Contains("two"));
             }
             finally
             {
@@ -1642,10 +1230,10 @@ public sealed class DiffViewerTests
 
         DiffMinimap map = view.FindControl<DiffMinimap>(sideBySide ? "SideBySideMinimap" : "UnifiedMinimap")
             ?? throw new InvalidOperationException("The diff viewer has no minimap.");
-        ListBox list = view.FindControl<ListBox>(sideBySide ? "SideBySideList" : "UnifiedList")
-            ?? throw new InvalidOperationException("The diff viewer has no diff list.");
+        DiffTextEditor patch = view.FindControl<DiffTextEditor>(sideBySide ? "LeftEditor" : "UnifiedEditor")
+            ?? throw new InvalidOperationException("The diff viewer has no editor.");
 
-        ScrollViewer scroll = list.GetVisualDescendants().OfType<ScrollViewer>().First();
+        ScrollViewer scroll = patch.ScrollHost ?? throw new InvalidOperationException("The editor has no scroll viewer.");
 
         return (window, view, map, scroll);
     }

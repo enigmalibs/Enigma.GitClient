@@ -296,8 +296,10 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <!-- The unified view's only: side by side, two editors wrapping independently would
+                   put the rows out of line. -->
               <TextBlock Grid.Column="0"
-                         Text="Wrap long lines"
+                         Text="Wrap long lines in the unified view"
                          VerticalAlignment="Center"
                          Foreground="{DynamicResource EnigmaForegroundBrush}" />
               <ToggleSwitch Grid.Column="1"

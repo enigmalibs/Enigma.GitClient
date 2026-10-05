@@ -10,6 +10,10 @@
              RequestedThemeVariant="Dark">
   <Application.Styles>
     <FluentTheme />
+    <!-- AvaloniaEdit ships its control theme apart from its assembly: without this include the diff
+         viewer's editors render as untemplated blanks. After FluentTheme, whose ScrollViewer and
+         ScrollBar themes it builds on. -->
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
     <StyleInclude Source="avares://Enigma.GitClient.Desktop/Themes/Styles.axaml" />
   </Application.Styles>
   <Application.Resources>
