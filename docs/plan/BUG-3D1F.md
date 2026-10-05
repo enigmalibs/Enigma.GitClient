@@ -1,6 +1,6 @@
 # BUG-3D1F — Column titles run under the panel
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-3D1F.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-3d1f-column-titles-stop-at-panel`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release

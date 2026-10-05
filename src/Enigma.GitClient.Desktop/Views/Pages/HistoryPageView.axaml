@@ -240,11 +240,15 @@
                 BorderThickness="0,0,0,1"
                 Padding="0"
                 IsVisible="{Binding !IsEmpty}">
+          <!-- Clipped, as the rows are by the list: when the details panel leaves less room than the
+               columns' minimums, the rows and the titles both run past the viewport, and only the
+               rows were cut there — the titles went on over the panel. -->
           <Grid Name="HeaderRow"
                 Width="{Binding Columns.HeaderWidth}"
                 HorizontalAlignment="Left"
                 Height="26"
-                ColumnSpacing="10">
+                ColumnSpacing="10"
+                ClipToBounds="True">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="Auto" />
               <ColumnDefinition Width="Auto" />
