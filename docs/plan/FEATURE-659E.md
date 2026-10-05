@@ -1,6 +1,6 @@
 # FEATURE-659E — Revert a commit from the history
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-05-revert-tree-basedir-release
@@ -53,7 +53,7 @@ commit itself stays in the history.
 ## PHASE01 — The revert engine
 
 **Branch:** `feature/feature-659e-phase01-revert-engine`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-659E-PHASE01.md`
 
 ### Steps
 
