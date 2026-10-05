@@ -254,6 +254,18 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Reset local to the remote's commit      | DONE      | (in FEATURE-551C.md)      |
 | - PHASE03    | Double-click a badge to check out       | DONE      | (in FEATURE-551C.md)      |
 | FEATURE-4D5A | Release 5.2.0                           | DONE      | docs/plan/FEATURE-4D5A.md |
+| FEATURE-903B | The home picker switches the identity   | TODO      | docs/plan/FEATURE-903B.md |
+| BUG-6DB7     | A refresh reopens collapsed folders     | TODO      | docs/plan/BUG-6DB7.md     |
+| FEATURE-56BB | Centred windows, repository maximised   | TODO      | docs/plan/FEATURE-56BB.md |
+| FEATURE-6F35 | Uncommitted line joins HEAD, dashed     | TODO      | docs/plan/FEATURE-6F35.md |
+| - PHASE01    | The working tree in the graph layout    | TODO      | (in FEATURE-6F35.md)      |
+| - PHASE02    | The dashed line in the history          | TODO      | (in FEATURE-6F35.md)      |
+| BUG-123A     | A repository opens on its history       | TODO      | docs/plan/BUG-123A.md     |
+| BUG-3D1F     | Column titles run under the panel       | TODO      | docs/plan/BUG-3D1F.md     |
+| FEATURE-3B4E | Open the folder and a terminal          | TODO      | docs/plan/FEATURE-3B4E.md |
+| FEATURE-426F | A fetch when a repository opens         | TODO      | docs/plan/FEATURE-426F.md |
+| FEATURE-6108 | Clone offers the global identity        | TODO      | docs/plan/FEATURE-6108.md |
+| FEATURE-3858 | Release 5.3.0                           | TODO      | docs/plan/FEATURE-3858.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
