@@ -150,6 +150,41 @@ public sealed class AppWindowsTests
     }
 
     [Fact]
+    public void BothWindows_OpenCentred_AndTheRepositoryWindowMaximised_EveryTime()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = Build();
+            IAppWindows windows = services.Get<IAppWindows>();
+
+            try
+            {
+                windows.ShowStart();
+                Assert.Equal(WindowStartupLocation.CenterScreen, windows.CurrentWindow!.WindowStartupLocation);
+
+                windows.ShowRepository();
+                MainWindow first = Assert.IsType<MainWindow>(windows.CurrentWindow);
+                Assert.Equal(WindowStartupLocation.CenterScreen, first.WindowStartupLocation);
+                Assert.Equal(WindowState.Maximized, first.WindowState);
+
+                // Back to the start window, and into a repository again: a fresh window, opened the same way.
+                windows.ShowStart();
+                Assert.Equal(WindowStartupLocation.CenterScreen, windows.CurrentWindow!.WindowStartupLocation);
+
+                windows.ShowRepository();
+                MainWindow second = Assert.IsType<MainWindow>(windows.CurrentWindow);
+                Assert.NotSame(first, second);
+                Assert.Equal(WindowStartupLocation.CenterScreen, second.WindowStartupLocation);
+                Assert.Equal(WindowState.Maximized, second.WindowState);
+            }
+            finally
+            {
+                CloseWindow(windows);
+            }
+        });
+    }
+
+    [Fact]
     public void ShowRepository_WhileItIsAlreadyShown_KeepsTheSameWindow()
     {
         _fixture.Run(() =>

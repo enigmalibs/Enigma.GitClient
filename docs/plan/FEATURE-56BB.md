@@ -1,6 +1,6 @@
 # FEATURE-56BB — Centred windows, repository maximised
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-56BB.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-56bb-centred-maximised-windows`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
