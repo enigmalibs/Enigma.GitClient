@@ -1,6 +1,6 @@
 # FEATURE-1E0D — A base directory per profile
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-05-revert-tree-basedir-release
@@ -47,7 +47,7 @@ profile selected, **Open** starts its folder picker there, and **Clone** (and **
 ## PHASE01 — The profile keeps a base directory
 
 **Branch:** `feature/feature-1e0d-phase01-profile-base-directory`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1E0D-PHASE01.md`
 
 ### Steps
 

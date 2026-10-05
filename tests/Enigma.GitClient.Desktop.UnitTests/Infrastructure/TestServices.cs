@@ -105,6 +105,11 @@ public sealed class TestServices : IDisposable
         services.RemoveAll<ISystemInterop>();
         services.AddSingleton<ISystemInterop, RecordingSystemInterop>();
 
+        // So does the folder picker: a test says which folder it answers with, and reads where it
+        // was asked to start.
+        services.RemoveAll<IFolderDialogService>();
+        services.AddSingleton<IFolderDialogService, RecordingFolderDialogService>();
+
         // And so does their git identity: the real service writes their own global configuration.
         services.RemoveAll<IGitIdentityService>();
         services.AddSingleton<IGitIdentityService, FakeGitIdentityService>();
@@ -153,6 +158,12 @@ public sealed class TestServices : IDisposable
     /// Gets the scripted dialog service, for choosing what a dialog answers.
     /// </summary>
     public ScriptedContentDialogService Dialogs => (ScriptedContentDialogService)Get<IContentDialogService>();
+
+    /// <summary>
+    /// Gets the recording folder picker, for choosing the folder it answers with and reading where it
+    /// was asked to start.
+    /// </summary>
+    public RecordingFolderDialogService Folders => (RecordingFolderDialogService)Get<IFolderDialogService>();
 
     /// <summary>
     /// Orders the branches and tags dialogs by name, A to Z, instead of newest first.

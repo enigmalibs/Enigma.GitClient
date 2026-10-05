@@ -166,6 +166,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     private readonly IHostRepositoryBrowser _browser;
     private readonly RepositoriesPageViewModel _repositories;
     private readonly IContentDialogService _dialogs;
+    private readonly IFolderDialogService _folderDialogs;
     private readonly IInfoBarService _infoBar;
     private readonly IServiceProvider _services;
     private readonly ILogger<ProfilesPageViewModel> _logger;
@@ -184,6 +185,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="browser">Lists an account's repositories in a dialog.</param>
     /// <param name="repositories">Runs a clone, with its progress and its cancel.</param>
     /// <param name="dialogs">Raises the profile and account dialogs and the confirmations.</param>
+    /// <param name="folderDialogs">Raises the folder picker the profile dialog chooses a base directory in.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="services">Resolves the dialog's view.</param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
@@ -199,6 +201,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IHostRepositoryBrowser browser,
         RepositoriesPageViewModel repositories,
         IContentDialogService dialogs,
+        IFolderDialogService folderDialogs,
         IInfoBarService infoBar,
         IServiceProvider services,
         ILogger<ProfilesPageViewModel> logger)
@@ -214,6 +217,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(browser);
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(logger);
@@ -228,6 +232,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         _browser = browser;
         _repositories = repositories;
         _dialogs = dialogs;
+        _folderDialogs = folderDialogs;
         _infoBar = infoBar;
         _services = services;
         _logger = logger;
@@ -838,7 +843,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     private async Task OnAddProfileAsync()
     {
         // Starting from what git has: saving today's identity as a profile is the usual first step.
-        IdentityProfileDialogViewModel model = new(string.Empty, GlobalIdentity);
+        IdentityProfileDialogViewModel model = new(_folderDialogs, string.Empty, GlobalIdentity);
 
         if (await ShowProfileDialogAsync(model, "Add a profile", "Add").ConfigureAwait(true))
         {
@@ -853,7 +858,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             return;
         }
 
-        IdentityProfileDialogViewModel model = new(row.Label, row.Profile.Identity);
+        IdentityProfileDialogViewModel model = new(_folderDialogs, row.Label, row.Profile.Identity, row.Profile.BaseDirectory);
 
         if (await ShowProfileDialogAsync(model, "Edit the profile", "Save").ConfigureAwait(true))
         {
