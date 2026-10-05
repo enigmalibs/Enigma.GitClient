@@ -1,6 +1,6 @@
 # FEATURE-BB60 — Diffs on AvaloniaEdit
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-05-diff-view-avaloniaedit
@@ -65,7 +65,7 @@
 ## PHASE01 — The diff editor control
 
 **Branch:** `feature/feature-bb60-phase01-diff-editor`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-BB60-PHASE01.md`
 
 ### Steps
 

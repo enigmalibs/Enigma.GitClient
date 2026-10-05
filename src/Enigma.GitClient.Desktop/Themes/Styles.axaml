@@ -2,7 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ei="https://github.com/josueclement/Enigma.Icons"
         xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
-        xmlns:diff="using:Enigma.GitClient.Desktop.Controls.Diff">
+        xmlns:diff="using:Enigma.GitClient.Desktop.Controls.Diff"
+        xmlns:edit="using:AvaloniaEdit">
 
   <!-- Application-wide styles. Merged after FluentTheme so these win, and written against the
        Enigma* brushes so they follow a theme switch. -->
@@ -494,6 +495,36 @@
     <Setter Property="WhitespaceBrush" Value="{DynamicResource DiffWhitespaceBrush}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource DiffTextSelectionBrush}" />
     <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!--
+    The diff editor takes the same face, size, colours and gutter metrics as the rows did, all through
+    DynamicResource, so a theme switch or a font preference repaints an open diff. Selected by its
+    class: the editor wears AvaloniaEdit's own template, so its style key is TextEditor's and a type
+    selector would not reach it.
+  -->
+  <Style Selector="edit|TextEditor.diff">
+    <Setter Property="FontFamily" Value="{DynamicResource DiffFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource DiffFontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="(diff:DiffTextEditor.AddedLineBrush)" Value="{DynamicResource DiffAddedLineBrush}" />
+    <Setter Property="(diff:DiffTextEditor.RemovedLineBrush)" Value="{DynamicResource DiffRemovedLineBrush}" />
+    <Setter Property="(diff:DiffTextEditor.AddedWordBrush)" Value="{DynamicResource DiffAddedWordBrush}" />
+    <Setter Property="(diff:DiffTextEditor.RemovedWordBrush)" Value="{DynamicResource DiffRemovedWordBrush}" />
+    <Setter Property="(diff:DiffTextEditor.FillerBrush)" Value="{DynamicResource DiffFillerBrush}" />
+    <Setter Property="(diff:DiffTextEditor.HunkBandBrush)" Value="{DynamicResource DiffHunkBandBrush}" />
+    <Setter Property="(diff:DiffTextEditor.HunkForegroundBrush)" Value="{DynamicResource DiffHunkForegroundBrush}" />
+    <Setter Property="(diff:DiffTextEditor.GutterBrush)" Value="{DynamicResource DiffGutterBrush}" />
+    <Setter Property="(diff:DiffTextEditor.GutterForegroundBrush)" Value="{DynamicResource DiffGutterForegroundBrush}" />
+    <Setter Property="(diff:DiffTextEditor.MarkerBrush)" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+    <Setter Property="(diff:DiffTextEditor.AddedMarkerBrush)" Value="{DynamicResource DiffAddedMarkerBrush}" />
+    <Setter Property="(diff:DiffTextEditor.RemovedMarkerBrush)" Value="{DynamicResource DiffRemovedMarkerBrush}" />
+    <Setter Property="(diff:DiffTextEditor.WhitespaceBrush)" Value="{DynamicResource DiffWhitespaceBrush}" />
+    <Setter Property="(diff:DiffTextEditor.TextSelectionBrush)" Value="{DynamicResource DiffTextSelectionBrush}" />
+    <Setter Property="(diff:DiffTextEditor.LineNumberFontSize)" Value="{DynamicResource DiffLineNumberFontSize}" />
+    <Setter Property="(diff:DiffTextEditor.GutterWidth)" Value="{DynamicResource DiffGutterWidth}" />
+    <Setter Property="(diff:DiffTextEditor.MarkerWidth)" Value="{DynamicResource DiffMarkerWidth}" />
   </Style>
 
   <Style Selector="diff|DiffLineText.added">
