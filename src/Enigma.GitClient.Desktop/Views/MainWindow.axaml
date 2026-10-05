@@ -110,6 +110,29 @@
                     IsVisible="{Binding CanSync}"
                     Background="{DynamicResource EnigmaBorderSubtleBrush}" />
 
+            <!-- The repository's folder, outside the client: in the file manager, and in a terminal. -->
+            <Button Name="OpenFolder"
+                    Classes="toolbar"
+                    IsVisible="{Binding CanSync}"
+                    Command="{Binding OpenFolderCommand}"
+                    ToolTip.Tip="Open the repository's folder in the file manager"
+                    AutomationProperties.Name="Open the repository's folder">
+              <ei:Icon Kind="FolderOpen" Classes="toolbar" />
+            </Button>
+            <Button Name="OpenTerminal"
+                    Classes="toolbar"
+                    IsVisible="{Binding CanSync}"
+                    Command="{Binding OpenTerminalCommand}"
+                    ToolTip.Tip="Open a terminal in the repository's folder"
+                    AutomationProperties.Name="Open a terminal in the repository's folder">
+              <ei:Icon Kind="TerminalWindow" Classes="toolbar" />
+            </Button>
+
+            <Border Width="1"
+                    Margin="4,6"
+                    IsVisible="{Binding CanSync}"
+                    Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
             <Button Classes="toolbar"
                     Command="{Binding NewWindowCommand}"
                     ToolTip.Tip="Open another window, for another repository"

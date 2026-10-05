@@ -250,6 +250,19 @@ public sealed class RecordingSystemInterop : ISystemInterop
     /// </summary>
     public bool OpensUrls { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether opening a path is pretended to work.
+    /// </summary>
+    public bool OpensPaths { get; set; } = true;
+
+    /// <summary>Gets the directories a terminal was asked for, oldest first.</summary>
+    public List<string> Terminals { get; } = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a terminal is pretended to exist.
+    /// </summary>
+    public bool OpensTerminals { get; set; } = true;
+
     /// <inheritdoc />
     public Task CopyTextAsync(string text)
     {
@@ -261,7 +274,7 @@ public sealed class RecordingSystemInterop : ISystemInterop
     public Task<bool> OpenPathAsync(string path)
     {
         Opened.Add(path);
-        return Task.FromResult(true);
+        return Task.FromResult(OpensPaths);
     }
 
     /// <inheritdoc />
@@ -276,6 +289,13 @@ public sealed class RecordingSystemInterop : ISystemInterop
     {
         Opened.Add(url);
         return Task.FromResult(OpensUrls);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> OpenTerminalAsync(string directory)
+    {
+        Terminals.Add(directory);
+        return Task.FromResult(OpensTerminals);
     }
 }
 
