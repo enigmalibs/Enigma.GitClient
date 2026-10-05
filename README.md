@@ -10,12 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.4** — revert any commit from its line in the history, beside the reset; the
-> changed files open as a tree of folders again; and a profile can name a base directory, where the
-> start window's Open, Clone and Create begin. Coming from 5.1.0? The program was renamed
-> `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the installer
-> again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
-> [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.5** — the diff is drawn by a real text editor: select its text as in any editor,
+> search it with Ctrl+F, and read its code syntax-highlighted, with the same numbers, tints and
+> minimap as before. Side by side no longer wraps long lines: read *Upgrading from 5.4*. Coming from
+> 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0*
+> there (on Linux, run the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0
+> first. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -33,9 +33,11 @@ Two things matter more than everything else in this app:
 - A commit's details — its title, description, author and email, date and how long ago that was, and
   full hash — in a dialog opened from the details panel's header, the diff view's or the commit's
   line menu, every value selectable to copy
-- Colour-coded file diffs with word-level intra-line highlighting
-- Side by side shows the **whole file** on both sides, scrolling as one; unified shows the
-  change with the context you chose
+- Colour-coded file diffs with word-level intra-line highlighting and **syntax highlighting** by the
+  file's language, drawn by a read-only text editor: select the text with the mouse or the keyboard,
+  copy the code alone (no numbers, markers or hunk bands), and search it with Ctrl+F
+- Side by side shows the **whole file** on both sides, scrolling as one, down and sideways; unified
+  shows the change with the context you chose, and wraps long lines if you ask it to
 - A minimap in place of the diff's vertical scrollbar: where the changes are, where you are, and
   click or drag it to go there
 - Branch management — create, rename, delete, set upstream, checkout
