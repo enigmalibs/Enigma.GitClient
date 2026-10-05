@@ -27,6 +27,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IAutoRefreshService _autoRefresh;
     private readonly IThemeSwitcher _theme;
     private readonly IAboutDialogService _about;
+    private readonly ISystemInterop _interop;
     private bool _initialised;
 
     /// <summary>
@@ -49,6 +50,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// </param>
     /// <param name="theme">The toolbar's theme switch, shared with the start window.</param>
     /// <param name="about">Shows the About dialog from the toolbar.</param>
+    /// <param name="interop">Opens the repository's folder in the file manager, and a terminal in it.</param>
     public MainWindowViewModel(
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
@@ -61,7 +63,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IMergeOperations merges,
         IAutoRefreshService autoRefresh,
         IThemeSwitcher theme,
-        IAboutDialogService about)
+        IAboutDialogService about,
+        ISystemInterop interop)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
@@ -75,6 +78,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(autoRefresh);
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(about);
+        ArgumentNullException.ThrowIfNull(interop);
 
         // What follows the repository's state (branches, tags, the working tree, this strip) follows
         // the refresh on its own; the graph is told, because redrawing it is what costs the reader
@@ -95,6 +99,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _autoRefresh = autoRefresh;
         _theme = theme;
         _about = about;
+        _interop = interop;
 
         ToggleThemeCommand = new RelayCommand(_theme.Toggle);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
@@ -107,6 +112,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         ResolveConflictsCommand = new RelayCommand(() => Shell.GoTo(ShellPage.Conflicts), () => IsMergeInProgress);
         RefreshCommand = new AsyncRelayCommand(OnRefreshAsync, () => RepositoryContext.IsRepositoryOpen);
         CloseRepositoryCommand = new RelayCommand(OnCloseRepository);
+        OpenFolderCommand = new AsyncRelayCommand(OnOpenFolderAsync, () => RepositoryContext.IsRepositoryOpen);
+        OpenTerminalCommand = new AsyncRelayCommand(OnOpenTerminalAsync, () => RepositoryContext.IsRepositoryOpen);
         NewWindowCommand = new RelayCommand(OnNewWindow);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
@@ -221,6 +228,16 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// </summary>
     public RelayCommand NewWindowCommand { get; }
 
+    /// <summary>
+    /// Gets the command that opens the repository's folder in the file manager — Explorer on Windows.
+    /// </summary>
+    public AsyncRelayCommand OpenFolderCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens a terminal in the repository's folder.
+    /// </summary>
+    public AsyncRelayCommand OpenTerminalCommand { get; }
+
     /// <summary>Gets the command that fetches from every remote.</summary>
     public AsyncRelayCommand FetchCommand { get; }
 
@@ -296,6 +313,8 @@ public sealed class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(RepositoryPath));
                 OnPropertyChanged(nameof(CanSync));
                 RefreshCommand.NotifyCanExecuteChanged();
+                OpenFolderCommand.NotifyCanExecuteChanged();
+                OpenTerminalCommand.NotifyCanExecuteChanged();
                 FetchCommand.NotifyCanExecuteChanged();
                 PullCommand.NotifyCanExecuteChanged();
                 PushCommand.NotifyCanExecuteChanged();
@@ -386,6 +405,38 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         RepositoryContext.Close();
         _windows.ShowStart();
+    }
+
+    private async Task OnOpenFolderAsync()
+    {
+        if (RepositoryContext.Repository is not { } repository)
+        {
+            return;
+        }
+
+        if (!await _interop.OpenPathAsync(repository.WorkTreePath).ConfigureAwait(true))
+        {
+            _infoBar.Notify(
+                "The folder did not open",
+                $"Nothing on this desktop opened '{repository.WorkTreePath}'.",
+                InfoBarSeverity.Warning);
+        }
+    }
+
+    private async Task OnOpenTerminalAsync()
+    {
+        if (RepositoryContext.Repository is not { } repository)
+        {
+            return;
+        }
+
+        if (!await _interop.OpenTerminalAsync(repository.WorkTreePath).ConfigureAwait(true))
+        {
+            _infoBar.Notify(
+                "No terminal started",
+                $"No terminal could be started in '{repository.WorkTreePath}'.",
+                InfoBarSeverity.Warning);
+        }
     }
 
     private void OnNewWindow()

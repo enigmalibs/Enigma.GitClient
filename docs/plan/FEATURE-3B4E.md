@@ -1,6 +1,6 @@
 # FEATURE-3B4E — Open the folder and a terminal
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3B4E.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-3b4e-folder-and-terminal-buttons`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
