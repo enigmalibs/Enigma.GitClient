@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Desktop.Navigation;
@@ -176,6 +177,123 @@ public sealed class AppWindowsTests
                 Assert.NotSame(first, second);
                 Assert.Equal(WindowStartupLocation.CenterScreen, second.WindowStartupLocation);
                 Assert.Equal(WindowState.Maximized, second.WindowState);
+            }
+            finally
+            {
+                CloseWindow(windows);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Repositories with no commit yet — so with no object git marks read-only — for the tests that only
+    /// need something to open.
+    /// </summary>
+    private static async Task<RepositoryHandle[]> InitRepositoriesAsync(TestServices services, params string[] names)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        RepositoryHandle[] repositories = new RepositoryHandle[names.Length];
+
+        for (int index = 0; index < names.Length; index++)
+        {
+            repositories[index] = await services.Get<IRepositoryService>().InitAsync(Path.Combine(root, names[index]), "main");
+        }
+
+        return repositories;
+    }
+
+    /// <summary>
+    /// Picks a page on the rail as the reader's click does: through the navigation's selection, not
+    /// the shell's <see cref="IShellNavigation.GoTo"/>.
+    /// </summary>
+    private static void ClickOnTheRail(IShellNavigation shell, string header)
+        => shell.Service.SelectedItem = shell.Service.Items
+            .Concat(shell.Service.FooterItems)
+            .Single(item => string.Equals(item.Header?.ToString(), header, StringComparison.Ordinal));
+
+    private static string? SelectedOnTheRail(IShellNavigation shell) => shell.Service.SelectedItem?.Header?.ToString();
+
+    [Fact]
+    public void OpeningAnotherRepository_ShowsItsHistory_WhateverPageTheRailWasLeftOn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = Build(useRealRefReader: true);
+            IAppWindows windows = services.Get<IAppWindows>();
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            IShellNavigation shell = services.Get<IShellNavigation>();
+            RepositoryHandle[] repositories = await InitRepositoriesAsync(services, "first", "second", "third");
+
+            try
+            {
+                await context.OpenAsync(repositories[0]);
+                windows.ShowRepository();
+                await ((MainWindowViewModel)windows.CurrentWindow!.DataContext!).InitialiseAsync();
+                Assert.Equal("History", SelectedOnTheRail(shell));
+
+                foreach ((string page, RepositoryHandle next) in new[] { ("Profiles", repositories[1]), ("Settings", repositories[2]) })
+                {
+                    // The reader picks the page on the rail, closes the repository, and opens another.
+                    ClickOnTheRail(shell, page);
+                    Assert.Equal(page, SelectedOnTheRail(shell));
+
+                    ((MainWindowViewModel)windows.CurrentWindow!.DataContext!).CloseRepositoryCommand.Execute(null);
+                    Assert.Equal(AppWindowKind.Start, windows.Current);
+
+                    await context.OpenAsync(next);
+                    windows.ShowRepository();
+                    await ((MainWindowViewModel)windows.CurrentWindow!.DataContext!).InitialiseAsync();
+
+                    Assert.Equal("History", SelectedOnTheRail(shell));
+                    Assert.Equal(ShellPage.History, shell.Current);
+                }
+            }
+            finally
+            {
+                CloseWindow(windows);
+            }
+        });
+    }
+
+    [Fact]
+    public void ARepositoryOpenedFromTheRepositoryWindowsProfilesPage_ShowsItsHistory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = Build(useRealRefReader: true);
+            IAppWindows windows = services.Get<IAppWindows>();
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            IShellNavigation shell = services.Get<IShellNavigation>();
+            RepositoryHandle[] repositories = await InitRepositoriesAsync(services, "open", "cloned");
+
+            try
+            {
+                await context.OpenAsync(repositories[0]);
+                windows.ShowRepository();
+                Window window = windows.CurrentWindow!;
+                await ((MainWindowViewModel)window.DataContext!).InitialiseAsync();
+
+                ClickOnTheRail(shell, "Profiles");
+
+                // What a clone from a host's repository list does: the clone is opened, and the same
+                // window asked to show it.
+                await context.OpenAsync(repositories[1]);
+                windows.ShowRepository();
+
+                Assert.Same(window, windows.CurrentWindow);
+                Assert.Equal("History", SelectedOnTheRail(shell));
+
+                // Opening the history starts its read in the repository's folder; it is let finish, so
+                // the folder can be deleted once the test is over.
+                HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+
+                for (int attempt = 0; attempt < 500 && history.IsBusy; attempt++)
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    await Task.Delay(10);
+                }
             }
             finally
             {

@@ -1,6 +1,6 @@
 # BUG-123A — A repository opens on its history
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-123A.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-123a-repository-opens-on-history`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release

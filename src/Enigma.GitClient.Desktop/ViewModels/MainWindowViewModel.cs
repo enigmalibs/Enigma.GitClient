@@ -299,6 +299,15 @@ public sealed class MainWindowViewModel : ViewModelBase
                 FetchCommand.NotifyCanExecuteChanged();
                 PullCommand.NotifyCanExecuteChanged();
                 PushCommand.NotifyCanExecuteChanged();
+
+                // A repository opens on its history, whatever page the rail was left on — the
+                // previous repository's Profiles or Settings, or the Profiles page a clone was
+                // started from. The rail's selection outlives the window, which is built afresh.
+                if (e.PropertyName == nameof(IRepositoryContext.Repository) && RepositoryContext.IsRepositoryOpen)
+                {
+                    Shell.GoTo(ShellPage.History);
+                }
+
                 break;
             case nameof(IRepositoryContext.Refs):
                 NotifyTracking();
