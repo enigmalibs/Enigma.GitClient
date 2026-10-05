@@ -1,6 +1,6 @@
 # FEATURE-6A0E — Release 5.5.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6A0E.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-6a0e-release-5-5-0`
 **Run:** feature/2026-10-05-release-5-5-0
