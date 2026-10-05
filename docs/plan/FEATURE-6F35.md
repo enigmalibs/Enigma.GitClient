@@ -1,6 +1,6 @@
 # FEATURE-6F35 — Uncommitted line joins HEAD, dashed
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
@@ -54,7 +54,7 @@ commit that is checked out (HEAD) — not by a solid line to whatever happens to
 ## PHASE02 — The dashed line in the history
 
 **Branch:** `feature/feature-6f35-phase02-dashed-line-to-head`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6F35-PHASE02.md`
 
 ### Steps
 

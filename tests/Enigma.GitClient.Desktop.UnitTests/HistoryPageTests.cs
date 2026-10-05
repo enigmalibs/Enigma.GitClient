@@ -29,6 +29,7 @@ using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -234,6 +235,59 @@ public sealed class HistoryPageTests
             Assert.Same(page.Rows[0], uncommitted);
             Assert.Equal("Uncommitted changes", uncommitted.Subject);
             Assert.Null(uncommitted.Commit);
+        });
+    }
+
+    [Fact]
+    public void TheUncommittedLine_JoinsTheCheckedOutCommitByADashedLine_BelowANewerBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "dashed"), "main");
+
+            await CommitAsync(repository, "README.md", "# one\n", "Add the readme");
+            await CommitAsync(repository, "src/app.txt", "one\n", "Add the application file");
+
+            // A branch committed to after main, then main checked out again, with work on it.
+            await GitAsync(repository, "checkout", "-b", "ahead");
+            await CommitAsync(repository, "src/ahead.txt", "ahead\n", "Move ahead of main");
+            await GitAsync(repository, "checkout", "main");
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# edited\n");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            CommitRowViewModel uncommitted = page.Rows[0];
+            CommitRowViewModel ahead = page.Rows.Single(row => row.Subject == "Move ahead of main");
+            CommitRowViewModel head = page.Rows.Single(row => row.IsHead);
+
+            Assert.True(uncommitted.IsUncommitted);
+            Assert.Equal("Add the application file", head.Subject);
+
+            // The newer branch sits beside the uncommitted line, never in its lane.
+            int lane = uncommitted.Row.Lane;
+            Assert.Equal(lane, head.Row.Lane);
+            Assert.NotEqual(lane, ahead.Row.Lane);
+
+            Assert.True(Assert.Single(uncommitted.Row.Edges).IsDashed);
+            Assert.True(ahead.Row.Edges.Single(edge => edge.Kind == GraphEdgeKind.Straight && edge.FromLane == lane).IsDashed);
+            Assert.True(head.Row.Edges.Single(edge => edge.Kind == GraphEdgeKind.MergeIn && edge.FromLane == lane).IsDashed);
+            Assert.False(head.Row.Edges.Single(edge => edge.Kind == GraphEdgeKind.MergeIn && edge.FromLane != lane).IsDashed);
+
+            // Nothing else is dashed, and nothing at all once the work is gone.
+            Assert.Equal(3, page.Rows.SelectMany(row => row.Row.Edges).Count(edge => edge.IsDashed));
+
+            await GitAsync(repository, "checkout", "--", "README.md");
+            await page.ReloadAsync();
+
+            Assert.DoesNotContain(page.Rows, row => row.IsUncommitted);
+            Assert.DoesNotContain(page.Rows.SelectMany(row => row.Row.Edges), edge => edge.IsDashed);
         });
     }
 
