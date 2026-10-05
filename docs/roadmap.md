@@ -274,6 +274,11 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | The profile keeps a base directory      | DONE      | (in FEATURE-1E0D.md)      |
 | - PHASE02    | Open, clone and create start there      | DONE      | (in FEATURE-1E0D.md)      |
 | FEATURE-4707 | Release 5.4.0                           | DONE      | docs/plan/FEATURE-4707.md |
+| FEATURE-BB60 | Diffs on AvaloniaEdit                   | TODO      | docs/plan/FEATURE-BB60.md |
+| - PHASE01    | The diff editor control                 | TODO      | (in FEATURE-BB60.md)      |
+| - PHASE02    | The unified diff on the editor          | TODO      | (in FEATURE-BB60.md)      |
+| - PHASE03    | Side by side on two editors             | TODO      | (in FEATURE-BB60.md)      |
+| - PHASE04    | Syntax highlighting in diffs            | TODO      | (in FEATURE-BB60.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
