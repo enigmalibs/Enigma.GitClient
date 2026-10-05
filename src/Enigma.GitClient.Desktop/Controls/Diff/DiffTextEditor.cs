@@ -179,7 +179,13 @@ public sealed class DiffTextEditor : TextEditor
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
+    /// <remarks>
+    /// On a <see cref="DiffTextArea"/>, whose <see cref="DiffTextView"/> never asks to be scrolled
+    /// further than it can go — which is what kept a selection dragged to the end of a diff fighting
+    /// its scroll viewer for ever (BUG-7823).
+    /// </remarks>
     public DiffTextEditor()
+        : base(new DiffTextArea())
     {
         Classes.Add(StyleClass);
 
