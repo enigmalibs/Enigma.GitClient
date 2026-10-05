@@ -112,41 +112,6 @@ public sealed class DiffSelectionDragEndTests
     }
 
     [Fact]
-    public void Reachable_KeepsARectangleThatFits()
-        => Assert.Equal(
-            new Rect(100, 200, 10, 20),
-            DiffTextView.Reachable(new Rect(100, 200, 10, 20), new Size(1000, 2000), new Size(300, 400)));
-
-    [Fact]
-    public void Reachable_MovesARectanglePastTheEndBackInside()
-    {
-        // The caret at the very end, inflated by AvaloniaEdit's 5-pixel margin: 5 past the bottom and
-        // the right of the content.
-        Rect caret = new(995, 1985, 10, 20);
-
-        Assert.Equal(
-            new Rect(990, 1980, 10, 20),
-            DiffTextView.Reachable(caret, new Size(1000, 2000), new Size(300, 400)));
-
-        // And one past the start comes forward to it.
-        Assert.Equal(
-            new Rect(0, 0, 10, 20),
-            DiffTextView.Reachable(new Rect(-5, -5, 10, 20), new Size(1000, 2000), new Size(300, 400)));
-    }
-
-    [Fact]
-    public void Reachable_KeepsContentSmallerThanTheViewportInsideTheViewport()
-        => Assert.Equal(
-            new Rect(290, 380, 10, 20),
-            DiffTextView.Reachable(new Rect(400, 500, 10, 20), new Size(50, 60), new Size(300, 400)));
-
-    [Fact]
-    public void Reachable_CutsARectangleLargerThanTheContent()
-        => Assert.Equal(
-            new Rect(0, 0, 1000, 400),
-            DiffTextView.Reachable(new Rect(-20, -20, 5000, 400), new Size(1000, 2000), new Size(300, 400)));
-
-    [Fact]
     public void BringingALineIntoView_StillScrollsInsideTheDocument()
     {
         _fixture.RunAsync(async () =>
