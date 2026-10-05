@@ -244,6 +244,90 @@ public sealed class AutoRefreshTests
         });
     }
 
+    // ---------------------------------------------------------------- opening a repository
+
+    /// <summary>
+    /// A repository with no commit: something to discover and open, with no object git marks
+    /// read-only — which a teardown on Windows could not delete.
+    /// </summary>
+    private static Task<RepositoryHandle> InitEmptyAsync(TestServices services, string name)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        return services.Get<IRepositoryService>().InitAsync(Path.Combine(root, name), "main");
+    }
+
+    [Fact]
+    public void OpeningARepository_FetchesItOnce_WithoutWaitingForTheFetch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+            RepositoryHandle repository = await InitEmptyAsync(services, "opened");
+
+            TaskCompletionSource release = new();
+            sync.Gate = release.Task;
+
+            RepositoryDiscoveryResult opened = await services.Get<IRepositoryOpener>().OpenAsync(repository.WorkTreePath);
+
+            // Open, and the fetch under way — still waiting for the remotes when the opening is over.
+            Assert.True(opened.IsFound);
+            Assert.True(services.Get<IRepositoryContext>().IsRepositoryOpen);
+            Assert.Equal(1, sync.QuietFetches);
+
+            AutoRefreshResult result = await NextRefreshAsync(service, release.SetResult);
+
+            Assert.Equal(QuietFetchResult.Fetched, result.Fetch);
+            Assert.Equal(1, sync.QuietFetches);
+            Assert.Empty(services.InfoBar.Shown);
+            Assert.Equal(0, services.Overlay.ShowCount);
+        });
+    }
+
+    [Fact]
+    public void OpeningARepository_FetchesItEvenWithTheAutomaticRefreshOff()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            services.Get<ISettingsService>().Update(current => current with { AutoRefreshSeconds = 0 });
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+            RepositoryHandle repository = await InitEmptyAsync(services, "no-interval");
+
+            await services.Get<IRepositoryOpener>().OpenAsync(repository.WorkTreePath);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, sync.QuietFetches);
+            Assert.False(service.IsRunning);
+
+            // And nothing more until the next opening: there is no interval to run at.
+            services.Clock.Advance(TimeSpan.FromMinutes(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, sync.QuietFetches);
+        });
+    }
+
+    [Fact]
+    public void AFolderThatIsNoRepository_FetchesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+            string folder = Path.Combine(services.ConfigurationRoot, "not-a-repository");
+            Directory.CreateDirectory(folder);
+
+            RepositoryDiscoveryResult opened = await services.Get<IRepositoryOpener>().OpenAsync(folder);
+
+            Assert.False(opened.IsFound);
+            Assert.Equal(0, sync.QuietFetches);
+        });
+    }
+
     // ---------------------------------------------------------------- the quiet fetch itself
 
     [Fact]

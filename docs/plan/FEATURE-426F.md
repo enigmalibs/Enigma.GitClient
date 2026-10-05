@@ -1,6 +1,6 @@
 # FEATURE-426F — A fetch when a repository opens
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-426F.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-426f-fetch-on-open`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
