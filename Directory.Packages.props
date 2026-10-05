@@ -34,6 +34,14 @@
     <PackageVersion Include="Enigma.Icons.Avalonia" Version="1.0.0" />
   </ItemGroup>
 
+  <!-- Text editor: the diff viewer draws its patches with AvaloniaEdit. Versioned apart from the
+       Avalonia set above: AvaloniaEdit ships its own 12.0.0, built against Avalonia 12.0.0, which
+       runs on the 12.1.x the set pins — Enigma.MarkdownEditor uses the same pair. -->
+  <ItemGroup>
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageVersion Include="AvaloniaEdit.TextMate" Version="12.0.0" />
+  </ItemGroup>
+
   <!-- Tests (MTP-native: xunit.v3 only; Microsoft.Testing.Extensions.CodeCoverage for coverage).
        No Microsoft.NET.Test.Sdk, no coverlet.collector. -->
   <ItemGroup>
