@@ -17,6 +17,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="AvaloniaEdit.TextMate" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Enigma.Avalonia.Desktop" />
     <PackageReference Include="Enigma.Icons.Avalonia" />

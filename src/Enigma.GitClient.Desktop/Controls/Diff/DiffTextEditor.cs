@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
@@ -133,6 +134,10 @@ public sealed class DiffTextEditor : TextEditor
     public static readonly StyledProperty<DiffTextSelection?> TextSelectionProperty =
         AvaloniaProperty.Register<DiffTextEditor, DiffTextSelection?>(nameof(TextSelection));
 
+    /// <summary>Defines the <see cref="FilePath"/> property.</summary>
+    public static readonly StyledProperty<string?> FilePathProperty =
+        AvaloniaProperty.Register<DiffTextEditor, string?>(nameof(FilePath));
+
     /// <summary>Defines the <see cref="CopyCommand"/> property.</summary>
     public static readonly StyledProperty<ICommand?> CopyCommandProperty =
         AvaloniaProperty.Register<DiffTextEditor, ICommand?>(nameof(CopyCommand));
@@ -208,6 +213,17 @@ public sealed class DiffTextEditor : TextEditor
 
         TextArea.SelectionChanged += (_, _) => MirrorSelection();
 
+        // The tokens' theme follows the window's, live, as the diff's own brushes do. A control
+        // leaving the tree loses its inherited variant before it is told it is detached, so there is
+        // briefly no variant at all to follow.
+        ActualThemeVariantChanged += (_, _) =>
+        {
+            if (ActualThemeVariant is { } variant)
+            {
+                Highlighting?.Apply(variant);
+            }
+        };
+
         // Tunnelling, so the band and the copy gesture are claimed before the text area's own
         // handlers start a selection or copy the document's text.
         TextArea.AddHandler(PointerPressedEvent, OnPointerPressedOverText, RoutingStrategies.Tunnel);
@@ -237,6 +253,26 @@ public sealed class DiffTextEditor : TextEditor
         get => GetValue(TextSelectionProperty);
         set => SetValue(TextSelectionProperty, value);
     }
+
+    /// <summary>
+    /// Gets or sets the path of the file the patch is of, whose extension picks the grammar the text
+    /// is highlighted with; <see langword="null"/> or an unknown extension for plain text.
+    /// </summary>
+    public string? FilePath
+    {
+        get => GetValue(FilePathProperty);
+        set => SetValue(FilePathProperty, value);
+    }
+
+    /// <summary>
+    /// Gets the editor's syntax highlighting while it is on screen, <see langword="null"/> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Installed when the editor is attached and taken off when it is detached: the tokenizer runs on
+    /// a background thread for as long as it is installed, and an editor nobody can see has nothing
+    /// to colour.
+    /// </remarks>
+    internal DiffSyntaxHighlighting? Highlighting { get; private set; }
 
     /// <summary>
     /// Gets or sets the command the copy gesture runs, in place of the editor's own copy;
@@ -462,6 +498,9 @@ public sealed class DiffTextEditor : TextEditor
     {
         base.OnAttachedToVisualTree(e);
 
+        Highlighting ??= new DiffSyntaxHighlighting(this, ActualThemeVariant ?? ThemeVariant.Dark);
+        Highlighting.SetFile(FilePath);
+
         // Only while it is on screen: the selection belongs to the viewer and outlives the editor.
         if (TextSelection is { } selection)
         {
@@ -477,6 +516,9 @@ public sealed class DiffTextEditor : TextEditor
             selection.Changed -= OnTextSelectionChanged;
         }
 
+        Highlighting?.Dispose();
+        Highlighting = null;
+
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -489,6 +531,11 @@ public sealed class DiffTextEditor : TextEditor
         {
             Rebuild();
         }
+        else if (change.Property == FilePathProperty)
+        {
+            Highlighting?.SetFile(FilePath);
+        }
+
         else if (change.Property == TextSelectionProperty)
         {
             if (change.OldValue is DiffTextSelection old)

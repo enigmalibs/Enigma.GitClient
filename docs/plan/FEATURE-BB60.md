@@ -1,6 +1,6 @@
 # FEATURE-BB60 — Diffs on AvaloniaEdit
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-05-diff-view-avaloniaedit
@@ -207,7 +207,7 @@
 ## PHASE04 — Syntax highlighting in diffs
 
 **Branch:** `feature/feature-bb60-phase04-syntax-highlighting`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-BB60-PHASE04.md`
 
 ### Steps
 
