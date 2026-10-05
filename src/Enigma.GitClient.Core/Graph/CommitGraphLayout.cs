@@ -12,6 +12,29 @@ namespace Enigma.GitClient.Core.Graph;
 public readonly record struct GraphCommitInput(string Sha, IReadOnlyList<string> ParentShas)
 {
     /// <summary>
+    /// Gets a value indicating whether this is not a commit but the uncommitted work, laid out above
+    /// the history as a child of HEAD's commit.
+    /// </summary>
+    /// <remarks>
+    /// Its line to HEAD's commit is not history: every segment of it is drawn dashed
+    /// (<see cref="GraphEdge.IsDashed"/>), and the lane it runs in is kept for it until HEAD's commit
+    /// takes it over — so the line can never run over another branch's.
+    /// </remarks>
+    public bool IsWorkingTree { get; init; }
+
+    /// <summary>
+    /// The uncommitted work, as the layout's first input: a pseudo-commit whose only parent is the
+    /// commit HEAD points at.
+    /// </summary>
+    /// <param name="headSha">
+    /// HEAD's commit, or <see langword="null"/> or empty when there is none — an unborn branch — in which
+    /// case nothing joins the uncommitted work to the history.
+    /// </param>
+    /// <returns>The layout input.</returns>
+    public static GraphCommitInput WorkingTree(string? headSha)
+        => new(string.Empty, headSha is { Length: > 0 } ? [headSha] : []) { IsWorkingTree = true };
+
+    /// <summary>
     /// Projects a commit onto the shape the layout needs.
     /// </summary>
     /// <param name="commit">The commit.</param>
@@ -111,6 +134,10 @@ public sealed record GraphLayoutResult(IReadOnlyList<GraphRow> Rows, GraphLayout
 /// <item><description>
 /// A lane keeps its colour for its whole lifetime, and a newly opened lane avoids the colours the
 /// open lanes are already using.
+/// </description></item>
+/// <item><description>
+/// The uncommitted work (<see cref="GraphCommitInput.WorkingTree"/>) is laid out as a branch tip whose
+/// parent is HEAD's commit; its lane, down to that commit, is a dashed line.
 /// </description></item>
 /// </list>
 /// <para>
@@ -223,13 +250,13 @@ public static class CommitGraphLayout
                 continue;
             }
 
-            straight.Add(new GraphEdge(index, index, GraphEdgeKind.Straight, state.GetColour(index)));
+            straight.Add(new GraphEdge(index, index, GraphEdgeKind.Straight, state.GetColour(index), state.IsDashed(index)));
         }
 
         // Lines arriving from above: the commit's own lane, plus any branch merging into it.
         foreach (int index in reserved)
         {
-            mergeIn.Add(new GraphEdge(index, lane, GraphEdgeKind.MergeIn, state.GetColour(index)));
+            mergeIn.Add(new GraphEdge(index, lane, GraphEdgeKind.MergeIn, state.GetColour(index), state.IsDashed(index)));
 
             if (index != lane)
             {
@@ -251,10 +278,11 @@ public static class CommitGraphLayout
             if (!laneCarriedOn)
             {
                 // The first parent that is actually in the history continues in this commit's own
-                // lane, so following a branch downwards never changes column.
+                // lane, so following a branch downwards never changes column. Below the uncommitted
+                // work that lane is the dashed line to HEAD's commit, until that commit takes it.
                 laneCarriedOn = true;
-                state.Reserve(lane, parent);
-                branchOut.Add(new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour));
+                state.Reserve(lane, parent, dashed: commit.IsWorkingTree);
+                branchOut.Add(new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour, commit.IsWorkingTree));
                 continue;
             }
 

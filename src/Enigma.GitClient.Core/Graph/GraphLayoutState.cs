@@ -13,6 +13,9 @@ public sealed class GraphLayoutState
     private readonly List<string?> _lanes;
     private readonly List<int> _laneColours;
 
+    // Which lanes are the dashed line from the uncommitted work down to HEAD's commit.
+    private readonly List<bool> _laneDashed;
+
     /// <summary>
     /// Initialises an empty state, which is where a history starts.
     /// </summary>
@@ -20,13 +23,15 @@ public sealed class GraphLayoutState
     {
         _lanes = [];
         _laneColours = [];
+        _laneDashed = [];
         NextColour = 0;
     }
 
-    private GraphLayoutState(List<string?> lanes, List<int> laneColours, int nextColour)
+    private GraphLayoutState(List<string?> lanes, List<int> laneColours, List<bool> laneDashed, int nextColour)
     {
         _lanes = lanes;
         _laneColours = laneColours;
+        _laneDashed = laneDashed;
         NextColour = nextColour;
     }
 
@@ -64,7 +69,7 @@ public sealed class GraphLayoutState
     /// Creates an independent copy, so laying out a page never mutates the caller's state.
     /// </summary>
     /// <returns>The copy.</returns>
-    public GraphLayoutState Clone() => new([.. _lanes], [.. _laneColours], NextColour);
+    public GraphLayoutState Clone() => new([.. _lanes], [.. _laneColours], [.. _laneDashed], NextColour);
 
     /// <summary>
     /// Gets the SHA a lane is waiting for, or <see langword="null"/> when the lane is free.
@@ -82,14 +87,24 @@ public sealed class GraphLayoutState
     public int GetColour(int lane)
         => lane >= 0 && lane < _laneColours.Count ? _laneColours[lane] : 0;
 
+    /// <summary>
+    /// Gets a value indicating whether a lane is the dashed line from the uncommitted work to HEAD's
+    /// commit — carried, like every other lane, into the next page when that commit is not on this one.
+    /// </summary>
+    /// <param name="lane">The lane index.</param>
+    /// <returns><see langword="true"/> while the lane waits for HEAD's commit below the uncommitted work.</returns>
+    public bool IsDashed(int lane)
+        => lane >= 0 && lane < _laneDashed.Count && _laneDashed[lane];
+
     internal List<string?> Lanes => _lanes;
 
     internal List<int> LaneColours => _laneColours;
 
-    internal void Reserve(int lane, string sha)
+    internal void Reserve(int lane, string sha, bool dashed = false)
     {
         EnsureCapacity(lane);
         _lanes[lane] = sha;
+        _laneDashed[lane] = dashed;
     }
 
     internal void Release(int lane)
@@ -97,6 +112,7 @@ public sealed class GraphLayoutState
         if (lane >= 0 && lane < _lanes.Count)
         {
             _lanes[lane] = null;
+            _laneDashed[lane] = false;
         }
     }
 
@@ -123,6 +139,7 @@ public sealed class GraphLayoutState
 
         _lanes[lane] = sha;
         _laneColours[lane] = colour;
+        _laneDashed[lane] = false;
         return colour;
     }
 
@@ -132,6 +149,7 @@ public sealed class GraphLayoutState
         {
             _lanes.RemoveAt(_lanes.Count - 1);
             _laneColours.RemoveAt(_laneColours.Count - 1);
+            _laneDashed.RemoveAt(_laneDashed.Count - 1);
         }
     }
 
@@ -179,6 +197,7 @@ public sealed class GraphLayoutState
         {
             _lanes.Add(null);
             _laneColours.Add(0);
+            _laneDashed.Add(false);
         }
     }
 }

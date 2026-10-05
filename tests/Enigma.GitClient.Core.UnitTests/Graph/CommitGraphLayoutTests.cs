@@ -492,6 +492,169 @@ public sealed class CommitGraphLayoutTests
         Assert.Equal(0, Assert.Single(result.Rows).Colour);
     }
 
+    // ---------------------------------------------------------------- the uncommitted work
+
+    private static GraphCommitInput WorkingTree(string? head) => GraphCommitInput.WorkingTree(head);
+
+    private static IEnumerable<GraphEdge> DashedEdges(GraphLayoutResult result)
+        => result.Rows.SelectMany(row => row.Edges).Where(edge => edge.IsDashed);
+
+    [Fact]
+    public void WorkingTree_IsAPseudoCommitWhoseOnlyParentIsHead()
+    {
+        GraphCommitInput workingTree = GraphCommitInput.WorkingTree("H");
+
+        Assert.True(workingTree.IsWorkingTree);
+        Assert.Equal(string.Empty, workingTree.Sha);
+        Assert.Equal(["H"], workingTree.ParentShas);
+
+        Assert.Empty(GraphCommitInput.WorkingTree(null).ParentShas);
+        Assert.Empty(GraphCommitInput.WorkingTree(string.Empty).ParentShas);
+        Assert.False(Commit("H").IsWorkingTree);
+    }
+
+    [Fact]
+    public void WorkingTree_JoinsHeadByADashedLine_WhenHeadIsTheNewestCommit()
+    {
+        GraphLayoutResult result = Layout(
+            WorkingTree("C"),
+            Commit("C", "B"),
+            Commit("B", "A"),
+            Commit("A"));
+
+        GraphRow workingTree = result.Rows[0];
+        GraphRow head = Row(result, "C");
+
+        Assert.Equal(0, workingTree.Lane);
+        GraphEdge down = Assert.Single(workingTree.Edges);
+        Assert.Equal(new GraphEdge(0, 0, GraphEdgeKind.BranchOut, workingTree.Colour, IsDashed: true), down);
+
+        // HEAD's commit takes the dashed lane over, in its colour; below it the line is history.
+        Assert.Equal(0, head.Lane);
+        Assert.Equal(workingTree.Colour, head.Colour);
+        Assert.True(Assert.Single(Edges(head, GraphEdgeKind.MergeIn)).IsDashed);
+        Assert.False(Assert.Single(Edges(head, GraphEdgeKind.BranchOut)).IsDashed);
+        Assert.Equal(2, DashedEdges(result).Count());
+        Assert.False(result.State.IsDashed(0));
+    }
+
+    [Fact]
+    public void WorkingTree_KeepsItsLaneFreeDownToHead_WhenAnotherBranchHasNewerCommits()
+    {
+        // main (H) is checked out; feature (F2, F1) was committed to after it. Both grew from B.
+        GraphLayoutResult result = Layout(
+            WorkingTree("H"),
+            Commit("F2", "F1"),
+            Commit("F1", "B"),
+            Commit("H", "B"),
+            Commit("B", "A"),
+            Commit("A"));
+
+        GraphRow workingTree = result.Rows[0];
+        Assert.Equal(0, workingTree.Lane);
+
+        // The newer branch opens beside the dashed lane, never in it.
+        Assert.Equal(1, Row(result, "F2").Lane);
+        Assert.Equal(1, Row(result, "F1").Lane);
+
+        foreach (string sha in new[] { "F2", "F1" })
+        {
+            GraphEdge passing = Assert.Single(Edges(Row(result, sha), GraphEdgeKind.Straight));
+            Assert.Equal(0, passing.FromLane);
+            Assert.True(passing.IsDashed);
+            Assert.Equal(workingTree.Colour, passing.Colour);
+        }
+
+        GraphRow head = Row(result, "H");
+        Assert.Equal(0, head.Lane);
+        Assert.True(Assert.Single(Edges(head, GraphEdgeKind.MergeIn)).IsDashed);
+
+        // Nothing but the working tree's line is dashed: its BranchOut, two passes and the arrival.
+        Assert.Equal(4, DashedEdges(result).Count());
+        Assert.All(
+            result.Rows.Skip(1).SelectMany(row => row.Edges).Where(edge => edge.FromLane != 0 || edge.Kind == GraphEdgeKind.BranchOut),
+            edge => Assert.False(edge.IsDashed));
+    }
+
+    [Fact]
+    public void WorkingTree_SharesHeadWithAnotherChildOfIt()
+    {
+        // A detached HEAD at H, with X — a branch's newer commit — on top of it.
+        GraphLayoutResult result = Layout(
+            WorkingTree("H"),
+            Commit("X", "H"),
+            Commit("H", "A"),
+            Commit("A"));
+
+        Assert.Equal(1, Row(result, "X").Lane);
+
+        GraphRow head = Row(result, "H");
+        Assert.Equal(0, head.Lane);
+
+        List<GraphEdge> arriving = [.. Edges(head, GraphEdgeKind.MergeIn)];
+        Assert.Equal(2, arriving.Count);
+        Assert.True(arriving.Single(edge => edge.FromLane == 0).IsDashed);
+        Assert.False(arriving.Single(edge => edge.FromLane == 1).IsDashed);
+    }
+
+    [Fact]
+    public void WorkingTree_CarriesItsDashedLaneIntoTheNextPage()
+    {
+        GraphLayoutResult first = Layout(WorkingTree("H"), Commit("F2", "F1"));
+
+        Assert.True(first.State.IsDashed(0));
+        Assert.False(first.State.IsDashed(1));
+
+        GraphLayoutResult second = CommitGraphLayout.Build(
+            [Commit("F1", "B"), Commit("H", "B"), Commit("B")],
+            first.State,
+            new GraphLayoutOptions { HistoryIsComplete = true });
+
+        GraphEdge passing = Assert.Single(Edges(Row(second, "F1"), GraphEdgeKind.Straight));
+        Assert.True(passing.IsDashed);
+        Assert.True(Assert.Single(Edges(Row(second, "H"), GraphEdgeKind.MergeIn)).IsDashed);
+
+        // The carried state is the caller's: laying the second page out changed nothing in it.
+        Assert.True(first.State.IsDashed(0));
+    }
+
+    [Fact]
+    public void WorkingTree_WithoutAHeadCommit_IsJoinedToNothing()
+    {
+        // An unborn branch: the files are there, the history is not.
+        GraphLayoutResult result = Layout(WorkingTree(null));
+
+        GraphRow workingTree = Assert.Single(result.Rows);
+        Assert.Empty(workingTree.Edges);
+        Assert.Equal(0, result.State.OpenLaneCount);
+    }
+
+    [Fact]
+    public void WorkingTree_IsJoinedToNothing_WhenAWholeHistoryLacksHead()
+    {
+        GraphLayoutResult result = LayoutComplete(
+            WorkingTree("gone"),
+            Commit("B", "A"),
+            Commit("A"));
+
+        Assert.Empty(result.Rows[0].Edges);
+        Assert.Empty(DashedEdges(result));
+        Assert.Equal(0, Row(result, "B").Lane);
+    }
+
+    [Fact]
+    public void AHistoryWithoutTheWorkingTree_HasNoDashedLine()
+    {
+        GraphLayoutResult result = Layout(
+            Commit("F2", "F1"),
+            Commit("F1", "B"),
+            Commit("H", "B"),
+            Commit("B", "A"),
+            Commit("A"));
+
+        Assert.Empty(DashedEdges(result));
+    }
+
     // ---------------------------------------------------------------- performance
 
     [Fact]
