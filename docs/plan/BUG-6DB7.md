@@ -1,6 +1,6 @@
 # BUG-6DB7 — A refresh reopens collapsed folders
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-6DB7.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-6db7-tree-keeps-collapsed-folders`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
