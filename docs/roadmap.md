@@ -276,7 +276,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-4707 | Release 5.4.0                           | DONE        | docs/plan/FEATURE-4707.md |
 | FEATURE-BB60 | Diffs on AvaloniaEdit                   | IN PROGRESS | docs/plan/FEATURE-BB60.md |
 | - PHASE01    | The diff editor control                 | DONE        | (in FEATURE-BB60.md)      |
-| - PHASE02    | The unified diff on the editor          | TODO        | (in FEATURE-BB60.md)      |
+| - PHASE02    | The unified diff on the editor          | DONE        | (in FEATURE-BB60.md)      |
 | - PHASE03    | Side by side on two editors             | TODO        | (in FEATURE-BB60.md)      |
 | - PHASE04    | Syntax highlighting in diffs            | TODO        | (in FEATURE-BB60.md)      |
 

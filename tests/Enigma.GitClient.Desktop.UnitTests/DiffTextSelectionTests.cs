@@ -363,7 +363,7 @@ public sealed class DiffTextSelectionTests
         return viewer;
     }
 
-    private static int IndexOf(System.Collections.Generic.IList<DiffRowViewModel> rows, Func<DiffRowViewModel, bool> match)
+    private static int IndexOf(System.Collections.Generic.IReadOnlyList<DiffRowViewModel> rows, Func<DiffRowViewModel, bool> match)
     {
         for (int index = 0; index < rows.Count; index++)
         {

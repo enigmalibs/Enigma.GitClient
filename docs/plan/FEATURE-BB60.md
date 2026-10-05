@@ -124,7 +124,7 @@
 ## PHASE02 — The unified diff on the editor
 
 **Branch:** `feature/feature-bb60-phase02-unified-editor`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-BB60-PHASE02.md`
 
 ### Steps
 

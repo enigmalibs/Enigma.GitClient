@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Windows.Input;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
@@ -24,6 +29,13 @@ namespace Enigma.GitClient.Desktop.Controls.Diff;
 /// <para>
 /// The document is rebuilt once when <see cref="Rows"/> or <see cref="Pane"/> changes, never edited:
 /// there is nothing to type into and no undo to keep.
+/// </para>
+/// <para>
+/// Two things it does differently from a plain editor. A press on a hunk band widens the context, as
+/// the band button of the list did. And the copy gesture runs <see cref="CopyCommand"/> rather than
+/// the editor's own copy, which would put a blank line in for every band and filler: the selection is
+/// mirrored into a <see cref="DiffTextSelection"/> (<see cref="TextSelection"/>), and the ViewModel
+/// copies the code from it the way it always has.
 /// </para>
 /// <para>
 /// Styled as a <see cref="TextEditor"/>, so it wears AvaloniaEdit's own template. The <c>diff</c>
@@ -117,10 +129,29 @@ public sealed class DiffTextEditor : TextEditor
     public static readonly StyledProperty<double> MarkerWidthProperty =
         AvaloniaProperty.Register<DiffTextEditor, double>(nameof(MarkerWidth), 16);
 
+    /// <summary>Defines the <see cref="TextSelection"/> property.</summary>
+    public static readonly StyledProperty<DiffTextSelection?> TextSelectionProperty =
+        AvaloniaProperty.Register<DiffTextEditor, DiffTextSelection?>(nameof(TextSelection));
+
+    /// <summary>Defines the <see cref="CopyCommand"/> property.</summary>
+    public static readonly StyledProperty<ICommand?> CopyCommandProperty =
+        AvaloniaProperty.Register<DiffTextEditor, ICommand?>(nameof(CopyCommand));
+
     /// <summary>
     /// The class the application's styles select the editor by.
     /// </summary>
     public const string StyleClass = "diff";
+
+    /// <summary>
+    /// What hovering a band says it does — the band button's own words.
+    /// </summary>
+    public const string BandTip = "Show more of the file around this change";
+
+    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+
+    private Cursor? _textCursor;
+    private bool _overBand;
+    private bool _mirroring;
 
     private static readonly AvaloniaProperty[] Repaints =
     [
@@ -175,6 +206,14 @@ public sealed class DiffTextEditor : TextEditor
         TextArea.LeftMargins.Insert(0, Gutter);
         TextArea.TextView.BackgroundRenderers.Add(BackgroundRenderer);
 
+        TextArea.SelectionChanged += (_, _) => MirrorSelection();
+
+        // Tunnelling, so the band and the copy gesture are claimed before the text area's own
+        // handlers start a selection or copy the document's text.
+        TextArea.AddHandler(PointerPressedEvent, OnPointerPressedOverText, RoutingStrategies.Tunnel);
+        TextArea.AddHandler(PointerMovedEvent, OnPointerMovedOverText, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, OnKeyDownBeforeText, RoutingStrategies.Tunnel);
+
         Rebuild();
     }
 
@@ -183,6 +222,30 @@ public sealed class DiffTextEditor : TextEditor
     {
         get => GetValue(RowsProperty);
         set => SetValue(RowsProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the viewer's text selection, which this editor's selection is mirrored into;
+    /// <see langword="null"/> to mirror nothing.
+    /// </summary>
+    /// <remarks>
+    /// Shared by every pane of the viewer, and one selection at a time: once another pane holds it,
+    /// or it is cleared — a new patch, a new rendering — this editor lets its own selection go.
+    /// </remarks>
+    public DiffTextSelection? TextSelection
+    {
+        get => GetValue(TextSelectionProperty);
+        set => SetValue(TextSelectionProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the command the copy gesture runs, in place of the editor's own copy;
+    /// <see langword="null"/> to leave the gesture to the editor.
+    /// </summary>
+    public ICommand? CopyCommand
+    {
+        get => GetValue(CopyCommandProperty);
+        set => SetValue(CopyCommandProperty, value);
     }
 
     /// <summary>Gets or sets which pane of the rendering this editor shows.</summary>
@@ -328,6 +391,17 @@ public sealed class DiffTextEditor : TextEditor
     /// <summary>Gets what each line of the document stands for.</summary>
     public DiffDocument Diff { get; private set; } = DiffDocument.Empty;
 
+    /// <summary>
+    /// Gets the scroll viewer the editor's template wraps the text in, once the template is applied.
+    /// </summary>
+    /// <remarks>
+    /// The text area is a logical scrollable counted in pixels, so this viewer's offset, extent and
+    /// viewport are the editor's own. It is what scrolling goes through here: the editor's own
+    /// <c>ScrollToVerticalOffset</c> and <c>ScrollToHorizontalOffset</c> leave the view where it is
+    /// in AvaloniaEdit 12, while the viewer's offset moves it.
+    /// </remarks>
+    public ScrollViewer? ScrollHost { get; private set; }
+
     /// <summary>Gets the gutter that carries the line numbers and the marker.</summary>
     public DiffGutterMargin Gutter { get; }
 
@@ -337,6 +411,75 @@ public sealed class DiffTextEditor : TextEditor
     /// <inheritdoc />
     protected override Type StyleKeyOverride => typeof(TextEditor);
 
+    /// <summary>
+    /// Finds the row a point is on.
+    /// </summary>
+    /// <param name="point">The point, in the text view's coordinates.</param>
+    /// <returns>The row's index, or <see langword="null"/> when the point is below the last line.</returns>
+    public int? RowAt(Point point)
+    {
+        TextView view = TextArea.TextView;
+
+        if (Rows is not { Count: > 0 } rows || !view.VisualLinesValid)
+        {
+            return null;
+        }
+
+        VisualLine? line = view.GetVisualLineFromVisualTop(point.Y + view.VerticalOffset);
+        int row = (line?.FirstDocumentLine.LineNumber ?? 0) - 1;
+
+        return row >= 0 && row < rows.Count ? row : null;
+    }
+
+    /// <summary>
+    /// Scrolls so that a row is the first line on screen, as far as the document lets it.
+    /// </summary>
+    /// <param name="row">The row.</param>
+    public void ScrollToRow(int row)
+    {
+        ApplyTemplate();
+
+        if (ScrollHost is not { } scroll)
+        {
+            return;
+        }
+
+        int line = Math.Clamp(row + 1, 1, Math.Max(1, Document.LineCount));
+
+        scroll.Offset = new Vector(scroll.Offset.X, TextArea.TextView.GetVisualTopByDocumentLine(line));
+    }
+
+    /// <inheritdoc />
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+
+        ScrollHost = e.NameScope.Find<ScrollViewer>("PART_ScrollViewer");
+    }
+
+    /// <inheritdoc />
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        // Only while it is on screen: the selection belongs to the viewer and outlives the editor.
+        if (TextSelection is { } selection)
+        {
+            selection.Changed += OnTextSelectionChanged;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (TextSelection is { } selection)
+        {
+            selection.Changed -= OnTextSelectionChanged;
+        }
+
+        base.OnDetachedFromVisualTree(e);
+    }
+
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -345,6 +488,18 @@ public sealed class DiffTextEditor : TextEditor
         if (change.Property == RowsProperty || change.Property == PaneProperty)
         {
             Rebuild();
+        }
+        else if (change.Property == TextSelectionProperty)
+        {
+            if (change.OldValue is DiffTextSelection old)
+            {
+                old.Changed -= OnTextSelectionChanged;
+            }
+
+            if (change.NewValue is DiffTextSelection now && VisualRoot is not null)
+            {
+                now.Changed += OnTextSelectionChanged;
+            }
         }
         else if (change.Property == ShowWhitespaceProperty)
         {
@@ -374,6 +529,157 @@ public sealed class DiffTextEditor : TextEditor
         {
             Repaint();
         }
+    }
+
+    /// <summary>
+    /// Tells the viewer what is selected here, in rows and raw-text columns.
+    /// </summary>
+    /// <remarks>
+    /// A line of the document is a row and a character of it a character of the row's text — the
+    /// document holds the text one for one — so the editor's location is the selection's position less
+    /// one on each axis. An empty selection clears the shared one only when it is this pane's: a click
+    /// in one pane says nothing about what the other one holds.
+    /// </remarks>
+    private void MirrorSelection()
+    {
+        if (_mirroring || TextSelection is not { } target)
+        {
+            return;
+        }
+
+        _mirroring = true;
+
+        try
+        {
+            AvaloniaEdit.Editing.Selection selection = TextArea.Selection;
+
+            if (selection.IsEmpty)
+            {
+                if (target.IsActive && target.Pane == Pane)
+                {
+                    target.Clear();
+                }
+
+                return;
+            }
+
+            ISegment range = selection.SurroundingSegment;
+            TextLocation start = Document.GetLocation(range.Offset);
+            TextLocation end = Document.GetLocation(range.EndOffset);
+
+            target.Begin(Pane, new DiffTextPosition(start.Line - 1, start.Column - 1));
+            target.ExtendTo(new DiffTextPosition(end.Line - 1, end.Column - 1));
+        }
+        finally
+        {
+            _mirroring = false;
+        }
+    }
+
+    private void OnTextSelectionChanged(object? sender, EventArgs e)
+    {
+        if (_mirroring || sender is not DiffTextSelection selection || TextArea.Selection.IsEmpty)
+        {
+            return;
+        }
+
+        if (!selection.IsActive || selection.Pane != Pane)
+        {
+            _mirroring = true;
+
+            try
+            {
+                TextArea.ClearSelection();
+            }
+            finally
+            {
+                _mirroring = false;
+            }
+        }
+    }
+
+    private void OnPointerPressedOverText(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.ClickCount != 1
+            || !e.GetCurrentPoint(TextArea).Properties.IsLeftButtonPressed
+            || BandCommandAt(e.GetPosition(TextArea.TextView)) is not { } command)
+        {
+            return;
+        }
+
+        command.Execute(null);
+        e.Handled = true;
+    }
+
+    private void OnPointerMovedOverText(object? sender, PointerEventArgs e)
+    {
+        bool overBand = BandCommandAt(e.GetPosition(TextArea.TextView)) is not null;
+
+        if (overBand == _overBand)
+        {
+            return;
+        }
+
+        _overBand = overBand;
+
+        TextView view = TextArea.TextView;
+
+        if (overBand)
+        {
+            _textCursor = view.Cursor;
+            view.Cursor = HandCursor;
+            ToolTip.SetTip(TextArea, BandTip);
+        }
+        else
+        {
+            view.Cursor = _textCursor;
+            ToolTip.SetTip(TextArea, null);
+        }
+    }
+
+    /// <summary>
+    /// The command a press at a point would run: the band's, when the point is on a band whose context
+    /// can still be widened.
+    /// </summary>
+    private ICommand? BandCommandAt(Point point)
+        => RowAt(point) is { } row
+            && Rows![row] is { IsHunkHeader: true, ExpandContextCommand: { } command }
+            && command.CanExecute(null)
+                ? command
+                : null;
+
+    private void OnKeyDownBeforeText(object? sender, KeyEventArgs e)
+    {
+        if (CopyCommand is not { } copy || !IsCopyGesture(e))
+        {
+            return;
+        }
+
+        if (copy.CanExecute(null))
+        {
+            copy.Execute(null);
+        }
+
+        // Claimed either way: with nothing to copy, the editor's own copy would copy nothing too.
+        e.Handled = true;
+    }
+
+    private bool IsCopyGesture(KeyEventArgs e)
+    {
+        if (Application.Current?.PlatformSettings?.HotkeyConfiguration.Copy is { } gestures)
+        {
+            foreach (KeyGesture gesture in gestures)
+            {
+                if (gesture.Matches(e))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return e.Key == Key.C && e.KeyModifiers == KeyModifiers.Control;
     }
 
     private void Rebuild()

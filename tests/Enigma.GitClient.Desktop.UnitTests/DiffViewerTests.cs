@@ -943,7 +943,6 @@ public sealed class DiffViewerTests
             // side holds only "short" and the context line, but the two panes share one extent, so
             // either can be scrolled to the end of the longest line on either of them.
             Assert.Equal(401, harness.Viewer.Render.SideBySideScroll.Columns);
-            Assert.Equal(401, harness.Viewer.Render.UnifiedScroll.Columns);
         });
     }
 
@@ -987,9 +986,6 @@ public sealed class DiffViewerTests
                     Assert.Same(harness.Viewer.Render.SideBySideScroll, row.Options.SideBySideScroll);
                     Assert.Equal(120, row.Options.SideBySideScroll.Offset);
                 });
-
-            // And the unified rendering keeps its own, which the two share nothing with.
-            Assert.Equal(0, harness.Viewer.Render.UnifiedScroll.Offset);
         });
     }
 
@@ -1021,7 +1017,6 @@ public sealed class DiffViewerTests
         {
             Harness harness = await ShownAsync(Parse(LongLinePatch));
 
-            harness.Viewer.Render.UnifiedScroll.Viewport = 40;
             harness.Viewer.Render.SideBySideScroll.Viewport = 40;
             harness.Viewer.Render.SideBySideScroll.Offset = 120;
 
@@ -1171,16 +1166,15 @@ public sealed class DiffViewerTests
 
                 Assert.Contains("src/app.txt", unified);
                 Assert.Contains("+3 −2", unified);
-                Assert.Contains("@@ -1,4 +1,5 @@", unified);
-                Assert.Contains("+", unified);
-                Assert.Contains("−", unified);
 
-                // A selected line keeps its own colour: the selection is the bar in the gutter.
-                harness.Viewer.Selection.Add(harness.Viewer.UnifiedRows.First(row => row.Single?.IsRemoved == true));
+                // The unified rendering is an editor: its lines are a document, and the band, the
+                // numbers and the markers are drawn around them rather than being text blocks.
+                DiffTextEditor editor = view.FindControl<DiffTextEditor>("UnifiedEditor")!;
 
-                IReadOnlyList<string> selected = RenderAndReadText(view, "diff-unified-selected.png");
-
-                Assert.Contains("@@ -1,4 +1,5 @@", selected);
+                Assert.Contains("two changed", editor.Document.Text, StringComparison.Ordinal);
+                Assert.Equal("@@ -1,4 +1,5 @@", editor.Diff.Lines[0].HeaderText);
+                Assert.Contains(editor.Diff.Lines, line => line.Marker == "+");
+                Assert.Contains(editor.Diff.Lines, line => line.Marker == "−");
 
                 harness.Viewer.ShowSideBySideCommand.Execute(null);
 
@@ -1244,6 +1238,28 @@ public sealed class DiffViewerTests
                     Dispatcher.UIThread.RunJobs();
                     AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
                     Dispatcher.UIThread.RunJobs();
+                }
+
+                if (!sideBySide)
+                {
+                    // The editor paints the word tint behind the changed stretch of an added line,
+                    // and none at all behind context.
+                    DiffTextEditor editor = view.FindControl<DiffTextEditor>("UnifiedEditor")!;
+                    string[] lines = editor.Document.Text.Split('\n');
+
+                    DiffDocumentLine added = editor.Diff.Lines[Array.IndexOf(lines, "two changed")];
+                    DiffDocumentLine context = editor.Diff.Lines[Array.IndexOf(lines, "one")];
+
+                    Assert.Equal(
+                        Colour("DiffAddedWordColor", ThemeVariant.Dark),
+                        Assert.IsType<SolidColorBrush>(editor.AddedWordBrush).Color);
+                    Assert.Equal(DiffDocumentLineKind.Added, added.Kind);
+                    Assert.Contains(added.Segments, segment => segment.IsChanged);
+                    Assert.Equal(DiffDocumentLineKind.Context, context.Kind);
+
+                    window.Content = null;
+                    window.Close();
+                    return;
                 }
 
                 List<DiffLineText> texts = [.. view.GetVisualDescendants().OfType<DiffLineText>()];
@@ -1642,10 +1658,11 @@ public sealed class DiffViewerTests
 
         DiffMinimap map = view.FindControl<DiffMinimap>(sideBySide ? "SideBySideMinimap" : "UnifiedMinimap")
             ?? throw new InvalidOperationException("The diff viewer has no minimap.");
-        ListBox list = view.FindControl<ListBox>(sideBySide ? "SideBySideList" : "UnifiedList")
-            ?? throw new InvalidOperationException("The diff viewer has no diff list.");
+        Control patch = sideBySide
+            ? view.FindControl<ListBox>("SideBySideList") ?? throw new InvalidOperationException("The diff viewer has no diff list.")
+            : view.FindControl<DiffTextEditor>("UnifiedEditor") ?? throw new InvalidOperationException("The diff viewer has no unified editor.");
 
-        ScrollViewer scroll = list.GetVisualDescendants().OfType<ScrollViewer>().First();
+        ScrollViewer scroll = patch.GetVisualDescendants().OfType<ScrollViewer>().First();
 
         return (window, view, map, scroll);
     }
