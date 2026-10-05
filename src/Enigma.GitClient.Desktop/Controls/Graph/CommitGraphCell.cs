@@ -293,7 +293,11 @@ public sealed class CommitGraphCell : Control
 
         foreach (GraphEdge edge in row.Edges)
         {
-            IPen pen = new Pen(_palette.Get(this, edge.Colour), StrokeThickness, lineCap: PenLineCap.Round);
+            // The line from the uncommitted work to HEAD's commit is dashed like the work's own circle:
+            // neither is history.
+            IPen pen = edge.IsDashed
+                ? new Pen(_palette.Get(this, edge.Colour), StrokeThickness, DashStyle.Dash)
+                : new Pen(_palette.Get(this, edge.Colour), StrokeThickness, lineCap: PenLineCap.Round);
 
             switch (edge.Kind)
             {

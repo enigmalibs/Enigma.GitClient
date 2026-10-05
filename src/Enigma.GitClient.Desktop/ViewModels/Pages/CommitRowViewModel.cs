@@ -543,24 +543,21 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// <summary>
     /// Creates the pseudo-row shown above the history when the working directory is dirty.
     /// </summary>
-    /// <param name="lane">The lane it is drawn in, normally the one HEAD occupies.</param>
-    /// <param name="colour">The palette index it is drawn in.</param>
+    /// <param name="row">
+    /// Where it is drawn: the layout's row for <see cref="GraphCommitInput.WorkingTree"/>, in the lane
+    /// its dashed line to HEAD's commit runs down.
+    /// </param>
     /// <param name="commands">
     /// The commands the row's own menu runs. The pseudo-row has no commit, so most of them refuse —
     /// but activating it is what takes the reader to the page that can act on the work.
     /// </param>
     /// <returns>The row.</returns>
-    public static CommitRowViewModel Uncommitted(int lane, int colour, HistoryRowCommands? commands = null)
-        => new(
-            new GraphRow(
-                string.Empty,
-                lane,
-                colour,
-                isMerge: false,
-                isRoot: false,
-                [new GraphEdge(lane, lane, GraphEdgeKind.BranchOut, colour)],
-                lane),
-            commands);
+    public static CommitRowViewModel Uncommitted(GraphRow row, HistoryRowCommands? commands = null)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return new(row, commands);
+    }
 
     private static (IReadOnlyList<HistoryBranchViewModel> Branches, IReadOnlyList<object> Badges) BuildBranches(
         IReadOnlyList<RefBadgeItem> refs,

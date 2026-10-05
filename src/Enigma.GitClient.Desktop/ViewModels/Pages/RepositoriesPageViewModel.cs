@@ -30,6 +30,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IRepositoryService _repositories;
     private readonly IRepositoryListStore _lists;
     private readonly IProfileSelection _selection;
+    private readonly IGitIdentityService _identity;
     private readonly ISettingsService _settings;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IContentDialogService _dialogs;
@@ -46,6 +47,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private CancellationTokenSource? _cloneCancellation;
     private bool _showingProfiles;
 
+    // The identity writes the picker starts, one after the other: two git config writes at once
+    // fight over the configuration file's lock, and an older pick must never finish last.
+    private Task _identityWrites = Task.CompletedTask;
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
@@ -53,6 +58,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="repositories">Opens, creates and clones repositories.</param>
     /// <param name="lists">Keeps each profile's list of repositories.</param>
     /// <param name="selection">Says whose list is shown.</param>
+    /// <param name="identity">
+    /// Sets git's global identity to the profile picked, and offers it to a new clone as its own.
+    /// </param>
     /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
@@ -70,6 +78,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IRepositoryService repositories,
         IRepositoryListStore lists,
         IProfileSelection selection,
+        IGitIdentityService identity,
         ISettingsService settings,
         IFolderDialogService folderDialogs,
         IContentDialogService dialogs,
@@ -87,6 +96,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(lists);
         ArgumentNullException.ThrowIfNull(selection);
+        ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(dialogs);
@@ -103,6 +113,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _repositories = repositories;
         _lists = lists;
         _selection = selection;
+        _identity = identity;
         _settings = settings;
         _folderDialogs = folderDialogs;
         _dialogs = dialogs;
@@ -136,8 +147,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// Gets or sets the profile whose repositories are listed.
     /// </summary>
     /// <remarks>
-    /// Choosing one is remembered and shows its list. It never changes the identity git commits with:
-    /// that is the Profiles page's Use.
+    /// Choosing one is remembered, shows its list and — as the Profiles page's Use does — makes its
+    /// name and email git's global identity. A profile without a name and email only switches the
+    /// list: writing its empty identity would unset git's own.
     /// </remarks>
     public IdentityProfile? SelectedProfile
     {
@@ -150,9 +162,16 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             {
                 _selection.Select(value.Id);
                 _ = ShowListOfAsync(value.Id);
+                _identityWrites = UseIdentityAfterAsync(_identityWrites, value);
             }
         }
     }
+
+    /// <summary>
+    /// Gets the identity write the last pick started, which completes once git has the identity — or
+    /// once the pick turned out to have nothing to write.
+    /// </summary>
+    internal Task PendingIdentityWrite => _identityWrites;
 
     /// <summary>
     /// Gets the selected profile's repositories, in the user's order.
@@ -497,6 +516,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         Progress<CloneProgress> progress = new(card.Apply);
 
         await _overlay.ShowAsync(card).ConfigureAwait(true);
+        bool overlayShown = true;
         IsBusy = true;
 
         try
@@ -510,6 +530,13 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             {
                 CloneParentDirectory = System.IO.Path.GetFullPath(request.ParentDirectory),
             });
+
+            // The progress is over, and the overlay is drawn above the dialogs: it goes before the
+            // question is asked.
+            await _overlay.HideAsync().ConfigureAwait(true);
+            overlayShown = false;
+
+            await OfferGlobalIdentityAsync(repository).ConfigureAwait(true);
 
             await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
             await AddToListAsync(repository).ConfigureAwait(true);
@@ -536,7 +563,72 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             _cloneCancellation = null;
 
             // Always: an overlay left open makes the whole window unusable.
-            await _overlay.HideAsync().ConfigureAwait(true);
+            if (overlayShown)
+            {
+                await _overlay.HideAsync().ConfigureAwait(true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asks whether a new clone should commit as the global identity whatever it later becomes, and
+    /// writes it into the clone's own configuration when told to.
+    /// </summary>
+    /// <param name="repository">The clone.</param>
+    /// <returns>A task that completes once the question is answered and the answer applied.</returns>
+    /// <remarks>
+    /// Nothing is asked without a complete global identity — there is nothing to copy — and nothing is
+    /// written unless the reader says so. A write that fails leaves the clone as git made it, and says
+    /// so. Names and emails are never logged.
+    /// </remarks>
+    private async Task OfferGlobalIdentityAsync(RepositoryHandle repository)
+    {
+        GitIdentity global;
+
+        try
+        {
+            global = (await _identity.GetGlobalAsync().ConfigureAwait(true)).Normalised();
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException)
+        {
+            _logger.LogWarning("Reading the global git identity after a clone failed ({Kind})", exception.GetType().Name);
+            return;
+        }
+
+        if (!global.IsComplete)
+        {
+            return;
+        }
+
+        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = "Use your identity in this repository";
+            dialog.Content =
+                $"Make {global} the name and email of {repository.Name}?\n\n"
+                + "They are written to the repository's own configuration, so its commits are made as "
+                + "them whatever the global identity becomes later.";
+            dialog.PrimaryButtonText = "Use it";
+            dialog.CloseButtonText = "Not now";
+            dialog.DefaultButton = DefaultButton.Close;
+        }).ConfigureAwait(true);
+
+        if (answer != DialogResult.Primary)
+        {
+            return;
+        }
+
+        try
+        {
+            await _identity.SetLocalAsync(repository, global).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException or ArgumentException)
+        {
+            _logger.LogWarning("Writing the global git identity into a clone failed ({Kind})", exception.GetType().Name);
+
+            Report(
+                "The clone has no identity of its own",
+                $"{repository.Name} commits with the global identity. {ProfilesPageViewModel.Describe(exception)}",
+                InfoBarSeverity.Warning);
         }
     }
 
@@ -663,6 +755,47 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         if (string.Equals(SelectedProfile?.Id, profileId, StringComparison.Ordinal))
         {
             Replace(entries);
+        }
+    }
+
+    /// <summary>
+    /// Makes a picked profile's identity git's global one, once the writes started before it are done.
+    /// </summary>
+    /// <param name="previous">The writes already started, which never fault.</param>
+    /// <param name="profile">The profile picked.</param>
+    private async Task UseIdentityAfterAsync(Task previous, IdentityProfile profile)
+    {
+        await previous.ConfigureAwait(true);
+
+        // Nothing to write for a profile without a name and email; and a quicker second pick has
+        // superseded this one when it is no longer the selection — that pick writes, this one does not.
+        if (!profile.HasIdentity || !string.Equals(SelectedProfile?.Id, profile.Id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            GitIdentity global = await _identity.GetGlobalAsync().ConfigureAwait(true);
+
+            if (profile.Matches(global))
+            {
+                return;
+            }
+
+            await _identity.SetGlobalAsync(profile.Identity).ConfigureAwait(true);
+
+            Report(
+                $"Using {profile.Label}",
+                $"New commits are made as {profile.Identity.Normalised()}.",
+                InfoBarSeverity.Success);
+        }
+        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException or ArgumentException)
+        {
+            // By kind only: a name and an email identify a person.
+            _logger.LogWarning("Switching the global git identity from the picker failed ({Kind})", exception.GetType().Name);
+
+            Report("Could not switch the git identity", ProfilesPageViewModel.Describe(exception), InfoBarSeverity.Error);
         }
     }
 

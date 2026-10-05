@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -10,8 +11,23 @@ using Avalonia.Input.Platform;
 namespace Enigma.GitClient.Desktop.Services;
 
 /// <summary>
-/// The few things the client asks of the desktop around it: the clipboard, and handing a path to
-/// whatever the user has set up to open it.
+/// The desktops a terminal is looked for on, each in its own way.
+/// </summary>
+internal enum DesktopPlatform
+{
+    /// <summary>Windows: Windows Terminal, else the command prompt.</summary>
+    Windows,
+
+    /// <summary>macOS: Terminal.</summary>
+    MacOS,
+
+    /// <summary>Linux and the other Unix desktops: whichever emulator is there.</summary>
+    Linux,
+}
+
+/// <summary>
+/// The few things the client asks of the desktop around it: the clipboard, handing a path to
+/// whatever the user has set up to open it, and a terminal.
 /// </summary>
 /// <remarks>
 /// It exists as a service rather than as calls scattered through the ViewModels because both of
@@ -52,6 +68,15 @@ public interface ISystemInterop
     /// http and https is refused rather than launched.
     /// </remarks>
     Task<bool> OpenUrlAsync(string url);
+
+    /// <summary>
+    /// Opens a terminal in a directory: Windows Terminal, or the command prompt where it is not
+    /// installed, on Windows; Terminal on macOS; on Linux the emulator <c>$TERMINAL</c> names, else the
+    /// first of the usual ones that is there.
+    /// </summary>
+    /// <param name="directory">The absolute path of the directory the terminal starts in.</param>
+    /// <returns><see langword="true"/> when a terminal was launched.</returns>
+    Task<bool> OpenTerminalAsync(string directory);
 }
 
 /// <summary>
@@ -135,6 +160,90 @@ public sealed class SystemInterop : ISystemInterop
         }
 
         return Task.FromResult(Launch(new ProcessStartInfo(address.AbsoluteUri) { UseShellExecute = true }));
+    }
+
+    /// <inheritdoc />
+    public Task<bool> OpenTerminalAsync(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+
+        if (!Directory.Exists(directory))
+        {
+            return Task.FromResult(false);
+        }
+
+        DesktopPlatform platform = OperatingSystem.IsWindows()
+            ? DesktopPlatform.Windows
+            : OperatingSystem.IsMacOS() ? DesktopPlatform.MacOS : DesktopPlatform.Linux;
+
+        // The first that starts: one that is not installed fails to launch, and the next is tried.
+        foreach (ProcessStartInfo candidate in TerminalCandidates(platform, directory, Environment.GetEnvironmentVariable("TERMINAL")))
+        {
+            if (Launch(candidate))
+            {
+                return Task.FromResult(true);
+            }
+        }
+
+        return Task.FromResult(false);
+    }
+
+    /// <summary>
+    /// The terminals tried, in order, to open one in a directory.
+    /// </summary>
+    /// <param name="platform">The desktop the client runs on.</param>
+    /// <param name="directory">The directory the terminal starts in.</param>
+    /// <param name="terminal">What <c>$TERMINAL</c> says, which Linux tries first.</param>
+    /// <returns>How to start each one; the directory goes in an argument of its own, never a command line.</returns>
+    internal static IReadOnlyList<ProcessStartInfo> TerminalCandidates(DesktopPlatform platform, string directory, string? terminal)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+
+        List<ProcessStartInfo> candidates = [];
+
+        switch (platform)
+        {
+            case DesktopPlatform.Windows:
+                candidates.Add(Started("wt.exe", directory, "-d", directory));
+
+                // Through the shell, so the command prompt gets a console window of its own.
+                candidates.Add(new ProcessStartInfo("cmd.exe") { UseShellExecute = true, WorkingDirectory = directory });
+                break;
+
+            case DesktopPlatform.MacOS:
+                candidates.Add(Started("open", directory, "-a", "Terminal", directory));
+                break;
+
+            default:
+                if (!string.IsNullOrWhiteSpace(terminal))
+                {
+                    candidates.Add(Started(terminal.Trim(), directory));
+                }
+
+                candidates.Add(Started("x-terminal-emulator", directory));
+                candidates.Add(Started("gnome-terminal", directory, $"--working-directory={directory}"));
+                candidates.Add(Started("konsole", directory, "--workdir", directory));
+                candidates.Add(Started("xfce4-terminal", directory, $"--working-directory={directory}"));
+                candidates.Add(Started("xterm", directory));
+                break;
+        }
+
+        return candidates;
+    }
+
+    /// <summary>
+    /// A program started directly — no shell between it and its arguments — in a directory.
+    /// </summary>
+    private static ProcessStartInfo Started(string program, string directory, params string[] arguments)
+    {
+        ProcessStartInfo startInfo = new(program) { UseShellExecute = false, WorkingDirectory = directory };
+
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        return startInfo;
     }
 
     private static IClipboard? Clipboard

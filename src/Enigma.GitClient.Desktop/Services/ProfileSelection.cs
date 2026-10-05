@@ -20,8 +20,8 @@ public sealed record ProfileChoice(IReadOnlyList<IdentityProfile> Profiles, Iden
 /// Says which profile's list of repositories is the one in use, and remembers the user's choice.
 /// </summary>
 /// <remarks>
-/// It only chooses a list. The identity git commits with is the Profiles page's to switch: picking a
-/// list never writes git's configuration.
+/// It only remembers the choice and never writes git's configuration itself: the start window's picker
+/// and the Profiles page's Use, which choose a profile, also switch git's identity to it.
 /// </remarks>
 public interface IProfileSelection
 {

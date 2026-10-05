@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,13 +15,17 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.GitClient.Desktop.Views.Panels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
@@ -248,6 +253,101 @@ public sealed class WorkingTreePanelTests
             await WaitUntilAsync(() => panel.HasUnstaged);
 
             Assert.True(panel.HasUnstaged);
+        });
+    }
+
+    /// <summary>
+    /// A status read that answers whatever the test last scripted, so a refresh can find the same work
+    /// or more of it without a repository on disk.
+    /// </summary>
+    private sealed class ScriptedStatus : IStatusService
+    {
+        public WorkingTreeStatus Status { get; set; } = WorkingTreeStatus.Empty;
+
+        public Task<WorkingTreeStatus> GetStatusAsync(
+            RepositoryHandle repository,
+            bool includeIgnored = false,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Status);
+    }
+
+    private static WorkingTreeStatus StatusWith(params string[] paths)
+        => WorkingTreeStatus.Empty with
+        {
+            Unstaged = [.. paths.Select(path => new ChangedFile { Path = path, Staging = FileStagingState.Unstaged })],
+        };
+
+    private static RepositoryHandle FakeHandle(string name)
+        => OperatingSystem.IsWindows()
+            ? new RepositoryHandle($@"C:\src\{name}", $@"C:\src\{name}\.git")
+            : new RepositoryHandle($"/src/{name}", $"/src/{name}/.git");
+
+    [Fact]
+    public void Panel_KeepsACollapsedFolderCollapsedAcrossTheAutomaticRefresh()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            ScriptedStatus status = new() { Status = StatusWith("src/app/one.cs", "src/app/two.cs", "docs/readme.md") };
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IStatusService>();
+                collection.AddSingleton<IStatusService>(status);
+            });
+
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            await context.OpenAsync(FakeHandle("collapsed"));
+
+            WorkingTreePanelViewModel panel = services.Get<WorkingTreePanelViewModel>();
+            panel.Unstaged.ViewMode = ChangedFilesViewMode.Tree;
+            panel.IsActive = true;
+            await panel.RefreshAsync();
+
+            ChangedFileNodeViewModel folder = Row(panel.Unstaged, "src/app");
+            Assert.True(folder.IsExpanded);
+            folder.IsExpanded = false;
+
+            // The automatic refresh: once with nothing new, once with another file edited meanwhile.
+            await context.RefreshAsync();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(folder, Row(panel.Unstaged, "src/app"));
+            Assert.False(folder.IsExpanded);
+
+            status.Status = StatusWith("src/app/one.cs", "src/app/two.cs", "src/app/three.cs", "docs/readme.md");
+            await context.RefreshAsync();
+            await WaitUntilAsync(() => PathsOf(panel.Unstaged).Count == 4);
+
+            Assert.Equal(4, PathsOf(panel.Unstaged).Count);
+            Assert.False(Row(panel.Unstaged, "src/app").IsExpanded);
+            Assert.True(Row(panel.Unstaged, "docs").IsExpanded);
+        });
+    }
+
+    [Fact]
+    public void Panel_ForgetsTheClosedFoldersOfTheRepositoryItLeaves()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            ScriptedStatus status = new() { Status = StatusWith("src/one.cs", "src/two.cs") };
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IStatusService>();
+                collection.AddSingleton<IStatusService>(status);
+            });
+
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+            await context.OpenAsync(FakeHandle("first"));
+
+            WorkingTreePanelViewModel panel = services.Get<WorkingTreePanelViewModel>();
+            panel.Unstaged.ViewMode = ChangedFilesViewMode.Tree;
+            panel.IsActive = true;
+            await panel.RefreshAsync();
+            Row(panel.Unstaged, "src").IsExpanded = false;
+
+            // Another repository with a folder of the same name.
+            await context.OpenAsync(FakeHandle("second"));
+            await panel.RefreshAsync();
+
+            Assert.True(Row(panel.Unstaged, "src").IsExpanded);
         });
     }
 
