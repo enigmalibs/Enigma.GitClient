@@ -97,11 +97,11 @@ public sealed record AppSettings
     /// <summary>The schema version this build writes.</summary>
     /// <remarks>
     /// Version 2 raised the default row height from 26 to 36, version 3 moved the diff to the
-    /// side-by-side rendering, version 4 widened the graph lane from 16 to 20, and version 5 made the
-    /// changed files a flat list; see <c>SettingsService.Migrate</c> for what each does to a file
-    /// written by an earlier one.
+    /// side-by-side rendering, version 4 widened the graph lane from 16 to 20, version 5 made the
+    /// changed files a flat list, and version 6 made them a tree again; see
+    /// <c>SettingsService.Migrate</c> for what each does to a file written by an earlier one.
     /// </remarks>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     /// <summary>
     /// The row height version 1 shipped as its default, which the version 2 migration replaces
@@ -122,10 +122,11 @@ public sealed record AppSettings
     public const double LegacyGraphLaneWidth = 16;
 
     /// <summary>
-    /// The file-list shape versions 1 to 4 shipped as their default, which the version 5 migration
-    /// replaces wherever it was never changed.
+    /// The file-list shape version 5 shipped as its default, which the version 6 migration replaces
+    /// wherever it was never changed. Versions 1 to 4 shipped the tree, which is the default again, so
+    /// their files need nothing.
     /// </summary>
-    public const FilesView LegacyFilesView = FilesView.Tree;
+    public const FilesView LegacyFilesView = FilesView.List;
 
     /// <summary>The shortest interval the automatic refresh may run at, in seconds.</summary>
     public const int MinimumAutoRefreshSeconds = 5;
@@ -165,11 +166,10 @@ public sealed record AppSettings
 
     /// <summary>
     /// Gets how the changed files are arranged — in the history's details panel, for a commit and
-    /// for the working tree, and in a stash. A flat list by default: a commit touches a handful of
-    /// files far more often than a tree's worth, and a list shows every one of them without a click;
-    /// the tree is one setting, or one toggle on the panel, away.
+    /// for the working tree, and in a stash. A tree of folders by default, which says where in the
+    /// repository each change sits; the flat list is one setting, or one toggle on the panel, away.
     /// </summary>
-    public FilesView FilesView { get; init; } = FilesView.List;
+    public FilesView FilesView { get; init; } = FilesView.Tree;
 
     /// <summary>Gets how many files a tree will expand on its own.</summary>
     public int FilesAutoExpandLimit { get; init; } = 500;
@@ -313,7 +313,7 @@ public sealed record AppSettings
             SelectedProfileId = SelectedProfileId?.Trim() ?? string.Empty,
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,
-            FilesView = Enum.IsDefined(FilesView) ? FilesView : FilesView.List,
+            FilesView = Enum.IsDefined(FilesView) ? FilesView : Defaults.FilesView,
             DiffView = Enum.IsDefined(DiffView) ? DiffView : Defaults.DiffView,
             Pull = Enum.IsDefined(Pull) ? Pull : PullStrategy.Merge,
             BranchSortKey = Enum.IsDefined(BranchSortKey) ? BranchSortKey : RefSortKey.Date,

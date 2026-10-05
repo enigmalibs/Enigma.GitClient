@@ -1,6 +1,6 @@
 # FEATURE-1CCB — Changed files as a tree by default
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1CCB.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1ccb-tree-by-default`
 **Run:** feature/2026-10-05-revert-tree-basedir-release

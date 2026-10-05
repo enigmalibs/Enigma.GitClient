@@ -445,8 +445,8 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     public ObservableCollection<ChangedFileNodeViewModel> Nodes { get; } = [];
 
     /// <summary>
-    /// Gets or sets how the files are arranged. A flat list until the preference says otherwise,
-    /// which is also the preference's own default.
+    /// Gets or sets how the files are arranged. A tree until the preference says otherwise, which is
+    /// also the preference's own default.
     /// </summary>
     public ChangedFilesViewMode ViewMode
     {
@@ -460,7 +460,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
                 Rebuild();
             }
         }
-    } = ChangedFilesViewMode.List;
+    } = ChangedFilesViewMode.Tree;
 
     /// <summary>Gets a value indicating whether the flat list is shown.</summary>
     public bool IsListMode => ViewMode == ChangedFilesViewMode.List;
