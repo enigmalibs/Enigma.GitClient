@@ -1,5 +1,76 @@
 # Release notes
 
+## 5.5.0 — 2026-10-05
+
+A minor release. The diff is drawn by a real text editor, AvaloniaEdit, the editor Enigma's
+MarkdownEditor uses, instead of a list of rows:
+
+- its text selects as in any editor;
+- Ctrl+F searches it;
+- its code is syntax-highlighted by the file's language;
+- it scrolls as one document.
+
+What you read is unchanged: the line numbers, the `+` and `−` markers, the tints, the word-level
+highlight, the hunk bands and the minimap.
+
+### The diff
+
+- **Text selection, as in an editor.** Drag across the text, double-click a word, triple-click a
+  line, extend with Shift and the arrows, or select everything with Ctrl+A. Ctrl+C or the right-click
+  *Copy* copies the code alone: no line numbers, no markers, no hunk bands, no filler lines. Side by
+  side, each side selects on its own, and selecting in one clears the other.
+- **Ctrl+F searches the diff.** The editor's own search box opens over the text. Side by side, it
+  searches the side you are in.
+- **Syntax highlighting.** The code is coloured by the file's extension, in Visual Studio Code's
+  Dark+ or Light+ to match the theme, over the diff's own tints: a keyword on an added line is green
+  behind, the keyword's colour in front. A file whose language is not known stays plain. Each side of
+  the side-by-side view is one file's code and highlights cleanly. In the unified view, an added line
+  right after a removed one can lose its colours, because the two files' lines are read as one.
+- **One document, scrolled smoothly.** The diff is one text instead of a list of rows, built once per
+  file. The line numbers stay put while long lines scroll sideways. Side by side, the two sides
+  scroll together, down and sideways, and each stops at its own longest line.
+- **Unchanged:**
+  - a click on a hunk band still shows more lines around it;
+  - the minimap still shows where the changes are and takes you there;
+  - a file still opens at its first change;
+  - *Show spaces and tabs*, the tab width, the font and the theme apply as before.
+
+### Fixes
+
+- **A drag to the end of a diff no longer freezes the application.** Dragging a selection past the
+  last line, with the pointer at the bottom-right, used to hang the window. The I-beam cursor stayed,
+  the close button did nothing, and memory kept climbing. The selection now runs to the end of the
+  file, and the editor settles there.
+
+### Upgrading from 5.4
+
+- **Side by side no longer wraps long lines.** Its two sides are two editors, and two editors
+  wrapping on their own would put the rows out of line. The toolbar's wrap toggle is greyed out while
+  side by side is shown. *Settings → Diff → Wrap long lines in the unified view* is the same setting
+  as before, and the unified view still wraps when it is on. Long lines side by side scroll sideways.
+- **Rows can no longer be selected in the diff.** Select the text instead: *Copy* copies what is
+  selected, and *Copy the whole patch* on the toolbar is unchanged.
+- **Nothing you saved changes.** `settings.json` stays at version 6, and going back to 5.4 keeps
+  everything.
+
+### Dependencies
+
+- **New:** `Avalonia.AvaloniaEdit` **12.0.0** and `AvaloniaEdit.TextMate` **12.0.0** (MIT), the pair
+  Enigma.MarkdownEditor uses. They are built against Avalonia 12.0 and run on the 12.1 this app pins,
+  so they are versioned on their own, apart from the Avalonia set.
+  - They bring TextMateSharp **2.0.3** and its grammars (MIT).
+  - They also bring the native regular-expression library `onigwrap` **1.0.10** (MIT), built on
+    Oniguruma (BSD). A `linux-x64` or `win-x64` publish carries it, so the Linux installer needs
+    nothing new.
+- No other package had an update outside the Avalonia set. The set is still held back at **12.1.1**
+  with Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.5.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour:
+  selection, search and highlighting in the diff. What it takes away are ways of viewing, not data:
+  side-by-side wrapping and row selection. The stored settings do not change.
+
 ## 5.4.0 — 2026-10-05
 
 A minor release. A commit can be reverted from its line in the history, next to the reset. The
