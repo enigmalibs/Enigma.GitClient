@@ -12,87 +12,6 @@
     <KeyBinding Gesture="Ctrl+C" Command="{Binding CopyCommand}" />
   </UserControl.KeyBindings>
 
-  <UserControl.Resources>
-
-    <!-- The side-by-side rendering: the old file on the left, the new one on the right, kept in
-         step by the filler rows the projection inserted. -->
-    <DataTemplate x:Key="SideBySideRow" x:DataType="vm:DiffRowViewModel">
-      <Panel>
-
-        <Button Classes="band"
-                IsVisible="{Binding IsHunkHeader}"
-                Command="{Binding ExpandContextCommand}"
-                ToolTip.Tip="Show more of the file around this change"
-                AutomationProperties.Name="Show more of the file around this change">
-          <Border Classes="diffband">
-            <TextBlock Text="{Binding HeaderText}" TextTrimming="CharacterEllipsis" />
-          </Border>
-        </Button>
-
-        <Grid ColumnDefinitions="*,1,*" IsVisible="{Binding IsLine}">
-
-          <!-- ClipToBounds is the fix for the overlap this item is named after: a line wider than
-               its pane used to be drawn straight across the divider and over the other side. -->
-          <Border Grid.Column="0"
-                  Classes="diffrow"
-                  Classes.removed="{Binding Left.IsRemoved}"
-                  Classes.filler="{Binding Left.IsFiller}"
-                  ClipToBounds="True">
-            <Grid ColumnDefinitions="Auto,Auto,*">
-              <Border Grid.Column="0" Classes="diffgutter" />
-              <Border Grid.Column="0" Classes="diffselection" />
-              <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Left.OldNumber}" />
-              <TextBlock Grid.Column="1"
-                         Classes="diffmarker"
-                         Classes.removed="{Binding Left.IsRemoved}"
-                         Text="{Binding Left.Marker}" />
-              <diff:DiffLineText Grid.Column="2"
-                                 Classes.removed="{Binding Left.IsRemoved}"
-                                 Text="{Binding Left.Text}"
-                                 Segments="{Binding Left.Segments}"
-                                 ShowWhitespace="{Binding Options.ShowWhitespace}"
-                                 WrapLines="{Binding Options.WrapLines}"
-                                 TabWidth="{Binding Options.TabWidth}"
-                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}"
-                                 Selection="{Binding Options.Selection}"
-                                 Row="{Binding Index}"
-                                 Pane="Left" />
-            </Grid>
-          </Border>
-
-          <Border Grid.Column="1" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
-
-          <Border Grid.Column="2"
-                  Classes="diffrow"
-                  Classes.added="{Binding Right.IsAdded}"
-                  Classes.filler="{Binding Right.IsFiller}"
-                  ClipToBounds="True">
-            <Grid ColumnDefinitions="Auto,Auto,*">
-              <Border Grid.Column="0" Classes="diffgutter" />
-              <TextBlock Grid.Column="0" Classes="diffnumber" Text="{Binding Right.NewNumber}" />
-              <TextBlock Grid.Column="1"
-                         Classes="diffmarker"
-                         Classes.added="{Binding Right.IsAdded}"
-                         Text="{Binding Right.Marker}" />
-              <diff:DiffLineText Grid.Column="2"
-                                 Classes.added="{Binding Right.IsAdded}"
-                                 Text="{Binding Right.Text}"
-                                 Segments="{Binding Right.Segments}"
-                                 ShowWhitespace="{Binding Options.ShowWhitespace}"
-                                 WrapLines="{Binding Options.WrapLines}"
-                                 TabWidth="{Binding Options.TabWidth}"
-                                 HorizontalOffset="{Binding Options.SideBySideScroll.Offset}"
-                                 Selection="{Binding Options.Selection}"
-                                 Row="{Binding Index}"
-                                 Pane="Right" />
-            </Grid>
-          </Border>
-        </Grid>
-      </Panel>
-    </DataTemplate>
-
-  </UserControl.Resources>
-
   <DockPanel>
 
     <Border DockPanel.Dock="Top"
@@ -154,9 +73,13 @@
             <ei:Icon Kind="DotsSixVertical" Classes="toolbar" />
           </ToggleButton>
 
+          <!-- Unified only: the two sides of the side-by-side rendering are two editors, and two
+               editors wrapping independently would put the rows out of line. -->
           <ToggleButton Classes="segment"
                         IsChecked="{Binding Render.WrapLines, Mode=TwoWay}"
-                        ToolTip.Tip="Wrap long lines"
+                        IsEnabled="{Binding IsUnified}"
+                        ToolTip.Tip="Wrap long lines (unified view)"
+                        ToolTip.ShowOnDisabled="True"
                         AutomationProperties.Name="Wrap long lines">
             <ei:Icon Kind="TextAlignLeft" Classes="toolbar" />
           </ToggleButton>
@@ -253,87 +176,70 @@
       </Grid>
 
       <!--
-        The side-by-side rendering is three things in a two-by-two grid: the patch, the map of its
-        changes beside it, and the sideways bars under it. The grid rather than a dock, so the map is
-        exactly as tall as the list and the bars exactly as wide — a bar's width is what tells the view
-        how many characters of a line fit, so a bar running under the map would measure a pane that is
-        not there.
-
-        The vertical scrollbar is Hidden rather than Disabled: the map replaces the bar, not the
-        scrolling, so the wheel, the keyboard and the selection still move the list.
-
-        The horizontal bars are outside the list on purpose. A ListBox that scrolls horizontally takes
-        its line-number gutter with it, and would push the right-hand pane off screen — which is the
-        one thing this rendering exists to prevent. These bars move the text of the panes and leave
-        everything else where it is.
+        The side-by-side rendering is two read-only editors either side of the divider — the old file
+        and the new, kept level by the filler lines the projection inserted — and the map beside them.
+        A DiffScrollLink keeps the two scrolled together, down and sideways; the map follows the left
+        one and drives it, and the right one follows. Neither wraps: two editors wrap independently.
       -->
-      <Grid ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" IsVisible="{Binding IsSideBySide}">
+      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSideBySide}">
 
-        <ListBox Grid.Row="0"
-                 Grid.Column="0"
-                 Name="SideBySideList"
-                 Classes="diff"
-                 ItemsSource="{Binding SideBySideRows}"
-                 ItemTemplate="{StaticResource SideBySideRow}"
-                 SelectionMode="Multiple"
-                 SelectedItems="{Binding Selection}"
-                 Background="Transparent"
-                 BorderThickness="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
-                 AutomationProperties.Name="Side-by-side diff">
-          <ListBox.ContextMenu>
-            <ContextMenu>
-              <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGesture="Ctrl+C">
-                <MenuItem.Icon>
-                  <ei:Icon Kind="Copy" Classes="menu" />
-                </MenuItem.Icon>
-              </MenuItem>
-            </ContextMenu>
-          </ListBox.ContextMenu>
-        </ListBox>
+        <Grid Grid.Column="0" ColumnDefinitions="*,1,*">
 
-        <diff:DiffMinimap Grid.Row="0"
-                          Grid.Column="1"
+          <diff:DiffTextEditor Grid.Column="0"
+                               Name="LeftEditor"
+                               Rows="{Binding SideBySideRows}"
+                               Pane="Left"
+                               ShowWhitespace="{Binding Render.ShowWhitespace}"
+                               TabWidth="{Binding Render.TabWidth}"
+                               WordWrap="False"
+                               TextSelection="{Binding Render.Selection}"
+                               CopyCommand="{Binding CopyCommand}"
+                               HorizontalScrollBarVisibility="Auto"
+                               VerticalScrollBarVisibility="Hidden"
+                               AutomationProperties.Name="The file before the change">
+            <diff:DiffTextEditor.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGesture="Ctrl+C">
+                  <MenuItem.Icon>
+                    <ei:Icon Kind="Copy" Classes="menu" />
+                  </MenuItem.Icon>
+                </MenuItem>
+              </ContextMenu>
+            </diff:DiffTextEditor.ContextMenu>
+          </diff:DiffTextEditor>
+
+          <Border Grid.Column="1" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <diff:DiffTextEditor Grid.Column="2"
+                               Name="RightEditor"
+                               Rows="{Binding SideBySideRows}"
+                               Pane="Right"
+                               ShowWhitespace="{Binding Render.ShowWhitespace}"
+                               TabWidth="{Binding Render.TabWidth}"
+                               WordWrap="False"
+                               TextSelection="{Binding Render.Selection}"
+                               CopyCommand="{Binding CopyCommand}"
+                               HorizontalScrollBarVisibility="Auto"
+                               VerticalScrollBarVisibility="Hidden"
+                               AutomationProperties.Name="The file after the change">
+            <diff:DiffTextEditor.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGesture="Ctrl+C">
+                  <MenuItem.Icon>
+                    <ei:Icon Kind="Copy" Classes="menu" />
+                  </MenuItem.Icon>
+                </MenuItem>
+              </ContextMenu>
+            </diff:DiffTextEditor.ContextMenu>
+          </diff:DiffTextEditor>
+        </Grid>
+
+        <diff:DiffMinimap Grid.Column="1"
                           Name="SideBySideMinimap"
                           IsVisible="{Binding HasPatch}"
                           Marks="{Binding SideBySideMap}"
                           RowCount="{Binding SideBySideRows.Count}"
                           AutomationProperties.Name="Where the changes are in this file" />
-
-        <Grid Grid.Row="1"
-              Grid.Column="0"
-              ColumnDefinitions="*,1,*"
-              Background="{DynamicResource EnigmaSurfaceBrush}">
-
-          <!-- Two bars, one state. Each stays under the pane it belongs to, and because they bind
-               the same offset they cannot disagree — dragging either moves both sides. -->
-          <Panel Grid.Column="0" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
-            <ScrollBar x:Name="LeftBar"
-                       Orientation="Horizontal"
-                       Visibility="Visible"
-                       Minimum="0"
-                       Maximum="{Binding Render.SideBySideScroll.Maximum}"
-                       Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
-                       ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
-                       LargeChange="{Binding Render.SideBySideScroll.PageSize}"
-                       SmallChange="1"
-                       AutomationProperties.Name="Scroll both files sideways" />
-          </Panel>
-
-          <Panel Grid.Column="2" IsVisible="{Binding Render.SideBySideScroll.IsScrollable}">
-            <ScrollBar x:Name="RightBar"
-                       Orientation="Horizontal"
-                       Visibility="Visible"
-                       Minimum="0"
-                       Maximum="{Binding Render.SideBySideScroll.Maximum}"
-                       Value="{Binding Render.SideBySideScroll.Offset, Mode=TwoWay}"
-                       ViewportSize="{Binding Render.SideBySideScroll.Viewport}"
-                       LargeChange="{Binding Render.SideBySideScroll.PageSize}"
-                       SmallChange="1"
-                       AutomationProperties.Name="Scroll both files sideways" />
-          </Panel>
-        </Grid>
       </Grid>
     </Grid>
   </DockPanel>
