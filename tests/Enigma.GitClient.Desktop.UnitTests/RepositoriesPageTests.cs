@@ -153,6 +153,144 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    private static readonly GitIdentity WorkIdentity = new("Ada Lovelace", "ada@work.example");
+    private static readonly GitIdentity HomeIdentity = new("Ada", "ada@home.example");
+
+    [Fact]
+    public void PickingAProfile_MakesItsNameAndEmailGitsGlobalIdentity()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+
+            Assert.Equal(HomeIdentity, services.Identity.Global);
+            Assert.Equal(1, services.Identity.GlobalWrites);
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Using Home", note.Title);
+            Assert.Contains("Ada <ada@home.example>", note.Message, StringComparison.Ordinal);
+            Assert.Equal(InfoBarSeverity.Success, note.Severity);
+        });
+    }
+
+    [Fact]
+    public void PickingAProfileWithoutANameAndEmail_OnlySwitchesTheList()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile none = await profiles.SaveAsync(IdentityProfile.Create("Nobody", GitIdentity.Empty));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(none.Id, Path.Combine(services.ConfigurationRoot, "nobody-repo"), "nobody-repo");
+            services.Get<IProfileSelection>().Select(work.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == none.Id);
+            await page.PendingIdentityWrite;
+            await WaitUntilAsync(() => page.Repositories.Count == 1);
+
+            // Writing an empty identity would unset git's own.
+            Assert.Equal(WorkIdentity, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.Empty(services.InfoBar.Shown);
+            Assert.Equal("nobody-repo", page.Repositories[0].Name);
+        });
+    }
+
+    [Fact]
+    public void PickingTheProfileGitAlreadyCommitsAs_WritesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = HomeIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void AFailedSwitch_IsReportedAndTheListStaysSwitched()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+            await WaitUntilAsync(() => page.Repositories.Count == 1);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Could not switch the git identity", note.Title);
+            Assert.Equal(InfoBarSeverity.Error, note.Severity);
+            Assert.Equal("home-repo", page.Repositories[0].Name);
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+        });
+    }
+
+    [Fact]
+    public void ShowingThePage_NeverWritesTheIdentity()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            // Home was chosen in an earlier session; git was switched back to Work in a terminal since.
+            services.Get<IProfileSelection>().Select(home.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            await page.OnAppearingAsync();
+            await page.PendingIdentityWrite;
+
+            Assert.Equal(home.Id, page.SelectedProfile?.Id);
+            Assert.Equal(WorkIdentity, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+        });
+    }
+
     [Fact]
     public void ShowingThePageAgain_PicksUpProfilesChangedElsewhere()
     {
@@ -508,6 +646,110 @@ public sealed class RepositoriesPageTests
 
             Assert.NotNull(next);
             Assert.Equal(Path.GetFullPath(root), next.ParentDirectory);
+        });
+    }
+
+    // ---------------------------------------------------------------- the clone's own identity
+
+    private static async Task<(RepositoriesPageViewModel Page, CloneRequest Request)> ReadyToCloneAsync(TestServices services)
+    {
+        RepositoryHandle source = await SourceRepositoryAsync(services);
+
+        return (
+            services.Get<RepositoriesPageViewModel>(),
+            new CloneRequest
+            {
+                Url = source.WorkTreePath,
+                ParentDirectory = Path.Combine(services.ConfigurationRoot, "clones"),
+                DirectoryName = "cloned",
+            });
+    }
+
+    [Fact]
+    public void ACloneOffersTheGlobalIdentity_AndUseItWritesItIntoTheClone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+
+            // The question must be asked over the window, not under the clone's progress overlay.
+            bool overlayOpenWhenAsked = true;
+            services.Dialogs.OnShown = _ => overlayOpenWhenAsked = services.Overlay.IsOpen;
+            services.Dialogs.Script(DialogResult.Primary);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Use your identity in this repository", question.Title);
+            Assert.Contains("Ada Lovelace <ada@work.example>", question.Content as string, StringComparison.Ordinal);
+            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.False(overlayOpenWhenAsked);
+
+            RepositoryHandle clone = services.Get<IRepositoryContext>().Repository!;
+            Assert.Equal("cloned", clone.Name);
+            Assert.Equal(WorkIdentity, services.Identity.LocalOf(clone.WorkTreePath));
+
+            // The global identity itself is left as it was.
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.False(services.Overlay.IsOpen);
+        });
+    }
+
+    [Fact]
+    public void NotNow_LeavesTheCloneWithoutAnIdentityOfItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+            services.Dialogs.Script(DialogResult.None);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            Assert.Single(services.Dialogs.Shown);
+            Assert.Empty(services.Identity.LocalWrites);
+            Assert.Equal("cloned", services.Get<IRepositoryContext>().Repository?.Name);
+        });
+    }
+
+    [Fact]
+    public void WithoutAGlobalIdentity_ACloneAsksNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = new GitIdentity("Ada Lovelace", string.Empty);
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            Assert.Empty(services.Dialogs.Shown);
+            Assert.Empty(services.Identity.LocalWrites);
+        });
+    }
+
+    [Fact]
+    public void AFailedWrite_WarnsAndStillOpensTheClone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            (RepositoriesPageViewModel page, CloneRequest request) = await ReadyToCloneAsync(services);
+
+            // git's configuration is locked from the moment the question is on screen.
+            services.Dialogs.OnShown = _ => services.Identity.Failure = FakeGitIdentityService.LockFailure();
+            services.Dialogs.Script(DialogResult.Primary);
+
+            Assert.True(await page.RunCloneAsync(request));
+
+            RecordedNotification warning = services.InfoBar.Shown.Single(note => note.Severity == InfoBarSeverity.Warning);
+            Assert.Equal("The clone has no identity of its own", warning.Title);
+            Assert.Equal("cloned", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Clone finished");
         });
     }
 

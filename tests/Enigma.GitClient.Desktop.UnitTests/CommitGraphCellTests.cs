@@ -402,6 +402,48 @@ public sealed class CommitGraphCellTests
         => new("a", 0, 0, isMerge, isRoot: false, [new GraphEdge(0, 0, GraphEdgeKind.Straight, 0)], 0);
 
     [Fact]
+    public void Render_DrawsADashedEdgeWithGapsInIt()
+    {
+        _fixture.Run(() =>
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+            application.RequestedThemeVariant = ThemeVariant.Dark;
+
+            try
+            {
+                // The commit in lane 1 and, in lane 0, a line passing through: nothing at all, a solid
+                // one, the dashed one joining the uncommitted work to HEAD. Only the line differs.
+                static GraphRow Passing(bool? dashed)
+                    => new(
+                        "a",
+                        1,
+                        1,
+                        isMerge: false,
+                        isRoot: false,
+                        dashed is { } isDashed ? [new GraphEdge(0, 0, GraphEdgeKind.Straight, 0, isDashed)] : [],
+                        1);
+
+                (_, string nothingFrame) = RenderRows([Passing(null), Passing(null), Passing(null)], "graph-edge-none.png");
+                (_, string solidFrame) = RenderRows([Passing(false), Passing(false), Passing(false)], "graph-edge-solid.png");
+                (_, string dashedFrame) = RenderRows([Passing(true), Passing(true), Passing(true)], "graph-edge-dashed.png");
+
+                int nothing = CountPaintedPixels(nothingFrame);
+                int solid = CountPaintedPixels(solidFrame);
+                int dashed = CountPaintedPixels(dashedFrame);
+
+                Assert.True(
+                    nothing < dashed && dashed < solid,
+                    $"no line covered {nothing} pixels, the dashed one {dashed} and the solid one {solid}");
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+            }
+        });
+    }
+
+    [Fact]
     public void Render_DrawsABranchAndItsMergeInSeveralColours()
     {
         _fixture.Run(() =>

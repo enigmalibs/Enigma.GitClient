@@ -1,5 +1,72 @@
 # Release notes
 
+## 5.3.0 — 2026-10-05
+
+A minor release. Picking a profile in the start window now makes it the identity git commits with, and
+a new clone offers to keep that identity as its own. In the history, the uncommitted line is joined to
+the checked-out commit by a dashed line, as in GitKraken. The repository window opens maximised, on its
+history, fetches the repository as it opens, and has buttons for the repository's folder and a terminal
+in it. Three annoyances are fixed: the automatic refresh no longer reopens the folders you closed in the
+uncommitted files, the column titles no longer run over the details panel, and a repository no longer
+opens on the page the previous one was left on.
+
+### The profiles
+
+- **The start window's picker switches the identity.** Choosing a profile shows its repositories and,
+  as the Profiles page's *Use* does, makes its name and email git's global identity (*Using Work — New
+  commits are made as …*). A profile with no name and email, such as *Default*, only switches the list:
+  git's identity is left alone. Picking the profile git already commits as writes nothing.
+- **The Profiles page's *Use* selects that profile in the picker**, so the start window always shows the
+  profile git commits as.
+- **A clone offers the global identity.** Once a clone has finished, from the clone dialog or from a
+  host's repository list, and git has a name and an email, you are asked whether to write them into the
+  new repository's own configuration, so its commits keep that identity whatever the global one
+  becomes. *Not now* is the default and writes nothing.
+
+### The history
+
+- **The uncommitted line is joined to HEAD.** Its dashed circle now sits in the lane of the checked-out
+  commit, and a dashed line runs down that lane to it, past any branch with newer commits, which opens
+  beside it. Before, the circle was always in the first lane and joined, by a solid line, whatever was
+  drawn there.
+- **Collapsed folders stay collapsed.** In the uncommitted files shown as a tree, the automatic refresh
+  (every 15 seconds by default) rebuilt the tree and reopened every folder. It now leaves the list alone
+  when nothing changed, and keeps the folders you opened or closed when something did.
+- **The column titles stop at the details panel**, as the rows do, when the panel leaves the columns
+  less room than they need.
+
+### The repository window
+
+- **It opens maximised and centred**, every time a repository is opened.
+- **It opens on the history.** Opening a repository after closing another one on its Profiles or
+  Settings page, or cloning one from the Profiles page, now shows the new repository's history.
+- **It fetches the repository as it opens**: the same quiet fetch as the automatic refresh, in the
+  background, so the window does not wait for it — and also when the automatic refresh is off. The
+  automatic refresh and the refresh button already fetched from every remote; a fetch that fails there
+  is quiet, and the toolbar's *Fetch* button says why.
+- **Two buttons for the repository's folder**, after fetch, pull and push: one opens it in the file
+  manager (Explorer on Windows), the other opens a terminal in it — Windows Terminal or the command
+  prompt on Windows, Terminal on macOS, `$TERMINAL` or the usual emulators on Linux.
+
+### Upgrading from 5.2
+
+- **The picker now writes git's global configuration.** In 5.2, choosing a profile in the start window
+  only changed the list shown; in 5.3 it also sets `user.name` and `user.email` in your global git
+  configuration, unless the profile has none.
+- Nothing is migrated. `settings.json`, `repository-lists.json`, `host-accounts.json`,
+  `identity-profiles.json` and the tokens stay as 5.2 wrote them, so going back to 5.2 keeps them.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set, which is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.3.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour and
+  fixes three defects. Nothing is removed, and nothing that is stored changes; the one behaviour that
+  changes on purpose — the picker setting the identity — is described above.
+
 ## 5.2.0 — 2026-10-02
 
 A minor release. A tag can be deleted here or on the remote, from its badge in the history and from

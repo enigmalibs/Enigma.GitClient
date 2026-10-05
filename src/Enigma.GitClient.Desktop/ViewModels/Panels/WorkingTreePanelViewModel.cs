@@ -353,7 +353,10 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
 
         Message = string.Empty;
 
-        // Another repository's files are nothing to show, whether or not the panel is on screen.
+        // Another repository's files are nothing to show, whether or not the panel is on screen — and
+        // the folders closed in it are not this one's.
+        Unstaged.SetFiles([], keepSelection: false);
+        Staged.SetFiles([], keepSelection: false);
         Apply(WorkingTreeStatus.Empty);
 
         if (IsActive)

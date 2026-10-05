@@ -29,6 +29,7 @@ using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
@@ -234,6 +235,59 @@ public sealed class HistoryPageTests
             Assert.Same(page.Rows[0], uncommitted);
             Assert.Equal("Uncommitted changes", uncommitted.Subject);
             Assert.Null(uncommitted.Commit);
+        });
+    }
+
+    [Fact]
+    public void TheUncommittedLine_JoinsTheCheckedOutCommitByADashedLine_BelowANewerBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+
+            string root = Path.Combine(services.ConfigurationRoot, "workspace");
+            Directory.CreateDirectory(root);
+            RepositoryHandle repository = await services.Get<IRepositoryService>()
+                .InitAsync(Path.Combine(root, "dashed"), "main");
+
+            await CommitAsync(repository, "README.md", "# one\n", "Add the readme");
+            await CommitAsync(repository, "src/app.txt", "one\n", "Add the application file");
+
+            // A branch committed to after main, then main checked out again, with work on it.
+            await GitAsync(repository, "checkout", "-b", "ahead");
+            await CommitAsync(repository, "src/ahead.txt", "ahead\n", "Move ahead of main");
+            await GitAsync(repository, "checkout", "main");
+            await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# edited\n");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            CommitRowViewModel uncommitted = page.Rows[0];
+            CommitRowViewModel ahead = page.Rows.Single(row => row.Subject == "Move ahead of main");
+            CommitRowViewModel head = page.Rows.Single(row => row.IsHead);
+
+            Assert.True(uncommitted.IsUncommitted);
+            Assert.Equal("Add the application file", head.Subject);
+
+            // The newer branch sits beside the uncommitted line, never in its lane.
+            int lane = uncommitted.Row.Lane;
+            Assert.Equal(lane, head.Row.Lane);
+            Assert.NotEqual(lane, ahead.Row.Lane);
+
+            Assert.True(Assert.Single(uncommitted.Row.Edges).IsDashed);
+            Assert.True(ahead.Row.Edges.Single(edge => edge.Kind == GraphEdgeKind.Straight && edge.FromLane == lane).IsDashed);
+            Assert.True(head.Row.Edges.Single(edge => edge.Kind == GraphEdgeKind.MergeIn && edge.FromLane == lane).IsDashed);
+            Assert.False(head.Row.Edges.Single(edge => edge.Kind == GraphEdgeKind.MergeIn && edge.FromLane != lane).IsDashed);
+
+            // Nothing else is dashed, and nothing at all once the work is gone.
+            Assert.Equal(3, page.Rows.SelectMany(row => row.Row.Edges).Count(edge => edge.IsDashed));
+
+            await GitAsync(repository, "checkout", "--", "README.md");
+            await page.ReloadAsync();
+
+            Assert.DoesNotContain(page.Rows, row => row.IsUncommitted);
+            Assert.DoesNotContain(page.Rows.SelectMany(row => row.Row.Edges), edge => edge.IsDashed);
         });
     }
 
@@ -1206,6 +1260,90 @@ public sealed class HistoryPageTests
             .FirstOrDefault(control => control.ContextMenu is not null);
 
     // ---------------------------------------------------------------- the columns and their header
+
+    /// <summary>
+    /// Reads the pixels of a region of the window's next frame, top row first.
+    /// </summary>
+    private static int[] RenderedPixels(Window window, PixelRect region)
+    {
+        Render(window);
+
+        using Bitmap frame = window.CaptureRenderedFrame()
+            ?? throw new InvalidOperationException("The window produced no rendered frame.");
+
+        int stride = frame.PixelSize.Width * 4;
+        byte[] bytes = new byte[stride * frame.PixelSize.Height];
+        System.Runtime.InteropServices.GCHandle pinned = System.Runtime.InteropServices.GCHandle.Alloc(
+            bytes,
+            System.Runtime.InteropServices.GCHandleType.Pinned);
+
+        try
+        {
+            frame.CopyPixels(new PixelRect(frame.PixelSize), pinned.AddrOfPinnedObject(), bytes.Length, stride);
+        }
+        finally
+        {
+            pinned.Free();
+        }
+
+        List<int> pixels = new(region.Width * region.Height);
+
+        for (int y = region.Y; y < region.Bottom; y++)
+        {
+            for (int x = region.X; x < region.Right; x++)
+            {
+                pixels.Add(BitConverter.ToInt32(bytes, (y * stride) + (x * 4)));
+            }
+        }
+
+        return [.. pixels];
+    }
+
+    [Fact]
+    public void TheColumnTitles_StopAtTheDetailsPanel_AsTheRowsDo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            // Narrow enough that, with the panel open, the columns' minimums no longer fit beside it.
+            window.Width = 820;
+            model.SelectedRow = model.Rows.First(candidate => candidate.Commit is not null);
+            Render(window);
+
+            Border panel = view.FindControl<Border>("DetailsPanel")!;
+            Border header = view.FindControl<Border>("ColumnHeader")!;
+            Grid titles = view.FindControl<Grid>("HeaderRow")!;
+            Assert.True(panel.IsVisible);
+
+            Point panelOrigin = panel.TranslatePoint(default, window)!.Value;
+            Point headerOrigin = header.TranslatePoint(default, window)!.Value;
+
+            // The rows and the titles are laid out past the panel's edge alike; the rows are cut there.
+            TextBlock commitTitle = titles.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "Commit");
+            Assert.True(
+                commitTitle.TranslatePoint(default, window)!.Value.X > panelOrigin.X,
+                "the window is not narrow enough for the titles to reach the panel");
+
+            // The panel, at the height of the titles: what is drawn there must be the panel's alone.
+            PixelRect region = new(
+                (int)Math.Ceiling(panelOrigin.X) + 1,
+                (int)Math.Ceiling(headerOrigin.Y) + 1,
+                (int)panel.Bounds.Width - 2,
+                (int)header.Bounds.Height - 2);
+
+            int[] drawn = RenderedPixels(window, region);
+
+            titles.Opacity = 0;
+            int[] withoutTitles = RenderedPixels(window, region);
+
+            Assert.True(drawn.SequenceEqual(withoutTitles), "the column titles are drawn over the details panel");
+
+            window.Close();
+        });
+    }
 
     [Fact]
     public void Columns_StartAtTheirDefaults()

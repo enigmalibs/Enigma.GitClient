@@ -555,6 +555,85 @@ public sealed class ChangedFilesPanelTests
         Assert.All(panel.Nodes.Where(node => node.IsDirectory), node => Assert.True(node.IsExpanded));
     }
 
+    // ---------------------------------------------------------------- a refresh of the same change
+
+    /// <summary>
+    /// The sample files and one more, as a refresh finds them once another file has been edited.
+    /// </summary>
+    private static IReadOnlyList<ChangedFile> SampleFilesAndAnotherOne()
+        => [.. SampleFiles(), new ChangedFile { Path = "src/app/Added.cs", ChangeKind = FileChangeKind.Added }];
+
+    private static ChangedFileNodeViewModel DirectoryRow(ChangedFilesPanelViewModel panel, string path)
+        => ChangedFilesPanelViewModel.Flatten(panel.Nodes).Single(node => node.IsDirectory && node.Path == path);
+
+    [Fact]
+    public void Panel_KeepsACollapsedDirectoryCollapsedAcrossARefresh()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        DirectoryRow(panel, "src/app").IsExpanded = false;
+
+        panel.SetFiles(SampleFilesAndAnotherOne());
+
+        Assert.False(DirectoryRow(panel, "src/app").IsExpanded);
+        Assert.Contains("src/app/Added.cs", PathsOf(panel));
+
+        // The ones left open stay open.
+        Assert.True(DirectoryRow(panel, "docs").IsExpanded);
+        Assert.True(DirectoryRow(panel, "assets").IsExpanded);
+    }
+
+    [Fact]
+    public void Panel_RebuildsNothingWhenARefreshFindsTheSameFiles()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        ChangedFileNodeViewModel before = DirectoryRow(panel, "src/app");
+        before.IsExpanded = false;
+
+        // Equal files in a new list: what the working tree's status reads every few seconds.
+        panel.SetFiles(SampleFiles());
+
+        Assert.Same(before, DirectoryRow(panel, "src/app"));
+        Assert.False(before.IsExpanded);
+    }
+
+    [Fact]
+    public void Panel_KeepsADirectoryOpenedPastTheAutoExpandLimitOpen()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        panel.AutoExpandLimit = 1;
+        Assert.All(panel.Nodes.Where(node => node.IsDirectory), node => Assert.False(node.IsExpanded));
+
+        DirectoryRow(panel, "src/app").IsExpanded = true;
+        panel.SetFiles(SampleFilesAndAnotherOne());
+
+        Assert.True(DirectoryRow(panel, "src/app").IsExpanded);
+        Assert.False(DirectoryRow(panel, "docs").IsExpanded);
+    }
+
+    [Fact]
+    public void Panel_KeepsACollapsedDirectoryAcrossTheListAndTreeToggle()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        DirectoryRow(panel, "docs").IsExpanded = false;
+
+        panel.ViewMode = ChangedFilesViewMode.List;
+        panel.ViewMode = ChangedFilesViewMode.Tree;
+
+        Assert.False(DirectoryRow(panel, "docs").IsExpanded);
+    }
+
+    [Fact]
+    public void Panel_OpensAnotherChangesDirectoriesAsTheTreeOpensThem()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        DirectoryRow(panel, "src/app").IsExpanded = false;
+
+        // Another commit with a directory of the same name.
+        panel.SetFiles(SampleFiles(), keepSelection: false);
+
+        Assert.True(DirectoryRow(panel, "src/app").IsExpanded);
+    }
+
     // ---------------------------------------------------------------- the history page
 
     [Fact]

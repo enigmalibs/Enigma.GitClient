@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Diff;
@@ -168,6 +169,12 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     public bool IsExpanded { get; set => SetProperty(ref field, value); }
 
     /// <summary>
+    /// Gets whether the tree would have opened this directory row on its own, which is what the reader
+    /// leaving it some other way is measured against.
+    /// </summary>
+    internal bool DefaultExpanded { get; init; }
+
+    /// <summary>
     /// Gets the file's path, used for selection and for asking for its patch.
     /// </summary>
     public string Path => File?.Path ?? DirectoryPath;
@@ -295,6 +302,11 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     private readonly ISettingsService? _settings;
 
     private IReadOnlyList<ChangedFile> _files = [];
+
+    // The directories the reader opened or closed against the tree's default, by path: a rebuild of
+    // the same change — a refresh, the filter, the list/tree toggle — gives every one still there the
+    // state the reader left it in.
+    private readonly Dictionary<string, bool> _expanded = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initialises a new instance.
@@ -597,13 +609,21 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// </summary>
     /// <param name="files">The changed files.</param>
     /// <param name="keepSelection">
-    /// Whether the selected path stays selected when the new files still have it — right for a
-    /// refresh of the same change. <see langword="false"/> for another change altogether, whose list
-    /// starts with nothing selected.
+    /// Whether this is a refresh of the same change: the selected path stays selected when the new
+    /// files still have it, the directories keep the open or closed state they were left in, and the
+    /// same files as before change nothing at all. <see langword="false"/> for another change
+    /// altogether, whose list starts with nothing selected and its directories as the tree opens them.
     /// </param>
     public void SetFiles(IReadOnlyList<ChangedFile> files, bool keepSelection = true)
     {
         ArgumentNullException.ThrowIfNull(files);
+
+        // The automatic refresh re-reads the working tree every few seconds, and nothing has changed
+        // most of the time: rebuilding the rows then would only make the list jump.
+        if (keepSelection && files.SequenceEqual(_files))
+        {
+            return;
+        }
 
         string? keep = keepSelection ? SelectedFilePath : null;
 
@@ -637,7 +657,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         OnPropertyChanged(nameof(FileCount));
         OnPropertyChanged(nameof(Summary));
 
-        Rebuild(keep);
+        Rebuild(keep, sameChange: keepSelection);
     }
 
     /// <summary>
@@ -749,13 +769,17 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// </summary>
     private string? SelectedFilePath => SelectedNode?.IsDirectory == false ? SelectedNode.Path : null;
 
-    private void Rebuild() => Rebuild(SelectedFilePath);
+    private void Rebuild() => Rebuild(SelectedFilePath, sameChange: true);
 
     /// <summary>
     /// Builds the rows again, selecting a path when it is still shown.
     /// </summary>
     /// <param name="previous">The path to select again, or <see langword="null"/> for none.</param>
-    private void Rebuild(string? previous)
+    /// <param name="sameChange">
+    /// Whether the rows show the same change as before, whose directories keep the state the reader
+    /// left them in; another change starts from the default.
+    /// </param>
+    private void Rebuild(string? previous, bool sameChange)
     {
         List<ChangedFile> visible = [];
 
@@ -765,6 +789,15 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
             {
                 visible.Add(file);
             }
+        }
+
+        if (sameChange)
+        {
+            RememberExpansion();
+        }
+        else
+        {
+            _expanded.Clear();
         }
 
         Nodes.Clear();
@@ -822,7 +855,40 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
             children.Add(Convert(child, expand));
         }
 
-        return new ChangedFileNodeViewModel(this, node.Name, node.FullPath, node.Counts, children, expand);
+        bool open = _expanded.TryGetValue(node.FullPath, out bool left) ? left : expand;
+
+        return new ChangedFileNodeViewModel(this, node.Name, node.FullPath, node.Counts, children, open)
+        {
+            DefaultExpanded = expand,
+        };
+    }
+
+    /// <summary>
+    /// Notes which directory rows on screen the reader left otherwise than the tree opened them, before
+    /// the rows are built again.
+    /// </summary>
+    /// <remarks>
+    /// Only those: a directory the reader never touched follows the default, so a new auto-expand
+    /// limit, or a change grown past it, still decides how it opens.
+    /// </remarks>
+    private void RememberExpansion()
+    {
+        foreach (ChangedFileNodeViewModel node in Flatten(Nodes))
+        {
+            if (!node.IsDirectory)
+            {
+                continue;
+            }
+
+            if (node.IsExpanded == node.DefaultExpanded)
+            {
+                _expanded.Remove(node.DirectoryPath);
+            }
+            else
+            {
+                _expanded[node.DirectoryPath] = node.IsExpanded;
+            }
+        }
     }
 
     /// <summary>
