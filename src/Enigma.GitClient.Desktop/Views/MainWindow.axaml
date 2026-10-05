@@ -14,8 +14,14 @@
         Height="900"
         MinWidth="900"
         MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Background="{DynamicResource EnigmaBackgroundBrush}">
 
+  <!--
+    Opened maximised, every time: the history wants every pixel. Centred too, so the size it is
+    restored to — 1440 × 900 — lands in the middle of the screen, as the start window does.
+  -->
   <Panel>
     <DockPanel>
 
