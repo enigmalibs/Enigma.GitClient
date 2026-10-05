@@ -51,8 +51,8 @@
                      FontWeight="SemiBold"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
-          <!-- Whose list this is. Picking another profile shows its list; git's identity is left as
-               it is, which is the Profiles page's to switch. -->
+          <!-- Whose list this is. Picking another profile shows its list and, when the profile has a
+               name and an email, makes them git's global identity, as the Profiles page's Use does. -->
           <ComboBox Name="ProfilePicker"
                     ItemsSource="{Binding Profiles}"
                     SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
@@ -60,7 +60,7 @@
                     MaxWidth="280"
                     Margin="6,0,0,0"
                     VerticalAlignment="Center"
-                    ToolTip.Tip="The profile whose repositories are listed"
+                    ToolTip.Tip="The profile you work as: its repositories are listed, and its name and email are the ones git commits with"
                     AutomationProperties.Name="The profile whose repositories are listed">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="identity:IdentityProfile">

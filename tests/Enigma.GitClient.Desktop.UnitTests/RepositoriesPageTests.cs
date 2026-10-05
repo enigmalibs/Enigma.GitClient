@@ -153,6 +153,144 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    private static readonly GitIdentity WorkIdentity = new("Ada Lovelace", "ada@work.example");
+    private static readonly GitIdentity HomeIdentity = new("Ada", "ada@home.example");
+
+    [Fact]
+    public void PickingAProfile_MakesItsNameAndEmailGitsGlobalIdentity()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+
+            Assert.Equal(HomeIdentity, services.Identity.Global);
+            Assert.Equal(1, services.Identity.GlobalWrites);
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Using Home", note.Title);
+            Assert.Contains("Ada <ada@home.example>", note.Message, StringComparison.Ordinal);
+            Assert.Equal(InfoBarSeverity.Success, note.Severity);
+        });
+    }
+
+    [Fact]
+    public void PickingAProfileWithoutANameAndEmail_OnlySwitchesTheList()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile none = await profiles.SaveAsync(IdentityProfile.Create("Nobody", GitIdentity.Empty));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(none.Id, Path.Combine(services.ConfigurationRoot, "nobody-repo"), "nobody-repo");
+            services.Get<IProfileSelection>().Select(work.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == none.Id);
+            await page.PendingIdentityWrite;
+            await WaitUntilAsync(() => page.Repositories.Count == 1);
+
+            // Writing an empty identity would unset git's own.
+            Assert.Equal(WorkIdentity, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.Empty(services.InfoBar.Shown);
+            Assert.Equal("nobody-repo", page.Repositories[0].Name);
+        });
+    }
+
+    [Fact]
+    public void PickingTheProfileGitAlreadyCommitsAs_WritesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = HomeIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void AFailedSwitch_IsReportedAndTheListStaysSwitched()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(home.Id, Path.Combine(services.ConfigurationRoot, "home-repo"), "home-repo");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+            await WaitUntilAsync(() => page.Repositories.Count == 1);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Could not switch the git identity", note.Title);
+            Assert.Equal(InfoBarSeverity.Error, note.Severity);
+            Assert.Equal("home-repo", page.Repositories[0].Name);
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+        });
+    }
+
+    [Fact]
+    public void ShowingThePage_NeverWritesTheIdentity()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = WorkIdentity;
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            // Home was chosen in an earlier session; git was switched back to Work in a terminal since.
+            services.Get<IProfileSelection>().Select(home.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            await page.OnAppearingAsync();
+            await page.PendingIdentityWrite;
+
+            Assert.Equal(home.Id, page.SelectedProfile?.Id);
+            Assert.Equal(WorkIdentity, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+        });
+    }
+
     [Fact]
     public void ShowingThePageAgain_PicksUpProfilesChangedElsewhere()
     {

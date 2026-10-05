@@ -254,7 +254,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Reset local to the remote's commit      | DONE      | (in FEATURE-551C.md)      |
 | - PHASE03    | Double-click a badge to check out       | DONE      | (in FEATURE-551C.md)      |
 | FEATURE-4D5A | Release 5.2.0                           | DONE      | docs/plan/FEATURE-4D5A.md |
-| FEATURE-903B | The home picker switches the identity   | TODO      | docs/plan/FEATURE-903B.md |
+| FEATURE-903B | The home picker switches the identity   | DONE      | docs/plan/FEATURE-903B.md |
 | BUG-6DB7     | A refresh reopens collapsed folders     | TODO      | docs/plan/BUG-6DB7.md     |
 | FEATURE-56BB | Centred windows, repository maximised   | TODO      | docs/plan/FEATURE-56BB.md |
 | FEATURE-6F35 | Uncommitted line joins HEAD, dashed     | TODO      | docs/plan/FEATURE-6F35.md |
