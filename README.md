@@ -64,8 +64,9 @@ Two things matter more than everything else in this app:
 - Create (with a `README.md` holding its name as the first commit), clone and open repositories from
   a start window that lists a profile's repositories — pick the profile in the page's header: every
   profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
-  made when there is none; the repository you pick opens in a window of its own, and
-  `Enigma.GitClient.Desktop <path>` opens one straight away
+  made when there is none; a profile can name a base directory, where Open, Clone and Create start
+  while it is picked (a clone from one of its integrations goes there too); the repository you pick
+  opens in a window of its own, and `Enigma.GitClient.Desktop <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards

@@ -15,6 +15,7 @@ using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Security;
+using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
@@ -527,6 +528,55 @@ public sealed class ProfileIntegrationsTests
             await row.BrowseCommand.ExecuteAsync(row);
 
             Assert.Equal(remembered, Assert.Single(repositories.Clones).ParentDirectory);
+        });
+    }
+
+    [Fact]
+    public void ARepositoryPickedInTheDialog_ClonesIntoItsProfilesBaseDirectory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            FakeHostProvider provider = new();
+            provider.Returns(new HostRepositoryPage([]));
+            RecordingRepositoryService repositories = new();
+
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IRepositoryHostProvider>();
+                collection.AddSingleton<IRepositoryHostProvider>(provider);
+                collection.RemoveAll<IRepositoryService>();
+                collection.AddSingleton<IRepositoryService>(repositories);
+            });
+
+            // The integration's profile names a base directory, which comes before the directory the
+            // last clone went to — and before whatever the home page has selected.
+            string projects = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(services.ConfigurationRoot, "projects")).FullName;
+            string remembered = System.IO.Directory.CreateDirectory(System.IO.Path.Combine(services.ConfigurationRoot, "clones")).FullName;
+            services.Get<ISettingsService>().Update(current => current with { CloneParentDirectory = remembered });
+
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", Work).WithBaseDirectory(projects));
+            await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Home", Home));
+
+            ProfilesPageViewModel page = await PageAsync(services);
+            services.Get<IProfileSelection>().Select(Profile(page, "Home").Profile.Id);
+            await ConnectAsync(services, page);
+
+            HostAccountRowViewModel row = Assert.Single(Profile(page, "Work").Integrations);
+            HostRepository picked = new(
+                "ada/engine", "engine", null, "main", "https://github.com/ada/engine.git",
+                "git@github.com:ada/engine.git", "https://github.com/ada/engine", IsPrivate: true);
+
+            services.Dialogs.OnShown = dialog =>
+            {
+                if (((Control)dialog.Content!).DataContext is HostRepositoriesDialogViewModel model)
+                {
+                    model.CloneCommand.Execute(new HostRepositoryRowViewModel(model, picked));
+                }
+            };
+
+            await row.BrowseCommand.ExecuteAsync(row);
+
+            Assert.Equal(projects, Assert.Single(repositories.Clones).ParentDirectory);
         });
     }
 
