@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json.Serialization;
 
 namespace Enigma.GitClient.Core.Identity;
@@ -29,6 +30,15 @@ public sealed record IdentityProfile(string Id, string Label, string Name, strin
 
     /// <summary>What the profile the client creates is called.</summary>
     public const string DefaultLabel = "Default";
+
+    /// <summary>
+    /// Gets the directory the profile's repositories live in, or an empty string when it names none.
+    /// </summary>
+    /// <remarks>
+    /// Where the home page's Open, Clone and Create start while this profile is selected. A file
+    /// written before profiles had one has no such key, which reads as none.
+    /// </remarks>
+    public string BaseDirectory { get; init; } = string.Empty;
 
     /// <summary>Gets the identity the profile sets.</summary>
     [JsonIgnore]
@@ -71,15 +81,29 @@ public sealed record IdentityProfile(string Id, string Label, string Name, strin
     /// </summary>
     /// <param name="label">What the profile is called.</param>
     /// <param name="identity">The identity it sets.</param>
-    /// <returns>The changed profile, trimmed.</returns>
+    /// <returns>The changed profile, trimmed — its base directory too.</returns>
     public IdentityProfile With(string label, GitIdentity identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
 
         GitIdentity trimmed = identity.Normalised();
 
-        return this with { Label = label?.Trim() ?? string.Empty, Name = trimmed.Name, Email = trimmed.Email };
+        return this with
+        {
+            Label = label?.Trim() ?? string.Empty,
+            Name = trimmed.Name,
+            Email = trimmed.Email,
+            BaseDirectory = BaseDirectory?.Trim() ?? string.Empty,
+        };
     }
+
+    /// <summary>
+    /// Returns this profile with another base directory and the same identifier.
+    /// </summary>
+    /// <param name="baseDirectory">The directory, or an empty string for none.</param>
+    /// <returns>The changed profile, its base directory trimmed.</returns>
+    public IdentityProfile WithBaseDirectory(string? baseDirectory)
+        => this with { BaseDirectory = baseDirectory?.Trim() ?? string.Empty };
 
     /// <summary>
     /// Tells whether this profile is the identity git has — which is what makes it the current one.
@@ -165,7 +189,39 @@ public static class IdentityProfileRules
     }
 
     /// <summary>
-    /// Checks a whole profile: the label, then the name, then the email.
+    /// Checks a profile's base directory: none at all, or a full path on one line.
+    /// </summary>
+    /// <param name="baseDirectory">The directory, as typed.</param>
+    /// <returns>A sentence saying what is wrong, or <see langword="null"/> when it is usable.</returns>
+    /// <remarks>
+    /// It need not exist: a profile may name a drive that is not plugged in while it is edited, and the
+    /// home page treats a directory that is not there as none. A relative path, though, means nothing
+    /// to a folder picker.
+    /// </remarks>
+    public static string? ValidateBaseDirectory(string? baseDirectory)
+    {
+        string value = baseDirectory?.Trim() ?? string.Empty;
+
+        if (value.Length == 0)
+        {
+            return null;
+        }
+
+        if (value.AsSpan().IndexOfAny('\r', '\n') >= 0)
+        {
+            return "A base directory must fit on one line.";
+        }
+
+        if (value.AsSpan().IndexOfAny(Path.GetInvalidPathChars()) >= 0 || !Path.IsPathFullyQualified(value))
+        {
+            return "Give the base directory as a full path, from the root of the drive.";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Checks a whole profile: the label, then the name, then the email, then the base directory.
     /// </summary>
     /// <param name="profile">The profile.</param>
     /// <returns>A sentence saying what is wrong, or <see langword="null"/> when it is usable.</returns>
@@ -173,6 +229,8 @@ public static class IdentityProfileRules
     {
         ArgumentNullException.ThrowIfNull(profile);
 
-        return ValidateLabel(profile.Label) ?? ValidateIdentity(profile.Identity);
+        return ValidateLabel(profile.Label)
+            ?? ValidateIdentity(profile.Identity)
+            ?? ValidateBaseDirectory(profile.BaseDirectory);
     }
 }

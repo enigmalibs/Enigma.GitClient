@@ -1,4 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
+using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Identity;
 
 namespace Enigma.GitClient.Desktop.ViewModels.Dialogs;
@@ -9,20 +15,33 @@ namespace Enigma.GitClient.Desktop.ViewModels.Dialogs;
 /// </summary>
 public sealed class IdentityProfileDialogViewModel : ViewModelBase
 {
+    private readonly IFolderDialogService _folderDialogs;
     private bool _touched;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
+    /// <param name="folderDialogs">Raises the folder picker behind <see cref="BrowseCommand"/>.</param>
     /// <param name="label">What the profile is called, empty for a new one.</param>
     /// <param name="identity">The name and email the fields start with.</param>
-    public IdentityProfileDialogViewModel(string label, GitIdentity identity)
+    /// <param name="baseDirectory">The base directory the field starts with, empty for none.</param>
+    public IdentityProfileDialogViewModel(
+        IFolderDialogService folderDialogs,
+        string label,
+        GitIdentity identity,
+        string? baseDirectory = null)
     {
+        ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(identity);
+
+        _folderDialogs = folderDialogs;
 
         Label = label ?? string.Empty;
         Name = identity.Name;
         Email = identity.Email;
+        BaseDirectory = baseDirectory ?? string.Empty;
+
+        BrowseCommand = new AsyncRelayCommand(OnBrowseAsync);
 
         // Starting values are not the reader's mistakes: nothing is said until something is typed.
         _touched = false;
@@ -68,6 +87,28 @@ public sealed class IdentityProfileDialogViewModel : ViewModelBase
     } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the directory the profile's repositories live in, empty for none: where the home
+    /// page's Open, Clone and Create start while the profile is selected.
+    /// </summary>
+    public string BaseDirectory
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value ?? string.Empty))
+            {
+                RaiseValidation();
+            }
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// Gets the command that picks the base directory in a folder picker, which starts on the one the
+    /// field names while it exists, and on the home folder otherwise.
+    /// </summary>
+    public AsyncRelayCommand BrowseCommand { get; }
+
+    /// <summary>
     /// Gets the reason the dialog cannot be confirmed, once something has been typed; empty otherwise.
     /// </summary>
     public string ValidationMessage => _touched ? Problem ?? string.Empty : string.Empty;
@@ -85,7 +126,9 @@ public sealed class IdentityProfileDialogViewModel : ViewModelBase
     public event EventHandler? ValidationChanged;
 
     private string? Problem
-        => IdentityProfileRules.ValidateLabel(Label) ?? IdentityProfileRules.ValidateIdentity(new GitIdentity(Name, Email));
+        => IdentityProfileRules.ValidateLabel(Label)
+            ?? IdentityProfileRules.ValidateIdentity(new GitIdentity(Name, Email))
+            ?? IdentityProfileRules.ValidateBaseDirectory(BaseDirectory);
 
     /// <summary>
     /// Builds the profile the fields describe.
@@ -102,7 +145,33 @@ public sealed class IdentityProfileDialogViewModel : ViewModelBase
 
         GitIdentity identity = new(Name, Email);
 
-        return existing is null ? IdentityProfile.Create(Label, identity) : existing.With(Label, identity);
+        IdentityProfile profile = existing is null ? IdentityProfile.Create(Label, identity) : existing.With(Label, identity);
+
+        return profile.WithBaseDirectory(BaseDirectory);
+    }
+
+    private async Task OnBrowseAsync()
+    {
+        string current = BaseDirectory.Trim();
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        string? start = Path.IsPathFullyQualified(current) && Directory.Exists(current)
+            ? current
+            : home.Length > 0 ? home : null;
+
+        IEnumerable<string> folders = await _folderDialogs
+            .ShowOpenFolderDialogAsync(
+                title: "Choose the profile's base directory",
+                allowMultiple: false,
+                suggestedStartLocation: start)
+            .ConfigureAwait(true);
+
+        string? chosen = folders.FirstOrDefault();
+
+        if (chosen is { Length: > 0 })
+        {
+            BaseDirectory = chosen;
+        }
     }
 
     private void RaiseValidation()
