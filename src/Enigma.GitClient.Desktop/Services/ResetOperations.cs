@@ -169,7 +169,21 @@ public sealed class ResetOperations : IResetOperations
             return $"The repository is on \"{current}\" now, not \"{branch}\". Open the menu again to reset the branch you are on.";
         }
 
-        return head.Operation switch
+        return DescribeOperationInProgress(head.Operation);
+    }
+
+    /// <summary>
+    /// Says which multi-step operation stands in the way of moving the branch, or <see langword="null"/>
+    /// when none is in progress.
+    /// </summary>
+    /// <param name="operation">The operation HEAD is in the middle of.</param>
+    /// <returns>The sentence to show, or <see langword="null"/>.</returns>
+    /// <remarks>
+    /// Shared with the revert, which refuses the same states for the same reason: a write in the middle
+    /// of a multi-step operation leaves a state nobody can read.
+    /// </remarks>
+    public static string? DescribeOperationInProgress(RepositoryOperation operation)
+        => operation switch
         {
             RepositoryOperation.None => null,
             RepositoryOperation.Merge => "A merge is in progress. Finish it or abandon it first.",
@@ -180,7 +194,6 @@ public sealed class ResetOperations : IResetOperations
             RepositoryOperation.ApplyMailbox => "An 'am' session is in progress. Finish or abort it first.",
             _ => "An operation is in progress. Finish it first.",
         };
-    }
 
     /// <summary>
     /// Asks before a hard reset, naming the files whose uncommitted changes it throws away.
