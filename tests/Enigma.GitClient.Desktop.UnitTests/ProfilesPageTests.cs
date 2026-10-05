@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
@@ -561,6 +562,53 @@ public sealed class ProfilesPageTests
             RecordedNotification note = Assert.Single(services.InfoBar.Shown);
             Assert.Equal("Using Home", note.Title);
             Assert.Contains("Ada <ada@home.example>", note.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void UsingAProfile_ShowsItsListInTheStartWindow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            IdentityProfile home = await store.SaveAsync(IdentityProfile.Create("Home", Home));
+            services.Get<IProfileSelection>().Select(work.Id);
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            await page.UseProfileCommand.ExecuteAsync(page.Profiles[1]);
+
+            Assert.Equal(home.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
+
+            RepositoriesPageViewModel start = services.Get<RepositoriesPageViewModel>();
+            await start.OnAppearingAsync();
+            Assert.Equal(home.Id, start.SelectedProfile?.Id);
+        });
+    }
+
+    [Fact]
+    public void AFailedUse_LeavesThePickedListAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            IdentityProfile work = await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Home", Home));
+            services.Get<IProfileSelection>().Select(work.Id);
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Identity.Failure = FakeGitIdentityService.LockFailure();
+            await page.UseProfileCommand.ExecuteAsync(page.Profiles[1]);
+
+            Assert.Equal(work.Id, services.Get<ISettingsService>().Current.SelectedProfileId);
         });
     }
 

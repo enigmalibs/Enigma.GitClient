@@ -146,9 +146,9 @@ Everything the client remembers about you lives in one per-user directory —
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
-repository's), and only when you save or remove a name and email or use a profile on the Profiles
-page — and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and
-to nothing else.
+repository's), and only when you save or remove a name and email, use a profile on the Profiles
+page, or pick one in the start window — and nothing is sent anywhere: the client talks to your git
+and to the hosts you connected, and to nothing else.
 
 ## Requirements
 

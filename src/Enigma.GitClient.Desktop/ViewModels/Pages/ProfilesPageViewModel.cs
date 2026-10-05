@@ -159,6 +159,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     private readonly IGitIdentityService _identity;
     private readonly IIdentityProfileStore _profiles;
     private readonly IRepositoryListStore _lists;
+    private readonly IProfileSelection _selection;
     private readonly IHostAccountService _accounts;
     private readonly IHostProviderRegistry _registry;
     private readonly IHostLinkService _links;
@@ -176,6 +177,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="identity">Reads and writes git's identity.</param>
     /// <param name="profiles">Keeps the identity profiles.</param>
     /// <param name="lists">Keeps each profile's list of repositories, which goes with the profile.</param>
+    /// <param name="selection">Shows the list of the profile used, so the start window's picker agrees.</param>
     /// <param name="accounts">Keeps the connected accounts and their tokens.</param>
     /// <param name="registry">Finds the provider for an account.</param>
     /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
@@ -190,6 +192,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IGitIdentityService identity,
         IIdentityProfileStore profiles,
         IRepositoryListStore lists,
+        IProfileSelection selection,
         IHostAccountService accounts,
         IHostProviderRegistry registry,
         IHostLinkService links,
@@ -204,6 +207,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(profiles);
         ArgumentNullException.ThrowIfNull(lists);
+        ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(links);
@@ -217,6 +221,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         _identity = identity;
         _profiles = profiles;
         _lists = lists;
+        _selection = selection;
         _accounts = accounts;
         _registry = registry;
         _links = links;
@@ -820,6 +825,9 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
         if (await WriteGlobalAsync(row.Profile.Identity).ConfigureAwait(true))
         {
+            // The start window's picker shows the profile git now commits as.
+            _selection.Select(row.Profile.Id);
+
             Report(
                 $"Using {row.Label}",
                 $"New commits are made as {row.Summary}.",

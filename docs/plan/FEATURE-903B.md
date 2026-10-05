@@ -1,6 +1,6 @@
 # FEATURE-903B — The home picker switches the identity
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-903B.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-903b-picker-switches-identity`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
