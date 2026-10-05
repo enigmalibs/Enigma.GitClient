@@ -1,6 +1,6 @@
 # FEATURE-6108 — Clone offers the global identity
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6108.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-6108-clone-offers-identity`
 **Run:** vibe/2026-10-05-profiles-graph-fetch-release
