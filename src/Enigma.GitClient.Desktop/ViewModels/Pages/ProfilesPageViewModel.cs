@@ -1213,10 +1213,23 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             return;
         }
 
+        // The integration's own profile decides where it goes, whichever profile the home page has
+        // selected: an integration listed under "Work" clones into Work's base directory.
+        IdentityProfile? owner = null;
+
+        foreach (ProfileRowViewModel profile in Profiles)
+        {
+            if (row.Account.BelongsTo(profile.Profile.Id))
+            {
+                owner = profile.Profile;
+                break;
+            }
+        }
+
         await _repositories.RunCloneAsync(new CloneRequest
         {
             Url = picked.CloneUrl,
-            ParentDirectory = _repositories.CloneParentDirectory(),
+            ParentDirectory = _repositories.CloneParentDirectory(owner),
             DirectoryName = CloneRequest.DeriveDirectoryName(picked.CloneUrl),
             Account = row.Account,
         }).ConfigureAwait(true);
