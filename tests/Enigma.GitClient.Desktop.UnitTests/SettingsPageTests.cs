@@ -317,16 +317,16 @@ public sealed class SettingsPageTests
 
             ChangedFilesPanelViewModel panel = new(services.Interop, services.Get<ISettingsService>());
 
-            // A fresh install's panel is a flat list.
-            Assert.Equal(ChangedFilesViewMode.List, panel.ViewMode);
-
-            services.Get<SettingsPageViewModel>().FilesView = FilesView.Tree;
-
+            // A fresh install's panel is a tree.
             Assert.Equal(ChangedFilesViewMode.Tree, panel.ViewMode);
 
             services.Get<SettingsPageViewModel>().FilesView = FilesView.List;
 
             Assert.Equal(ChangedFilesViewMode.List, panel.ViewMode);
+
+            services.Get<SettingsPageViewModel>().FilesView = FilesView.Tree;
+
+            Assert.Equal(ChangedFilesViewMode.Tree, panel.ViewMode);
 
             services.Get<SettingsPageViewModel>().FilesAutoExpandLimit = 12;
 

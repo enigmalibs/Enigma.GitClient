@@ -85,13 +85,23 @@ public sealed class ChangedFilesPanelTests
     }
 
     /// <summary>
-    /// The sample files, shown as the tree — which is one choice away from the list the panel opens
-    /// on.
+    /// The sample files, shown as the tree — the shape the panel opens on, asked for by name so a test
+    /// about the tree does not hang on the default.
     /// </summary>
     private static ChangedFilesPanelViewModel LoadedAsTree(RecordingSystemInterop? interop = null)
     {
         ChangedFilesPanelViewModel panel = Loaded(interop);
         panel.ViewMode = ChangedFilesViewMode.Tree;
+        return panel;
+    }
+
+    /// <summary>
+    /// The sample files, shown as the flat list — one choice away from the tree the panel opens on.
+    /// </summary>
+    private static ChangedFilesPanelViewModel LoadedAsList()
+    {
+        ChangedFilesPanelViewModel panel = Loaded();
+        panel.ViewMode = ChangedFilesViewMode.List;
         return panel;
     }
 
@@ -116,15 +126,15 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
-    public void Panel_OpensAsAFlatList()
+    public void Panel_OpensAsATree()
     {
         ChangedFilesPanelViewModel panel = Loaded();
 
         // With no preference to follow, the panel opens on the preference's own default.
-        Assert.Equal(ChangedFilesViewMode.List, panel.ViewMode);
-        Assert.True(panel.IsListMode);
-        Assert.False(panel.IsTreeMode);
-        Assert.All(panel.Nodes, node => Assert.False(node.IsDirectory));
+        Assert.Equal(ChangedFilesViewMode.Tree, panel.ViewMode);
+        Assert.True(panel.IsTreeMode);
+        Assert.False(panel.IsListMode);
+        Assert.Contains(panel.Nodes, node => node.IsDirectory);
     }
 
     [Fact]
@@ -381,7 +391,7 @@ public sealed class ChangedFilesPanelTests
     [Fact]
     public void Panel_SelectsTheFirstRowOfTheList()
     {
-        ChangedFilesPanelViewModel panel = Loaded();
+        ChangedFilesPanelViewModel panel = LoadedAsList();
         panel.SelectPath("assets/logo.png");
 
         Assert.True(panel.SelectFirstFile());
@@ -756,8 +766,11 @@ public sealed class ChangedFilesPanelTests
 
             await WaitUntilAsync(() => page.Files.SelectedFile is not null);
 
+            // The first file of the tree the panel opens on, under the directory row above it.
             Assert.True(page.IsDiffViewOpen);
-            Assert.Same(page.Files.Nodes[0], page.Files.SelectedNode);
+            Assert.Same(
+                ChangedFilesPanelViewModel.Flatten(page.Files.Nodes).First(node => !node.IsDirectory),
+                page.Files.SelectedNode);
             Assert.Equal("src/app/Program.cs", page.Files.SelectedFile?.Path);
 
             await WaitUntilAsync(() => page.Diff.Title == "src/app/Program.cs");
@@ -786,10 +799,11 @@ public sealed class ChangedFilesPanelTests
             CommitRowViewModel initial = page.Rows.Single(row => row.Subject == "Add the initial files");
             page.RowCommands.ShowChanges.Execute(initial);
 
-            await WaitUntilAsync(() => page.Files.SelectedFile?.Path == "README.md");
+            // Its own first file — the tree's, a directory's before the root's — not the one carried over.
+            await WaitUntilAsync(() => page.Files.SelectedFile?.Path == "src/app/Original.cs");
 
             Assert.Same(initial, page.SelectedRow);
-            Assert.Equal("README.md", page.Files.SelectedFile?.Path);
+            Assert.Equal("src/app/Original.cs", page.Files.SelectedFile?.Path);
         });
     }
 
@@ -912,11 +926,11 @@ public sealed class ChangedFilesPanelTests
 
                 IReadOnlyList<string> texts = RenderAndReadText(view, "history-page-details.png", 1200, 700);
 
-                // The graph is still there, and the details panel sits beside it — its files a flat
-                // list of names, which is what the panel opens on: no directory row.
+                // The graph is still there, and the details panel sits beside it — its files a tree,
+                // which is what the panel opens on: the directory row above the names.
                 Assert.Contains("Rework the sources", texts);
                 Assert.Contains("Program.cs", texts);
-                Assert.DoesNotContain("src/app", texts);
+                Assert.Contains("src/app", texts);
                 Assert.Contains(texts, text => text.StartsWith("3 files", StringComparison.Ordinal));
             }
             finally
