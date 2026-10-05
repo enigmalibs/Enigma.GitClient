@@ -343,7 +343,9 @@ public sealed class FileListToggleTests
     {
         _fixture.Run(() =>
         {
-            ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop());
+            // Two lines side by side, which is the list's shape: the tree would fold them under a
+            // directory row.
+            ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop()) { ViewMode = ChangedFilesViewMode.List };
             panel.SetFiles(
             [
                 new ChangedFile { Path = "docs/guide.md", ChangeKind = FileChangeKind.Added },

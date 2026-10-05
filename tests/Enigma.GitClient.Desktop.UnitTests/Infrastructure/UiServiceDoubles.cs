@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -357,5 +358,68 @@ public sealed class RecordingInstanceLauncher : IInstanceLauncher
     {
         Launched.Add(repositoryPath);
         return Succeeds;
+    }
+}
+
+/// <summary>
+/// An <see cref="IFolderDialogService"/> that records where each folder picker was asked to start and
+/// answers with the folder a test chose, instead of showing a picker.
+/// </summary>
+/// <remarks>
+/// Avalonia 12 will not let a test implement <see cref="IStorageProvider"/> or
+/// <see cref="IStorageFolder"/>, so the provider is the one a headless window exposes — created the
+/// first time a picker needs it, which is always on the headless fixture's thread — and its paths are
+/// the real file system's.
+/// </remarks>
+public sealed class RecordingFolderDialogService : IFolderDialogService, IDisposable
+{
+    private readonly List<FolderPickerOpenOptions> _requests = [];
+    private Window? _window;
+    private IStorageProvider? _provider;
+
+    /// <inheritdoc />
+    public IStorageProvider? StorageProvider => _provider ??= OpenProvider();
+
+    /// <summary>Gets the options every picker was raised with, in order.</summary>
+    public IReadOnlyList<FolderPickerOpenOptions> Requests => _requests;
+
+    /// <summary>
+    /// Gets the directory the last picker was asked to start in, or <see langword="null"/> when it was
+    /// given none (or when no picker was raised).
+    /// </summary>
+    public string? LastStartLocation
+        => _requests.Count == 0 ? null : _requests[^1].SuggestedStartLocation?.TryGetLocalPath()?.TrimEnd('/', '\\');
+
+    /// <summary>
+    /// Gets or sets the folder every picker answers with, or <see langword="null"/> for a picker the
+    /// reader cancels.
+    /// </summary>
+    public string? Answer { get; set; }
+
+    /// <inheritdoc />
+    public void SetStorageProvider(IStorageProvider storageProvider) => _provider = storageProvider;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<IStorageFolder>> ShowOpenFolderDialogAsync(FolderPickerOpenOptions options)
+    {
+        _requests.Add(options);
+
+        if (Answer is null || await StorageProvider!.TryGetFolderFromPathAsync(Answer) is not { } folder)
+        {
+            return [];
+        }
+
+        return [folder];
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => _window?.Close();
+
+    private IStorageProvider OpenProvider()
+    {
+        _window = new Window();
+        _window.Show();
+
+        return _window.StorageProvider;
     }
 }

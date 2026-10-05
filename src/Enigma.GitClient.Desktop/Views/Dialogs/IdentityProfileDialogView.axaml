@@ -39,6 +39,32 @@
                TextWrapping="Wrap"
                Classes="faint" />
 
+    <StackPanel Spacing="4">
+      <TextBlock Text="Base directory"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0"
+                 Text="{Binding BaseDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="Optional"
+                 AutomationProperties.Name="Base directory" />
+        <Button Grid.Column="1"
+                Command="{Binding BrowseCommand}"
+                AutomationProperties.Name="Choose the base directory"
+                ToolTip.Tip="Choose a folder">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="FolderOpen" Size="15" VerticalAlignment="Center" />
+            <TextBlock Text="Browse" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+
+    <TextBlock Text="Where Open, Clone and Create start on the home page while this profile is selected."
+               FontSize="12"
+               TextWrapping="Wrap"
+               Classes="faint" />
+
     <StackPanel Orientation="Horizontal"
                 Spacing="6"
                 IsVisible="{Binding HasValidationMessage}">

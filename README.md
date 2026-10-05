@@ -10,13 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.3** — picking a profile in the start window makes it git's identity, and a new
-> clone offers to keep it; the uncommitted line is joined to the checked-out commit by a dashed line,
-> as in GitKraken; the repository window opens maximised, on its history, fetches as it opens, and
-> opens the repository's folder or a terminal in it from its toolbar; and a refresh no longer reopens
-> the folders you closed. Coming from 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in
-> 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the installer again). Coming from 4.x? Read
-> *Upgrading from 4.x* under 5.0.0 first. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.4** — revert any commit from its line in the history, beside the reset; the
+> changed files open as a tree of folders again; and a profile can name a base directory, where the
+> start window's Open, Clone and Create begin. Coming from 5.1.0? The program was renamed
+> `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the installer
+> again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -53,6 +52,9 @@ Two things matter more than everything else in this app:
   line's menu
 - Reset the branch you are on to any commit from that commit's line menu: soft keeps every change,
   staged; hard discards them, after naming the files it takes
+- Revert any commit from its line menu: after one question, a new commit on the branch you are on
+  undoes what it changed (a merge against the branch it went into); a revert that would conflict is
+  abandoned on the spot, naming the files, and leaves everything as it was
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
   into any other local branch the same way — or drag one branch badge onto another, and pick the
   merge or the fast-forward
@@ -61,8 +63,9 @@ Two things matter more than everything else in this app:
 - Create (with a `README.md` holding its name as the first commit), clone and open repositories from
   a start window that lists a profile's repositories — pick the profile in the page's header: every
   profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
-  made when there is none; the repository you pick opens in a window of its own, and
-  `Enigma.GitClient.Desktop <path>` opens one straight away
+  made when there is none; a profile can name a base directory, where Open, Clone and Create start
+  while it is picked (a clone from one of its integrations goes there too); the repository you pick
+  opens in a window of its own, and `Enigma.GitClient.Desktop <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards

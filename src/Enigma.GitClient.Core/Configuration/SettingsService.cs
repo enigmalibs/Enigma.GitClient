@@ -355,12 +355,14 @@ public sealed class SettingsService : ISettingsService, IDisposable
     /// across; one that says <c>SideBySide</c> is already where version 3 would put it, and a
     /// version 3 file is left alone entirely, because from version 3 on <c>Unified</c> is a
     /// preference like any other. Version 4 widened the graph lane from 16 to 20, so that two
-    /// parallel lines read as two. Version 5 made the changed files a flat list, so a file written
-    /// before it that still says <c>Tree</c> — the shape every earlier build opened on — is moved to
-    /// <c>List</c>, and from version 5 on <c>Tree</c> is a preference like any other.
+    /// parallel lines read as two. Version 5 made the changed files a flat list, and version 6 made
+    /// them a tree again: a version 5 file that says <c>List</c> — version 5's default — is moved to
+    /// <c>Tree</c>. A file written before version 5 is left as it is: its <c>Tree</c> was never
+    /// chosen and is the default again, and its <c>List</c> was chosen against the tree. From version
+    /// 6 on, <c>List</c> is a preference like any other.
     /// </para>
     /// <para>
-    /// The cases compose: a version 1 file goes through all four of them in one read.
+    /// The cases compose: a version 1 file goes through every one of them in one read.
     /// </para>
     /// </remarks>
     private static AppSettings Migrate(AppSettings stored)
@@ -382,7 +384,7 @@ public sealed class SettingsService : ISettingsService, IDisposable
             migrated = migrated with { GraphLaneWidth = AppSettings.Defaults.GraphLaneWidth };
         }
 
-        if (stored.Version < 5 && stored.FilesView == AppSettings.LegacyFilesView)
+        if (stored.Version == 5 && stored.FilesView == AppSettings.LegacyFilesView)
         {
             migrated = migrated with { FilesView = AppSettings.Defaults.FilesView };
         }

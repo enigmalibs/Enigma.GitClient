@@ -243,6 +243,7 @@ public sealed class IdentityProfileStore : IIdentityProfileStore, IDisposable
                     Label = profile.Label ?? string.Empty,
                     Name = profile.Name ?? string.Empty,
                     Email = profile.Email ?? string.Empty,
+                    BaseDirectory = profile.BaseDirectory ?? string.Empty,
                 });
             }
 

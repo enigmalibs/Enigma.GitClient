@@ -45,7 +45,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(AppSettings.CurrentVersion, defaults.Version);
         Assert.Equal(ThemePreference.System, defaults.Theme);
         Assert.Equal(DateDisplay.Relative, defaults.DateDisplay);
-        Assert.Equal(FilesView.List, defaults.FilesView);
+        Assert.Equal(FilesView.Tree, defaults.FilesView);
         Assert.Equal(DiffView.SideBySide, defaults.DiffView);
         Assert.Equal(PullStrategy.Merge, defaults.Pull);
         Assert.Equal(3, defaults.DiffContextLines);
@@ -465,40 +465,54 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task AVersionFourTreeNobodyChangedBecomesTheFlatList()
+    public async Task AVersionFiveListNobodyChangedBecomesTheTree()
     {
         Directory.CreateDirectory(_root);
-        System.IO.File.WriteAllText(File_, """{ "version": 4, "filesView": "Tree", "tabWidth": 8 }""");
+        System.IO.File.WriteAllText(File_, """{ "version": 5, "filesView": "List", "tabWidth": 8 }""");
 
         using SettingsService settings = Build();
         AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
 
-        // Tree was every earlier build's own default, so it is a shape nobody chose.
-        Assert.Equal(FilesView.List, stored.FilesView);
+        // List was version 5's own default, so it is a shape nobody chose.
+        Assert.Equal(FilesView.Tree, stored.FilesView);
         Assert.Equal(AppSettings.CurrentVersion, stored.Version);
         Assert.Equal(8, stored.TabWidth);
     }
 
     [Fact]
-    public async Task AVersionFourListIsKept()
-    {
-        Directory.CreateDirectory(_root);
-        System.IO.File.WriteAllText(File_, """{ "version": 4, "filesView": "List" }""");
-
-        using SettingsService settings = Build();
-
-        Assert.Equal(FilesView.List, (await settings.LoadAsync(TestContext.Current.CancellationToken)).FilesView);
-    }
-
-    [Fact]
-    public async Task ACurrentVersionTreeIsNeverMigrated()
+    public async Task AVersionFiveTreeIsKept()
     {
         Directory.CreateDirectory(_root);
         System.IO.File.WriteAllText(File_, """{ "version": 5, "filesView": "Tree" }""");
 
         using SettingsService settings = Build();
 
-        // From version 5 on, the tree is a preference like any other.
+        Assert.Equal(FilesView.Tree, (await settings.LoadAsync(TestContext.Current.CancellationToken)).FilesView);
+    }
+
+    [Theory]
+    [InlineData("Tree", FilesView.Tree)]
+    [InlineData("List", FilesView.List)]
+    public async Task AVersionFourShapeIsKept(string written, FilesView expected)
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, $$"""{ "version": 4, "filesView": "{{written}}" }""");
+
+        using SettingsService settings = Build();
+
+        // Before version 5 the tree was the default, as it is again, and a list was chosen against it.
+        Assert.Equal(expected, (await settings.LoadAsync(TestContext.Current.CancellationToken)).FilesView);
+    }
+
+    [Fact]
+    public async Task ACurrentVersionListIsNeverMigrated()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 6, "filesView": "List" }""");
+
+        using SettingsService settings = Build();
+
+        // From version 6 on, the list is a preference like any other.
         Assert.Equal(
             AppSettings.LegacyFilesView,
             (await settings.LoadAsync(TestContext.Current.CancellationToken)).FilesView);

@@ -2039,7 +2039,7 @@ public sealed class HistoryPageTests
             Assert.Same(row, model.SelectedRow);
             Assert.True(panel.IsVisible);
             Assert.Equal(row.Subject, view.FindControl<TextBlock>("DetailsSubject")!.Text);
-            Assert.Equal("src/app.txt", Assert.Single(model.Files.Nodes).Path);
+            Assert.Equal("src/app.txt", Assert.Single(ViewModels.Panels.ChangedFilesPanelViewModel.Flatten(model.Files.Nodes), node => !node.IsDirectory).Path);
 
             // The same line again — further along it, so it is a second click and not a double-click:
             // it lets go, and the panel goes.
