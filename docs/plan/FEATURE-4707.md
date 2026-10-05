@@ -1,6 +1,6 @@
 # FEATURE-4707 — Release 5.4.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-4707.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-4707-release-5-4-0`
 **Run:** feature/2026-10-05-revert-tree-basedir-release

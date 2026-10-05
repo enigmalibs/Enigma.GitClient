@@ -1,5 +1,65 @@
 # Release notes
 
+## 5.4.0 — 2026-10-05
+
+A minor release. A commit can be reverted from its line in the history, next to the reset. The
+changed files open as a tree of folders instead of a flat list. A profile can name a base directory,
+where the start window's Open, Clone and Create begin while that profile is picked.
+
+### The history
+
+- **Revert this commit…** — every commit line's menu offers it after the two reset items, while HEAD
+  is on a branch. It asks *Revert abc1234?*, naming the commit's subject and the branch, with
+  *Revert* as the default. Confirmed, it records a new commit on that branch, with git's own message
+  (*Revert "…"*), that undoes what the commit changed. The commit itself stays in the history, and the
+  history reloads with the revert on top.
+  - **A merge** is reverted against the branch it was merged into: what it brought in is undone.
+  - **A revert that would conflict** is abandoned on the spot. Nothing changes, and the warning names
+    the files. The app never leaves a revert in progress.
+  - **A change that is already undone** commits nothing, and you are told so.
+  - **It is refused, with a sentence:** when uncommitted work is in the way, on a detached HEAD, and
+    while a merge, cherry-pick or another revert is in progress. It is greyed out on the uncommitted
+    line.
+
+### The changed files
+
+- **A tree of folders by default.** A commit's files and the uncommitted files in the details panel,
+  and a stash's files, open as a tree instead of a flat list. *Settings → Changed files → Show them as*
+  still switches every panel, and each panel's own toggle still switches the one in front of you.
+
+### The profiles
+
+- **A base directory per profile.** The Add and Edit profile dialogs have an optional *Base directory*
+  field with *Browse*. While that profile is picked on the start window:
+  - **Open** starts its folder picker there;
+  - **Clone** and **Create** suggest it, so their *Browse* starts there too. For a clone it comes
+    before the directory the last clone went to, which still serves a profile without one.
+
+  A clone picked from one of the profile's integrations goes there as well. The field takes a full
+  path. A directory that is missing when you press the button, such as an unplugged drive, counts as
+  none.
+
+### Upgrading from 5.3
+
+- **The changed files open as a tree.** `settings.json` moves to version 6. If it said *a flat list*,
+  the default of every release so far, it now says *a tree of folders*. If you prefer the list, choose
+  it again under *Settings → Changed files*: from now on that choice is kept.
+- `identity-profiles.json` gains an optional `baseDirectory` for each profile. Profiles without one
+  read as before.
+- **Going back to 5.3** keeps everything: 5.3 reads the newer settings file for the keys it knows, and
+  ignores the base directories. A profile that 5.3 saves loses its base directory.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set, which is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.4.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour: the
+  revert, the base directory and the tree default. Nothing is removed. The stored settings move
+  forward in a way 5.3 still reads.
+
 ## 5.3.0 — 2026-10-05
 
 A minor release. Picking a profile in the start window now makes it the identity git commits with, and
