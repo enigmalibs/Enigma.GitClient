@@ -1242,11 +1242,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 UseStashes(stashes);
             }
 
-            if (dirty)
-            {
-                Rows.Add(CommitRowViewModel.Uncommitted(0, 0, RowCommands));
-            }
-
             // The hidden branches are read as each page is asked for, not kept in the query: a page
             // is always read with the set the reader sees now, and a change reloads from the top.
             _walkedWithoutState = RepositoryContext.Head is null;
@@ -1269,7 +1264,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 return;
             }
 
-            AppendPage(page);
+            // The uncommitted line is laid out with the page, above it: its dashed line runs down the
+            // lane HEAD's commit is drawn in, however far below that commit is.
+            AppendPage(page, withWorkingTree: dirty);
         }
         catch (OperationCanceledException)
         {
@@ -1314,13 +1311,22 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
-    private void AppendPage(CommitLogPage page)
+    private void AppendPage(CommitLogPage page, bool withWorkingTree)
     {
         RefDecorationIndex decorations = RepositoryContext.Decorations;
         IReadOnlyList<GitCommit> commits = FoldStashes(page.Commits, decorations);
 
+        List<GraphCommitInput> inputs = new(commits.Count + 1);
+
+        if (withWorkingTree)
+        {
+            inputs.Add(GraphCommitInput.WorkingTree(RepositoryContext.Head?.Sha));
+        }
+
+        inputs.AddRange(GraphCommitInput.From(commits));
+
         GraphLayoutResult layout = CommitGraphLayout.Build(
-            GraphCommitInput.From(commits),
+            inputs,
             _layoutCarry,
             new GraphLayoutOptions
             {
@@ -1347,13 +1353,21 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         // No state at all is not "no reference": it is a context that has not read them yet.
         _drawnWithoutState |= RepositoryContext.Head is null;
 
+        int first = 0;
+
+        if (withWorkingTree)
+        {
+            Rows.Add(CommitRowViewModel.Uncommitted(layout.Rows[0], RowCommands));
+            first = 1;
+        }
+
         for (int index = 0; index < commits.Count; index++)
         {
             GitCommit commit = commits[index];
 
             Rows.Add(new CommitRowViewModel(
                 commit,
-                layout.Rows[index],
+                layout.Rows[first + index],
                 WithoutStashRef(WithoutHidden(decorations.GetRefs(commit.Sha), excluded)),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
                 now,
