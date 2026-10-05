@@ -264,4 +264,60 @@ public sealed class IdentityProfileStoreTests : IDisposable
             ["Work", "Home"],
             (await first.GetAllAsync(TestContext.Current.CancellationToken)).Select(profile => profile.Label));
     }
+
+    // ---------------------------------------------------------------- the base directory
+
+    [Fact]
+    public async Task ABaseDirectorySurvivesANewStore()
+    {
+        string directory = Path.Combine(_root, "projects");
+
+        using (IdentityProfileStore store = Build())
+        {
+            await store.SaveAsync(
+                IdentityProfile.Create("Work", Work).WithBaseDirectory(directory),
+                TestContext.Current.CancellationToken);
+        }
+
+        using IdentityProfileStore reopened = Build();
+        IdentityProfile profile = Assert.Single(await reopened.GetAllAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(directory, profile.BaseDirectory);
+    }
+
+    [Fact]
+    public async Task AFileWrittenBeforeBaseDirectoriesReadsAsNone()
+    {
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(
+            File_,
+            """
+            {
+              "version": 1,
+              "profiles": [
+                { "id": "old", "label": "Work", "name": "Ada", "email": "ada@example.com" },
+                { "id": "edited", "label": "Home", "name": "Ada", "email": "ada@home.example", "baseDirectory": null }
+              ]
+            }
+            """,
+            TestContext.Current.CancellationToken);
+
+        using IdentityProfileStore store = Build();
+        IReadOnlyList<IdentityProfile> profiles = await store.GetAllAsync(TestContext.Current.CancellationToken);
+
+        Assert.All(profiles, profile => Assert.Equal(string.Empty, profile.BaseDirectory));
+    }
+
+    [Fact]
+    public async Task ARelativeBaseDirectoryIsRefused()
+    {
+        using IdentityProfileStore store = Build();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(
+            IdentityProfile.Create("Work", Work).WithBaseDirectory("projects"),
+            TestContext.Current.CancellationToken));
+
+        Assert.False(File.Exists(File_));
+    }
 }
+

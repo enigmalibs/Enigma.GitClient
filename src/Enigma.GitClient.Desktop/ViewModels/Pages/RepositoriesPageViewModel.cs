@@ -292,8 +292,15 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private async Task OnOpenAsync()
     {
+        // The picker starts in the selected profile's base directory; without one, where the
+        // platform's picker chooses, as it always has.
+        IdentityProfile profile = await SelectedProfileNowAsync().ConfigureAwait(true);
+
         IEnumerable<string> folders = await _folderDialogs
-            .ShowOpenFolderDialogAsync(title: "Open a repository", allowMultiple: false)
+            .ShowOpenFolderDialogAsync(
+                title: "Open a repository",
+                allowMultiple: false,
+                suggestedStartLocation: BaseDirectoryOf(profile))
             .ConfigureAwait(true);
 
         string? chosen = folders.FirstOrDefault();
@@ -363,7 +370,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private async Task OnCreateAsync()
     {
-        InitRepositoryDialogViewModel model = new(_folderDialogs, DefaultParentDirectory());
+        IdentityProfile profile = await SelectedProfileNowAsync().ConfigureAwait(true);
+
+        InitRepositoryDialogViewModel model = new(_folderDialogs, BaseDirectoryOf(profile) ?? DefaultParentDirectory());
         InitRepositoryDialogView view = _services.GetService(typeof(InitRepositoryDialogView)) as InitRepositoryDialogView
             ?? new InitRepositoryDialogView();
         view.DataContext = model;
@@ -470,7 +479,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private async Task OnCloneAsync()
     {
-        CloneRepositoryDialogViewModel model = new(_folderDialogs, _repositories, CloneParentDirectory());
+        IdentityProfile profile = await SelectedProfileNowAsync().ConfigureAwait(true);
+
+        CloneRepositoryDialogViewModel model = new(_folderDialogs, _repositories, CloneParentDirectory(profile));
         CloneRepositoryDialogView view = _services.GetService(typeof(CloneRepositoryDialogView)) as CloneRepositoryDialogView
             ?? new CloneRepositoryDialogView();
         view.DataContext = model;
@@ -709,10 +720,17 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// remembering it: a clone started from the profiles page reaches this page before it was ever shown.
     /// </summary>
     private async Task<string> SelectedProfileIdAsync()
+        => (await SelectedProfileNowAsync().ConfigureAwait(true)).Id;
+
+    /// <summary>
+    /// Reads the profile in use now, as it is stored — so a base directory just changed on the
+    /// profiles page, or in another window, is the one Open, Clone and Create start in.
+    /// </summary>
+    private async Task<IdentityProfile> SelectedProfileNowAsync()
     {
         ProfileChoice choice = await _selection.LoadAsync().ConfigureAwait(true);
 
-        return choice.Selected.Id;
+        return choice.Selected;
     }
 
     /// <summary>
@@ -812,22 +830,50 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Where the next clone is created unless the user says otherwise: the directory the last one
-    /// was made in, while it still exists, and the home folder otherwise.
+    /// Where the next clone is created unless the user says otherwise: the base directory of the
+    /// profile it is for, then the directory the last clone was made in, then the home folder — each
+    /// only while it exists.
     /// </summary>
+    /// <param name="profile">
+    /// The profile the clone is for — the one selected on this page, or the one whose integration it
+    /// comes from; <see langword="null"/> for none.
+    /// </param>
     /// <returns>The absolute directory path.</returns>
     /// <remarks>
     /// Public because the profiles page clones from a repository the user picked on a host, with no
     /// dialog to choose a directory in: that clone is the next clone as much as the dialog's is. A
-    /// remembered directory that has gone — a drive unplugged, a folder removed — is not offered.
+    /// directory set on purpose for the profile comes before one remembered for every profile; a
+    /// directory that has gone — a drive unplugged, a folder removed — is not offered.
     /// </remarks>
-    public string CloneParentDirectory()
+    public string CloneParentDirectory(IdentityProfile? profile = null)
     {
+        if (BaseDirectoryOf(profile) is { } baseDirectory)
+        {
+            return baseDirectory;
+        }
+
         string remembered = _settings.Current.CloneParentDirectory;
 
         return remembered.Length > 0 && System.IO.Directory.Exists(remembered)
             ? remembered
             : DefaultParentDirectory();
+    }
+
+    /// <summary>
+    /// The directory a profile's repositories live in, while it is a full path to a directory that
+    /// exists; <see langword="null"/> otherwise, which is the same as the profile naming none.
+    /// </summary>
+    /// <param name="profile">The profile, or <see langword="null"/>.</param>
+    /// <returns>The directory, or <see langword="null"/>.</returns>
+    public static string? BaseDirectoryOf(IdentityProfile? profile)
+    {
+        string directory = profile?.BaseDirectory?.Trim() ?? string.Empty;
+
+        return directory.Length > 0
+            && System.IO.Path.IsPathFullyQualified(directory)
+            && System.IO.Directory.Exists(directory)
+                ? directory
+                : null;
     }
 
     /// <summary>

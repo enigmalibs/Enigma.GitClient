@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Enigma.GitClient.Core.Identity;
 using Xunit;
 
@@ -118,5 +119,60 @@ public sealed class IdentityProfileTests
         Assert.False(none.Matches(GitIdentity.Empty));
         Assert.Same(work, IdentityProfile.FirstMatching([none, work], new GitIdentity("Ada", "ada@work.example")));
         Assert.Null(IdentityProfile.FirstMatching([none], GitIdentity.Empty));
+    }
+
+    // ---------------------------------------------------------------- the base directory
+
+    [Fact]
+    public void ABaseDirectory_IsNoneUntilOneIsGivenAndIsTrimmed()
+    {
+        string directory = Path.GetTempPath();
+        IdentityProfile work = IdentityProfile.Create("Work", new GitIdentity("Ada", "ada@work.example"));
+
+        Assert.Equal(string.Empty, work.BaseDirectory);
+        Assert.Equal(string.Empty, IdentityProfile.CreateDefault().BaseDirectory);
+
+        IdentityProfile placed = work.WithBaseDirectory($"  {directory}  ");
+
+        Assert.Equal(directory.Trim(), placed.BaseDirectory);
+        Assert.Equal(work.Id, placed.Id);
+        Assert.Equal(string.Empty, placed.WithBaseDirectory(null).BaseDirectory);
+
+        // Changing the label and identity keeps it, trimmed as everything else is.
+        IdentityProfile renamed = (placed with { BaseDirectory = $" {directory} " }).With("Office", work.Identity);
+        Assert.Equal(directory.Trim(), renamed.BaseDirectory);
+    }
+
+    [Fact]
+    public void ValidateBaseDirectory_AcceptsNoneOrAFullPath()
+    {
+        Assert.Null(IdentityProfileRules.ValidateBaseDirectory(null));
+        Assert.Null(IdentityProfileRules.ValidateBaseDirectory(string.Empty));
+        Assert.Null(IdentityProfileRules.ValidateBaseDirectory("   "));
+        Assert.Null(IdentityProfileRules.ValidateBaseDirectory(Path.GetTempPath()));
+
+        // It need not exist: a drive may be unplugged while the profile is edited.
+        Assert.Null(IdentityProfileRules.ValidateBaseDirectory(Path.Combine(Path.GetTempPath(), "not-there-" + Guid.NewGuid().ToString("N"))));
+    }
+
+    [Theory]
+    [InlineData("projects/work", "Give the base directory as a full path, from the root of the drive.")]
+    [InlineData("./work", "Give the base directory as a full path, from the root of the drive.")]
+    [InlineData("work\nmore", "A base directory must fit on one line.")]
+    public void ValidateBaseDirectory_SaysWhatIsWrong(string directory, string expected)
+        => Assert.Equal(expected, IdentityProfileRules.ValidateBaseDirectory(directory));
+
+    [Fact]
+    public void Validate_ChecksTheBaseDirectoryLast()
+    {
+        IdentityProfile work = IdentityProfile.Create("Work", new GitIdentity("Ada", "ada@work.example"));
+
+        Assert.Null(IdentityProfileRules.Validate(work.WithBaseDirectory(Path.GetTempPath())));
+        Assert.Equal(
+            "Give the base directory as a full path, from the root of the drive.",
+            IdentityProfileRules.Validate(work.WithBaseDirectory("relative")));
+        Assert.Equal(
+            "Give the profile a name, such as Work or Personal.",
+            IdentityProfileRules.Validate((work with { Label = string.Empty }).WithBaseDirectory("relative")));
     }
 }

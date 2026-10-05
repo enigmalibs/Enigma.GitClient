@@ -60,6 +60,10 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// <param name="DeleteRemoteTag">
 /// Deletes one tag, by its name, from the remote its push goes to, after asking; from every tag badge.
 /// </param>
+/// <param name="Revert">
+/// Records a commit on the branch HEAD is on that undoes the row's commit, after asking; offered beside
+/// the reset items, under the same condition.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -77,7 +81,8 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel>? DiscardUncommitted = null,
     AsyncRelayCommand<string>? PushTag = null,
     AsyncRelayCommand<string>? DeleteTag = null,
-    AsyncRelayCommand<string>? DeleteRemoteTag = null);
+    AsyncRelayCommand<string>? DeleteRemoteTag = null,
+    AsyncRelayCommand<CommitRowViewModel>? Revert = null);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -275,6 +280,12 @@ public sealed class CommitRowViewModel : ViewModelBase
             : $"Reset \"{branch}\" to this commit - Hard (discard all changes)";
 
     /// <summary>
+    /// What the revert item says. It names no branch, unlike the reset items: it moves none, and the
+    /// question it asks names the branch its commit lands on.
+    /// </summary>
+    public const string RevertHeader = "Revert this commit…";
+
+    /// <summary>
     /// Gets the branches pointing at this commit, each with what it offers, in badge order.
     /// </summary>
     public IReadOnlyList<HistoryBranchViewModel> Branches { get; }
@@ -308,8 +319,8 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     /// <summary>
     /// Gets the line's menu, built as it is asked for: the commit's own actions, resetting the
-    /// branch HEAD is on to the commit, then — for every branch on the line — "set it as the merge
-    /// source" and, when there is a source, "merge it into this one".
+    /// branch HEAD is on to the commit and reverting it, then — for every branch on the line — "set it
+    /// as the merge source" and, when there is a source, "merge it into this one".
     /// </summary>
     /// <remarks>
     /// Data rather than markup because how many items there are depends on how many branches the line
@@ -372,14 +383,29 @@ public sealed class CommitRowViewModel : ViewModelBase
             entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this, PhosphorIcon.SignIn));
 
             // Named after the branch they move, so on a detached HEAD there is nothing to name and
-            // nothing to offer.
-            if (ResetBranch is { } current && commands.ResetSoft is { } resetSoft && commands.ResetHard is { } resetHard)
+            // nothing to offer. The revert follows them: its commit lands on that same branch, and a
+            // commit on a detached HEAD is lost at the next checkout.
+            if (ResetBranch is { } current)
             {
-                HistoryResetRequest request = new(this, current);
+                bool resets = commands.ResetSoft is not null && commands.ResetHard is not null;
 
-                entries.Add(HistoryMenuEntry.Separator);
-                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request, PhosphorIcon.ArrowUUpLeft));
-                entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request, PhosphorIcon.ArrowUUpLeft));
+                if (resets || commands.Revert is not null)
+                {
+                    entries.Add(HistoryMenuEntry.Separator);
+                }
+
+                if (resets)
+                {
+                    HistoryResetRequest request = new(this, current);
+
+                    entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), commands.ResetSoft!, request, PhosphorIcon.ArrowUUpLeft));
+                    entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), commands.ResetHard!, request, PhosphorIcon.ArrowUUpLeft));
+                }
+
+                if (commands.Revert is { } revert)
+                {
+                    entries.Add(new HistoryMenuEntry(RevertHeader, revert, this, PhosphorIcon.ArrowArcLeft));
+                }
             }
 
             if (Branches.Count > 0 && commands.Branches is { } branchCommands)

@@ -649,6 +649,162 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the profile's base directory
+
+    /// <summary>
+    /// Stores a profile — with a base directory, or none — and makes it the one in use.
+    /// </summary>
+    private static async Task<IdentityProfile> SelectProfileAsync(TestServices services, string label, string? baseDirectory)
+    {
+        IdentityProfile profile = IdentityProfile.Create(label, GitIdentity.Empty).WithBaseDirectory(baseDirectory);
+
+        await services.Get<IIdentityProfileStore>().SaveAsync(profile);
+        services.Get<IProfileSelection>().Select(profile.Id);
+
+        return profile;
+    }
+
+    private static string NewDirectory(TestServices services, string name)
+        => Directory.CreateDirectory(Path.Combine(services.ConfigurationRoot, name)).FullName;
+
+    [Fact]
+    public void Open_StartsThePickerInTheSelectedProfilesBaseDirectory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string projects = NewDirectory(services, "projects");
+            await SelectProfileAsync(services, "Work", projects);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OpenCommand.ExecuteAsync(null);
+
+            Assert.Equal(projects, services.Folders.LastStartLocation);
+        });
+    }
+
+    [Fact]
+    public void Open_WithoutABaseDirectory_LetsThePickerChooseWhereToStart()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await SelectProfileAsync(services, "Work", null);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OpenCommand.ExecuteAsync(null);
+
+            Assert.Single(services.Folders.Requests);
+            Assert.Null(services.Folders.LastStartLocation);
+        });
+    }
+
+    [Fact]
+    public void TheCloneAndCreateDialogs_OpenOnTheSelectedProfilesBaseDirectory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string projects = NewDirectory(services, "projects");
+            await SelectProfileAsync(services, "Work", projects);
+
+            CloneRepositoryDialogViewModel? clone = null;
+            InitRepositoryDialogViewModel? create = null;
+            services.Dialogs.OnShown = dialog =>
+            {
+                object? model = ((Control)dialog.Content!).DataContext;
+                clone ??= model as CloneRepositoryDialogViewModel;
+                create ??= model as InitRepositoryDialogViewModel;
+            };
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CloneCommand.ExecuteAsync(null);
+            await page.CreateCommand.ExecuteAsync(null);
+
+            Assert.Equal(projects, clone?.ParentDirectory);
+            Assert.Equal(projects, create?.ParentDirectory);
+        });
+    }
+
+    [Fact]
+    public void ABaseDirectory_ComesBeforeTheRememberedCloneDirectory()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string projects = NewDirectory(services, "projects");
+            string remembered = NewDirectory(services, "clones");
+            services.Get<ISettingsService>().Update(current => current with { CloneParentDirectory = remembered });
+
+            IdentityProfile work = await SelectProfileAsync(services, "Work", projects);
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+
+            Assert.Equal(projects, page.CloneParentDirectory(work));
+
+            // A profile that names none still gets the remembered directory.
+            Assert.Equal(remembered, page.CloneParentDirectory(work.WithBaseDirectory(null)));
+            Assert.Equal(remembered, page.CloneParentDirectory());
+
+            CloneRepositoryDialogViewModel? clone = null;
+            services.Dialogs.OnShown = dialog => clone = ((Control)dialog.Content!).DataContext as CloneRepositoryDialogViewModel;
+
+            await page.CloneCommand.ExecuteAsync(null);
+
+            Assert.Equal(projects, clone?.ParentDirectory);
+        });
+    }
+
+    [Fact]
+    public void ABaseDirectoryThatIsGone_IsLikeNone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await SelectProfileAsync(services, "Work", Path.Combine(services.ConfigurationRoot, "unplugged"));
+
+            CloneRepositoryDialogViewModel? clone = null;
+            InitRepositoryDialogViewModel? create = null;
+            services.Dialogs.OnShown = dialog =>
+            {
+                object? model = ((Control)dialog.Content!).DataContext;
+                clone ??= model as CloneRepositoryDialogViewModel;
+                create ??= model as InitRepositoryDialogViewModel;
+            };
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OpenCommand.ExecuteAsync(null);
+            await page.CloneCommand.ExecuteAsync(null);
+            await page.CreateCommand.ExecuteAsync(null);
+
+            Assert.Null(services.Folders.LastStartLocation);
+            Assert.Equal(HomeFolder, clone?.ParentDirectory);
+            Assert.Equal(HomeFolder, create?.ParentDirectory);
+        });
+    }
+
+    [Fact]
+    public void PickingAnotherProfile_MovesWhereOpenStarts()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string projects = NewDirectory(services, "projects");
+            IdentityProfile work = await SelectProfileAsync(services, "Work", projects);
+            IdentityProfile home = await SelectProfileAsync(services, "Home", null);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            Assert.Equal(home.Id, page.SelectedProfile?.Id);
+            await page.OpenCommand.ExecuteAsync(null);
+            Assert.Null(services.Folders.LastStartLocation);
+
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == work.Id);
+            await page.OpenCommand.ExecuteAsync(null);
+            Assert.Equal(projects, services.Folders.LastStartLocation);
+        });
+    }
+
     // ---------------------------------------------------------------- the clone's own identity
 
     private static async Task<(RepositoriesPageViewModel Page, CloneRequest Request)> ReadyToCloneAsync(TestServices services)

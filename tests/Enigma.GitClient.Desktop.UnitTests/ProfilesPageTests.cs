@@ -764,7 +764,8 @@ public sealed class ProfilesPageTests
     [Fact]
     public void TheDialogSaysNothingUntilSomethingIsTypedAndKeepsAnEditedProfilesIdentifier()
     {
-        IdentityProfileDialogViewModel fresh = new(string.Empty, Ada);
+        using RecordingFolderDialogService folders = new();
+        IdentityProfileDialogViewModel fresh = new(folders, string.Empty, Ada);
 
         Assert.False(fresh.IsValid);
         Assert.False(fresh.HasValidationMessage);
@@ -777,11 +778,147 @@ public sealed class ProfilesPageTests
         Assert.Equal("Work", created.Label);
         Assert.Equal(Ada, created.Identity);
 
-        IdentityProfileDialogViewModel editing = new("Work", Ada) { Email = "ada@office.example" };
+        IdentityProfileDialogViewModel editing = new(folders, "Work", Ada) { Email = "ada@office.example" };
         IdentityProfile edited = editing.ToProfile(created);
 
         Assert.Equal(created.Id, edited.Id);
         Assert.Equal("ada@office.example", edited.Email);
+    }
+
+    // ---------------------------------------------------------------- the base directory
+
+    [Fact]
+    public void AddingAProfileWithABaseDirectoryStoresIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+            string projects = Directory.CreateDirectory(Path.Combine(services.ConfigurationRoot, "projects")).FullName;
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                IdentityProfileDialogViewModel model = DialogModel(dialog);
+
+                // A new profile names none until one is given.
+                Assert.Equal(string.Empty, model.BaseDirectory);
+
+                model.Label = "Work";
+                model.BaseDirectory = $" {projects} ";
+            };
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            IdentityProfile stored = Assert.Single(await services.Get<IIdentityProfileStore>().GetAllAsync());
+            Assert.Equal(projects, stored.BaseDirectory);
+        });
+    }
+
+    [Fact]
+    public void EditingAProfileShowsItsBaseDirectoryAndChangesOrClearsIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            string first = Directory.CreateDirectory(Path.Combine(services.ConfigurationRoot, "first")).FullName;
+            string second = Directory.CreateDirectory(Path.Combine(services.ConfigurationRoot, "second")).FullName;
+            await store.SaveAsync(IdentityProfile.Create("Work", Work).WithBaseDirectory(first));
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                IdentityProfileDialogViewModel model = DialogModel(dialog);
+
+                Assert.Equal(first, model.BaseDirectory);
+                model.BaseDirectory = second;
+            };
+
+            await page.EditProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.Equal(second, Assert.Single(await store.GetAllAsync()).BaseDirectory);
+
+            services.Dialogs.OnShown = dialog => DialogModel(dialog).BaseDirectory = string.Empty;
+
+            await page.EditProfileCommand.ExecuteAsync(page.Profiles[0]);
+
+            Assert.Equal(string.Empty, Assert.Single(await store.GetAllAsync()).BaseDirectory);
+        });
+    }
+
+    [Fact]
+    public void ARelativeBaseDirectoryCannotBeConfirmed()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Ada;
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            List<bool> enabled = [];
+            services.Dialogs.Result = DialogResult.Primary;
+            services.Dialogs.OnShown = dialog =>
+            {
+                IdentityProfileDialogViewModel model = DialogModel(dialog);
+
+                model.Label = "Work";
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+
+                model.BaseDirectory = Path.Combine("projects", "work");
+                enabled.Add(dialog.IsPrimaryButtonEnabled);
+                Assert.Equal("Give the base directory as a full path, from the root of the drive.", model.ValidationMessage);
+            };
+
+            await page.AddProfileCommand.ExecuteAsync(null);
+
+            Assert.Equal([true, false], enabled);
+            Assert.Empty(await services.Get<IIdentityProfileStore>().GetAllAsync());
+        });
+    }
+
+    [Fact]
+    public void Browse_PicksTheBaseDirectoryStartingWhereTheFieldPoints()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            string first = Directory.CreateDirectory(Path.Combine(services.ConfigurationRoot, "first")).FullName;
+            string second = Directory.CreateDirectory(Path.Combine(services.ConfigurationRoot, "second")).FullName;
+
+            IdentityProfileDialogViewModel model = new(services.Folders, "Work", Work);
+
+            // An empty field: the picker starts in the home folder, and its answer fills the field.
+            services.Folders.Answer = first;
+            await model.BrowseCommand.ExecuteAsync(null);
+
+            Assert.Equal(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).TrimEnd('/', '\\'),
+                services.Folders.LastStartLocation);
+            Assert.Equal(first, model.BaseDirectory);
+
+            // A field naming a directory that exists: the picker starts there.
+            services.Folders.Answer = second;
+            await model.BrowseCommand.ExecuteAsync(null);
+
+            Assert.Equal(first, services.Folders.LastStartLocation);
+            Assert.Equal(second, model.BaseDirectory);
+
+            // A cancelled picker leaves the field alone.
+            services.Folders.Answer = null;
+            await model.BrowseCommand.ExecuteAsync(null);
+
+            Assert.Equal(second, model.BaseDirectory);
+            Assert.Equal(3, services.Folders.Requests.Count);
+        });
     }
 
     // ---------------------------------------------------------------- the repository's own identity
