@@ -260,7 +260,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6F35 | Uncommitted line joins HEAD, dashed     | DONE      | docs/plan/FEATURE-6F35.md |
 | - PHASE01    | The working tree in the graph layout    | DONE      | (in FEATURE-6F35.md)      |
 | - PHASE02    | The dashed line in the history          | DONE      | (in FEATURE-6F35.md)      |
-| BUG-123A     | A repository opens on its history       | TODO      | docs/plan/BUG-123A.md     |
+| BUG-123A     | A repository opens on its history       | DONE      | docs/plan/BUG-123A.md     |
 | BUG-3D1F     | Column titles run under the panel       | TODO      | docs/plan/BUG-3D1F.md     |
 | FEATURE-3B4E | Open the folder and a terminal          | TODO      | docs/plan/FEATURE-3B4E.md |
 | FEATURE-426F | A fetch when a repository opens         | TODO      | docs/plan/FEATURE-426F.md |
