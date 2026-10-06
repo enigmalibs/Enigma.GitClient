@@ -1,6 +1,6 @@
 # FEATURE-47B3 — Release 5.7.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-47B3.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-47b3-release-5-7-0`
 **Run:** vibe/2026-10-06-stash-untracked-release
