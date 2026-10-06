@@ -1,6 +1,6 @@
 # BUG-1F3A — A stash hides its untracked files
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-1F3A.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-1f3a-stash-untracked-files`
 **Run:** vibe/2026-10-06-stash-untracked-release

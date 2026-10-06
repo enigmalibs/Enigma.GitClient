@@ -357,4 +357,65 @@ public sealed class DiffTargetTests
         Assert.DoesNotContain("--cached", arguments);
         Assert.Equal("--", arguments[^1]);
     }
+
+    // ---------------------------------------------------------------- a stash entry
+
+    [Fact]
+    public void Stash_CarriesTheEntrysCommit()
+    {
+        DiffTarget target = DiffTarget.Stash("abc123");
+
+        Assert.Equal(DiffTargetKind.Stash, target.Kind);
+        Assert.Equal("abc123", target.From);
+        Assert.Equal("stash abc123", target.ToString());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Stash_RejectsABlankCommit(string sha)
+        => Assert.Throws<ArgumentException>(() => DiffTarget.Stash(sha));
+
+    [Fact]
+    public void BuildArguments_ForAStashReadsItsTrackedHalfAgainstItsFirstParent()
+    {
+        List<string> arguments = DiffService.BuildArguments(
+            DiffTarget.Stash("abc123"),
+            ["--name-status"],
+            DiffOptions.Default,
+            paths: null);
+
+        // A diff, not a show: "show -m --first-parent" would be the same comparison, but the entry
+        // always has a first parent, so no root-commit case needs "show".
+        Assert.Equal("diff", arguments[0]);
+        Assert.Equal(["abc123^1", "abc123", "--"], arguments[^3..]);
+    }
+
+    [Fact]
+    public void MergeStashHalves_ListsBothHalvesInPathOrder_TheUntrackedOnesFlagged()
+    {
+        IReadOnlyList<ChangedFile> merged = DiffService.MergeStashHalves(
+            [new ChangedFile { Path = "src/app.cs", ChangeKind = FileChangeKind.Modified }],
+            [
+                new ChangedFile { Path = "docs/b.md", ChangeKind = FileChangeKind.Added },
+                new ChangedFile { Path = "docs/a.md", ChangeKind = FileChangeKind.Added },
+            ]);
+
+        Assert.Equal(["docs/a.md", "docs/b.md", "src/app.cs"], merged.Select(file => file.Path));
+        Assert.True(merged[0].IsUntracked);
+        Assert.True(merged[1].IsUntracked);
+        Assert.False(merged[2].IsUntracked);
+    }
+
+    [Fact]
+    public void MergeStashHalves_KeepsThePathOnce_AsTheTrackedChange()
+    {
+        IReadOnlyList<ChangedFile> merged = DiffService.MergeStashHalves(
+            [new ChangedFile { Path = "README.md", ChangeKind = FileChangeKind.Modified }],
+            [new ChangedFile { Path = "README.md", ChangeKind = FileChangeKind.Added }]);
+
+        ChangedFile file = Assert.Single(merged);
+        Assert.Equal(FileChangeKind.Modified, file.ChangeKind);
+        Assert.False(file.IsUntracked);
+    }
 }

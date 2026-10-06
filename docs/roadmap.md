@@ -290,7 +290,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-630E | Folder and terminal on the home list    | DONE      | docs/plan/FEATURE-630E.md |
 | BUG-6EA3     | Open folder falsely fails on Windows    | DONE      | docs/plan/BUG-6EA3.md     |
 | FEATURE-1795 | Release 5.6.0                           | DONE      | docs/plan/FEATURE-1795.md |
-| BUG-1F3A     | A stash hides its untracked files       | TODO      | docs/plan/BUG-1F3A.md     |
+| BUG-1F3A     | A stash hides its untracked files       | DONE      | docs/plan/BUG-1F3A.md     |
 | FEATURE-47B3 | Release 5.7.0                           | TODO      | docs/plan/FEATURE-47B3.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
