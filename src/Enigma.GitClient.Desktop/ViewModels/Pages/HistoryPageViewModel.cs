@@ -302,7 +302,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public ObservableCollection<CommitRowViewModel> Rows { get; } = [];
 
     /// <summary>
-    /// Gets or sets what to look for in the commit messages.
+    /// Gets or sets what to look for in the commits: their messages, their SHAs and their authors
+    /// (<see cref="CommitRowViewModel.Matches"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1610,8 +1611,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Marks the loaded rows the search finds, and counts them.
     /// </summary>
     /// <remarks>
-    /// Over the subject and the body, case-insensitively — what git's own <c>--grep</c> searched
-    /// when the box filtered the query, so the same words still find the same commits.
+    /// What a row matches on — the message, the start of the SHA, the author — is the row's own
+    /// <see cref="CommitRowViewModel.Matches"/>.
     /// </remarks>
     private void MarkMatches()
     {
