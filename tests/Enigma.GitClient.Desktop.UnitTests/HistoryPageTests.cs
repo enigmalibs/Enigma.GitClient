@@ -2045,8 +2045,9 @@ public sealed class HistoryPageTests
             Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Left + pill.BorderThickness.Left);
             Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Right + pill.BorderThickness.Right);
 
-            Icon icon = content.GetVisualDescendants().OfType<Icon>().First();
-            Assert.Equal(RefBadgeMetrics.IconSize, icon.Size);
+            Assert.All(
+                content.GetVisualDescendants().OfType<Icon>(),
+                icon => Assert.Equal(RefBadgeMetrics.IconSize, icon.Size));
 
             window.Close();
         });
@@ -2089,15 +2090,77 @@ public sealed class HistoryPageTests
         // template draws plus its label, and both grew.
         double chrome = (RefBadgeMetrics.HorizontalPadding * 2) + RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing;
 
-        Assert.Equal(34, chrome);
+        Assert.Equal(38, chrome);
         Assert.True(RefBadgeMetrics.MeasureBadge("main") > chrome);
 
-        // Two badges on a row are still separated by the strip's own spacing.
+        // Two badges on a row are still separated by the strip's own spacing; the checked-out one
+        // counts its check.
         RefBadgeItem[] two = [new(GitRefKind.LocalBranch, "main", true), new(GitRefKind.Tag, "v1.0.0", false)];
 
         Assert.Equal(
-            RefBadgeMetrics.MeasureBadge("main") + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
+            RefBadgeMetrics.MeasureBadge("main", isCurrent: true) + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
             RefBadgeMetrics.Measure(two));
+    }
+
+    [Fact]
+    public void TheCheckedOutBranchsBadge_LeadsWithACheck_AndIsMeasuredWithIt()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge current = new() { Kind = GitRefKind.LocalBranch, Text = "main", IsCurrent = true };
+            RefBadge other = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+            RefBadge tag = new() { Kind = GitRefKind.Tag, Text = "main" };
+
+            Window window = new()
+            {
+                Content = new StackPanel { Children = { current, other, tag } },
+                Width = 400,
+                Height = 200,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            static Icon Named(RefBadge badge, string name)
+                => badge.GetVisualDescendants().OfType<Icon>().Single(icon => icon.Name == name);
+
+            // First in the pill, before the branch's own icon, and only on the checked-out branch.
+            Icon check = Named(current, "CurrentIcon");
+            Assert.Equal(PhosphorIcon.Check, check.Kind);
+            Assert.True(check.IsVisible);
+            Assert.True(
+                check.TranslatePoint(new Point(0, 0), current)!.Value.X < Named(current, "KindIcon").TranslatePoint(new Point(0, 0), current)!.Value.X,
+                "the check is not left of the branch icon");
+
+            Assert.False(Named(other, "CurrentIcon").IsVisible);
+            Assert.False(Named(tag, "CurrentIcon").IsVisible);
+
+            // The column is measured with it: one more icon and one more gap, as drawn.
+            double drawn = current.Bounds.Width - other.Bounds.Width;
+
+            Assert.Equal(RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing, drawn, 3);
+            Assert.Equal(drawn, RefBadgeMetrics.MeasureBadge("main", isCurrent: true) - RefBadgeMetrics.MeasureBadge("main"), 3);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Badge_HasItsSlightlyBiggerPadding()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.Tag, Text = "v1.0.0" };
+
+            Window window = new() { Content = badge, Width = 400, Height = 120 };
+            window.Show();
+            window.UpdateLayout();
+
+            Border pill = badge.GetVisualDescendants().OfType<Border>().First();
+
+            Assert.Equal(new Thickness(9, 3), pill.Padding);
+
+            window.Close();
+        });
     }
 
     // ---------------------------------------------------------------- the badges are not dragged

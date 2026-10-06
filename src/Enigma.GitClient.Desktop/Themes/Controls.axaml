@@ -101,21 +101,31 @@
       <ControlTemplate>
         <!-- The numbers here are mirrored by Controls/RefBadgeMetrics, which is what measures the
              Refs column; a test reads them back off a realised badge so the two cannot drift. -->
-        <!-- A branch drawn with its upstream adds the remote's cloud after the branch icon: one more
-             icon and one more gap, which RefBadgeMetrics counts too. -->
+        <!-- A branch drawn with its upstream adds the remote's cloud after the branch icon, and the
+             checked-out branch a check before it: each is one more icon and one more gap, which
+             RefBadgeMetrics counts too. -->
         <Border Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="1"
                 CornerRadius="4"
-                Padding="7,2"
+                Padding="9,3"
                 ToolTip.Tip="{TemplateBinding Description}"
                 AutomationProperties.Name="{TemplateBinding Description}">
           <StackPanel Orientation="Horizontal" Spacing="5">
-            <ei:Icon Kind="{TemplateBinding IconKind}"
+            <!-- The checked-out branch says so in a shape as well as in a colour. -->
+            <ei:Icon Name="CurrentIcon"
+                     Kind="Check"
+                     Size="13"
+                     VerticalAlignment="Center"
+                     IsVisible="{TemplateBinding IsCurrent}"
+                     Foreground="{TemplateBinding Foreground}" />
+            <ei:Icon Name="KindIcon"
+                     Kind="{TemplateBinding IconKind}"
                      Size="13"
                      VerticalAlignment="Center"
                      Foreground="{TemplateBinding Foreground}" />
-            <ei:Icon Kind="CloudArrowDown"
+            <ei:Icon Name="UpstreamIcon"
+                     Kind="CloudArrowDown"
                      Size="13"
                      VerticalAlignment="Center"
                      IsVisible="{TemplateBinding HasUpstream}"

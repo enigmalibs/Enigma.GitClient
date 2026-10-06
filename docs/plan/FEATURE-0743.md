@@ -1,6 +1,6 @@
 # FEATURE-0743 — Roomier ref badges, a HEAD icon
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0743.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-0743-ref-badge-head-icon`
 **Run:** vibe/2026-10-06-diff-search-refs-release
