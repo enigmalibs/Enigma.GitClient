@@ -18,10 +18,11 @@ namespace Enigma.GitClient.Desktop.Controls;
 /// its label in the badge's own face plus the chrome the control template draws around it.
 /// </para>
 /// <para>
-/// The constants below mirror <c>Themes/Controls.axaml</c>'s <see cref="RefBadge"/> template: an
-/// 8 px horizontal padding on each side — 7 of padding and the 1 px border — a 13 px icon, and a
+/// The constants below mirror <c>Themes/Controls.axaml</c>'s <see cref="RefBadge"/> template: a
+/// 10 px horizontal padding on each side — 9 of padding and the 1 px border — a 13 px icon, and a
 /// 5 px gap between the icon and the label. A branch drawn with its upstream has a second icon, the
-/// remote's, with the same gap after it. They are checked by a test rather than bound, because a
+/// remote's, and the checked-out branch a check before its own, each with the same gap after it.
+/// They are checked by a test rather than bound, because a
 /// per-badge binding to a theme resource would measure thousands of rows through the resource
 /// system to answer one number that only changes when the template does.
 /// </para>
@@ -51,7 +52,7 @@ public static class RefBadgeMetrics
     public const double IconSpacing = 5;
 
     /// <summary>The padding on each side of a badge's content, the 1 px border included.</summary>
-    public const double HorizontalPadding = 8;
+    public const double HorizontalPadding = 10;
 
     /// <summary>The gap between two badges on the same row.</summary>
     public const double BadgeSpacing = 4;
@@ -79,7 +80,7 @@ public static class RefBadgeMetrics
 
         foreach (ViewModels.Pages.RefBadgeItem badge in badges)
         {
-            width += MeasureBadge(badge.Name, badge.HasUpstream);
+            width += MeasureBadge(badge.Name, badge.HasUpstream, badge.IsCurrent);
         }
 
         return width + (BadgeSpacing * (badges.Count - 1));
@@ -89,11 +90,12 @@ public static class RefBadgeMetrics
     /// Measures one badge.
     /// </summary>
     /// <param name="label">The reference's short name.</param>
-    /// <param name="withUpstream">Whether the badge draws its branch's upstream too, and so a second icon.</param>
+    /// <param name="withUpstream">Whether the badge draws its branch's upstream too, and so the remote's icon.</param>
+    /// <param name="isCurrent">Whether it is the checked-out branch's, and so draws the check.</param>
     /// <returns>The badge's width.</returns>
-    public static double MeasureBadge(string? label, bool withUpstream = false)
+    public static double MeasureBadge(string? label, bool withUpstream = false, bool isCurrent = false)
         => (HorizontalPadding * 2)
-            + ((IconSize + IconSpacing) * (withUpstream ? 2 : 1))
+            + ((IconSize + IconSpacing) * (1 + (withUpstream ? 1 : 0) + (isCurrent ? 1 : 0)))
             + MeasureLabel(label ?? string.Empty);
 
     private static double MeasureLabel(string label)
