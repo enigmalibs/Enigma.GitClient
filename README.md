@@ -10,18 +10,19 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.5** — the diff is drawn by a real text editor: select its text as in any editor,
-> search it with Ctrl+F, and read its code syntax-highlighted, with the same numbers, tints and
-> minimap as before. Side by side no longer wraps long lines: read *Upgrading from 5.4*. Coming from
-> 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0*
-> there (on Linux, run the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0
-> first. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 5.6** — the history's search finds commits by SHA and author too, and steps
+> through what it found (`match 3/12`, the arrows, Enter); the diff of an uncommitted file keeps
+> your place when the automatic refresh runs; the start window's rows open their folder and a
+> terminal. Coming from 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read
+> *Upgrading from 5.1.0* there (on Linux, run the installer again). Coming from 4.x? Read *Upgrading
+> from 4.x* under 5.0.0 first. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
 - Commit graph with coloured lanes, merge curves, ref badges and virtualised scrolling
-- History list with a column header you can resize — the graph's included — and a search that
-  highlights what it found instead of hiding everything else
+- History list with a column header you can resize — the graph's included — and a search, by
+  message, SHA or author, that highlights what it found instead of hiding everything else and steps
+  through it with its arrows or Enter
 - Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
   brings and its badge leave the graph, the history says how many branches it is leaving out, and
   the choice is remembered for the repository

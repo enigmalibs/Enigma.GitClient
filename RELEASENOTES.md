@@ -1,5 +1,76 @@
 # Release notes
 
+## 5.6.0 — 2026-10-06
+
+A minor release:
+
+- the history's search finds a commit by its SHA and its author as well as by its message, and steps
+  through what it found;
+- the diff of an uncommitted file no longer jumps back to the top at every automatic refresh;
+- the start window's rows open their repository's folder and a terminal in it, as the repository
+  window's toolbar does.
+
+### The history
+
+- **The search finds SHAs and authors.**
+  - A commit is found by the start of its SHA, so a short hash pasted from a terminal finds it, in
+    either case.
+  - A commit is found by its author's name or email, anywhere in them.
+  - The message is searched as before, subject and body.
+  - The box says so: *Search messages, SHAs and authors*.
+- **Step through what it found.** On the right of the box, `match 3/12` says which of the lines
+  found is selected, and `match –/12` that the selected line is not one of them. The up and down
+  arrows beside it select the previous and the next one, and bring it into view; the details panel
+  follows as it does for a click. In the box, **Enter** goes to the next match and **Shift+Enter**
+  to the previous one. Both wrap around the lines that are loaded. `no match` still says when
+  nothing was found.
+- **Roomier ref badges, and a check on the checked-out branch.** The pills naming branches, tags and
+  stashes have a little more room around their name. The checked-out branch's pill starts with a
+  check, to the left of its branch icon: it says "checked out" in a shape as well as in a colour.
+
+### The start window
+
+- **Open a listed repository's folder, or a terminal in it.** Every row of the list has the two
+  buttons the repository window's toolbar has: the folder in the file manager, and a terminal in the
+  folder. A repository that has moved says so instead.
+
+### Fixes
+
+- **The diff of an uncommitted file keeps your place.** The automatic refresh (every 15 seconds by
+  default) used to send you back to the file's first change and clear your selected text. Now a
+  refresh that finds the file unchanged leaves everything alone: the scroll position, the selected
+  text, the context you widened, a *Show anyway*. The diff is drawn again only when the file
+  changed, and cleared when the file is no longer in the list. A file staged or unstaged in a
+  terminal shows the other half's diff.
+- **The horizontal scrollbar no longer hides the diff's last line.** The bar grows under the
+  pointer, and it covered the last line even with the diff scrolled to its end. Every diff, unified
+  and side by side, now leaves the bar's room under its last line.
+- **Opening a folder no longer reports a failure on Windows.** *Open the repository's folder* opened
+  it and then said *The folder did not open*. Windows hands a folder to the Explorer that is already
+  running, which the app mistook for nothing having started. The same mistake could affect a file
+  opened from the changed-files list and a link opened in the browser.
+
+### Upgrading from 5.5
+
+- **The search finds more than it did.** A word that starts a SHA, or that is part of an author's
+  name or email, now finds those commits too: searching `ada` finds every commit by Ada.
+- **The count moved.** What the search found is on the right of the box, as `match xx/yyy`, instead
+  of `N matches` on its left.
+- **The Refs column starts a little wider**, for the roomier badges and the check.
+- **Nothing you saved changes.** `settings.json` stays at version 6, and going back to 5.5 keeps
+  everything.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.6.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour: the
+  wider search and its navigation, the start window's buttons, and the check on the checked-out
+  branch. Nothing is removed, and the stored settings do not change.
+
 ## 5.5.0 — 2026-10-05
 
 A minor release. The diff is drawn by a real text editor, AvaloniaEdit, the editor Enigma's

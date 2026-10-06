@@ -289,6 +289,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ShowCommitDetailsCommand = new AsyncRelayCommand(() => OnShowDetailsAsync(DetailsRow), () => DetailsRow?.Commit is not null);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
+        NextMatchCommand = new RelayCommand(() => GoToMatch(forward: true), () => MatchCount > 0);
+        PreviousMatchCommand = new RelayCommand(() => GoToMatch(forward: false), () => MatchCount > 0);
 
         OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
         OpenTagsCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Tags), () => IsRepositoryOpen);
@@ -302,7 +304,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public ObservableCollection<CommitRowViewModel> Rows { get; } = [];
 
     /// <summary>
-    /// Gets or sets what to look for in the commit messages.
+    /// Gets or sets what to look for in the commits: their messages, their SHAs and their authors
+    /// (<see cref="CommitRowViewModel.Matches"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -345,18 +348,68 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets what the toolbar says beside the search box, empty while nothing is searched for.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Without it, a search that found nothing and a search that found everything look the same:
     /// the list is the whole list either way.
+    /// </para>
+    /// <para>
+    /// <c>match 3/12</c> is the selected line's place among the lines found; <c>match –/12</c> says
+    /// the selected line is not one of them — nothing is selected yet, or the reader clicked
+    /// elsewhere — and the arrows beside it are how to get to one (<see cref="NextMatchCommand"/>).
+    /// </para>
     /// </remarks>
     public string MatchSummary
-        => !HasSearch
-            ? string.Empty
-            : MatchCount switch
+    {
+        get
+        {
+            if (!HasSearch)
             {
-                0 => "no match",
-                1 => "1 match",
-                _ => $"{MatchCount.ToString(CultureInfo.CurrentCulture)} matches",
-            };
+                return string.Empty;
+            }
+
+            if (MatchCount == 0)
+            {
+                return "no match";
+            }
+
+            int position = MatchPosition;
+            string current = position > 0 ? position.ToString(CultureInfo.CurrentCulture) : "–";
+
+            return $"match {current}/{MatchCount.ToString(CultureInfo.CurrentCulture)}";
+        }
+    }
+
+    /// <summary>
+    /// Gets the selected line's place among the lines the search found, counted from 1 down the list;
+    /// 0 when the selected line is not one of them.
+    /// </summary>
+    public int MatchPosition
+    {
+        get
+        {
+            if (SelectedRow is not { IsSearchMatch: true } selected)
+            {
+                return 0;
+            }
+
+            int position = 0;
+
+            foreach (CommitRowViewModel row in Rows)
+            {
+                if (row.IsSearchMatch)
+                {
+                    position++;
+
+                    if (ReferenceEquals(row, selected))
+                    {
+                        return position;
+                    }
+                }
+            }
+
+            return 0;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the row the user has selected, which the rest of the shell follows.
@@ -371,6 +424,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 RepositoryContext.SelectedCommit = value?.Commit;
                 OnPropertyChanged(nameof(HasSelection));
                 NotifySelectedCommitDetails();
+                NotifyMatchPosition();
 
                 // Selecting a line opens the details panel and nothing more: the diffs are asked
                 // for, by a file of the panel or by the row's menu. Losing the selection — what a
@@ -814,6 +868,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
+
+    /// <summary>
+    /// Gets the command that selects the next line the search found, down the list from the selected
+    /// one — the first one when nothing is selected — and back to the top past the last.
+    /// </summary>
+    /// <remarks>
+    /// Selecting is going there: the list brings the line into view and the details panel follows,
+    /// as a click on it would. Only the loaded lines are searched, so it wraps around within them;
+    /// loading more is the reader's call.
+    /// </remarks>
+    public RelayCommand NextMatchCommand { get; }
+
+    /// <summary>
+    /// Gets the command that selects the previous line the search found, up the list from the selected
+    /// one — the last one when nothing is selected — and round to the bottom past the first.
+    /// </summary>
+    public RelayCommand PreviousMatchCommand { get; }
 
     /// <summary>Gets the command that puts the diffs away and brings the graph back.</summary>
     public RelayCommand CloseDiffViewCommand { get; }
@@ -1610,8 +1681,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Marks the loaded rows the search finds, and counts them.
     /// </summary>
     /// <remarks>
-    /// Over the subject and the body, case-insensitively — what git's own <c>--grep</c> searched
-    /// when the box filtered the query, so the same words still find the same commits.
+    /// What a row matches on — the message, the start of the SHA, the author — is the row's own
+    /// <see cref="CommitRowViewModel.Matches"/>.
     /// </remarks>
     private void MarkMatches()
     {
@@ -1632,6 +1703,45 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         MatchCount = found;
 
         OnPropertyChanged(nameof(HasSearch));
+        NotifyMatchPosition();
+
+        NextMatchCommand.NotifyCanExecuteChanged();
+        PreviousMatchCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Selects the next or the previous line the search found, wrapping around the loaded lines.
+    /// </summary>
+    /// <param name="forward">Down the list when <see langword="true"/>, up it otherwise.</param>
+    private void GoToMatch(bool forward)
+    {
+        int count = Rows.Count;
+
+        if (count == 0 || MatchCount == 0)
+        {
+            return;
+        }
+
+        // From the selected line; with none, from just above the first line going down, or just below
+        // the last going up, so the first step lands on the first or the last line.
+        int selected = SelectedRow is { } row ? Rows.IndexOf(row) : -1;
+        int origin = selected >= 0 ? selected : forward ? -1 : count;
+
+        for (int step = 1; step <= count; step++)
+        {
+            int index = (((forward ? origin + step : origin - step) % count) + count) % count;
+
+            if (Rows[index].IsSearchMatch)
+            {
+                SelectedRow = Rows[index];
+                return;
+            }
+        }
+    }
+
+    private void NotifyMatchPosition()
+    {
+        OnPropertyChanged(nameof(MatchPosition));
         OnPropertyChanged(nameof(MatchSummary));
     }
 
@@ -1795,6 +1905,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Follows the file picked in the working tree, as <see cref="OnFileSelectionChanged"/> follows a
     /// commit's: its diff — of what is not staged, or of what is — over the graph.
     /// </summary>
+    /// <remarks>
+    /// The panel picks its file again every time a refresh re-reads the working tree. The file already
+    /// on screen is only refreshed, which redraws it when it changed and leaves the reader's place
+    /// alone when it did not (BUG-6590); a file staged or unstaged meanwhile is another half's, and is
+    /// shown afresh.
+    /// </remarks>
     private void OnWorkingTreeSelectionChanged()
     {
         if (!IsWorkingTreeShown)
@@ -1810,7 +1926,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
-        _ = Diff.ShowAsync(repository, change.Target, change.File);
+        _ = Diff.IsShowing(repository, change.Target, change.File.Path)
+            ? Diff.RefreshAsync(change.File)
+            : Diff.ShowAsync(repository, change.Target, change.File);
+
         IsDiffViewOpen = true;
     }
 

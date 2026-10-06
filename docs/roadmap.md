@@ -281,6 +281,15 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE04    | Syntax highlighting in diffs            | DONE      | (in FEATURE-BB60.md)      |
 | BUG-7823     | A drag to the diff's end hangs the app  | DONE      | docs/plan/BUG-7823.md     |
 | FEATURE-6A0E | Release 5.5.0                           | DONE      | docs/plan/FEATURE-6A0E.md |
+| BUG-6590     | A refresh resets the working-tree diff  | DONE      | docs/plan/BUG-6590.md     |
+| BUG-09AD     | Scrollbar hides the diff's last line    | DONE      | docs/plan/BUG-09AD.md     |
+| FEATURE-3E91 | Search SHAs, authors, step through      | DONE      | docs/plan/FEATURE-3E91.md |
+| - PHASE01    | Search SHAs and authors                 | DONE      | (in FEATURE-3E91.md)      |
+| - PHASE02    | Step through the matches                | DONE      | (in FEATURE-3E91.md)      |
+| FEATURE-0743 | Roomier ref badges, a HEAD icon         | DONE      | docs/plan/FEATURE-0743.md |
+| FEATURE-630E | Folder and terminal on the home list    | DONE      | docs/plan/FEATURE-630E.md |
+| BUG-6EA3     | Open folder falsely fails on Windows    | DONE      | docs/plan/BUG-6EA3.md     |
+| FEATURE-1795 | Release 5.6.0                           | DONE      | docs/plan/FEATURE-1795.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
