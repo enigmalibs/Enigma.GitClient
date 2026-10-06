@@ -1,6 +1,6 @@
 # BUG-6EA3 — Open folder falsely fails on Windows
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-6EA3.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-6ea3-windows-open-folder`
 **Run:** vibe/2026-10-06-diff-search-refs-release
