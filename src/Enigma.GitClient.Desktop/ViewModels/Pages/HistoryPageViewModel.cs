@@ -1795,6 +1795,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Follows the file picked in the working tree, as <see cref="OnFileSelectionChanged"/> follows a
     /// commit's: its diff — of what is not staged, or of what is — over the graph.
     /// </summary>
+    /// <remarks>
+    /// The panel picks its file again every time a refresh re-reads the working tree. The file already
+    /// on screen is only refreshed, which redraws it when it changed and leaves the reader's place
+    /// alone when it did not (BUG-6590); a file staged or unstaged meanwhile is another half's, and is
+    /// shown afresh.
+    /// </remarks>
     private void OnWorkingTreeSelectionChanged()
     {
         if (!IsWorkingTreeShown)
@@ -1810,7 +1816,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
-        _ = Diff.ShowAsync(repository, change.Target, change.File);
+        _ = Diff.IsShowing(repository, change.Target, change.File.Path)
+            ? Diff.RefreshAsync(change.File)
+            : Diff.ShowAsync(repository, change.Target, change.File);
+
         IsDiffViewOpen = true;
     }
 

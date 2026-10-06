@@ -539,6 +539,57 @@ public sealed class DiffViewerViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Gets a value indicating whether the viewer is showing this file of this comparison already.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="target">What is being compared.</param>
+    /// <param name="path">The file's path.</param>
+    /// <returns>
+    /// <see langword="true"/> when it is the file on screen, which a refresh then hands to
+    /// <see cref="RefreshAsync"/> rather than to <see cref="ShowAsync"/>.
+    /// </returns>
+    public bool IsShowing(RepositoryHandle? repository, DiffTarget? target, string? path)
+        => _repository is not null
+            && _repository.Equals(repository)
+            && _target is not null
+            && _target.Equals(target)
+            && string.Equals(_file?.Path, path, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Reads the file on screen again, because a refresh found it still picked, and redraws it only
+    /// when what it shows changed.
+    /// </summary>
+    /// <param name="file">The file as the refresh listed it, which may carry a newer status.</param>
+    /// <returns>A task that completes once the file has been read.</returns>
+    /// <remarks>
+    /// <para>
+    /// A refresh runs every few seconds, and the reader is in the middle of the diff: scrolled to a
+    /// change, with text selected, with the context widened. Redrawing an identical patch would take
+    /// all of that away (BUG-6590), so an identical read changes nothing at all. A patch that did
+    /// change is drawn as a newly opened file is: its old rows, and anything counted in them, describe
+    /// a file that no longer exists.
+    /// </para>
+    /// <para>
+    /// Unlike <see cref="ShowAsync"/>, it keeps the context and the size limit the reader chose. It
+    /// shows no busy state, and a read that fails keeps the diff on screen: the next refresh tries
+    /// again, and nobody asked for this one.
+    /// </para>
+    /// </remarks>
+    public async Task RefreshAsync(ChangedFile file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        if (_repository is null || _target is null || _file is null)
+        {
+            return;
+        }
+
+        _file = file;
+
+        await ReadAsync(refreshing: true);
+    }
+
+    /// <summary>
     /// Shows a patch that was read somewhere else.
     /// </summary>
     /// <param name="patch">The patch to render.</param>
@@ -574,7 +625,17 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// Re-reads the current file with the options as they stand.
     /// </summary>
     /// <returns>A task that completes once the patch is on screen.</returns>
-    public async Task ReloadAsync()
+    public Task ReloadAsync() => ReadAsync(refreshing: false);
+
+    /// <summary>
+    /// Reads the current file with the options as they stand, and draws it.
+    /// </summary>
+    /// <param name="refreshing">
+    /// Whether a refresh asked, rather than the reader: then nothing shows as busy, an identical patch
+    /// is not drawn again, and a failed read leaves the diff on screen (see <see cref="RefreshAsync"/>).
+    /// </param>
+    /// <returns>A task that completes once the patch is on screen.</returns>
+    private async Task ReadAsync(bool refreshing)
     {
         if (_repository is null || _target is null || _file is null)
         {
@@ -595,7 +656,10 @@ public sealed class DiffViewerViewModel : ViewModelBase
             Parsing = DiffParseOptions.Default with { MaxLinesPerFile = _maxLines },
         };
 
-        IsBusy = true;
+        if (!refreshing)
+        {
+            IsBusy = true;
+        }
 
         try
         {
@@ -609,7 +673,14 @@ public sealed class DiffViewerViewModel : ViewModelBase
                 return;
             }
 
-            Apply(patch, MessageFor(patch, file));
+            string message = MessageFor(patch, file);
+
+            if (refreshing && Shows(patch, message))
+            {
+                return;
+            }
+
+            Apply(patch, message);
         }
         catch (OperationCanceledException)
         {
@@ -619,18 +690,52 @@ public sealed class DiffViewerViewModel : ViewModelBase
         {
             _logger.LogError(exception, "Reading the patch of {Path} failed", file.Path);
 
-            if (generation == _generation)
+            if (generation == _generation && !refreshing)
             {
                 Apply(null, "The diff could not be read.");
             }
         }
         finally
         {
+            // Cleared by whichever read is the latest, a refresh included: the reader's own read that a
+            // refresh overtook set it, and will not get to clear it.
             if (generation == _generation)
             {
                 IsBusy = false;
             }
         }
+    }
+
+    /// <summary>
+    /// Whether a patch just read is what the viewer already shows.
+    /// </summary>
+    /// <param name="patch">The patch read, or <see langword="null"/> when there is none.</param>
+    /// <param name="message">What the viewer would say about it.</param>
+    /// <returns><see langword="true"/> when drawing it would draw the same thing again.</returns>
+    /// <remarks>
+    /// The patch's text — its paths, its hunk headers and every line — and what the text does not say:
+    /// the kind of change, the modes, binary, submodule, cut short. The word-level highlights are
+    /// worked out from the lines, so equal lines have equal highlights.
+    /// </remarks>
+    private bool Shows(FilePatch? patch, string message)
+    {
+        if (!string.Equals(Message, message, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (_patch is null || patch is null)
+        {
+            return _patch is null && patch is null;
+        }
+
+        return _patch.ChangeKind == patch.ChangeKind
+            && _patch.IsBinary == patch.IsBinary
+            && _patch.IsSubmodule == patch.IsSubmodule
+            && _patch.IsTruncated == patch.IsTruncated
+            && string.Equals(_patch.OldMode, patch.OldMode, StringComparison.Ordinal)
+            && string.Equals(_patch.NewMode, patch.NewMode, StringComparison.Ordinal)
+            && string.Equals(DiffRowBuilder.PatchText(_patch), DiffRowBuilder.PatchText(patch), StringComparison.Ordinal);
     }
 
     private async Task SetContextAsync(int lines)

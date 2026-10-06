@@ -28,6 +28,12 @@ public sealed class RecordingDiffService : IDiffService
     /// <summary>Gets or sets what a patch read returns.</summary>
     public FilePatch? Patch { get; set; }
 
+    /// <summary>
+    /// Gets or sets what a patch read throws instead of returning <see cref="Patch"/>, or
+    /// <see langword="null"/> to return it.
+    /// </summary>
+    public Exception? Failure { get; set; }
+
     /// <summary>Gets or sets what a changed-files read returns.</summary>
     public IReadOnlyList<ChangedFile> Files { get; set; } = [];
 
@@ -67,6 +73,6 @@ public sealed class RecordingDiffService : IDiffService
         PatchRequests.Add(options ?? DiffOptions.Default);
         PatchPaths.Add(file.Path);
 
-        return Task.FromResult(Patch);
+        return Failure is null ? Task.FromResult(Patch) : Task.FromException<FilePatch?>(Failure);
     }
 }
