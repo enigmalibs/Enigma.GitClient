@@ -1,6 +1,6 @@
 # FEATURE-3E91 — Search SHAs, authors, step through
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** vibe/2026-10-06-diff-search-refs-release
@@ -48,7 +48,7 @@ The history's search box:
 ## PHASE02 — Step through the matches
 
 **Branch:** `feature/feature-3e91-phase02-match-navigation`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3E91-PHASE02.md`
 
 ### Steps
 
