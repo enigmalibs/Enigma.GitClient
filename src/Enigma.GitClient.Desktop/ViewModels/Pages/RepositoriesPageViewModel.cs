@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,6 +42,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IInstanceLauncher _launcher;
     private readonly IAboutDialogService _about;
     private readonly IThemeSwitcher _theme;
+    private readonly ISystemInterop _interop;
     private readonly IServiceProvider _services;
     private readonly ILogger<RepositoriesPageViewModel> _logger;
 
@@ -71,6 +73,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="launcher">Starts another instance on a repository, for working on two at once.</param>
     /// <param name="about">Shows the About dialog from the header, as the repository window's toolbar does.</param>
     /// <param name="theme">The theme switch beside it, the repository window's own.</param>
+    /// <param name="interop">Opens a listed repository's folder in the file manager, and a terminal in it.</param>
     /// <param name="services">Resolves the dialog views.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public RepositoriesPageViewModel(
@@ -89,6 +92,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IInstanceLauncher launcher,
         IAboutDialogService about,
         IThemeSwitcher theme,
+        ISystemInterop interop,
         IServiceProvider services,
         ILogger<RepositoriesPageViewModel> logger)
         : base(repositoryContext)
@@ -107,6 +111,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(theme);
+        ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -124,6 +129,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _launcher = launcher;
         _about = about;
         _theme = theme;
+        _interop = interop;
         _services = services;
         _logger = logger;
 
@@ -133,6 +139,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         OpenListedCommand = new AsyncRelayCommand<ListedRepository>(OnOpenListedAsync, _ => IsNotBusy);
         OpenInNewWindowCommand = new RelayCommand<ListedRepository>(OnOpenInNewWindow);
         ForgetCommand = new AsyncRelayCommand<ListedRepository>(OnForgetAsync);
+        OpenFolderCommand = new AsyncRelayCommand<ListedRepository>(OnOpenFolderAsync);
+        OpenTerminalCommand = new AsyncRelayCommand<ListedRepository>(OnOpenTerminalAsync);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
         ToggleThemeCommand = new RelayCommand(_theme.Toggle);
@@ -203,6 +211,18 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that takes a repository out of the list.</summary>
     public AsyncRelayCommand<ListedRepository> ForgetCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens a listed repository's folder in the file manager, as the repository
+    /// window's toolbar does for the open one.
+    /// </summary>
+    public AsyncRelayCommand<ListedRepository> OpenFolderCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens a terminal in a listed repository's folder, as the repository
+    /// window's toolbar does for the open one.
+    /// </summary>
+    public AsyncRelayCommand<ListedRepository> OpenTerminalCommand { get; }
 
     /// <summary>
     /// Gets the command that shows the About dialog. The start window has no toolbar of its own, and
@@ -313,17 +333,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private async Task OnOpenListedAsync(ListedRepository? entry)
     {
-        if (entry is null)
+        if (!IsStillThere(entry))
         {
-            return;
-        }
-
-        if (!entry.Exists)
-        {
-            Report(
-                "That repository has moved",
-                $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
-                InfoBarSeverity.Warning);
             return;
         }
 
@@ -332,17 +343,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private void OnOpenInNewWindow(ListedRepository? entry)
     {
-        if (entry is null)
+        if (!IsStillThere(entry))
         {
-            return;
-        }
-
-        if (!entry.Exists)
-        {
-            Report(
-                "That repository has moved",
-                $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
-                InfoBarSeverity.Warning);
             return;
         }
 
@@ -353,6 +355,64 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 "Another instance of Enigma.GitClient could not be started.",
                 InfoBarSeverity.Error);
         }
+    }
+
+    // The toolbar's own words for the same two failures (MainWindowViewModel): one action, one wording.
+    private async Task OnOpenFolderAsync(ListedRepository? entry)
+    {
+        if (!IsStillThere(entry))
+        {
+            return;
+        }
+
+        if (!await _interop.OpenPathAsync(entry.Path).ConfigureAwait(true))
+        {
+            Report(
+                "The folder did not open",
+                $"Nothing on this desktop opened '{entry.Path}'.",
+                InfoBarSeverity.Warning);
+        }
+    }
+
+    private async Task OnOpenTerminalAsync(ListedRepository? entry)
+    {
+        if (!IsStillThere(entry))
+        {
+            return;
+        }
+
+        if (!await _interop.OpenTerminalAsync(entry.Path).ConfigureAwait(true))
+        {
+            Report(
+                "No terminal started",
+                $"No terminal could be started in '{entry.Path}'.",
+                InfoBarSeverity.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Whether a listed repository is still where the list says, which every action on its folder needs;
+    /// one that has moved says so instead.
+    /// </summary>
+    /// <param name="entry">The row's repository.</param>
+    /// <returns><see langword="true"/> when its folder exists.</returns>
+    private bool IsStillThere([NotNullWhen(true)] ListedRepository? entry)
+    {
+        if (entry is null)
+        {
+            return false;
+        }
+
+        if (!entry.Exists)
+        {
+            Report(
+                "That repository has moved",
+                $"'{entry.Path}' no longer exists. Forget it, or open it from its new location.",
+                InfoBarSeverity.Warning);
+            return false;
+        }
+
+        return true;
     }
 
     private async Task OnForgetAsync(ListedRepository? entry)

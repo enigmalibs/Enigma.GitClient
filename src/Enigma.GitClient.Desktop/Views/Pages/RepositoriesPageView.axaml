@@ -184,6 +184,24 @@
                               AutomationProperties.Name="Forget this repository">
                         <ei:Icon Kind="X" Classes="row" />
                       </Button>
+                      <!-- The repository's folder, outside the client, as the repository window's
+                           toolbar has it: in the file manager, and in a terminal. -->
+                      <Button Classes="toolbar"
+                              Name="OpenFolder"
+                              Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenFolderCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Open the repository's folder in the file manager"
+                              AutomationProperties.Name="Open the repository's folder">
+                        <ei:Icon Kind="FolderOpen" Classes="row" />
+                      </Button>
+                      <Button Classes="toolbar"
+                              Name="OpenTerminal"
+                              Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenTerminalCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Open a terminal in the repository's folder"
+                              AutomationProperties.Name="Open a terminal in the repository's folder">
+                        <ei:Icon Kind="TerminalWindow" Classes="row" />
+                      </Button>
                       <Button Classes="toolbar"
                               Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenInNewWindowCommand}"
                               CommandParameter="{Binding}"
