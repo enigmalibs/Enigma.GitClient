@@ -21,6 +21,12 @@ public enum DiffTargetKind
 
     /// <summary>The work tree against HEAD — everything uncommitted.</summary>
     Uncommitted,
+
+    /// <summary>
+    /// A stash entry: its tracked changes against the commit it was made on, and the untracked files
+    /// it took, if it took any.
+    /// </summary>
+    Stash,
 }
 
 /// <summary>
@@ -83,6 +89,23 @@ public sealed record DiffTarget
     }
 
     /// <summary>
+    /// Reads a stash entry: everything it holds, untracked files included.
+    /// </summary>
+    /// <param name="sha">The commit the entry is recorded as.</param>
+    /// <returns>The target.</returns>
+    /// <remarks>
+    /// git records an entry as a merge of the commit it was made on, a commit of the index and — when
+    /// untracked files went with it — a third parent holding only those. A commit's diff against its
+    /// first parent never reaches that third parent, so the untracked files need a target of their own.
+    /// </remarks>
+    public static DiffTarget Stash(string sha)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
+
+        return new DiffTarget(DiffTargetKind.Stash) { From = sha };
+    }
+
+    /// <summary>
     /// Compares the work tree against the index: the changes that are not staged.
     /// </summary>
     /// <returns>The target.</returns>
@@ -106,6 +129,7 @@ public sealed record DiffTarget
         {
             DiffTargetKind.Commit => $"{From}^{(ParentIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}..{From}",
             DiffTargetKind.Range => $"{From}..{To}",
+            DiffTargetKind.Stash => $"stash {From}",
             _ => Kind.ToString(),
         };
 }
