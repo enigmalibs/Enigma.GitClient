@@ -288,7 +288,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Step through the matches                | DONE      | (in FEATURE-3E91.md)      |
 | FEATURE-0743 | Roomier ref badges, a HEAD icon         | DONE      | docs/plan/FEATURE-0743.md |
 | FEATURE-630E | Folder and terminal on the home list    | DONE      | docs/plan/FEATURE-630E.md |
-| BUG-6EA3     | Open folder falsely fails on Windows    | TODO      | docs/plan/BUG-6EA3.md     |
+| BUG-6EA3     | Open folder falsely fails on Windows    | DONE      | docs/plan/BUG-6EA3.md     |
 | FEATURE-1795 | Release 5.6.0                           | TODO      | docs/plan/FEATURE-1795.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in

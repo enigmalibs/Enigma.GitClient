@@ -279,6 +279,43 @@ public sealed class RepositoryFolderTests
         });
     }
 
+    // ---------------------------------------------------------------- what counts as launched
+
+    [Fact]
+    public void AStartThatHandsTheRequestToARunningProcess_IsALaunch()
+    {
+        // What ShellExecute answers on Windows when Explorer, already running, opens the folder: no
+        // process of its own, and the folder on screen. It used to be reported as "did not open"
+        // (BUG-6EA3).
+        ProcessStartInfo folder = new(@"C:\src\a repository") { UseShellExecute = true };
+
+        Assert.True(SystemInterop.Launch(folder, _ => null));
+    }
+
+    [Fact]
+    public void AStartThatStartsAProcess_IsALaunch()
+    {
+        ProcessStartInfo program = new("xdg-open") { UseShellExecute = false };
+
+        Assert.True(SystemInterop.Launch(program, _ => Process.GetCurrentProcess()));
+    }
+
+    public static TheoryData<Exception> Refusals() => new()
+    {
+        new System.ComponentModel.Win32Exception(2, "The system cannot find the file specified."),
+        new InvalidOperationException("No file name was specified."),
+        new PlatformNotSupportedException(),
+    };
+
+    [Theory]
+    [MemberData(nameof(Refusals))]
+    public void AStartThatFails_IsNoLaunch(Exception refusal)
+    {
+        ProcessStartInfo folder = new("/nowhere") { UseShellExecute = true };
+
+        Assert.False(SystemInterop.Launch(folder, _ => throw refusal));
+    }
+
     // ---------------------------------------------------------------- which terminal
 
     private static string[] Arguments(ProcessStartInfo startInfo) => [.. startInfo.ArgumentList];

@@ -251,12 +251,30 @@ public sealed class SystemInterop : ISystemInterop
             ? TopLevel.GetTopLevel(desktop.MainWindow)?.Clipboard
             : null;
 
-    private static bool Launch(ProcessStartInfo startInfo)
+    private static bool Launch(ProcessStartInfo startInfo) => Launch(startInfo, Process.Start);
+
+    /// <summary>
+    /// Starts something, and says whether it was launched.
+    /// </summary>
+    /// <param name="startInfo">What to start.</param>
+    /// <param name="start">How: <see cref="Process.Start(ProcessStartInfo)"/>, or a test's stand-in for it.</param>
+    /// <returns><see langword="true"/> unless the start failed.</returns>
+    /// <remarks>
+    /// A start that returns no process was still a launch. Through the shell, that is what handing the
+    /// request to a process already running looks like: on Windows, Explorer opens every folder in the
+    /// instance it already has, and a browser already open takes the address — neither starts a process
+    /// of its own, and the folder or the page is on screen (BUG-6EA3). A start that fails throws; a
+    /// direct one never returns nothing.
+    /// </remarks>
+    internal static bool Launch(ProcessStartInfo startInfo, Func<ProcessStartInfo, Process?> start)
     {
+        ArgumentNullException.ThrowIfNull(startInfo);
+        ArgumentNullException.ThrowIfNull(start);
+
         try
         {
-            using Process? process = Process.Start(startInfo);
-            return process is not null;
+            start(startInfo)?.Dispose();
+            return true;
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception
                                               or InvalidOperationException
