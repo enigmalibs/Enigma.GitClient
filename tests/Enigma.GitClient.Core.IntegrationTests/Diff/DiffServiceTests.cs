@@ -409,6 +409,144 @@ public sealed class DiffServiceTests : IAsyncLifetime
         Assert.Equal(1, patch!.AddedLines);
     }
 
+    // ---------------------------------------------------------------- a stash entry
+
+    /// <summary>
+    /// Stashes the work tree as the app does, untracked files included, and returns the entry's commit.
+    /// </summary>
+    private async Task<string> StashAsync()
+    {
+        await _repository.GitAsync("stash", "push", "--include-untracked", "--message", "Work in progress");
+
+        return await _repository.ResolveAsync("stash@{0}");
+    }
+
+    [Fact]
+    public async Task GetChangedFilesAsync_ForAStash_ListsItsUntrackedFilesToo()
+    {
+        _repository.WriteFile("src/app.txt", "one\ntwo modified\nthree\nfour\nstashed\n");
+        _repository.WriteFile("docs/first.md", "first\n");
+        _repository.WriteFile("docs/second.md", "second\nthird\n");
+        string stash = await StashAsync();
+
+        IReadOnlyList<ChangedFile> files = await FilesAsync(DiffTarget.Stash(stash));
+
+        Assert.Equal(["docs/first.md", "docs/second.md", "src/app.txt"], files.Select(file => file.Path));
+
+        ChangedFile app = files.Single(file => file.Path == "src/app.txt");
+        Assert.Equal(FileChangeKind.Modified, app.ChangeKind);
+        Assert.False(app.IsUntracked);
+        Assert.Equal(1, app.AddedLines);
+
+        ChangedFile second = files.Single(file => file.Path == "docs/second.md");
+        Assert.Equal(FileChangeKind.Added, second.ChangeKind);
+        Assert.True(second.IsUntracked);
+        Assert.Equal(2, second.AddedLines);
+        Assert.True(files.Single(file => file.Path == "docs/first.md").IsUntracked);
+
+        // The entry's commit read as an ordinary commit stops at its first parent: that is the list the
+        // history used to show, with the tracked file alone.
+        ChangedFile asCommit = Assert.Single(await FilesAsync(DiffTarget.Commit(stash)));
+        Assert.Equal("src/app.txt", asCommit.Path);
+    }
+
+    [Fact]
+    public async Task GetChangedFilesAsync_ForAStashWithNoUntrackedFile_ListsItsTrackedChanges()
+    {
+        _repository.WriteFile("src/app.txt", "one\ntwo modified\nthree\nfour\nstashed\n");
+        string stash = await StashAsync();
+
+        ChangedFile file = Assert.Single(await FilesAsync(DiffTarget.Stash(stash)));
+
+        Assert.Equal("src/app.txt", file.Path);
+        Assert.False(file.IsUntracked);
+    }
+
+    [Fact]
+    public async Task GetChangedFilesAsync_ForAStashOfUntrackedFilesOnly_ListsThem()
+    {
+        _repository.WriteFile("docs/only.md", "alone\n");
+        string stash = await StashAsync();
+
+        ChangedFile file = Assert.Single(await FilesAsync(DiffTarget.Stash(stash)));
+
+        Assert.Equal("docs/only.md", file.Path);
+        Assert.Equal(FileChangeKind.Added, file.ChangeKind);
+        Assert.True(file.IsUntracked);
+    }
+
+    [Fact]
+    public async Task GetChangedFilesAsync_ForAStash_ListsAPathInBothHalvesOnce()
+    {
+        // Out of the index, then edited: git records the edit in the tracked half and the file again in
+        // the untracked one. Left unedited, the tracked half would not list it at all.
+        await _repository.GitAsync("rm", "--cached", "README.md");
+        _repository.WriteFile("README.md", "# project, edited\n");
+        string stash = await StashAsync();
+
+        ChangedFile file = Assert.Single(await FilesAsync(DiffTarget.Stash(stash)));
+
+        Assert.Equal("README.md", file.Path);
+        Assert.Equal(FileChangeKind.Modified, file.ChangeKind);
+        Assert.False(file.IsUntracked);
+    }
+
+    [Fact]
+    public async Task GetPatchAsync_ForAStashsUntrackedFile_ShowsEveryLineAdded()
+    {
+        _repository.WriteFile("src/app.txt", "one\ntwo modified\nthree\nfour\nstashed\n");
+        _repository.WriteFile("docs/notes.md", "first\nsecond\n");
+        string stash = await StashAsync();
+
+        DiffTarget target = DiffTarget.Stash(stash);
+        ChangedFile notes = (await FilesAsync(target)).Single(file => file.Path == "docs/notes.md");
+
+        FilePatch? patch = await Service.GetPatchAsync(_handle, target, notes, null, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(patch);
+        Assert.Equal(FileChangeKind.Added, patch!.ChangeKind);
+        Assert.Equal("docs/notes.md", patch.NewPath);
+        Assert.Equal(["first", "second"], patch.Hunks.Single().Lines.Select(line => line.Text));
+        Assert.All(patch.Hunks.Single().Lines, line => Assert.Equal(DiffLineKind.Added, line.Kind));
+    }
+
+    [Fact]
+    public async Task GetPatchAsync_ForAStashsTrackedFile_ShowsItsEdit()
+    {
+        _repository.WriteFile("src/app.txt", "one\ntwo modified\nthree\nfour\nstashed\n");
+        _repository.WriteFile("docs/notes.md", "first\n");
+        string stash = await StashAsync();
+
+        DiffTarget target = DiffTarget.Stash(stash);
+        ChangedFile app = (await FilesAsync(target)).Single(file => file.Path == "src/app.txt");
+
+        FilePatch? patch = await Service.GetPatchAsync(_handle, target, app, null, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(patch);
+        Assert.Equal(FileChangeKind.Modified, patch!.ChangeKind);
+        Assert.Equal(1, patch.AddedLines);
+        Assert.Equal(0, patch.RemovedLines);
+    }
+
+    [Fact]
+    public async Task GetPatchAsync_ForAStash_FindsAnUntrackedFileByItsPathAlone()
+    {
+        _repository.WriteFile("src/app.txt", "one\ntwo modified\nthree\nfour\nstashed\n");
+        _repository.WriteFile("docs/notes.md", "first\n");
+        string stash = await StashAsync();
+
+        FilePatch? untracked = await Service.GetPatchAsync(
+            _handle, DiffTarget.Stash(stash), "docs/notes.md", null, TestContext.Current.CancellationToken);
+
+        FilePatch? tracked = await Service.GetPatchAsync(
+            _handle, DiffTarget.Stash(stash), "src/app.txt", null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(FileChangeKind.Added, untracked!.ChangeKind);
+        Assert.Equal(FileChangeKind.Modified, tracked!.ChangeKind);
+        Assert.Null(await Service.GetPatchAsync(
+            _handle, DiffTarget.Stash(stash), "README.md", null, TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task GetPatchAsync_ComputesWordLevelSegments()
     {
