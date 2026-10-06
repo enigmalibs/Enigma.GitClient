@@ -174,9 +174,9 @@
                          Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
               <TextBox Grid.Column="1"
                        Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Search commit messages"
+                       PlaceholderText="Search messages, SHAs and authors"
                        VerticalAlignment="Center"
-                       AutomationProperties.Name="Search commit messages" />
+                       AutomationProperties.Name="Search the commits by message, SHA or author" />
               <Button Grid.Column="2"
                       Classes="toolbar"
                       Command="{Binding ClearSearchCommand}"
