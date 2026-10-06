@@ -1,6 +1,6 @@
 # FEATURE-1795 — Release 5.6.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1795.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1795-release-5-6-0`
 **Run:** vibe/2026-10-06-diff-search-refs-release
