@@ -164,19 +164,22 @@ public sealed class RepositoryReorderTests
         });
     }
 
-    [Fact]
-    public void APressOnARowsButton_StartsNoDrag()
+    [Theory]
+    [InlineData("Forget this repository")]
+    [InlineData("Open the repository's folder")]
+    [InlineData("Open a terminal in the repository's folder")]
+    public void APressOnARowsButton_StartsNoDrag(string buttonName)
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
             (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
 
-            Button forget = Row(page, 0).GetVisualDescendants()
+            Button button = Row(page, 0).GetVisualDescendants()
                 .OfType<Button>()
-                .Single(button => AutomationProperties.GetName(button) == "Forget this repository");
+                .Single(candidate => AutomationProperties.GetName(candidate) == buttonName);
 
-            Point start = Centre(forget, window);
+            Point start = Centre(button, window);
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(Below(Row(page, 2), window), RawInputModifiers.LeftMouseButton);
 

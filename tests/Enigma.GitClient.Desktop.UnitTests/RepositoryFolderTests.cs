@@ -10,12 +10,14 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
+using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views;
+using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
 using Enigma.Icons.Phosphor;
 using Xunit;
@@ -23,8 +25,9 @@ using Xunit;
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
-/// The repository window's two ways out to the desktop: the repository's folder in the file manager,
-/// and a terminal in it. The desktop itself is the recording double: nothing is launched.
+/// The two ways out to the desktop — the repository's folder in the file manager, and a terminal in
+/// it — from the repository window's toolbar and from every row of the home list (FEATURE-630E). The
+/// desktop itself is the recording double: nothing is launched.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class RepositoryFolderTests
@@ -154,6 +157,125 @@ public sealed class RepositoryFolderTests
             }
 
             await LetTheHistoryFinishAsync(services);
+        });
+    }
+
+    // ---------------------------------------------------------------- the home list
+
+    /// <summary>
+    /// The home page listing one repository, whose folder exists or not.
+    /// </summary>
+    private static async Task<(RepositoriesPageViewModel Model, ListedRepository Entry)> ListOneAsync(TestServices services, bool exists)
+    {
+        string path = Path.Combine(services.ConfigurationRoot, "listed");
+
+        if (exists)
+        {
+            Directory.CreateDirectory(path);
+        }
+
+        await services.Get<IRepositoryListStore>().AddAsync(IdentityProfile.DefaultId, path, "listed");
+
+        RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+        await model.OnAppearingAsync();
+
+        return (model, Assert.Single(model.Repositories));
+    }
+
+    [Fact]
+    public void TheHomeList_OpensARowsFolderAndATerminalInIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, ListedRepository entry) = await ListOneAsync(services, exists: true);
+
+            await model.OpenFolderCommand.ExecuteAsync(entry);
+            await model.OpenTerminalCommand.ExecuteAsync(entry);
+
+            Assert.Equal([entry.Path], services.Interop.Opened);
+            Assert.Equal([entry.Path], services.Interop.Terminals);
+            Assert.DoesNotContain(services.InfoBar.Shown, note => note.Severity == InfoBarSeverity.Warning);
+        });
+    }
+
+    [Fact]
+    public void TheHomeList_SaysARepositoryHasMoved_AndLaunchesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, ListedRepository entry) = await ListOneAsync(services, exists: false);
+
+            await model.OpenFolderCommand.ExecuteAsync(entry);
+            await model.OpenTerminalCommand.ExecuteAsync(entry);
+
+            Assert.Empty(services.Interop.Opened);
+            Assert.Empty(services.Interop.Terminals);
+            Assert.Equal(2, services.InfoBar.Shown.Count(note => note.Title == "That repository has moved"));
+        });
+    }
+
+    [Fact]
+    public void TheHomeList_SaysSoWhenALaunchFails()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, ListedRepository entry) = await ListOneAsync(services, exists: true);
+
+            services.Interop.OpensPaths = false;
+            services.Interop.OpensTerminals = false;
+
+            await model.OpenFolderCommand.ExecuteAsync(entry);
+            await model.OpenTerminalCommand.ExecuteAsync(entry);
+
+            // The toolbar's own words for the same two failures.
+            RecordedNotification folder = services.InfoBar.Shown.Single(note => note.Title == "The folder did not open");
+            RecordedNotification terminal = services.InfoBar.Shown.Single(note => note.Title == "No terminal started");
+
+            Assert.Equal(InfoBarSeverity.Warning, folder.Severity);
+            Assert.Equal(InfoBarSeverity.Warning, terminal.Severity);
+            Assert.Contains(entry.Path, folder.Message, StringComparison.Ordinal);
+            Assert.Contains(entry.Path, terminal.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void EveryRowOfTheHomeList_CarriesBothButtons_WithTheirIconsAndNames()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, ListedRepository entry) = await ListOneAsync(services, exists: true);
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 700 };
+            window.Show();
+            window.UpdateLayout();
+
+            (string Automation, PhosphorIcon Icon, object Command)[] expected =
+            [
+                ("Open the repository's folder", PhosphorIcon.FolderOpen, model.OpenFolderCommand),
+                ("Open a terminal in the repository's folder", PhosphorIcon.TerminalWindow, model.OpenTerminalCommand),
+            ];
+
+            foreach ((string automation, PhosphorIcon icon, object command) in expected)
+            {
+                Button button = page.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Single(candidate => AutomationProperties.GetName(candidate) == automation);
+
+                Assert.True(button.IsVisible);
+                Assert.Same(command, button.Command);
+                Assert.Equal(entry, button.CommandParameter);
+                Assert.False(string.IsNullOrEmpty(ToolTip.GetTip(button) as string));
+                Assert.Equal(icon, Assert.IsType<Icon>(button.Content).Kind);
+            }
+
+            window.Close();
         });
     }
 

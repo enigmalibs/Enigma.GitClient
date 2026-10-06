@@ -1,6 +1,6 @@
 # FEATURE-630E — Folder and terminal on the home list
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-630E.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-630e-home-folder-terminal`
 **Run:** vibe/2026-10-06-diff-search-refs-release
