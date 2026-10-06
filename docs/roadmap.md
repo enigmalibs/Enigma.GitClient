@@ -282,7 +282,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-7823     | A drag to the diff's end hangs the app  | DONE      | docs/plan/BUG-7823.md     |
 | FEATURE-6A0E | Release 5.5.0                           | DONE      | docs/plan/FEATURE-6A0E.md |
 | BUG-6590     | A refresh resets the working-tree diff  | DONE      | docs/plan/BUG-6590.md     |
-| BUG-09AD     | Scrollbar hides the diff's last line    | TODO      | docs/plan/BUG-09AD.md     |
+| BUG-09AD     | Scrollbar hides the diff's last line    | DONE      | docs/plan/BUG-09AD.md     |
 | FEATURE-3E91 | Search SHAs, authors, step through      | TODO      | docs/plan/FEATURE-3E91.md |
 | - PHASE01    | Search SHAs and authors                 | TODO      | (in FEATURE-3E91.md)      |
 | - PHASE02    | Step through the matches                | TODO      | (in FEATURE-3E91.md)      |

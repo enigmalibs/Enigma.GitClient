@@ -1,6 +1,6 @@
 # BUG-09AD — Scrollbar hides the diff's last line
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-09AD.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-09ad-diff-bottom-padding`
 **Run:** vibe/2026-10-06-diff-search-refs-release
