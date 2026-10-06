@@ -1,5 +1,38 @@
 # Release notes
 
+## 5.7.0 — 2026-10-06
+
+A minor release with one fix: a stash's line in the history lists every file the stash holds,
+including the untracked files it took.
+
+### Fixes
+
+- **A stash's line lists its untracked files.**
+  - Selecting a stash in the history listed only its changes to tracked files. New files that git
+    did not track yet were missing, although the stash had taken them and a pop or an apply brought
+    them back. Nothing was ever lost; they just were not shown.
+  - Now every file is listed. An untracked file shows as added, and its diff shows every line
+    added.
+  - Stashes are made with their untracked files, and git keeps those apart from the rest of the
+    stash, which is where the list did not look.
+
+### Upgrading from 5.6
+
+- **Nothing you saved changes.** `settings.json` stays at version 6, and going back to 5.6 keeps
+  everything.
+- A stash made before 5.7 shows its untracked files too: they were always in it.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.7.0** is a minor release under Semantic Versioning. It carries a fix only, which a patch
+  release (5.6.1) could also have carried. Nothing is removed, and the stored settings do not
+  change.
+
 ## 5.6.0 — 2026-10-06
 
 A minor release:

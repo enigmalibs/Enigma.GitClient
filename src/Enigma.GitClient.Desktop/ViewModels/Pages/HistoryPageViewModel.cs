@@ -1792,7 +1792,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
-        DiffTarget target = DiffTarget.Commit(row.Sha);
+        // A stash line's commit holds only its tracked changes; the untracked files it took are
+        // elsewhere, and the stash target reads them too (BUG-1F3A).
+        DiffTarget target = row.IsStash ? DiffTarget.Stash(row.Sha) : DiffTarget.Commit(row.Sha);
 
         try
         {

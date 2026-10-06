@@ -133,6 +133,66 @@ public sealed class DiffService : IDiffService
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(target);
 
+        IReadOnlyList<ChangedFile> files = await ListAsync(repository, target, cancellationToken).ConfigureAwait(false);
+
+        if (target.Kind != DiffTargetKind.Stash ||
+            !await HasUntrackedHalfAsync(repository, target, cancellationToken).ConfigureAwait(false))
+        {
+            return files;
+        }
+
+        IReadOnlyList<ChangedFile> untracked = await ListAsync(repository, UntrackedHalf(target), cancellationToken)
+            .ConfigureAwait(false);
+
+        return MergeStashHalves(files, untracked);
+    }
+
+    /// <summary>
+    /// Puts the two halves of a stash entry into one list: its tracked changes, and the untracked files
+    /// it took.
+    /// </summary>
+    /// <param name="tracked">What the entry changed in tracked files.</param>
+    /// <param name="untracked">The files of its untracked-files commit.</param>
+    /// <returns>Every file once, in path order, the untracked ones flagged as such.</returns>
+    /// <remarks>
+    /// A path can be in both halves — a file taken out of the index with <c>git rm --cached</c>, edited
+    /// and then stashed. The list is selected by path, so it holds the path once: the tracked change,
+    /// which is the one the entry records against the commit it was made on.
+    /// </remarks>
+    public static IReadOnlyList<ChangedFile> MergeStashHalves(
+        IReadOnlyList<ChangedFile> tracked,
+        IReadOnlyList<ChangedFile> untracked)
+    {
+        ArgumentNullException.ThrowIfNull(tracked);
+        ArgumentNullException.ThrowIfNull(untracked);
+
+        List<ChangedFile> merged = [.. tracked];
+        HashSet<string> paths = new(StringComparer.Ordinal);
+
+        foreach (ChangedFile file in tracked)
+        {
+            paths.Add(file.Path);
+        }
+
+        foreach (ChangedFile file in untracked)
+        {
+            if (paths.Add(file.Path))
+            {
+                merged.Add(file with { IsUntracked = true });
+            }
+        }
+
+        // git lists each half in path order; the whole list reads the same way.
+        merged.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
+
+        return merged;
+    }
+
+    private async Task<IReadOnlyList<ChangedFile>> ListAsync(
+        RepositoryHandle repository,
+        DiffTarget target,
+        CancellationToken cancellationToken)
+    {
         GitResult nameStatus = await RunAsync(
                 repository,
                 BuildArguments(target, ["--name-status"], DiffOptions.Default, paths: null),
@@ -153,7 +213,7 @@ public sealed class DiffService : IDiffService
     }
 
     /// <inheritdoc />
-    public Task<FilePatch?> GetPatchAsync(
+    public async Task<FilePatch?> GetPatchAsync(
         RepositoryHandle repository,
         DiffTarget target,
         string path,
@@ -162,7 +222,20 @@ public sealed class DiffService : IDiffService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        return GetPatchCoreAsync(repository, target, [path], options, cancellationToken);
+        FilePatch? patch = await GetPatchCoreAsync(repository, target, [path], options, cancellationToken)
+            .ConfigureAwait(false);
+
+        // A path alone does not say which half of a stash entry holds it: one the tracked half does
+        // not know may be one of the untracked files.
+        if (patch is null &&
+            target.Kind == DiffTargetKind.Stash &&
+            await HasUntrackedHalfAsync(repository, target, cancellationToken).ConfigureAwait(false))
+        {
+            patch = await GetPatchCoreAsync(repository, UntrackedHalf(target), [path], options, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return patch;
     }
 
     /// <inheritdoc />
@@ -174,12 +247,20 @@ public sealed class DiffService : IDiffService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(target);
 
         // git diff knows nothing of a file git has never been told about, and prints nothing for it:
         // the file is compared with nothing instead, which is what a commit that added it shows.
         if (file.IsUntracked && target.Kind is DiffTargetKind.WorkingTree or DiffTargetKind.Uncommitted)
         {
             return GetUntrackedPatchAsync(repository, file.Path, options, cancellationToken);
+        }
+
+        // A stash entry's untracked file is in the entry's third parent, which its tracked half never
+        // reaches.
+        if (file.IsUntracked && target.Kind == DiffTargetKind.Stash)
+        {
+            return GetPatchCoreAsync(repository, UntrackedHalf(target), [file.Path], options, cancellationToken);
         }
 
         List<string> paths = [file.Path];
@@ -232,6 +313,34 @@ public sealed class DiffService : IDiffService
         }
 
         return patch.Files[0];
+    }
+
+    /// <summary>
+    /// The commit a stash entry keeps its untracked files in: its third parent, a root commit whose
+    /// tree holds only them. Read as a commit, every file in it is an addition.
+    /// </summary>
+    private static DiffTarget UntrackedHalf(DiffTarget stash)
+        => DiffTarget.Commit($"{stash.From}^3");
+
+    /// <summary>
+    /// Answers whether a stash entry took untracked files — most do not, and have no third parent.
+    /// </summary>
+    /// <remarks>
+    /// The history draws an entry as one line and keeps only its first parent, so the answer comes from
+    /// git. <c>--quiet</c> makes a missing parent an exit code rather than an error.
+    /// </remarks>
+    private async Task<bool> HasUntrackedHalfAsync(
+        RepositoryHandle repository,
+        DiffTarget stash,
+        CancellationToken cancellationToken)
+    {
+        GitCommand command = _commandFactory.Create(
+            repository.WorkTreePath,
+            ["rev-parse", "--verify", "--quiet", $"{stash.From}^3"]);
+
+        GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken).ConfigureAwait(false);
+
+        return result.IsSuccess;
     }
 
     private async Task<FilePatch?> GetUntrackedPatchAsync(
@@ -389,6 +498,13 @@ public sealed class DiffService : IDiffService
             case DiffTargetKind.Range:
                 arguments.Add(target.From!);
                 arguments.Add(target.To!);
+                break;
+
+            // The tracked half: the work tree the entry recorded, against the commit it was made on.
+            // Its untracked files are read from its third parent, as a commit of their own.
+            case DiffTargetKind.Stash:
+                arguments.Add($"{target.From}^1");
+                arguments.Add(target.From!);
                 break;
 
             case DiffTargetKind.Staged:
