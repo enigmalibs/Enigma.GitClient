@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.Icons.Phosphor;
@@ -52,6 +53,9 @@ public partial class HistoryPageView : UserControl
         // whatever inside them has the key — the file filter box, the patch, a list — and before
         // any of them can handle it first.
         AddHandler(KeyDownEvent, OnPageKeyDown, RoutingStrategies.Tunnel);
+
+        // Tunnelling too, so Enter reaches the search before the box itself sees the key.
+        SearchBox.AddHandler(KeyDownEvent, OnSearchKeyDown, RoutingStrategies.Tunnel);
 
         // Tunnelling too, so the line's menu is rebuilt before it opens: what it offers depends on
         // things that change while the line is on screen — the host's name, read after the rows were.
@@ -290,6 +294,33 @@ public partial class HistoryPageView : UserControl
         }
 
         page.IsDiffViewOpen = false;
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Goes to the next match on Enter, and to the previous one on Shift+Enter, as every find bar does.
+    /// </summary>
+    /// <param name="sender">The search box.</param>
+    /// <param name="e">The key.</param>
+    /// <remarks>
+    /// The focus stays in the box, so the next press goes to the next match.
+    /// </remarks>
+    private void OnSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _page is null)
+        {
+            return;
+        }
+
+        RelayCommand command = e.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            ? _page.PreviousMatchCommand
+            : _page.NextMatchCommand;
+
+        if (command.CanExecute(null))
+        {
+            command.Execute(null);
+        }
+
         e.Handled = true;
     }
 

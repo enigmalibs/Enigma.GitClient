@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
@@ -27,6 +28,7 @@ using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views.Dialogs;
 using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
+using Enigma.Icons.Phosphor;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Graph;
@@ -470,7 +472,9 @@ public sealed class HistoryPageTests
             // Every line is still there, and the graph with it: three of them are marked.
             Assert.Equal(rows, page.Rows.Count);
             Assert.Equal(3, page.MatchCount);
-            Assert.Equal("3 matches", page.MatchSummary);
+
+            // Nothing selected yet: three found, none of them the current one.
+            Assert.Equal("match –/3", page.MatchSummary);
 
             Assert.All(
                 page.Rows.Where(row => row.IsSearchMatch),
@@ -502,7 +506,7 @@ public sealed class HistoryPageTests
             CommitRowViewModel marked = Assert.Single(page.Rows, row => row.IsSearchMatch);
 
             Assert.Equal("Add a note", marked.Subject);
-            Assert.Equal("1 match", page.MatchSummary);
+            Assert.Equal("match –/1", page.MatchSummary);
         });
     }
 
@@ -552,6 +556,177 @@ public sealed class HistoryPageTests
             Assert.Equal(string.Empty, page.MatchSummary);
             Assert.Equal(0, page.MatchCount);
             Assert.All(page.Rows, row => Assert.False(row.IsSearchMatch));
+        });
+    }
+
+    [Fact]
+    public void Search_StepsThroughTheMatches_DownAndUp_AndWrapsAround()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            Assert.False(page.NextMatchCommand.CanExecute(null));
+            Assert.False(page.PreviousMatchCommand.CanExecute(null));
+
+            page.SearchText = "branch";
+
+            List<CommitRowViewModel> found = [.. page.Rows.Where(row => row.IsSearchMatch)];
+            Assert.Equal(3, found.Count);
+            Assert.True(page.NextMatchCommand.CanExecute(null));
+
+            // Nothing selected: down goes to the first match, from the top.
+            page.NextMatchCommand.Execute(null);
+            Assert.Same(found[0], page.SelectedRow);
+            Assert.Equal(1, page.MatchPosition);
+            Assert.Equal("match 1/3", page.MatchSummary);
+
+            page.NextMatchCommand.Execute(null);
+            page.NextMatchCommand.Execute(null);
+            Assert.Same(found[2], page.SelectedRow);
+            Assert.Equal("match 3/3", page.MatchSummary);
+
+            // Past the last, back to the first.
+            page.NextMatchCommand.Execute(null);
+            Assert.Same(found[0], page.SelectedRow);
+
+            // And up, past the first, round to the last.
+            page.PreviousMatchCommand.Execute(null);
+            Assert.Same(found[2], page.SelectedRow);
+
+            page.PreviousMatchCommand.Execute(null);
+            Assert.Same(found[1], page.SelectedRow);
+            Assert.Equal("match 2/3", page.MatchSummary);
+        });
+    }
+
+    [Fact]
+    public void Search_StepsFromWhereverTheSelectionIs()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "branch";
+
+            // A line the search did not find, picked by the reader: the counter says none is current,
+            // and the arrows go to the nearest match below it, or above it.
+            CommitRowViewModel miss = page.Rows.First(row => !row.IsSearchMatch);
+            page.SelectedRow = miss;
+
+            Assert.Equal(0, page.MatchPosition);
+            Assert.Equal("match –/3", page.MatchSummary);
+
+            int index = page.Rows.IndexOf(miss);
+            CommitRowViewModel below = page.Rows.Skip(index + 1).Concat(page.Rows.Take(index)).First(row => row.IsSearchMatch);
+            CommitRowViewModel above = page.Rows.Take(index).Reverse().Concat(page.Rows.Skip(index + 1).Reverse()).First(row => row.IsSearchMatch);
+
+            page.NextMatchCommand.Execute(null);
+            Assert.Same(below, page.SelectedRow);
+
+            page.SelectedRow = miss;
+            page.PreviousMatchCommand.Execute(null);
+            Assert.Same(above, page.SelectedRow);
+        });
+    }
+
+    [Fact]
+    public void Search_WithNoSelection_GoesUpToTheLastMatch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "branch";
+            page.PreviousMatchCommand.Execute(null);
+
+            Assert.Same(page.Rows.Last(row => row.IsSearchMatch), page.SelectedRow);
+            Assert.Equal("match 3/3", page.MatchSummary);
+        });
+    }
+
+    [Fact]
+    public void Search_WithoutAMatch_CannotStep()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            page.SearchText = "branch";
+            Assert.True(page.NextMatchCommand.CanExecute(null));
+
+            page.SearchText = "nothing matches this";
+
+            Assert.False(page.NextMatchCommand.CanExecute(null));
+            Assert.False(page.PreviousMatchCommand.CanExecute(null));
+            Assert.Equal("no match", page.MatchSummary);
+        });
+    }
+
+    [Fact]
+    public void TheSearchBox_StepsOnEnterAndShiftEnter_AndCarriesItsArrows()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            Button previous = view.FindControl<Button>("PreviousMatch")!;
+            Button next = view.FindControl<Button>("NextMatch")!;
+            TextBlock counter = view.FindControl<TextBlock>("MatchCounter")!;
+
+            // The arrows, after the box: up for the previous match, down for the next.
+            Assert.Same(model.PreviousMatchCommand, previous.Command);
+            Assert.Same(model.NextMatchCommand, next.Command);
+            Assert.Equal(PhosphorIcon.ArrowUp, Assert.IsType<Icon>(previous.Content).Kind);
+            Assert.Equal(PhosphorIcon.ArrowDown, Assert.IsType<Icon>(next.Content).Kind);
+            Assert.Equal("Go to the previous match", AutomationProperties.GetName(previous));
+            Assert.Equal("Go to the next match", AutomationProperties.GetName(next));
+            Assert.True(
+                counter.TranslatePoint(new Point(0, 0), box)!.Value.X >= box.Bounds.Width,
+                "the counter is not on the right of the box");
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+            box.Focus();
+
+            List<CommitRowViewModel> found = [.. model.Rows.Where(row => row.IsSearchMatch)];
+
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.Same(found[0], model.SelectedRow);
+
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.Same(found[1], model.SelectedRow);
+
+            window.KeyPress(Key.Enter, RawInputModifiers.Shift, PhysicalKey.Enter, null);
+            Assert.Same(found[0], model.SelectedRow);
+
+            window.UpdateLayout();
+            Assert.Equal("match 1/3", counter.Text);
+
+            window.Close();
         });
     }
 
@@ -1870,8 +2045,9 @@ public sealed class HistoryPageTests
             Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Left + pill.BorderThickness.Left);
             Assert.Equal(RefBadgeMetrics.HorizontalPadding, pill.Padding.Right + pill.BorderThickness.Right);
 
-            Icon icon = content.GetVisualDescendants().OfType<Icon>().First();
-            Assert.Equal(RefBadgeMetrics.IconSize, icon.Size);
+            Assert.All(
+                content.GetVisualDescendants().OfType<Icon>(),
+                icon => Assert.Equal(RefBadgeMetrics.IconSize, icon.Size));
 
             window.Close();
         });
@@ -1914,15 +2090,77 @@ public sealed class HistoryPageTests
         // template draws plus its label, and both grew.
         double chrome = (RefBadgeMetrics.HorizontalPadding * 2) + RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing;
 
-        Assert.Equal(34, chrome);
+        Assert.Equal(38, chrome);
         Assert.True(RefBadgeMetrics.MeasureBadge("main") > chrome);
 
-        // Two badges on a row are still separated by the strip's own spacing.
+        // Two badges on a row are still separated by the strip's own spacing; the checked-out one
+        // counts its check.
         RefBadgeItem[] two = [new(GitRefKind.LocalBranch, "main", true), new(GitRefKind.Tag, "v1.0.0", false)];
 
         Assert.Equal(
-            RefBadgeMetrics.MeasureBadge("main") + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
+            RefBadgeMetrics.MeasureBadge("main", isCurrent: true) + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
             RefBadgeMetrics.Measure(two));
+    }
+
+    [Fact]
+    public void TheCheckedOutBranchsBadge_LeadsWithACheck_AndIsMeasuredWithIt()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge current = new() { Kind = GitRefKind.LocalBranch, Text = "main", IsCurrent = true };
+            RefBadge other = new() { Kind = GitRefKind.LocalBranch, Text = "main" };
+            RefBadge tag = new() { Kind = GitRefKind.Tag, Text = "main" };
+
+            Window window = new()
+            {
+                Content = new StackPanel { Children = { current, other, tag } },
+                Width = 400,
+                Height = 200,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            static Icon Named(RefBadge badge, string name)
+                => badge.GetVisualDescendants().OfType<Icon>().Single(icon => icon.Name == name);
+
+            // First in the pill, before the branch's own icon, and only on the checked-out branch.
+            Icon check = Named(current, "CurrentIcon");
+            Assert.Equal(PhosphorIcon.Check, check.Kind);
+            Assert.True(check.IsVisible);
+            Assert.True(
+                check.TranslatePoint(new Point(0, 0), current)!.Value.X < Named(current, "KindIcon").TranslatePoint(new Point(0, 0), current)!.Value.X,
+                "the check is not left of the branch icon");
+
+            Assert.False(Named(other, "CurrentIcon").IsVisible);
+            Assert.False(Named(tag, "CurrentIcon").IsVisible);
+
+            // The column is measured with it: one more icon and one more gap, as drawn.
+            double drawn = current.Bounds.Width - other.Bounds.Width;
+
+            Assert.Equal(RefBadgeMetrics.IconSize + RefBadgeMetrics.IconSpacing, drawn, 3);
+            Assert.Equal(drawn, RefBadgeMetrics.MeasureBadge("main", isCurrent: true) - RefBadgeMetrics.MeasureBadge("main"), 3);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Badge_HasItsSlightlyBiggerPadding()
+    {
+        _fixture.Run(() =>
+        {
+            RefBadge badge = new() { Kind = GitRefKind.Tag, Text = "v1.0.0" };
+
+            Window window = new() { Content = badge, Width = 400, Height = 120 };
+            window.Show();
+            window.UpdateLayout();
+
+            Border pill = badge.GetVisualDescendants().OfType<Border>().First();
+
+            Assert.Equal(new Thickness(9, 3), pill.Padding);
+
+            window.Close();
+        });
     }
 
     // ---------------------------------------------------------------- the badges are not dragged

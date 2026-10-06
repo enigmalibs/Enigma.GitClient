@@ -162,22 +162,46 @@
               </StackPanel>
             </Border>
 
-            <Grid Grid.Column="3" ColumnDefinitions="Auto,*,Auto" MaxWidth="440" HorizontalAlignment="Right">
-              <!-- What the search found, because nothing is hidden: without a count, a search that
-                   matched nothing and one that matched everything look exactly alike. -->
-              <TextBlock Grid.Column="0"
+            <Grid Grid.Column="3" ColumnDefinitions="*,Auto,Auto,Auto,Auto" MaxWidth="520" HorizontalAlignment="Right">
+              <!-- Enter and Shift+Enter in the box go to the next and the previous match
+                   (HistoryPageView.axaml.cs). -->
+              <TextBox Grid.Column="0"
+                       Name="SearchBox"
+                       Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="Search messages, SHAs and authors"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="Search the commits by message, SHA or author" />
+
+              <!-- What the search found, and which of them is selected, because nothing is hidden:
+                   without a count, a search that matched nothing and one that matched everything look
+                   exactly alike. Its slot and the arrows are always there, so the box does not move
+                   when the first letter is typed. -->
+              <TextBlock Grid.Column="1"
+                         Name="MatchCounter"
                          Text="{Binding MatchSummary}"
-                         IsVisible="{Binding HasSearch}"
+                         MinWidth="72"
+                         TextAlignment="Center"
                          VerticalAlignment="Center"
-                         Margin="0,0,8,0"
+                         Margin="8,0,4,0"
                          FontSize="11"
                          Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-              <TextBox Grid.Column="1"
-                       Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Search commit messages"
-                       VerticalAlignment="Center"
-                       AutomationProperties.Name="Search commit messages" />
               <Button Grid.Column="2"
+                      Name="PreviousMatch"
+                      Classes="toolbar"
+                      Command="{Binding PreviousMatchCommand}"
+                      ToolTip.Tip="Previous match (Shift+Enter)"
+                      AutomationProperties.Name="Go to the previous match">
+                <ei:Icon Kind="ArrowUp" Classes="toolbar" />
+              </Button>
+              <Button Grid.Column="3"
+                      Name="NextMatch"
+                      Classes="toolbar"
+                      Command="{Binding NextMatchCommand}"
+                      ToolTip.Tip="Next match (Enter)"
+                      AutomationProperties.Name="Go to the next match">
+                <ei:Icon Kind="ArrowDown" Classes="toolbar" />
+              </Button>
+              <Button Grid.Column="4"
                       Classes="toolbar"
                       Command="{Binding ClearSearchCommand}"
                       ToolTip.Tip="Clear the search"

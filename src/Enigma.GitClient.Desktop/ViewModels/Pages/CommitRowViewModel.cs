@@ -544,26 +544,42 @@ public sealed class CommitRowViewModel : ViewModelBase
     public string Sha => Commit?.Sha ?? string.Empty;
 
     /// <summary>
-    /// Whether this row's commit message contains what is being searched for.
+    /// Whether this row's commit is what is being searched for: by its message, its SHA or its author.
     /// </summary>
     /// <param name="search">What to look for, already trimmed.</param>
-    /// <returns><see langword="true"/> when the subject or the body contains it.</returns>
+    /// <returns>
+    /// <see langword="true"/> when the subject or the body contains it, the SHA starts with it, or the
+    /// author's name or email contains it.
+    /// </returns>
     /// <remarks>
-    /// Subject and body, case-insensitively: that is what git's own <c>--grep</c> matched when the
-    /// search box filtered the query, so the same words still find the same commits. The
-    /// uncommitted-changes row has no message and matches nothing.
+    /// <para>
+    /// The message — subject and body — case-insensitively: that is what git's own <c>--grep</c>
+    /// matched when the search box filtered the query, so the same words still find the same commits.
+    /// The author's name and email the same way.
+    /// </para>
+    /// <para>
+    /// A SHA only by its start, which is how git abbreviates one and how a reader pastes one. Anywhere
+    /// in it, a hex word such as <c>add</c> or <c>face</c> would mark one commit in a hundred for no
+    /// reason.
+    /// </para>
+    /// <para>
+    /// The uncommitted-changes row has no commit, and matches nothing.
+    /// </para>
     /// </remarks>
     public bool Matches(string search)
     {
         ArgumentNullException.ThrowIfNull(search);
 
-        if (IsUncommitted || search.Length == 0)
+        if (IsUncommitted || Commit is not { } commit || search.Length == 0)
         {
             return false;
         }
 
         return Subject.Contains(search, StringComparison.CurrentCultureIgnoreCase)
-            || (Commit?.Body.Contains(search, StringComparison.CurrentCultureIgnoreCase) ?? false);
+            || commit.Body.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+            || commit.Sha.StartsWith(search, StringComparison.OrdinalIgnoreCase)
+            || commit.Author.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase)
+            || commit.Author.Email.Contains(search, StringComparison.CurrentCultureIgnoreCase);
     }
 
     /// <summary>

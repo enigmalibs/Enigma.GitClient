@@ -152,6 +152,17 @@ public sealed class DiffTextEditor : TextEditor
     /// </summary>
     public const string BandTip = "Show more of the file around this change";
 
+    /// <summary>
+    /// The key the Fluent theme sizes its scroll bars with — their full, expanded thickness.
+    /// </summary>
+    public const string ScrollBarSizeKey = "ScrollBarSize";
+
+    /// <summary>
+    /// What the Fluent theme gives <see cref="ScrollBarSizeKey"/>, for an editor that cannot reach the
+    /// theme's resources.
+    /// </summary>
+    public const double DefaultScrollBarSize = 12;
+
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
 
     private Cursor? _textCursor;
@@ -497,7 +508,25 @@ public sealed class DiffTextEditor : TextEditor
         base.OnApplyTemplate(e);
 
         ScrollHost = e.NameScope.Find<ScrollViewer>("PART_ScrollViewer");
+
+        // The theme's scroll bars lie over the content and grow under the pointer, and the horizontal
+        // one grew over the last line, even scrolled to the end (BUG-09AD). Padding the viewer, not
+        // the text, ends the scrolled text that much higher: the bar covers the padding instead.
+        if (ScrollHost is { } scroll)
+        {
+            scroll.Padding = new Thickness(0, 0, 0, ScrollBarAllowance());
+        }
     }
+
+    /// <summary>
+    /// How much room is left under the last line: as much as the horizontal scroll bar takes once it
+    /// has grown under the pointer.
+    /// </summary>
+    /// <returns>The theme's scroll bar size.</returns>
+    private double ScrollBarAllowance()
+        => this.TryFindResource(ScrollBarSizeKey, ActualThemeVariant, out object? size) && size is double thickness
+            ? thickness
+            : DefaultScrollBarSize;
 
     /// <inheritdoc />
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

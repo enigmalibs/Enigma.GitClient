@@ -164,8 +164,9 @@ public sealed class HistoryGroupedBadgeTests
                 Assert.Contains("head", badge.Classes);
                 Assert.Equal("main and origin/main", badge.Description);
 
+                // The checked-out branch's check first, then the branch's own icon and the remote's.
                 Icon[] icons = [.. badge.GetVisualDescendants().OfType<Icon>()];
-                Assert.Equal([PhosphorIcon.GitBranch, PhosphorIcon.CloudArrowDown], icons.Select(icon => icon.Kind));
+                Assert.Equal([PhosphorIcon.Check, PhosphorIcon.GitBranch, PhosphorIcon.CloudArrowDown], icons.Select(icon => icon.Kind));
                 Assert.All(icons, icon => Assert.True(icon.IsVisible));
 
                 Border pill = badge.GetVisualDescendants().OfType<Border>().First();
@@ -215,7 +216,7 @@ public sealed class HistoryGroupedBadgeTests
 
                 // A badge of its own draws no second icon.
                 Assert.False(plain.HasUpstream);
-                Assert.False(plain.GetVisualDescendants().OfType<Icon>().ElementAt(1).IsVisible);
+                Assert.False(plain.GetVisualDescendants().OfType<Icon>().Single(icon => icon.Name == "UpstreamIcon").IsVisible);
                 Assert.Equal("main", plain.Description);
             }
             finally
