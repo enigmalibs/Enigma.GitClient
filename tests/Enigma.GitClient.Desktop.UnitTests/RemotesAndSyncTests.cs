@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -20,7 +22,6 @@ using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views.Pages;
-using Enigma.Icons.Avalonia;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
@@ -454,7 +455,7 @@ public sealed class RemotesAndSyncTests
     }
 
     [Fact]
-    public void ARemoteRowsActions_AreVisibleSelectedOrNot()
+    public void ARemoteLine_HasItsNameAndItsFetchUrl_AndNothingElse()
     {
         _fixture.RunAsync(async () =>
         {
@@ -476,25 +477,17 @@ public sealed class RemotesAndSyncTests
             ListBoxItem row = list.GetRealizedContainers()
                 .OfType<ListBoxItem>()
                 .First(container => container.DataContext is RemoteRowViewModel);
+            RemoteRowViewModel remote = (RemoteRowViewModel)row.DataContext!;
+            Grid line = row.GetVisualDescendants().OfType<Grid>().First(grid => grid.Classes.Contains("listrow"));
 
-            Application application = Application.Current!;
-            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+            TextBlock[] texts = [.. row.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Text is { Length: > 0 })];
 
-            // Fetch, edit and remove: the icons of the buttons at the end of the line.
-            Icon[] Actions() =>
-                [.. row.GetVisualDescendants()
-                    .OfType<Button>()
-                    .Where(button => button.Classes.Contains("toolbar"))
-                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
-
-            Assert.True(Actions().Length >= 3, "a remote row drew fewer than three actions");
-            Assert.All(Actions(), icon => Assert.Same(full, icon.Foreground));
-
-            // And the selection plate does not swallow them.
-            list.SelectedItem = row.DataContext;
-            window.UpdateLayout();
-
-            Assert.All(Actions(), icon => Assert.Same(full, icon.Foreground));
+            Assert.Equal([remote.Name, remote.FetchUrl], texts.Select(block => block.Text));
+            Assert.Contains("faint", texts[1].Classes);
+            Assert.Equal(HorizontalAlignment.Right, texts[1].HorizontalAlignment);
+            Assert.Equal(TextTrimming.CharacterEllipsis, texts[1].TextTrimming);
+            Assert.Empty(row.GetVisualDescendants().OfType<Button>());
+            Assert.Equal(remote.ToolTip, ToolTip.GetTip(line));
 
             window.Close();
         });
@@ -864,9 +857,9 @@ public sealed class RemotesAndSyncTests
                 window.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
 
-                Border line = view.GetVisualDescendants()
-                    .OfType<Border>()
-                    .Single(border => border.ContextMenu is not null && border.DataContext is TagRowViewModel { Name: "1.0.0" });
+                Grid line = view.GetVisualDescendants()
+                    .OfType<Grid>()
+                    .Single(grid => grid.ContextMenu is not null && grid.DataContext is TagRowViewModel { Name: "1.0.0" });
                 ContextMenu menu = line.ContextMenu!;
                 menu.Open(line);
 
@@ -1429,7 +1422,6 @@ public sealed class RemotesAndSyncTests
                     .Select(block => block.Text ?? string.Empty)];
 
                 Assert.Contains("origin", texts);
-                Assert.Contains("1 branch", texts);
                 Assert.Contains(texts, text => text.Contains("origin.git", StringComparison.Ordinal));
 
                 window.Content = null;

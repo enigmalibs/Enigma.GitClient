@@ -654,9 +654,12 @@ public sealed class TagsAndCheckoutTests
 
                 Assert.Contains("v1.0.0", texts);
                 Assert.Contains("v0.1.0", texts);
-                Assert.Contains("annotated", texts);
-                Assert.Contains("lightweight", texts);
-                Assert.Contains("First release", texts);
+
+                // The line is the name alone: the kind and the message are in its tooltip.
+                Assert.DoesNotContain("First release", texts);
+                Assert.Contains("Annotated tag", page.Tags.Single(tag => tag.Name == "v1.0.0").ToolTip, StringComparison.Ordinal);
+                Assert.Contains("First release", page.Tags.Single(tag => tag.Name == "v1.0.0").ToolTip, StringComparison.Ordinal);
+                Assert.Contains("Lightweight tag", page.Tags.Single(tag => tag.Name == "v0.1.0").ToolTip, StringComparison.Ordinal);
 
                 window.Content = null;
                 window.Close();

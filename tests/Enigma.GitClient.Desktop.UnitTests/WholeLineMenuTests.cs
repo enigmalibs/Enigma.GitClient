@@ -66,7 +66,7 @@ public sealed class WholeLineMenuTests
             TagsPageView view = services.Get<TagsPageView>();
             view.DataContext = page;
 
-            AssertTheWholeLineOpensTheMenu<TagRowViewModel>(view);
+            AssertTheWholeCompactLineOpensItsMenu<TagRowViewModel>(view);
         });
     }
 
@@ -85,7 +85,7 @@ public sealed class WholeLineMenuTests
             RemotesPageView view = services.Get<RemotesPageView>();
             view.DataContext = page;
 
-            AssertTheWholeLineOpensTheMenu<RemoteRowViewModel>(view);
+            AssertTheWholeCompactLineOpensItsMenu<RemoteRowViewModel>(view);
         });
     }
 
@@ -271,6 +271,31 @@ public sealed class WholeLineMenuTests
             // And over the text, as before.
             TextBlock text = line.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text is { Length: > 0 });
             Assert.Same(line, MenuOwnerAt(window, text.TranslatePoint(new Point(1, text.Bounds.Height / 2), window)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Shows a page whose lines are drawn like the changed files, and right-clicks one of them
+    /// everywhere a file line is right-clicked: the container's padding included.
+    /// </summary>
+    private static void AssertTheWholeCompactLineOpensItsMenu<TRow>(Control view)
+    {
+        Window window = new() { Content = view, Width = 1100, Height = 600 };
+        window.Show();
+
+        try
+        {
+            Render(window);
+
+            Grid line = view.GetVisualDescendants()
+                .OfType<Grid>()
+                .First(grid => grid.ContextMenu is not null && grid.DataContext is TRow);
+
+            AssertTheWholeFileLineOpensItsMenu(window, line);
         }
         finally
         {
