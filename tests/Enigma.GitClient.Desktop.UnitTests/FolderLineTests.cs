@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -18,7 +19,8 @@ namespace Enigma.GitClient.Desktop.UnitTests;
 /// <summary>
 /// A folder line in the files panel is never selected: a click folds or unfolds it, and the file that
 /// was selected keeps the selection — and a click on a file takes it on the first try, wherever the
-/// selection was before (BUG-1B14).
+/// selection was before (BUG-1B14). The tree's header opens or closes every folder at once
+/// (FEATURE-E2D2).
 /// </summary>
 /// <remarks>
 /// The panel alone, on files that no repository holds: what is tested is the view and its view model.
@@ -204,6 +206,51 @@ public sealed class FolderLineTests
         });
     }
 
+    // ---------------------------------------------------------------- expand all, collapse all
+
+    [Fact]
+    public void TheTreesHeader_ExpandsAndCollapsesEveryFolder_AndTheFileStaysSelected()
+    {
+        _fixture.Run(() =>
+        {
+            (Window window, ChangedFilesPanelViewModel panel, ChangedFilesPanelView view) = Show();
+
+            try
+            {
+                Button expand = view.FindControl<Button>("ExpandAll")!;
+                Button collapse = view.FindControl<Button>("CollapseAll")!;
+
+                Assert.True(expand.IsEffectivelyVisible);
+                Assert.True(collapse.IsEffectivelyVisible);
+
+                ChangedFileNodeViewModel program = File(panel, "src/app/Program.cs");
+                Click(window, OnLine(view, program, window));
+                Assert.Same(program, panel.SelectedNode);
+
+                Click(window, MiddleOf(collapse, window));
+
+                Assert.All(Folders(panel), folder => Assert.False(folder.IsExpanded));
+                Assert.Same(program, panel.SelectedNode);
+
+                Click(window, MiddleOf(expand, window));
+
+                Assert.All(Folders(panel), folder => Assert.True(folder.IsExpanded));
+                Assert.Same(program, panel.SelectedNode);
+
+                // A list has no folders: the two are the tree's alone.
+                panel.ViewMode = ChangedFilesViewMode.List;
+                Settle(window);
+
+                Assert.False(expand.IsEffectivelyVisible);
+                Assert.False(collapse.IsEffectivelyVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- set-up
 
     /// <summary>
@@ -234,6 +281,13 @@ public sealed class FolderLineTests
 
     private static ChangedFileNodeViewModel Folder(ChangedFilesPanelViewModel panel, string path)
         => ChangedFilesPanelViewModel.Flatten(panel.Nodes).Single(node => node.IsDirectory && node.Path == path);
+
+    private static IEnumerable<ChangedFileNodeViewModel> Folders(ChangedFilesPanelViewModel panel)
+        => ChangedFilesPanelViewModel.Flatten(panel.Nodes).Where(node => node.IsDirectory);
+
+    private static Point MiddleOf(Control control, Window window)
+        => control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)
+            ?? throw new InvalidOperationException("The control is not in the window.");
 
     private static TreeView Tree(ChangedFilesPanelView view)
         => view.GetVisualDescendants().OfType<TreeView>().Single();

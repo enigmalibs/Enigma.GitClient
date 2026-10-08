@@ -161,6 +161,28 @@
                    Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+          <!-- The tree's own: a list has no folders to open or close. -->
+          <Button Name="ExpandAll"
+                  Classes="toolbar"
+                  IsVisible="{Binding IsTreeMode}"
+                  Command="{Binding ExpandAllCommand}"
+                  ToolTip.Tip="Expand all folders"
+                  AutomationProperties.Name="Expand all folders">
+            <ei:Icon Kind="CaretDoubleDown" Classes="toolbar" />
+          </Button>
+          <Button Name="CollapseAll"
+                  Classes="toolbar"
+                  IsVisible="{Binding IsTreeMode}"
+                  Command="{Binding CollapseAllCommand}"
+                  ToolTip.Tip="Collapse all folders"
+                  AutomationProperties.Name="Collapse all folders">
+            <ei:Icon Kind="CaretDoubleUp" Classes="toolbar" />
+          </Button>
+          <Border Width="1"
+                  Margin="4,2"
+                  IsVisible="{Binding IsTreeMode}"
+                  Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
           <ToggleButton Classes="segment"
                         IsChecked="{Binding IsListMode, Mode=OneWay}"
                         Command="{Binding ShowAsListCommand}"

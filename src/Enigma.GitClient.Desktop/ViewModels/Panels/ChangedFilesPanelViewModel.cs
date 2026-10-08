@@ -323,6 +323,11 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         ShowAsTreeCommand = new RelayCommand(() => ViewMode = ChangedFilesViewMode.Tree);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
+        // Before the preferences are applied below: applying them rebuilds the rows, which re-evaluates
+        // these two.
+        ExpandAllCommand = new RelayCommand(() => SetAllExpanded(true), HasFolders);
+        CollapseAllCommand = new RelayCommand(() => SetAllExpanded(false), HasFolders);
+
         CopyPathCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
             node => _interop.CopyTextAsync(node?.Path ?? string.Empty));
 
@@ -622,6 +627,21 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
 
+    /// <summary>
+    /// Gets the command that opens every folder of the tree, nested ones included.
+    /// </summary>
+    /// <remarks>
+    /// Whatever <see cref="AutoExpandLimit"/> says: the limit is what the tree opens on its own, and
+    /// this is the reader asking for all of it.
+    /// </remarks>
+    public RelayCommand ExpandAllCommand { get; }
+
+    /// <summary>
+    /// Gets the command that closes every folder of the tree. The selected file keeps the selection: a
+    /// folder never takes it.
+    /// </summary>
+    public RelayCommand CollapseAllCommand { get; }
+
     /// <summary>Gets how many files the change touches.</summary>
     public int FileCount => _files.Count;
 
@@ -895,12 +915,31 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(IsEmpty));
+        ExpandAllCommand.NotifyCanExecuteChanged();
+        CollapseAllCommand.NotifyCanExecuteChanged();
 
         // Keeping the selection across a view-mode switch or a search is what makes the toggle feel
         // like a different view of the same thing rather than a reset.
         if (!SelectPath(previous))
         {
             SelectedNode = null;
+        }
+    }
+
+    /// <summary>
+    /// Whether the tree is shown with a folder in it, which is when there is anything to open or close.
+    /// A nested folder is always under a top one, so the top rows are enough to tell.
+    /// </summary>
+    private bool HasFolders() => IsTreeMode && Nodes.Any(node => node.IsDirectory);
+
+    private void SetAllExpanded(bool expanded)
+    {
+        foreach (ChangedFileNodeViewModel node in Flatten(Nodes))
+        {
+            if (node.IsDirectory)
+            {
+                node.IsExpanded = expanded;
+            }
         }
     }
 
