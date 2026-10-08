@@ -1,6 +1,6 @@
 # BUG-1B14 — Folders in the files panel never select
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-1B14.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-1b14-folders-never-selected`
 **Run:** vibe/2026-10-08-file-panel-about-release
