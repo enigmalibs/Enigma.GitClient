@@ -25,9 +25,9 @@ Two things matter more than everything else in this app:
 - History list with a column header you can resize — the graph's included — and a search, by
   message, SHA or author, that highlights what it found instead of hiding everything else and steps
   through it with its arrows or Enter
-- Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
-  brings and its badge leave the graph, the history says how many branches it is leaving out, and
-  the choice is remembered for the repository
+- Hide a branch from the history with *Hide from the history* in its line's menu in the branches
+  dialog: the commits only it brings and its badge leave the graph, its line says *hidden*, the
+  history says how many branches it is leaving out, and the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit in a panel beside the history, as GitKraken has it — click a
   line to open it, click the line again to close it — shown as a **list or a tree** (your choice),

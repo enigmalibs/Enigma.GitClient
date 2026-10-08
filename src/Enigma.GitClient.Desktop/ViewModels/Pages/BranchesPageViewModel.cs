@@ -15,39 +15,13 @@ using Enigma.GitClient.Desktop.Services;
 namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 
 /// <summary>
-/// Something the branches list holds: a branch, or the heading above a group of them.
-/// </summary>
-/// <remarks>
-/// The list is flat so the page has one selection: nested lists would each keep their own, and two
-/// rows would be highlighted at once. What the flattening costs is this — the list holds two kinds
-/// of thing, and the view has to know which of them can be selected.
-/// </remarks>
-public interface IBranchListItem
-{
-    /// <summary>Gets a value indicating whether the item is one the reader can select.</summary>
-    bool IsSelectable { get; }
-}
-
-/// <summary>
-/// The heading above a group of branches, as a row of the flat list.
-/// </summary>
-/// <param name="Title">What the heading says: "Local", or a remote's name.</param>
-/// <param name="IsRemote">Whether the group it introduces holds remote branches.</param>
-/// <param name="Count">How many branches are under it, as the heading shows it.</param>
-public sealed record BranchGroupHeaderViewModel(string Title, bool IsRemote, string Count) : IBranchListItem
-{
-    /// <inheritdoc />
-    public bool IsSelectable => false;
-}
-
-/// <summary>
-/// One branch, as the branches page shows it.
+/// One branch, as the branches page shows it: a leaf of the tree.
 /// </summary>
 /// <remarks>
 /// The row carries the page's commands rather than raising events, so a context menu opening in its
 /// own popup tree can still reach them with a plain binding against the row itself.
 /// </remarks>
-public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
+public sealed class BranchRowViewModel : BranchTreeNode
 {
     private readonly BranchesPageViewModel _owner;
 
@@ -66,6 +40,7 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     /// it is resolved once per rebuild rather than scanned for per line.
     /// </remarks>
     public BranchRowViewModel(BranchesPageViewModel owner, GitBranch branch, string? publishedAs = null)
+        : base(KeyOf(branch))
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(branch);
@@ -78,11 +53,24 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
     /// <summary>Gets the branch this row stands for.</summary>
     public GitBranch Branch { get; }
 
-    /// <inheritdoc />
-    public bool IsSelectable => true;
-
-    /// <summary>Gets the name shown on the row.</summary>
+    /// <summary>
+    /// Gets the branch's name within its top-level node — <c>feature/watcher</c>, without the remote's
+    /// name for a remote branch — whose <c>/</c> segments are the folders above the line.
+    /// </summary>
     public string Name => Branch.IsRemote ? Branch.NameWithoutRemote : Branch.ShortName;
+
+    /// <summary>Gets what the line says: the last segment of the name, the folders above it saying the rest.</summary>
+    public override string Label
+    {
+        get
+        {
+            int slash = Name.LastIndexOf('/');
+            return slash < 0 || slash == Name.Length - 1 ? Name : Name[(slash + 1)..];
+        }
+    }
+
+    /// <inheritdoc />
+    public override bool IsFolder => false;
 
     /// <summary>Gets the branch's full short name, which commands are given.</summary>
     public string FullName => Branch.ShortName;
@@ -121,9 +109,9 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 
     /// <summary>
     /// Gets a value indicating whether this local branch is on no remote — the branch that would go
-    /// with the machine.
+    /// with the machine. One whose upstream has gone from the remote is on none any more either.
     /// </summary>
-    public bool IsLocalOnly => IsLocal && PublishedAs is null && !IsUpstreamGone;
+    public bool IsLocalOnly => IsLocal && PublishedAs is null;
 
     /// <summary>Gets a value indicating whether the upstream the branch names has gone.</summary>
     public bool IsUpstreamGone => IsLocal && Branch.Tracking.IsUpstreamGone;
@@ -167,6 +155,41 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
         => count == 1
             ? $"1 commit {what}"
             : $"{count.ToString(CultureInfo.CurrentCulture)} commits {what}";
+
+    /// <summary>Gets what the "checked out" badge says when the pointer rests on it.</summary>
+    public string CheckedOutTip => "The branch you have checked out";
+
+    /// <summary>Gets what the "hidden" badge says when the pointer rests on it.</summary>
+    public string HiddenTip => "Hidden from the history: its own commits and its badge are left out of the graph";
+
+    /// <summary>Gets what the "local only" badge says when the pointer rests on it.</summary>
+    public string LocalOnlyTip => "On no remote — this branch only exists here";
+
+    /// <summary>
+    /// Gets what the line's tooltip says: everything about the branch the line itself leaves out — its
+    /// full name, the upstream it tracks, and its last commit's subject, author and date.
+    /// </summary>
+    public string ToolTip
+    {
+        get
+        {
+            List<string> lines = [FullName];
+
+            if (IsLocal)
+            {
+                lines.Add(HasUpstream ? $"Tracks {Upstream}" : "No upstream");
+            }
+
+            if (TipSubject.Length > 0)
+            {
+                lines.Add(TipSubject);
+            }
+
+            lines.Add($"{TipAuthor} · {TipDate}");
+
+            return string.Join('\n', lines);
+        }
+    }
 
     /// <summary>Gets the subject of the branch's tip commit.</summary>
     public string TipSubject => Branch.TipSubject;
@@ -237,6 +260,12 @@ public sealed class BranchRowViewModel : ViewModelBase, IBranchListItem
 
     /// <inheritdoc />
     public override string ToString() => FullName;
+
+    private static string KeyOf(GitBranch branch)
+    {
+        ArgumentNullException.ThrowIfNull(branch);
+        return $"branch:{branch.FullName}";
+    }
 }
 
 /// <summary>
@@ -273,18 +302,6 @@ public sealed record BranchDrop(BranchRowViewModel Source, BranchRowViewModel Ta
 }
 
 /// <summary>
-/// A group of branches on the page: the local ones, or one remote's.
-/// </summary>
-/// <param name="Title">The heading shown above the group.</param>
-/// <param name="IsRemote">Whether the group holds remote branches.</param>
-/// <param name="Rows">The branches in the group.</param>
-public sealed record BranchGroupViewModel(string Title, bool IsRemote, IReadOnlyList<BranchRowViewModel> Rows)
-{
-    /// <summary>Gets how many branches the group holds, for its heading.</summary>
-    public string Count => Rows.Count.ToString(CultureInfo.CurrentCulture);
-}
-
-/// <summary>
 /// ViewModel behind the branches page.
 /// </summary>
 /// <remarks>
@@ -309,6 +326,10 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     // Every branch the manual merge can name, by name, as the last rebuild read them — the lists
     // are names, and what a merge needs to know about each (remote? checked out?) is looked up here.
     private Dictionary<string, GitBranch> _branchesByName = new(StringComparer.Ordinal);
+
+    // Which nodes of the tree the reader opened or closed, by key: what survives a rebuild. Forgotten
+    // with the repository.
+    private readonly Dictionary<string, bool> _expanded = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initialises a new instance.
@@ -393,29 +414,28 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// <summary>Gets what the filter box says it filters.</summary>
     public string SearchPlaceholder => "Filter branches";
 
-    /// <summary>Gets the branches, grouped as local and one group per remote.</summary>
+    /// <summary>
+    /// Gets the top-level nodes of the branches tree — "Local", then one per remote — which the tree
+    /// shows, with their folders and branches under them.
+    /// </summary>
     public ObservableCollection<BranchGroupViewModel> Groups { get; } = [];
 
     /// <summary>
-    /// Gets the same branches the groups hold, flattened into the one list the view shows: each
-    /// group's heading followed by its rows.
+    /// Gets or sets the line the reader has selected, which is a branch or nothing: a top-level node
+    /// or a folder can take the focus, but is never the selection, so selecting one changes nothing.
     /// </summary>
-    /// <remarks>
-    /// The grouping is the model and this is its presentation, rebuilt from it every time. One list
-    /// rather than a list per group, because a page has one selection: nested lists would each keep
-    /// their own and two rows would be highlighted at once.
-    /// </remarks>
-    public ObservableCollection<IBranchListItem> Items { get; } = [];
-
-    /// <summary>
-    /// Gets or sets the item the reader has selected, which is a branch or nothing — a heading is
-    /// not selectable.
-    /// </summary>
-    public IBranchListItem? SelectedItem
+    public object? SelectedItem
     {
         get;
         set
         {
+            if (value is not null and not BranchRowViewModel)
+            {
+                // Refused, and said so: the tree selected it, and has to be told it is not.
+                OnPropertyChanged();
+                return;
+            }
+
             if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(SelectedBranch));
@@ -661,6 +681,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     {
         base.OnRepositoryChanged();
 
+        // Another repository's folders are not this one's.
+        _expanded.Clear();
+
         CreateBranchCommand.NotifyCanExecuteChanged();
         Rebuild();
     }
@@ -688,15 +711,27 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     private void NotifyVisibility()
     {
-        foreach (BranchGroupViewModel group in Groups)
+        foreach (BranchRowViewModel row in AllRows())
         {
-            foreach (BranchRowViewModel row in group.Rows)
-            {
-                row.NotifyVisibilityChanged();
-            }
+            row.NotifyVisibilityChanged();
         }
 
         ToggleVisibilityCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Every branch line of the tree, at any depth, in the order the tree shows them.</summary>
+    private IEnumerable<BranchRowViewModel> AllRows() => Groups.SelectMany(group => group.Rows);
+
+    /// <summary>
+    /// Remembers a node the reader opened or closed — not while the filter has every node open, which
+    /// is the filter's doing and not the reader's.
+    /// </summary>
+    private void OnExpansionChanged(BranchTreeNode node)
+    {
+        if (SearchText.Trim().Length == 0)
+        {
+            _expanded[node.Key] = node.IsExpanded;
+        }
     }
 
     /// <summary>
@@ -739,17 +774,14 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(SortDirectionTip));
     }
 
-    private List<BranchRowViewModel> Sorted(IEnumerable<BranchRowViewModel> rows)
-        => RefSort.Order(rows, row => row.Name, row => row.Branch.TipDate, SortKey, SortDirection);
-
     private void Rebuild()
     {
-        // Captured before the list is emptied: clearing a list tells its ListBox the selection is
-        // gone, and the ListBox tells this page so. What survives a rebuild is the name.
+        // Captured before the tree is emptied: emptying it tells the tree the selection is gone, and
+        // the tree tells this page so. What survives a rebuild is the name.
         string? selectedBranch = SelectedBranch?.FullName;
 
+        SelectedItem = null;
         Groups.Clear();
-        Items.Clear();
 
         RefCollection refs = RepositoryContext.Refs;
 
@@ -757,58 +789,26 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         // not take them off the remote.
         Dictionary<string, string> published = PublishedBranches(refs);
 
-        List<BranchRowViewModel> local = [];
+        List<BranchRowViewModel> local = [.. refs.LocalBranches
+            .Where(Matches)
+            .Select(branch => new BranchRowViewModel(this, branch, published.GetValueOrDefault(branch.ShortName)))];
 
-        foreach (GitBranch branch in refs.LocalBranches)
+        List<BranchRowViewModel> remote = [.. refs.RemoteBranches
+            .Where(Matches)
+            .Select(branch => new BranchRowViewModel(this, branch))];
+
+        IReadOnlyList<BranchGroupViewModel> tree = BranchTreeBuilder.Build(
+            local,
+            remote,
+            SortKey,
+            SortDirection,
+            key => _expanded.TryGetValue(key, out bool expanded) ? expanded : null,
+            expandAll: SearchText.Trim().Length > 0,
+            OnExpansionChanged);
+
+        foreach (BranchGroupViewModel group in tree)
         {
-            if (Matches(branch))
-            {
-                local.Add(new BranchRowViewModel(this, branch, published.GetValueOrDefault(branch.ShortName)));
-            }
-        }
-
-        if (local.Count > 0)
-        {
-            Groups.Add(new BranchGroupViewModel("Local", false, Sorted(local)));
-        }
-
-        // One group per remote, in the order the remotes' branches were read, so a repository with
-        // several remotes does not shuffle between refreshes.
-        Dictionary<string, List<BranchRowViewModel>> byRemote = new(StringComparer.Ordinal);
-        List<string> order = [];
-
-        foreach (GitBranch branch in refs.RemoteBranches)
-        {
-            if (!Matches(branch))
-            {
-                continue;
-            }
-
-            string remote = branch.RemoteName ?? "remote";
-
-            if (!byRemote.TryGetValue(remote, out List<BranchRowViewModel>? rows))
-            {
-                rows = [];
-                byRemote[remote] = rows;
-                order.Add(remote);
-            }
-
-            rows.Add(new BranchRowViewModel(this, branch));
-        }
-
-        foreach (string remote in order)
-        {
-            Groups.Add(new BranchGroupViewModel(remote, true, Sorted(byRemote[remote])));
-        }
-
-        foreach (BranchGroupViewModel group in Groups)
-        {
-            Items.Add(new BranchGroupHeaderViewModel(group.Title, group.IsRemote, group.Count));
-
-            foreach (BranchRowViewModel row in group.Rows)
-            {
-                Items.Add(row);
-            }
+            Groups.Add(group);
         }
 
         RestoreSelection(selectedBranch);
@@ -884,7 +884,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private void RestoreSelection(string? branch)
         => SelectedItem = branch is null
             ? null
-            : Items.OfType<BranchRowViewModel>().FirstOrDefault(row => row.FullName == branch);
+            : AllRows().FirstOrDefault(row => row.FullName == branch);
 
     /// <summary>
     /// Refills the manual merge's two lists from the repository, keeping each choice by name when

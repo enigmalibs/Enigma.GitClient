@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -341,20 +342,20 @@ public sealed class BranchesPageTests
     }
 
     [Fact]
-    public void ALocalRow_SaysWhenItsUpstreamHasGone()
+    public void ALocalRow_WhoseUpstreamHasGone_IsLocalOnly()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
             BranchesPageViewModel page = await OpenAsync(services, await BuildTrackingWorldAsync(services));
 
-            // The upstream was deleted on the remote. That is neither "on a remote" nor the ordinary
-            // "never pushed": it is a branch pointing at something that is not there any more.
+            // The upstream was deleted on the remote: the branch is on no remote any more, which is
+            // what the line says — there is no "upstream gone" marker of its own.
             BranchRowViewModel doomed = Row(page, "doomed");
 
             Assert.True(doomed.IsUpstreamGone);
             Assert.False(doomed.IsPublished);
-            Assert.False(doomed.IsLocalOnly);
+            Assert.True(doomed.IsLocalOnly);
             Assert.Contains("origin/doomed", doomed.RemoteStateTip, StringComparison.Ordinal);
         });
     }
@@ -424,45 +425,213 @@ public sealed class BranchesPageTests
     // ---------------------------------------------------------------- selection
 
     [Fact]
-    public void Items_AreEachGroupsHeadingFollowedByItsBranches()
+    public void TheTree_IsLocalFirst_ThenEachRemote_WithEveryBranchUnderItsNode()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
             BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
 
-            // The flat list is the grouping, in the same order: a heading, then the branches under
-            // it, then the next heading.
-            List<string> shape = [.. page.Items.Select(item => item switch
-            {
-                BranchGroupHeaderViewModel header => $"# {header.Title}",
-                BranchRowViewModel row => row.FullName,
-                _ => "?",
-            })];
+            Assert.Equal("Local", page.Groups[0].Title);
+            Assert.False(page.Groups[0].IsRemote);
+            Assert.Equal(["origin"], page.Groups.Skip(1).Select(group => group.Title));
+            Assert.True(page.Groups[1].IsRemote);
 
-            Assert.Equal("# Local", shape[0]);
-            Assert.Contains("# origin", shape);
-            Assert.True(shape.IndexOf("# origin") > shape.IndexOf("main"), "the remote group came before the local one");
-
-            // Every branch in the groups is in the list, and nothing else is.
-            Assert.Equal(
-                page.Groups.SelectMany(group => group.Rows).Select(row => row.FullName).Order(),
-                page.Items.OfType<BranchRowViewModel>().Select(row => row.FullName).Order());
-
-            Assert.Equal(page.Groups.Count, page.Items.OfType<BranchGroupHeaderViewModel>().Count());
+            // Every branch is under its node, at whatever depth, and the top-level nodes start open.
+            Assert.All(page.Groups[0].Rows, row => Assert.False(row.IsRemote));
+            Assert.All(page.Groups[1].Rows, row => Assert.True(row.IsRemote));
+            Assert.All(page.Groups, group => Assert.True(group.IsExpanded));
         });
     }
 
     [Fact]
-    public void Heading_IsNotSelectable()
+    public void WhatTheReaderOpenedOrClosed_SurvivesARefresh_ButNotWhatTheyDidWhileFiltering()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            await GitAsync(repository, "branch", "feature/watcher", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            BranchTreeNode Feature() => Assert.Single(page.Groups[0].Children, node => node.IsFolder);
+
+            Assert.True(page.Groups[0].IsExpanded);
+            Assert.False(Feature().IsExpanded);
+
+            Feature().IsExpanded = true;
+            page.Groups[0].IsExpanded = false;
+            BranchTreeNode before = Feature();
+
+            await page.RefreshAsync();
+
+            // New nodes, open and closed as the reader left them.
+            Assert.NotSame(before, Feature());
+            Assert.True(Feature().IsExpanded);
+            Assert.False(page.Groups[0].IsExpanded);
+
+            // The filter opens everything above a match; closing a node meanwhile is not remembered.
+            page.SearchText = "watch";
+
+            Assert.True(page.Groups[0].IsExpanded);
+            Assert.True(Feature().IsExpanded);
+
+            Feature().IsExpanded = false;
+            page.SearchText = string.Empty;
+
+            Assert.True(Feature().IsExpanded);
+            Assert.False(page.Groups[0].IsExpanded);
+        });
+    }
+
+    [Fact]
+    public void TheTree_KeepsAFolderTheReaderOpenedOpen_AcrossARefresh()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            BranchesPageView view = services.Get<BranchesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            TreeView tree = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
+
+            TreeViewItem Folder() => tree.GetRealizedTreeContainers()
+                .OfType<TreeViewItem>()
+                .Single(container => container.DataContext is BranchFolderViewModel and not BranchGroupViewModel);
+
+            Assert.False(Folder().IsExpanded);
+
+            // What the expander does: the line's own state, which the node follows.
+            Folder().SetCurrentValue(TreeViewItem.IsExpandedProperty, true);
+
+            Assert.True(((BranchTreeNode)Folder().DataContext!).IsExpanded);
+
+            await page.RefreshAsync();
+            window.UpdateLayout();
+
+            // The tree was rebuilt — new nodes, new lines — and the folder is still open.
+            Assert.True(Folder().IsExpanded);
+            Assert.True(((BranchTreeNode)Folder().DataContext!).IsExpanded);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ATopLevelNodeOrAFolder_IsNeverTheSelection()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
             BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
 
-            Assert.All(page.Items.OfType<BranchGroupHeaderViewModel>(), header => Assert.False(header.IsSelectable));
-            Assert.All(page.Items.OfType<BranchRowViewModel>(), row => Assert.True(row.IsSelectable));
+            page.SelectedItem = Row(page, "merged");
+
+            // The tree can put a folder there — the arrows reach one — and the page keeps its branch.
+            page.SelectedItem = page.Groups[0];
+
+            Assert.Same(Row(page, "merged"), page.SelectedItem);
+            Assert.Equal("merged", page.SelectedBranch?.FullName);
+            Assert.All(page.Groups, group => Assert.True(group.IsFolder));
+            Assert.All(page.Groups.SelectMany(group => group.Rows), row => Assert.False(row.IsFolder));
+        });
+    }
+
+    [Fact]
+    public void AClickOnAFolder_FoldsIt_AndTheBranchSelectedBeforeStaysSelected()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                Click(window, OnLine(Row(tree, "merged"), window));
+                Assert.Equal("merged", page.SelectedBranch?.FullName);
+
+                BranchTreeNode feature = Assert.Single(page.Groups[0].Children, node => node.IsFolder);
+                Assert.False(feature.IsExpanded);
+
+                Click(window, OnLine(Line(tree, feature), window));
+
+                Assert.True(feature.IsExpanded);
+                Assert.Same(Row(page, "merged"), page.SelectedItem);
+                Assert.Same(Row(page, "merged"), tree.SelectedItem);
+
+                // Further along the line, so it is a second click and not a double-click.
+                Click(window, OnLine(Line(tree, feature), window, 240));
+
+                Assert.False(feature.IsExpanded);
+
+                // A double-click folds it once: the tree's own fold on the second press is undone.
+                Point point = OnLine(Line(tree, feature), window);
+                Click(window, point);
+                Click(window, point);
+
+                Assert.True(feature.IsExpanded);
+
+                // A top-level node's line folds the same way.
+                Click(window, OnLine(Line(tree, page.Groups[0]), window));
+
+                Assert.False(page.Groups[0].IsExpanded);
+                Assert.Same(Row(page, "merged"), page.SelectedItem);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheKeyboard_DoesNotSelectAFolder()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                Click(window, OnLine(Row(tree, "main"), window));
+                Assert.Equal("main", page.SelectedBranch?.FullName);
+
+                // The arrows move from branch to branch...
+                Press(window, Key.Down, PhysicalKey.ArrowDown);
+                Assert.Equal("merged", page.SelectedBranch?.FullName);
+
+                Press(window, Key.Up, PhysicalKey.ArrowUp);
+                Assert.Equal("main", page.SelectedBranch?.FullName);
+
+                // ...and the line above "main" is the folder's, which folders come first to put there.
+                Press(window, Key.Up, PhysicalKey.ArrowUp);
+
+                Assert.Same(Row(page, "main"), page.SelectedItem);
+                Assert.Same(Row(page, "main"), tree.SelectedItem);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -482,11 +651,10 @@ public sealed class BranchesPageTests
             Assert.NotNull(page.SelectedBranch);
             Assert.Equal("merged", page.SelectedBranch!.FullName);
 
-            // A heading can be put there by nothing the view offers, and it is not a branch either
-            // way.
-            page.SelectedItem = page.Items.OfType<BranchGroupHeaderViewModel>().First();
+            // A top-level node is not a branch, and the page keeps the branch it had.
+            page.SelectedItem = page.Groups.First();
 
-            Assert.Null(page.SelectedBranch);
+            Assert.Equal("merged", page.SelectedBranch?.FullName);
         });
     }
 
@@ -536,13 +704,13 @@ public sealed class BranchesPageTests
             services.Dialogs.Result = DialogResult.Primary;
             await page.DeleteCommand.ExecuteAsync(Row(page, "merged"));
 
-            Assert.DoesNotContain(page.Items.OfType<BranchRowViewModel>(), row => row.FullName == "merged");
+            Assert.DoesNotContain(page.Groups.SelectMany(group => group.Rows), row => row.FullName == "merged");
             Assert.Null(page.SelectedBranch);
         });
     }
 
     [Fact]
-    public void BranchList_IsAListBoxWhoseSelectionFollowsThePage()
+    public void BranchTree_IsATreeWhoseSelectionFollowsThePage()
     {
         _fixture.RunAsync(async () =>
         {
@@ -556,25 +724,23 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView tree = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            Assert.Equal(page.Items.Count, list.ItemCount);
+            Assert.Equal(page.Groups.Count, tree.ItemCount);
 
-            list.SelectedItem = Row(page, "merged");
+            tree.SelectedItem = Row(page, "merged");
             window.UpdateLayout();
 
-            Assert.Same(list.SelectedItem, page.SelectedItem);
+            Assert.Same(tree.SelectedItem, page.SelectedItem);
             Assert.Equal("merged", page.SelectedBranch!.FullName);
 
-            // The heading's container is disabled, which is what stops it being selected, and it is
-            // drawn at full opacity because nothing about it is unavailable.
-            ListBoxItem heading = list.GetRealizedContainers()
-                .OfType<ListBoxItem>()
-                .First(container => container.DataContext is BranchGroupHeaderViewModel);
+            // The top-level node's container is open, as the node is.
+            TreeViewItem local = tree.GetRealizedTreeContainers()
+                .OfType<TreeViewItem>()
+                .First(container => container.DataContext is BranchGroupViewModel);
 
-            Assert.False(heading.IsEnabled);
-            Assert.Equal(1, heading.Opacity);
+            Assert.True(local.IsExpanded);
 
             window.Close();
         });
@@ -817,16 +983,16 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
             // The page runs the gesture itself and opens no platform drag session, so it is not a
             // platform drop target either: that machinery is what drew the refusal pointer.
             Assert.False(DragDrop.GetAllowDrop(list));
 
             // A row container marked as the drop target wears a ring the selection cannot hide.
-            ListBoxItem row = list.GetRealizedContainers()
-                .OfType<ListBoxItem>()
+            TreeViewItem row = list.GetRealizedTreeContainers()
+                .OfType<TreeViewItem>()
                 .First(container => container.DataContext is BranchRowViewModel);
 
             row.Classes.Set("droptarget", true);
@@ -911,8 +1077,8 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
             // The whole gesture, through the real input system: press, move, release. The platform
             // session this replaced could not be driven by a test at all.
@@ -962,12 +1128,12 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            ListBoxItem source = Row(list, "unmerged");
-            ListBoxItem target = Row(list, "main");
-            ListBoxItem other = Row(list, "merged");
+            TreeViewItem source = Row(list, "unmerged");
+            TreeViewItem target = Row(list, "main");
+            TreeViewItem other = Row(list, "merged");
 
             Point start = Centre(source, window);
 
@@ -1018,12 +1184,12 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
             Cursor? before = list.Cursor;
 
-            ListBoxItem source = Row(list, "unmerged");
+            TreeViewItem source = Row(list, "unmerged");
             Point start = Centre(source, window);
 
             window.MouseDown(start, MouseButton.Left);
@@ -1059,12 +1225,12 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
             Cursor? before = list.Cursor;
 
-            ListBoxItem target = Row(list, "main");
+            TreeViewItem target = Row(list, "main");
             Point start = Centre(Row(list, "unmerged"), window);
 
             window.MouseDown(start, MouseButton.Left);
@@ -1112,10 +1278,10 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            ListBoxItem row = Row(list, "merged");
+            TreeViewItem row = Row(list, "merged");
             Point point = Centre(row, window);
 
             window.MouseDown(point, MouseButton.Left);
@@ -1147,8 +1313,8 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
             Point start = Centre(Row(list, "unmerged"), window);
 
@@ -1181,12 +1347,12 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
             // Nothing local writes to a remote-tracking ref: that is a push, and a push is not a
             // thing to arrive at by dragging. The gesture still runs — the ring is what says no.
-            ListBoxItem target = Row(list, "origin/published");
+            TreeViewItem target = Row(list, "origin/published");
 
             Drag(window, Row(list, "main"), target);
 
@@ -1236,11 +1402,11 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            ListBoxItem[] rows = [.. list.GetRealizedContainers()
-                .OfType<ListBoxItem>()
+            TreeViewItem[] rows = [.. list.GetRealizedTreeContainers()
+                .OfType<TreeViewItem>()
                 .Where(container => container.DataContext is BranchRowViewModel)];
 
             Assert.True(rows.Length >= 2, "the branches page realised fewer than two rows");
@@ -1249,7 +1415,7 @@ public sealed class BranchesPageTests
             Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
 
             // The tip's subject, its author and its date are the quiet columns of a branch row.
-            static TextBlock[] Quiet(ListBoxItem row) =>
+            static TextBlock[] Quiet(TreeViewItem row) =>
                 [.. row.GetVisualDescendants()
                     .OfType<TextBlock>()
                     .Where(text => text.Classes.Contains("dim") || text.Classes.Contains("faint"))];
@@ -1274,7 +1440,7 @@ public sealed class BranchesPageTests
     }
 
     [Fact]
-    public void ABranchRowsActions_AreVisibleOnEveryRow()
+    public void ABranchLine_IsDrawnLikeAChangedFile_WithItsLastNameSegmentAndItsBadges()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1288,45 +1454,36 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            ListBoxItem[] rows = [.. list.GetRealizedContainers()
-                .OfType<ListBoxItem>()
-                .Where(container => container.DataContext is BranchRowViewModel)];
+            TreeViewItem main = Row(list, "main");
+            Grid line = main.GetVisualDescendants().OfType<Grid>().First(grid => grid.Classes.Contains("listrow"));
 
-            Assert.True(rows.Length >= 2, "the branches page realised fewer than two rows");
+            Assert.Equal(22, line.Bounds.Height);
+            Assert.Equal(Row(page, "main").ToolTip, ToolTip.GetTip(line));
 
-            Application application = Application.Current!;
-            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
-            Assert.True(application.TryFindResource("EnigmaForegroundSecondaryBrush", application.ActualThemeVariant, out object? grey));
+            // No button and no pill on the line: the chevron of the tree item is all there is.
+            Assert.Empty(line.GetVisualDescendants().OfType<Button>());
+            Assert.DoesNotContain(line.GetVisualDescendants().OfType<Border>(), border => border.Classes.Contains("pill"));
 
-            // Check out and delete: the buttons at the end of the line, with their icons.
-            static (Button Button, Icon Icon)[] Actions(ListBoxItem row) =>
-                [.. row.GetVisualDescendants()
-                    .OfType<Button>()
-                    .Where(button => button.Classes.Contains("toolbar"))
-                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>().Select(icon => (button, icon)))];
+            // Not bold: nothing on the line is drawn differently because it is the checked-out branch.
+            Assert.All(line.GetVisualDescendants().OfType<TextBlock>(), text => Assert.NotEqual(FontWeight.SemiBold, text.FontWeight));
 
-            Assert.True(Actions(rows[0]).Length >= 2, "a branch row drew fewer than two actions");
+            string[] texts = [.. line.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible && text.Text is { Length: > 0 })
+                .Select(text => text.Text!)];
 
-            list.SelectedItem = rows[0].DataContext;
-            window.UpdateLayout();
-
-            // The selected row and the rest of them: an action that can be pressed is legible
-            // wherever it is, and one that cannot — the current branch cannot be checked out or
-            // deleted — is grey, selected or not.
-            (Button Button, Icon Icon)[] all = [.. Actions(rows[0]), .. Actions(rows[1])];
-
-            Assert.Contains(all, action => action.Button.IsEffectivelyEnabled);
-            Assert.All(all, action => Assert.Same(action.Button.IsEffectivelyEnabled ? full : grey, action.Icon.Foreground));
+            // Its badges in their order: checked out, and — this repository has no remote — local only.
+            Assert.Equal(["main", "checked out", "local only"], texts);
 
             window.Close();
         });
     }
 
     [Fact]
-    public void ABranchRow_DrawsWhereItStandsWithItsRemote()
+    public void ABranchLine_DrawsWhereItStandsWithItsRemote()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1340,47 +1497,37 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            // Only what the row actually draws: a hidden badge is still in the tree.
-            PhosphorIcon[] Badges(string branch) =>
+            // Only what the line actually draws: a hidden badge is still in the tree.
+            string[] Badges(string branch) =>
                 [.. Row(list, branch)
                     .GetVisualDescendants()
-                    .OfType<Icon>()
-                    .Where(icon => icon.IsEffectivelyVisible)
-                    .Select(icon => icon.Kind)];
+                    .OfType<StackPanel>()
+                    .Where(badge => badge.Classes.Contains("badge") && badge.IsEffectivelyVisible)
+                    .Select(badge => string.Join(' ', badge.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text)))];
 
-            // Drifted both ways: one arrow each, and the cloud that says it is up there.
-            Assert.Contains(PhosphorIcon.ArrowUp, Badges("tracked"));
-            Assert.Contains(PhosphorIcon.ArrowDown, Badges("tracked"));
-            Assert.Contains(PhosphorIcon.CloudCheck, Badges("tracked"));
+            // Drifted both ways: one count each, after its arrow.
+            Assert.Equal(["1", "1"], Badges("tracked"));
 
-            // Level with its remote: the cloud alone, and no counter with nothing to count.
-            Assert.Contains(PhosphorIcon.CloudCheck, Badges("main"));
-            Assert.DoesNotContain(PhosphorIcon.ArrowUp, Badges("main"));
-            Assert.DoesNotContain(PhosphorIcon.ArrowDown, Badges("main"));
+            // Level with its remote: nothing to say at all — no "published" marker.
+            Assert.Equal(["checked out"], Badges("main"));
 
-            // On no remote, and pointing at an upstream that is gone: two different things to say.
-            Assert.Contains(PhosphorIcon.CloudSlash, Badges("merged"));
-            Assert.DoesNotContain(PhosphorIcon.CloudCheck, Badges("merged"));
-            Assert.Contains(PhosphorIcon.CloudWarning, Badges("doomed"));
-            Assert.DoesNotContain(PhosphorIcon.CloudSlash, Badges("doomed"));
+            // On no remote, and pointing at an upstream that is gone: both only exist here now, and
+            // there is no "upstream gone" marker.
+            Assert.Equal(["local only"], Badges("merged"));
+            Assert.Equal(["local only"], Badges("doomed"));
 
-            // A remote-tracking row is the remote: none of this is about it.
-            PhosphorIcon[] remote = Badges("origin/published");
-
-            Assert.DoesNotContain(PhosphorIcon.ArrowUp, remote);
-            Assert.DoesNotContain(PhosphorIcon.ArrowDown, remote);
-            Assert.DoesNotContain(PhosphorIcon.CloudCheck, remote);
-            Assert.DoesNotContain(PhosphorIcon.CloudSlash, remote);
+            // A remote-tracking line is the remote: none of this is about it.
+            Assert.Empty(Badges("origin/published"));
 
             window.Close();
         });
     }
 
     [Fact]
-    public void ABranchRow_ShowsTheCountBesideTheArrowAndNamesIt()
+    public void EveryBadge_SaysWhatItMeans()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1394,23 +1541,12 @@ public sealed class BranchesPageTests
             window.Show();
             window.UpdateLayout();
 
-            ListBox list = view.FindControl<ListBox>("BranchList")
-                ?? throw new InvalidOperationException("The branches page has no branch list.");
+            TreeView list = view.FindControl<TreeView>("BranchTree")
+                ?? throw new InvalidOperationException("The branches page has no branch tree.");
 
-            ListBoxItem tracked = Row(list, "tracked");
-
-            // The number is drawn beside the arrow, not only held in the ViewModel.
-            string[] texts = [.. tracked.GetVisualDescendants()
-                .OfType<TextBlock>()
-                .Where(text => text.IsEffectivelyVisible)
-                .Select(text => text.Text ?? string.Empty)];
-
-            Assert.Equal(2, texts.Count(text => text == "1"));
-
-            // And every badge says what it means, to a pointer and to a screen reader alike.
-            Border[] badges = [.. tracked.GetVisualDescendants()
-                .OfType<Border>()
-                .Where(border => border.Classes.Contains("pill") && border.IsEffectivelyVisible)];
+            StackPanel[] badges = [.. list.GetVisualDescendants()
+                .OfType<StackPanel>()
+                .Where(badge => badge.Classes.Contains("badge") && badge.IsEffectivelyVisible)];
 
             Assert.NotEmpty(badges);
             Assert.All(badges, badge =>
@@ -1419,11 +1555,11 @@ public sealed class BranchesPageTests
                 Assert.False(string.IsNullOrEmpty(AutomationProperties.GetName(badge)));
             });
 
-            Icon cloud = tracked.GetVisualDescendants()
-                .OfType<Icon>()
-                .First(icon => icon.Kind == PhosphorIcon.CloudCheck);
+            // The arrows are drawn beside their counts, and named for what they count.
+            StackPanel ahead = Row(list, "tracked").GetVisualDescendants().OfType<StackPanel>()
+                .First(badge => badge.Classes.Contains("badge") && badge.GetVisualDescendants().OfType<Icon>().Any(icon => icon.Kind == PhosphorIcon.ArrowUp));
 
-            Assert.Equal("On the remote as \"origin/tracked\"", AutomationProperties.GetName(cloud));
+            Assert.Equal("1 commit to push", ToolTip.GetTip(ahead));
 
             window.Close();
         });
@@ -1911,7 +2047,7 @@ public sealed class BranchesPageTests
     /// Drives the whole gesture through the real input system: press, past the threshold, onto the
     /// target, release.
     /// </summary>
-    private static void Drag(Window window, ListBoxItem from, ListBoxItem to)
+    private static void Drag(Window window, TreeViewItem from, TreeViewItem to)
     {
         Point start = Centre(from, window);
         Point end = Centre(to, window);
@@ -1926,10 +2062,74 @@ public sealed class BranchesPageTests
         => target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), relativeTo)
             ?? throw new InvalidOperationException("The row is not in the same tree as the window.");
 
-    private static ListBoxItem Row(ListBox list, string branch)
-        => list.GetRealizedContainers()
-            .OfType<ListBoxItem>()
+    private static TreeViewItem Row(TreeView tree, string branch)
+        => tree.GetRealizedTreeContainers()
+            .OfType<TreeViewItem>()
             .First(container => container.DataContext is BranchRowViewModel row && row.FullName == branch);
+
+    private static TreeViewItem Line(TreeView tree, BranchTreeNode node)
+        => tree.GetRealizedTreeContainers()
+            .OfType<TreeViewItem>()
+            .First(container => ReferenceEquals(container.DataContext, node));
+
+    /// <summary>
+    /// Shows the page in a window, and returns the window and the page's tree.
+    /// </summary>
+    private static (Window Window, TreeView Tree) ShowTree(TestServices services, BranchesPageViewModel page)
+    {
+        BranchesPageView view = services.Get<BranchesPageView>();
+        view.DataContext = page;
+
+        Window window = new() { Content = view, Width = 1100, Height = 420 };
+        window.Show();
+        Settle(window);
+
+        TreeView tree = view.FindControl<TreeView>("BranchTree")
+            ?? throw new InvalidOperationException("The branches page has no branch tree.");
+
+        return (window, tree);
+    }
+
+    /// <summary>
+    /// A point half way down a line's own row — above its children, for an open node — and far enough
+    /// from its item's left edge to be past the chevron.
+    /// </summary>
+    private static Point OnLine(TreeViewItem item, Window window, double x = 120)
+    {
+        Control row = item.GetVisualDescendants()
+            .OfType<Grid>()
+            .First(grid => grid.Classes.Contains("listrow") && ReferenceEquals(grid.DataContext, item.DataContext));
+
+        Point middle = row.TranslatePoint(new Point(0, row.Bounds.Height / 2), window)
+            ?? throw new InvalidOperationException("The line is not in the window.");
+        Point left = item.TranslatePoint(new Point(x, 0), window)
+            ?? throw new InvalidOperationException("The line is not in the window.");
+
+        return new Point(left.X, middle.Y);
+    }
+
+    private static void Click(Window window, Point point)
+    {
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Settle(window);
+    }
+
+    private static void Press(Window window, Key key, PhysicalKey physicalKey)
+    {
+        window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
+        window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
+        Settle(window);
+    }
+
+    private static void Settle(Window window)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+        }
+    }
 
     private static BranchRowViewModel Row(BranchesPageViewModel page, string name)
         => page.Groups.SelectMany(group => group.Rows).Single(row => row.FullName == name);
