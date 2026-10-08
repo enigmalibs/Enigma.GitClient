@@ -40,7 +40,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
@@ -84,7 +84,21 @@
           </Button>
         </StackPanel>
 
+        <!-- The selected branches, deleted after one question: red while there is any to delete, as
+             every button that loses something is. The Delete key on the tree does the same. -->
         <Button Grid.Column="3"
+                Name="DeleteSelection"
+                Classes="toolbar danger"
+                Command="{Binding DeleteSelectionCommand}"
+                ToolTip.Tip="Delete the selected branches"
+                AutomationProperties.Name="Delete the selected branches">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Trash" Classes="toolbar" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding DeleteSelectionLabel}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <Button Grid.Column="4"
                 Classes="toolbar"
                 Command="{Binding CreateBranchCommand}"
                 ToolTip.Tip="Create a branch"
@@ -171,11 +185,20 @@
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
 
+      <!-- Several at once: Ctrl+click adds or takes away one, Shift+click a range, Ctrl+A every branch
+           the open nodes show; a right-click outside the selection selects that line first, and one
+           inside keeps the selection. A folder or a top-level node is never part of it. -->
       <TreeView Name="BranchTree"
                 Classes="rows"
+                SelectionMode="Multiple"
                 ItemsSource="{Binding Groups}"
                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                SelectedItems="{Binding SelectedNodes}"
                 AutomationProperties.Name="Branches">
+
+        <TreeView.KeyBindings>
+          <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectionCommand}" />
+        </TreeView.KeyBindings>
 
         <TreeView.Styles>
           <!-- The item's own DataContext is the node, so the selector's x:DataType has to say so:
@@ -211,14 +234,16 @@
               <Grid.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="Select in the history"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding SelectInHistoryCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
                       <ei:Icon Kind="Crosshair" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <MenuItem Header="Check out"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding CheckoutCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
@@ -226,6 +251,7 @@
                     </MenuItem.Icon>
                   </MenuItem>
                   <MenuItem Header="Merge into the current branch"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding MergeCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
@@ -233,6 +259,7 @@
                     </MenuItem.Icon>
                   </MenuItem>
                   <MenuItem Header="{Binding VisibilityHeader}"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding ToggleVisibilityCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
@@ -242,8 +269,9 @@
                       </Panel>
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <MenuItem Header="Rename…"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding RenameCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
@@ -251,13 +279,14 @@
                     </MenuItem.Icon>
                   </MenuItem>
                   <MenuItem Header="Set upstream…"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding SetUpstreamCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
                       <ei:Icon Kind="LinkSimple" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <MenuItem Header="Delete…"
                             Command="{Binding DeleteCommand}"
                             CommandParameter="{Binding}">

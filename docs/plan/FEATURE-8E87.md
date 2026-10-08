@@ -1,6 +1,6 @@
 # FEATURE-8E87 — Compact ref rows with multi-select
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-08-title-watcher-refs-release
@@ -166,7 +166,7 @@ select and delete several items at once.
 ## PHASE03 — Branches as a compact tree
 
 **Branch:** `feature/feature-8e87-phase03-branch-tree`
-**Status:** DONE
+**Status:** DONE — see `docs/done/FEATURE-8E87-PHASE03.md`
 
 ### Steps
 
@@ -216,7 +216,7 @@ select and delete several items at once.
 ## PHASE04 — Bulk delete for branches
 
 **Branch:** `feature/feature-8e87-phase04-bulk-delete-branches`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8E87-PHASE04.md`
 
 ### Steps
 
