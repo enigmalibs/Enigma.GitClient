@@ -291,6 +291,93 @@ public sealed class RepositoryContextTests
             TestContext.Current.CancellationToken);
     }
 
+    // ---------------------------------------------------------------- telling the watcher about writes
+
+    [Fact]
+    public async Task IsWriting_HoldsForTheWriteAndItsRefresh_AndWriteEndedFollows()
+    {
+        (RepositoryContext context, FakeRefReader reader) = Build();
+        using RepositoryContext scope = context;
+
+        await context.OpenAsync(Handle("one"), TestContext.Current.CancellationToken);
+
+        List<bool> writingDuringRefresh = [];
+        context.StateRefreshed += (_, _) => writingDuringRefresh.Add(context.IsWriting);
+
+        int ended = 0;
+        context.WriteEnded += (_, _) => ended++;
+
+        bool writingDuringOperation = false;
+
+        await context.RunExclusiveAsync(
+            (_, _) =>
+            {
+                writingDuringOperation = context.IsWriting;
+                return Task.CompletedTask;
+            },
+            refreshAfter: true,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(writingDuringOperation);
+        Assert.Equal([true], writingDuringRefresh);
+        Assert.False(context.IsWriting);
+        Assert.Equal(1, ended);
+    }
+
+    [Fact]
+    public async Task WriteEnded_IsRaisedForAFailedWriteToo()
+    {
+        (RepositoryContext context, _) = Build();
+        using RepositoryContext scope = context;
+
+        await context.OpenAsync(Handle("one"), TestContext.Current.CancellationToken);
+
+        int ended = 0;
+        context.WriteEnded += (_, _) => ended++;
+
+        await Assert.ThrowsAsync<InvalidTimeZoneException>(
+            () => context.RunExclusiveAsync(
+                (_, _) => throw new InvalidTimeZoneException("boom"),
+                refreshAfter: false,
+                TestContext.Current.CancellationToken));
+
+        Assert.False(context.IsWriting);
+        Assert.Equal(1, ended);
+    }
+
+    [Fact]
+    public async Task TryRunExclusiveAsync_CountsAsAWrite_AndOneThatNeverRanRaisesNothing()
+    {
+        (RepositoryContext context, _) = Build();
+        using RepositoryContext scope = context;
+
+        await context.OpenAsync(Handle("one"), TestContext.Current.CancellationToken);
+
+        int ended = 0;
+        context.WriteEnded += (_, _) => ended++;
+
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<bool> holding = context.TryRunExclusiveAsync(
+            (_, _) => release.Task,
+            refreshAfter: false,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(context.IsWriting);
+
+        // Busy: this one never runs, so there is no write of its to end.
+        Assert.False(await context.TryRunExclusiveAsync(
+            (_, _) => Task.CompletedTask,
+            refreshAfter: false,
+            TestContext.Current.CancellationToken));
+        Assert.Equal(0, ended);
+
+        release.SetResult();
+        Assert.True(await holding);
+
+        Assert.False(context.IsWriting);
+        Assert.Equal(1, ended);
+    }
+
     [Fact]
     public async Task PropertyChanged_FiresForEverythingTheShellBindsTo()
     {

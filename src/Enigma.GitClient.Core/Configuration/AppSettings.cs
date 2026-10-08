@@ -238,6 +238,19 @@ public sealed record AppSettings
     /// </remarks>
     public int AutoRefreshSeconds { get; init; } = 15;
 
+    /// <summary>
+    /// Gets a value indicating whether an open repository's files are watched, so that a change made
+    /// outside the application — a file saved, a commit made in a terminal — shows within a second
+    /// rather than at the next automatic refresh.
+    /// </summary>
+    /// <remarks>
+    /// On by default. The automatic refresh goes on either way: it is what fetches, and what notices
+    /// a change the operating system never reported — on a network share, say. A file written before
+    /// this setting existed does not carry the key and reads as the default, so no schema migration is
+    /// needed.
+    /// </remarks>
+    public bool WatchFileSystem { get; init; } = true;
+
     // ---------------------------------------------------------------- lists
 
     /// <summary>

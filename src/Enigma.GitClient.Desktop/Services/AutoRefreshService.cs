@@ -24,6 +24,17 @@ public sealed record AutoRefreshResult(QuietFetchResult Fetch, bool Changed, boo
 {
     /// <summary>A refresh that did not run: another one was still going, or no repository was open.</summary>
     public static readonly AutoRefreshResult NotRun = new(QuietFetchResult.Skipped, false);
+
+    /// <summary>
+    /// Gets what the refresh read again: everything for the periodic and the requested refresh, and for
+    /// one the file-system watcher asked for (<see cref="IAutoRefreshService.RefreshLocallyAsync"/>),
+    /// what it saw change.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RepositoryChanges.WorkingTree"/> alone means the references were not read at all:
+    /// only what <c>git status</c> says can have moved, and whoever draws it reads it again.
+    /// </remarks>
+    public RepositoryChanges Changes { get; init; } = RepositoryChanges.Everything;
 }
 
 /// <summary>
@@ -67,6 +78,21 @@ public interface IAutoRefreshService
     /// <param name="cancellationToken">Cancels it.</param>
     /// <returns>What it came to.</returns>
     Task<AutoRefreshResult> RequestRefreshAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Brings the application up to date with a change seen on disk — no fetch: the references are
+    /// read again when they may have moved, and the result is published with
+    /// <see cref="AutoRefreshResult.Changes"/> saying what to read.
+    /// </summary>
+    /// <param name="changes">What changed.</param>
+    /// <param name="cancellationToken">Cancels it, and the wait for a refresh already running.</param>
+    /// <returns>What it came to; <see cref="AutoRefreshResult.NotRun"/> when no repository is open.</returns>
+    /// <remarks>
+    /// One refresh at a time with the periodic one, which this waits behind rather than skipping: a
+    /// refresh that started before the change may have read before it, and a change must not wait for
+    /// the next tick because a fetch happened to be running.
+    /// </remarks>
+    Task<AutoRefreshResult> RefreshLocallyAsync(RepositoryChanges changes, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -80,9 +106,12 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
     private readonly TimeProvider _time;
     private readonly ILogger<AutoRefreshService> _logger;
 
+    // One refresh at a time, whoever asked: the periodic and the requested ones skip while it is
+    // taken, a local one waits for it.
+    private readonly SemaphoreSlim _refreshing = new(1, 1);
+
     private CancellationTokenSource? _loop;
     private TimeSpan _interval;
-    private int _refreshing;
     private bool _disposed;
 
     /// <summary>
@@ -132,9 +161,58 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
     public Task<AutoRefreshResult> RequestRefreshAsync(CancellationToken cancellationToken = default)
         => RefreshAsync(requested: true, cancellationToken);
 
+    /// <inheritdoc />
+    public async Task<AutoRefreshResult> RefreshLocallyAsync(RepositoryChanges changes, CancellationToken cancellationToken = default)
+    {
+        if (changes == RepositoryChanges.None || !_context.IsRepositoryOpen)
+        {
+            return AutoRefreshResult.NotRun;
+        }
+
+        await _refreshing.WaitAsync(cancellationToken).ConfigureAwait(true);
+
+        try
+        {
+            // Closed while this waited: there is nothing of it left to bring up to date.
+            if (_context.Repository is not { } repository)
+            {
+                return AutoRefreshResult.NotRun;
+            }
+
+            RepositoryStateStamp before = RepositoryStateStamp.Of(_context);
+
+            if (changes.HasFlag(RepositoryChanges.References))
+            {
+                await _context.RefreshAsync(cancellationToken).ConfigureAwait(true);
+            }
+
+            // Another repository opened while the references were read: what changed was the old
+            // one's, and nothing of it is published against the new one.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!ReferenceEquals(repository, _context.Repository))
+            {
+                return AutoRefreshResult.NotRun;
+            }
+
+            AutoRefreshResult result = new(QuietFetchResult.NotAttempted, before != RepositoryStateStamp.Of(_context))
+            {
+                Changes = changes,
+            };
+
+            Refreshed?.Invoke(this, result);
+
+            return result;
+        }
+        finally
+        {
+            _refreshing.Release();
+        }
+    }
+
     private async Task<AutoRefreshResult> RefreshAsync(bool requested, CancellationToken cancellationToken)
     {
-        if (!_context.IsRepositoryOpen || Interlocked.Exchange(ref _refreshing, 1) == 1)
+        if (!_context.IsRepositoryOpen || !_refreshing.Wait(0, CancellationToken.None))
         {
             return AutoRefreshResult.NotRun;
         }
@@ -165,7 +243,7 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
         }
         finally
         {
-            Volatile.Write(ref _refreshing, 0);
+            _refreshing.Release();
         }
     }
 
