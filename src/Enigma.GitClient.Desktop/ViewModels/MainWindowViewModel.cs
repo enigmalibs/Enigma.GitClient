@@ -144,12 +144,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     public IRepositoryContext RepositoryContext { get; }
 
     /// <summary>
-    /// Gets the window title.
+    /// Gets the window title: the open repository, then the product's name in words.
     /// </summary>
     public string WindowTitle
         => RepositoryContext.Repository is { } repository
-            ? $"{repository.Name} — {ProductInformation.Name}"
-            : ProductInformation.Name;
+            ? $"{repository.Name} — {ProductInformation.DisplayName}"
+            : ProductInformation.DisplayName;
 
     /// <summary>
     /// Gets the repository name shown in the strip, or a prompt when none is open.

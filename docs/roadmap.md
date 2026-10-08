@@ -302,7 +302,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | No git auto-maintenance in tests        | DONE      | (in FEATURE-2414.md)      |
 | - PHASE02    | History fixture built once, copied      | DONE      | (in FEATURE-2414.md)      |
 | FEATURE-158D | Release 5.9.0                           | DONE      | docs/plan/FEATURE-158D.md |
-| FEATURE-B313 | Window title says Enigma Git Client     | TODO      | docs/plan/FEATURE-B313.md |
+| FEATURE-B313 | Window title says Enigma Git Client     | DONE      | docs/plan/FEATURE-B313.md |
 | FEATURE-532B | File-system watcher for instant refresh | TODO      | docs/plan/FEATURE-532B.md |
 | - PHASE01    | Coalescer and suppression               | TODO      | (in FEATURE-532B.md)      |
 | - PHASE02    | OS event sources                        | TODO      | (in FEATURE-532B.md)      |

@@ -15,7 +15,7 @@ public static class ProductInformation
 
     /// <summary>
     /// The product's name in words, as the surfaces that present the product by name show it: the
-    /// splash screen, the About dialog and the Linux launcher entry.
+    /// windows' titles, the splash screen, the About dialog and the Linux launcher entry.
     /// </summary>
     /// <remarks>
     /// Beside <see cref="Name"/> rather than in place of it: that one is also the product token of the

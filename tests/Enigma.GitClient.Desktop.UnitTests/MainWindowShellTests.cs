@@ -196,7 +196,7 @@ public sealed class MainWindowShellTests
             MainWindowViewModel viewModel = provider.GetRequiredService<MainWindowViewModel>();
             IRepositoryContext context = provider.GetRequiredService<IRepositoryContext>();
 
-            Assert.Equal("Enigma.GitClient", viewModel.WindowTitle);
+            Assert.Equal("Enigma Git Client", viewModel.WindowTitle);
             Assert.Equal("No repository open", viewModel.RepositoryName);
             Assert.False(viewModel.RefreshCommand.CanExecute(null));
 
@@ -204,7 +204,7 @@ public sealed class MainWindowShellTests
             context.OpenAsync(Handle("my-repo")).GetAwaiter().GetResult();
 
             Assert.Equal("my-repo", viewModel.RepositoryName);
-            Assert.Equal("my-repo — Enigma.GitClient", viewModel.WindowTitle);
+            Assert.Equal("my-repo — Enigma Git Client", viewModel.WindowTitle);
             Assert.True(viewModel.RefreshCommand.CanExecute(null));
 
             context.Close();
