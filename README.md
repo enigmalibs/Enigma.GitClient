@@ -77,6 +77,10 @@ Two things matter more than everything else in this app:
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
   all the uncommitted work at once
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
+- What changes outside the app shows within a second — a file saved in an editor, a commit,
+  checkout or stash made in a terminal: the repository's files are watched, and a build's thousands
+  of writes make one refresh every two seconds at most; every 60 seconds by default the repository is
+  also fetched and refreshed on its own
 - Stashes in the graph, one line each at the stash itself: stash your uncommitted work from the
   history's toolbar, then apply, pop or delete a stash from its line — a pop that conflicts keeps
   the stash, as git does
@@ -93,8 +97,8 @@ Two things matter more than everything else in this app:
   window, give that repository a name and email of its own (copied from the current profile in one
   click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
-  font and context, the pull strategy and the path to git — every one of them applied without a
-  restart
+  font and context, the pull strategy, the path to git, how often the repository is fetched and
+  whether its files are watched — every one of them applied without a restart
 
 ## Non-goals
 

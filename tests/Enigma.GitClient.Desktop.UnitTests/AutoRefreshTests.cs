@@ -104,6 +104,7 @@ public sealed class AutoRefreshTests
             using TestServices services = BuildScripted();
             IAutoRefreshService service = services.Get<IAutoRefreshService>();
             ScriptedSync sync = services.Get<ScriptedSync>();
+            services.Get<ISettingsService>().Update(current => current with { AutoRefreshSeconds = 15 });
 
             await services.Get<IRepositoryContext>().OpenAsync(Handle("auto"));
 

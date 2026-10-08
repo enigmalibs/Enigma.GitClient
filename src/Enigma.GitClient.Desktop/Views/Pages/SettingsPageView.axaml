@@ -311,7 +311,7 @@
 
         <!-- Git -->
         <controls:SettingsCardExpander Header="Git"
-                                       Description="Which git is used, what a pull is allowed to do, and how often the repository is refreshed"
+                                       Description="Which git is used, what a pull is allowed to do, and how the repository is kept up to date"
                                        IconData="{ei:IconGeometry Terminal}">
           <StackPanel Spacing="14">
 
@@ -336,7 +336,7 @@
               <StackPanel Grid.Column="0">
                 <TextBlock Text="Fetch and refresh automatically"
                            Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                <TextBlock Text="Every so many seconds while a repository is open, quietly: nothing on screen moves unless something changed. 0 turns it off."
+                <TextBlock Text="Every so many seconds while a repository is open, quietly: nothing on screen moves unless something changed. While the repository is watched, what changes on this machine shows at once, so this mostly sets how often the remote is fetched. 0 turns it off."
                            FontSize="11"
                            TextWrapping="Wrap"
                            Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
@@ -351,6 +351,22 @@
                              MinWidth="150"
                              VerticalAlignment="Center"
                              AutomationProperties.Name="Seconds between automatic refreshes" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Watch the repository for changes"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="A file saved, or a commit, checkout or stash made outside the app, shows within a second instead of at the next automatic refresh, which still fetches. Turn it off for a repository on a network share or a WSL /mnt drive, which report no changes, or for a tree too large for the system's file-watch limits."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1"
+                            Name="WatchFileSystemToggle"
+                            IsChecked="{Binding WatchFileSystem, Mode=TwoWay}"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Watch the repository for changes" />
             </Grid>
 
             <StackPanel Spacing="4">

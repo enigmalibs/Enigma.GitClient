@@ -1,6 +1,6 @@
 # FEATURE-532B — File-system watcher for instant refresh
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-08-title-watcher-refs-release
@@ -306,7 +306,7 @@ OS watchers (thread pool)          RepositoryWatcher                        cons
 ## PHASE04 — Setting and 60 s default
 
 **Branch:** `feature/feature-532b-phase04-setting-default`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-532B-PHASE04.md`
 
 ### Steps
 
