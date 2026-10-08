@@ -5,8 +5,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Desktop.Services;
@@ -310,6 +314,121 @@ public sealed class TagsPageTests
         });
     }
 
+    // ---------------------------------------------------------------- several at once
+
+    [Fact]
+    public void SeveralTags_GoAfterOneQuestionNamingThemAll_WithOneRefresh()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "tag", "v2.0.0");
+            TagsPageViewModel page = await OpenAsync(services, repository);
+
+            foreach (TagRowViewModel row in page.Tags.Where(tag => tag.Name != "v2.0.0"))
+            {
+                page.SelectedTags.Add(row);
+            }
+
+            Assert.Equal("Delete (2)", page.DeleteSelectionLabel);
+
+            int refreshes = 0;
+            services.Get<IRepositoryContext>().StateRefreshed += (_, _) => refreshes++;
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DeleteSelectionCommand.ExecuteAsync(null);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete 2 tags", question.Title);
+            Assert.Equal(
+                "Delete these 2 tags? The commits they point at are not affected.\n\n• v0.1.0\n• v1.0.0",
+                question.Content);
+
+            Assert.Equal(["v2.0.0"], page.Tags.Select(tag => tag.Name));
+            Assert.Equal(1, refreshes);
+
+            RecordedNotification summary = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Deleted 2 tags", summary.Title);
+            Assert.Equal(InfoBarSeverity.Success, summary.Severity);
+        });
+    }
+
+    [Fact]
+    public void ATagThatCannotGo_LeavesTheOthersGoing_AndTheSummarySaysWhy()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            TagsPageViewModel page = await OpenAsync(services, repository);
+
+            foreach (TagRowViewModel row in page.Tags)
+            {
+                page.SelectedTags.Add(row);
+            }
+
+            // Gone already, deleted in a terminal while the page still listed it.
+            await GitAsync(repository, "tag", "-d", "v0.1.0");
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DeleteSelectionCommand.ExecuteAsync(null);
+
+            Assert.Empty(page.Tags);
+
+            RecordedNotification summary = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Deleted 1 of 2 tags", summary.Title);
+            Assert.StartsWith("Not deleted:\nv0.1.0 — ", summary.Message, StringComparison.Ordinal);
+            Assert.Contains("v0.1.0", summary.Message, StringComparison.Ordinal);
+            Assert.Equal(InfoBarSeverity.Warning, summary.Severity);
+        });
+    }
+
+    [Fact]
+    public void TheDeleteButton_WaitsForASelection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            Assert.Equal("Delete", page.DeleteSelectionLabel);
+            Assert.False(page.DeleteSelectionCommand.CanExecute(null));
+
+            page.SelectedTags.Add(page.Tags[0]);
+
+            Assert.Equal("Delete (1)", page.DeleteSelectionLabel);
+            Assert.True(page.DeleteSelectionCommand.CanExecute(null));
+            Assert.False(page.Selection.IsMultiple);
+
+            page.SelectedTags.Add(page.Tags[1]);
+            Assert.True(page.Selection.IsMultiple);
+        });
+    }
+
+    [Fact]
+    public void ALinesMenu_ActsOnTheWholeSelection_WhenTheLineIsPartOfIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "tag", "v2.0.0");
+            TagsPageViewModel page = await OpenAsync(services, repository);
+
+            TagRowViewModel first = page.Tags.Single(tag => tag.Name == "v0.1.0");
+            TagRowViewModel second = page.Tags.Single(tag => tag.Name == "v1.0.0");
+            page.SelectedTags.Add(first);
+            page.SelectedTags.Add(second);
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await first.DeleteCommand.ExecuteAsync(first);
+
+            Assert.Equal("Delete 2 tags", Assert.Single(services.Dialogs.Shown).Title);
+            Assert.Equal(["v2.0.0"], page.Tags.Select(tag => tag.Name));
+        });
+    }
+
     // ---------------------------------------------------------------- the view
 
     [Fact]
@@ -401,6 +520,101 @@ public sealed class TagsPageTests
             }
 
             window.Close();
+        });
+    }
+
+    [Fact]
+    public void WithSeveralSelected_ALinesMenuOffersOnlyTheDeletes()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            TagsPageView view = services.Get<TagsPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            try
+            {
+                ListBox list = view.FindControl<ListBox>("TagList")!;
+                Assert.Equal(SelectionMode.Multiple, list.SelectionMode);
+
+                // As Ctrl+click would: both lines, through the list itself.
+                list.SelectedItems!.Add(page.Tags[0]);
+                list.SelectedItems.Add(page.Tags[1]);
+                window.UpdateLayout();
+
+                Assert.Equal(2, page.SelectedTags.Count);
+                Assert.Equal("Delete (2)", view.FindControl<Button>("DeleteSelection")!.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+
+                Grid line = view.GetVisualDescendants().OfType<Grid>().First(grid => grid.ContextMenu is not null && grid.DataContext is TagRowViewModel);
+                ContextMenu menu = line.ContextMenu!;
+                menu.Open(line);
+
+                string?[] offered = [.. menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).Select(item => item.Header as string)];
+                Assert.Equal(["Delete locally…", "Delete from the remote…"], offered);
+
+                menu.Close();
+
+                // One line again: everything that works on one is back.
+                list.SelectedItems.Remove(page.Tags[1]);
+                menu.Open(line);
+
+                Assert.Equal(5, menu.Items.OfType<MenuItem>().Count(item => item.IsVisible));
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheDeleteKey_AsksAboutTheSelection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            TagsPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            TagsPageView view = services.Get<TagsPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            window.Show();
+            window.UpdateLayout();
+
+            try
+            {
+                ListBox list = view.FindControl<ListBox>("TagList")!;
+                list.SelectedItems!.Add(page.Tags[0]);
+                list.SelectedItems.Add(page.Tags[1]);
+
+                // Where a click leaves the focus: on a line of the list.
+                Assert.True(list.GetRealizedContainers().OfType<ListBoxItem>().First().Focus());
+
+                // Cancelled: the question is the point, and nothing goes.
+                services.Dialogs.Result = DialogResult.Close;
+                window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+
+                for (int attempt = 0; attempt < 50 && services.Dialogs.Shown.Count == 0; attempt++)
+                {
+                    await Task.Delay(10);
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                Assert.Equal("Delete 2 tags", Assert.Single(services.Dialogs.Shown).Title);
+                Assert.Equal(2, page.Tags.Count);
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 

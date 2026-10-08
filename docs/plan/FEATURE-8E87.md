@@ -113,7 +113,7 @@ select and delete several items at once.
 ## PHASE02 — Bulk delete for tags and remotes
 
 **Branch:** `feature/feature-8e87-phase02-bulk-delete-tags-remotes`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8E87-PHASE02.md`
 
 ### Steps
 
