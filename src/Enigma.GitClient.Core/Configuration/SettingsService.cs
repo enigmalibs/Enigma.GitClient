@@ -359,7 +359,9 @@ public sealed class SettingsService : ISettingsService, IDisposable
     /// them a tree again: a version 5 file that says <c>List</c> — version 5's default — is moved to
     /// <c>Tree</c>. A file written before version 5 is left as it is: its <c>Tree</c> was never
     /// chosen and is the default again, and its <c>List</c> was chosen against the tree. From version
-    /// 6 on, <c>List</c> is a preference like any other.
+    /// 6 on, <c>List</c> is a preference like any other. Version 7 raised the automatic refresh from
+    /// 15 seconds to 60, now that the file-system watcher shows local changes at once: a 15 written
+    /// before it moves to 60.
     /// </para>
     /// <para>
     /// The cases compose: a version 1 file goes through every one of them in one read.
@@ -387,6 +389,11 @@ public sealed class SettingsService : ISettingsService, IDisposable
         if (stored.Version == 5 && stored.FilesView == AppSettings.LegacyFilesView)
         {
             migrated = migrated with { FilesView = AppSettings.Defaults.FilesView };
+        }
+
+        if (stored.Version < 7 && stored.AutoRefreshSeconds == AppSettings.LegacyAutoRefreshSeconds)
+        {
+            migrated = migrated with { AutoRefreshSeconds = AppSettings.Defaults.AutoRefreshSeconds };
         }
 
         return migrated with { Version = AppSettings.CurrentVersion };

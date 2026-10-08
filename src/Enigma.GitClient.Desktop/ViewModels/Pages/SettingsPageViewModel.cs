@@ -261,6 +261,16 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         set => Change(current => current with { AutoRefreshSeconds = value });
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the open repository's files are watched, so a change
+    /// made outside the application shows within a second; the watcher follows it at once.
+    /// </summary>
+    public bool WatchFileSystem
+    {
+        get => _settings.Current.WatchFileSystem;
+        set => Change(current => current with { WatchFileSystem = value });
+    }
+
     /// <summary>Gets the shortest interval the automatic refresh accepts, for the editor's hint.</summary>
     public static int MinimumAutoRefreshSeconds => AppSettings.MinimumAutoRefreshSeconds;
 
@@ -378,6 +388,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
             OnPropertyChanged(nameof(IgnoreWhitespace));
             OnPropertyChanged(nameof(TabWidth));
             OnPropertyChanged(nameof(AutoRefreshSeconds));
+            OnPropertyChanged(nameof(WatchFileSystem));
             OnPropertyChanged(nameof(WrapLines));
             OnPropertyChanged(nameof(DiffFont));
             OnPropertyChanged(nameof(DiffFontSize));

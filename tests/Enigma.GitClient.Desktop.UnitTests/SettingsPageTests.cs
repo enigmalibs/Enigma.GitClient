@@ -101,7 +101,7 @@ public sealed class SettingsPageTests
     }
 
     [Fact]
-    public void TheAutomaticRefresh_IsFifteenSecondsUntilChangedAndZeroTurnsItOff()
+    public void TheAutomaticRefresh_IsSixtySecondsUntilChangedAndZeroTurnsItOff()
     {
         _fixture.Run(() =>
         {
@@ -110,10 +110,10 @@ public sealed class SettingsPageTests
             SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
             ISettingsService store = services.Get<ISettingsService>();
 
-            Assert.Equal(15, page.AutoRefreshSeconds);
+            Assert.Equal(60, page.AutoRefreshSeconds);
 
-            page.AutoRefreshSeconds = 60;
-            Assert.Equal(60, store.Current.AutoRefreshSeconds);
+            page.AutoRefreshSeconds = 30;
+            Assert.Equal(30, store.Current.AutoRefreshSeconds);
 
             page.AutoRefreshSeconds = 0;
             Assert.Equal(0, store.Current.AutoRefreshSeconds);
@@ -148,7 +148,8 @@ public sealed class SettingsPageTests
 
             try
             {
-                Assert.Equal(15m, view.AutoRefreshEditor.Value);
+                Assert.Equal(60m, view.AutoRefreshEditor.Value);
+                Assert.True(view.WatchFileSystemToggle.IsChecked);
                 Assert.Equal(0m, view.AutoRefreshEditor.Minimum);
                 Assert.Equal(3600m, view.AutoRefreshEditor.Maximum);
             }
@@ -156,6 +157,29 @@ public sealed class SettingsPageTests
             {
                 window.Close();
             }
+        });
+    }
+
+    [Fact]
+    public void WatchingTheRepository_IsOnUntilTurnedOff()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+
+            SettingsPageViewModel page = services.Get<SettingsPageViewModel>();
+            ISettingsService store = services.Get<ISettingsService>();
+
+            Assert.True(page.WatchFileSystem);
+
+            List<string?> raised = [];
+            page.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+            page.WatchFileSystem = false;
+
+            Assert.False(store.Current.WatchFileSystem);
+            Assert.False(page.WatchFileSystem);
+            Assert.Contains(nameof(SettingsPageViewModel.WatchFileSystem), raised);
         });
     }
 

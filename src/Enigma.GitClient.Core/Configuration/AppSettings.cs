@@ -98,10 +98,11 @@ public sealed record AppSettings
     /// <remarks>
     /// Version 2 raised the default row height from 26 to 36, version 3 moved the diff to the
     /// side-by-side rendering, version 4 widened the graph lane from 16 to 20, version 5 made the
-    /// changed files a flat list, and version 6 made them a tree again; see
-    /// <c>SettingsService.Migrate</c> for what each does to a file written by an earlier one.
+    /// changed files a flat list, version 6 made them a tree again, and version 7 raised the
+    /// automatic refresh from 15 seconds to 60; see <c>SettingsService.Migrate</c> for what each does
+    /// to a file written by an earlier one.
     /// </remarks>
-    public const int CurrentVersion = 6;
+    public const int CurrentVersion = 7;
 
     /// <summary>
     /// The row height version 1 shipped as its default, which the version 2 migration replaces
@@ -127,6 +128,12 @@ public sealed record AppSettings
     /// their files need nothing.
     /// </summary>
     public const FilesView LegacyFilesView = FilesView.List;
+
+    /// <summary>
+    /// The automatic refresh interval versions 1 to 6 shipped as their default, which the version 7
+    /// migration replaces wherever it was never changed.
+    /// </summary>
+    public const int LegacyAutoRefreshSeconds = 15;
 
     /// <summary>The shortest interval the automatic refresh may run at, in seconds.</summary>
     public const int MinimumAutoRefreshSeconds = 5;
@@ -232,11 +239,19 @@ public sealed record AppSettings
     /// the automatic refresh off.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// One number rather than a switch and an interval: "every 0 seconds" has only one sensible
-    /// reading. A key a file written before this setting existed does not carry reads as the default,
-    /// so no schema migration is needed.
+    /// reading. A file written before this setting existed does not carry the key and reads as the
+    /// default.
+    /// </para>
+    /// <para>
+    /// Sixty seconds, since version 7: while the repository's files are watched
+    /// (<see cref="WatchFileSystem"/>), what changes on this machine shows at once, and what this
+    /// interval governs is mostly how often the remote is fetched. Up to version 6 it was fifteen,
+    /// which the migration moves to sixty wherever it was never changed.
+    /// </para>
     /// </remarks>
-    public int AutoRefreshSeconds { get; init; } = 15;
+    public int AutoRefreshSeconds { get; init; } = 60;
 
     /// <summary>
     /// Gets a value indicating whether an open repository's files are watched, so that a change made
