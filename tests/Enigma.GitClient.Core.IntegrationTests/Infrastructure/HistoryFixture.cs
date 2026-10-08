@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Enigma.GitClient.Core.IntegrationTests.Infrastructure;
@@ -111,5 +112,45 @@ public sealed class HistoryFixture
         await repository.GitAsync("checkout", "main");
 
         return fixture;
+    }
+
+    /// <summary>
+    /// Copies this fixture's repository into another workspace, where a test can change it freely.
+    /// </summary>
+    /// <param name="workspace">The workspace to copy the repository into.</param>
+    /// <param name="name">The repository directory name.</param>
+    /// <returns>The copy, with the same SHAs.</returns>
+    public HistoryFixture CopyInto(GitWorkspace workspace, string name = "history")
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        string destination = Path.Combine(workspace.RootPath, name);
+        CopyDirectory(Repository.Path, destination);
+
+        return new HistoryFixture(new TemporaryRepository(workspace, destination, isBare: false))
+        {
+            ShaA = ShaA,
+            ShaB = ShaB,
+            ShaC = ShaC,
+            ShaD = ShaD,
+            ShaE = ShaE,
+            ShaF = ShaF,
+        };
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        // Directories first: git needs .git/refs and its kin even when they are empty.
+        Directory.CreateDirectory(destination);
+
+        foreach (string directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, directory)));
+        }
+
+        foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetRelativePath(source, file)));
+        }
     }
 }

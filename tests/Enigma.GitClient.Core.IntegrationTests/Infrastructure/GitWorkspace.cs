@@ -51,8 +51,12 @@ public sealed class GitWorkspace : IAsyncDisposable
         string globalConfig = Path.Combine(home, ".gitconfig");
         File.WriteAllText(globalConfig, string.Empty);
 
+        // No automatic maintenance: git forks a "maintenance run --auto" (or "gc --auto" before 2.29)
+        // after every commit, merge, fetch and push, which in a throwaway repository only costs a
+        // process start — about one in eight of the suite's. Set here rather than in the global file,
+        // which the identity tests assert on.
         string systemConfig = Path.Combine(home, "system.gitconfig");
-        File.WriteAllText(systemConfig, string.Empty);
+        File.WriteAllText(systemConfig, "[maintenance]\n\tauto = false\n[gc]\n\tauto = 0\n");
 
         Dictionary<string, string> environment = new(StringComparer.Ordinal)
         {
