@@ -1,6 +1,6 @@
 # BUG-D0D9 — Diff messages shown on their own
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-D0D9.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-d0d9-diff-message-alone`
 **Run:** vibe/2026-10-08-file-panel-about-release

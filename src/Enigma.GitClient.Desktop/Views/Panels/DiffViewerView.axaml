@@ -142,7 +142,8 @@
         scrolling, so the wheel, the keyboard and the selection still move the text. Its horizontal
         bar is its own, and moves the text alone — the gutter is a margin, outside the scrolling.
       -->
-      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsUnified}">
+      <!-- A message stands alone: neither rendering is drawn around it, not even empty. -->
+      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsUnified}">
 
         <diff:DiffTextEditor Grid.Column="0"
                              Name="UnifiedEditor"
@@ -182,7 +183,7 @@
         A DiffScrollLink keeps the two scrolled together, down and sideways; the map follows the left
         one and drives it, and the right one follows. Neither wraps: two editors wrap independently.
       -->
-      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSideBySide}">
+      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsSideBySide}">
 
         <Grid Grid.Column="0" ColumnDefinitions="*,1,*">
 

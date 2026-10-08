@@ -293,7 +293,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-1F3A     | A stash hides its untracked files       | DONE      | docs/plan/BUG-1F3A.md     |
 | FEATURE-47B3 | Release 5.7.0                           | DONE      | docs/plan/FEATURE-47B3.md |
 | BUG-1B14     | Folders in the files panel never select | DONE      | docs/plan/BUG-1B14.md     |
-| BUG-D0D9     | Diff messages shown on their own        | TODO      | docs/plan/BUG-D0D9.md     |
+| BUG-D0D9     | Diff messages shown on their own        | DONE      | docs/plan/BUG-D0D9.md     |
 | FEATURE-E2D2 | Expand all / collapse all in the tree   | TODO      | docs/plan/FEATURE-E2D2.md |
 | FEATURE-62B7 | A simpler About dialog                  | TODO      | docs/plan/FEATURE-62B7.md |
 | FEATURE-A57F | Release 5.8.0                           | TODO      | docs/plan/FEATURE-A57F.md |
