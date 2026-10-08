@@ -1,6 +1,6 @@
 # FEATURE-E2D2 — Expand all / collapse all in the tree
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-E2D2.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-e2d2-expand-collapse-all`
 **Run:** vibe/2026-10-08-file-panel-about-release
