@@ -1,5 +1,128 @@
 # Release notes
 
+## 6.0.0 — 2026-10-08
+
+A major release. What changes on disk — a file saved in an editor, a commit, checkout or stash made
+in a terminal — shows in the app within a second, because the repository's files are watched. The
+Branches, Tags and Remotes pages are drawn like the changed files beside the history: one line each,
+with the rest in its tooltip, and the branches as a tree. Several branches, tags or remotes can be
+selected and deleted after one question. The window's title says **Enigma Git Client**. The three
+pages' buttons on every row moved into each line's menu, and the automatic refresh now runs every 60
+seconds: that is why this is 6.0 — read *Upgrading from 5.9* below.
+
+### The repository is watched
+
+- **What changes outside the app shows within a second.** A file saved, added or deleted in an
+  editor, or a commit, checkout, stash or merge made in a terminal, shows about 0.3 s after the last
+  change, without waiting for the automatic refresh.
+- **A burst is one refresh.** A build writing thousands of files, or a checkout changing ten
+  thousand, makes one refresh when it stops, and one every two seconds at most while it goes on. A
+  changed file reads the working tree once; a moved branch or HEAD reads the references too.
+- **The app's own operations are not refreshed twice:** what it writes while it commits, checks out
+  or fetches is not taken for a change from outside.
+- **What git does for itself is left alone:** its lock files, `FETCH_HEAD`, the object store and the
+  logs. A linked worktree is watched where its references live.
+- **Turn it off** in Settings, *Git*, *Watch the repository for changes*, for a repository on a
+  network share or a WSL `/mnt` drive, which report no changes, or for a tree too large for the
+  system's file-watch limits. The change applies at once.
+- **When the system refuses** — on Linux, its inotify limits reached — the app says so once in its
+  log and carries on with the automatic refresh.
+
+### The automatic refresh
+
+- **Every 60 seconds by default** (it was 15). It still fetches and refreshes; while the repository
+  is watched, what changes on this machine already shows, so the interval mostly sets how often the
+  remote is fetched. An interval you chose is kept: see *Upgrading from 5.9*.
+
+### Branches, tags and remotes
+
+- **Drawn like the changed files:** one 22-pixel line each, a dim icon where a file has its status
+  chip, the name, and the rest in the line's tooltip.
+  - **A branch's tooltip:** its full name, what it tracks (or *No upstream*), and its last commit's
+    subject, author and date.
+  - **A tag's:** its kind, its message, who tagged it, and the short hash with the commit's date.
+  - **A remote's:** the host, and where pushes go when that is elsewhere. The fetch URL is on the
+    line, faint, on the right.
+- **The branches are a tree:** *Local* first, then each remote, alphabetically. Every `/` in a name
+  is a folder, and a chain of folders that each hold one folder is a single line
+  (`release/2026/10`). Folders come first, by name; the branches follow in the page's order.
+  - A click on a folder's line opens or closes it, and never selects it; the arrow keys do not
+    select it either.
+  - The top-level nodes start open and the folders closed. What you open or close stays so across
+    refreshes, until you open another repository.
+  - The filter opens the folders above every branch it keeps.
+  - Dragging one branch onto another still offers the merge.
+- **A branch's badges**, each only when it applies, each with a tooltip: *checked out*; *hidden*
+  from the history, with an eye; ↑ and ↓ with the commits to push and to pull; *local only*, for a
+  branch on no remote.
+
+### Selecting and deleting several
+
+- **Select several lines:** Ctrl+click adds or takes away one, Shift+click a range, Ctrl+A every
+  line the page shows — on the branches, every branch inside an open node. A folder is never
+  selected.
+- **Delete them at once:** the header's *Delete (n)* button (*Remove (n)* on the remotes page), the
+  Delete key, or the menu of any selected line, which then offers only the deletes. On the tags page
+  the button and the key delete the tags here; *Delete from the remote…* is in the menu.
+- **One question names everything that goes:**
+  - each unmerged branch, with the commits it would lose — ten, then "…and n more";
+  - the checked-out branch, marked skipped: it is never deleted;
+  - what deleting from a remote does: it changes the remote for everyone who uses it;
+  - for a remote, the tracking branches that go with it. Nothing on the remote itself is touched.
+
+  A long question scrolls inside its card.
+- **The batch goes on past a failure.** One notification says what went, and what did not and why,
+  and the page is read once, at the end.
+- **A single delete asks in its own words, as before,** and the button that goes ahead is red, as
+  every button that loses something is. A branch with more than ten commits of its own gives their
+  true number.
+
+### The window's title
+
+- **Enigma Git Client:** the start window's title, and the repository window's after the
+  repository's name (`my-repo — Enigma Git Client`).
+
+### Changes
+
+- **The buttons on every row are gone** from the three pages. Each line's right-click menu has them,
+  and answers anywhere on the line:
+  - branches: the eye, *Check out* and *Delete*;
+  - tags: *Check out* and *Delete*;
+  - remotes: *Fetch*, *Edit* and *Remove*.
+- **The second lines are gone:** what they said is in each line's tooltip.
+- **The branches' markers changed:**
+  - the checked-out branch is no longer bold: it says *checked out*;
+  - a hidden branch is no longer dimmed: it says *hidden*;
+  - *upstream gone* is gone: such a branch is on no remote, and says *local only*;
+  - so is the *published* mark: a branch that does not say *local only* is on a remote.
+- **The branches page's group headings** are the tree's top-level nodes.
+
+### Upgrading from 5.9
+
+- **The row buttons are in the menus:** right-click a line (see *Changes*).
+- **`settings.json` moves to version 7.**
+  - An automatic refresh of exactly 15 seconds, 5.9's default, becomes 60.
+  - Any other value is kept, and 0 still turns it off. From 6.0 on, 15 is kept like any other value.
+  - The file gains `watchFileSystem`.
+- **Going back to 5.9** reads the version 7 file and keeps your interval. It ignores
+  `watchFileSystem`, and a preference saved in 5.9 drops it, so 6.0 watches again.
+- **On Linux,** each open repository takes 3 inotify instances (`fs.inotify.max_user_instances`, 128
+  on some distributions) and one watch per folder (`fs.inotify.max_user_watches`). Near those
+  limits, raise them, or turn the watcher off in Settings.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **6.0.0** is a major release under Semantic Versioning. It removes functionality: the three pages'
+  row buttons, their second lines, and the branches' *upstream gone* and *published* markers. It
+  also changes a default, the automatic refresh's interval, and moves it for settings that kept the
+  old one. As for 2.0.0 to 5.0.0, that makes it a major release. Everything else is new,
+  backward-compatible functionality.
+
 ## 5.9.0 — 2026-10-08
 
 A minor release with one fix: on Windows, a change to your settings, your profiles or the recent

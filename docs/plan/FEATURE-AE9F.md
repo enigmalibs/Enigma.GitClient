@@ -1,6 +1,6 @@
 # FEATURE-AE9F — Release 6.0.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-ae9f-release-6-0-0`
 **Run:** feature/2026-10-08-title-watcher-refs-release

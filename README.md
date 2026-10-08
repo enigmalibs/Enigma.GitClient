@@ -10,13 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.9** — on Windows, a change to your settings, profiles or recent repositories is
-> no longer lost when another instance of the app reads the file at that moment. 5.8 before it: the
-> files panel opens or closes every folder of its tree at once; a click on a folder folds it instead
-> of selecting it, so the file you were reading stays on screen; the diff area's messages stand
-> alone; the About dialog is down to the essentials. Coming from 5.1.0? The program was renamed
-> `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the installer
-> again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 6.0** — what changes on disk, in an editor or a terminal, shows within a second:
+> the repository's files are watched, and the automatic refresh runs every 60 seconds. The branches,
+> tags and remotes are drawn like the changed files, the branches as a tree, and several can be
+> selected and deleted after one question; the window's title says Enigma Git Client. The buttons on
+> those pages' rows moved into each line's menu: read *Upgrading from 5.9*. Coming from 5.1.0? The
+> program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on
+> Linux, run the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
@@ -50,6 +50,12 @@ Two things matter more than everything else in this app:
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
   drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
   the list scrolls while you hold a branch near its edge
+- The branches, the tags and the remotes are drawn like the changed files, one line each with the
+  rest in its tooltip; the branches as a tree — *Local*, then each remote, a folder for every `/` in
+  their names — with badges for the branch checked out, hidden, ahead, behind, or on no remote
+- Delete several branches, tags or remotes at once: select them with Ctrl+click, Shift+click or
+  Ctrl+A, then *Delete (n)* (*Remove (n)* for remotes), the Delete key or a selected line's menu;
+  one question names everything that goes, and what an unmerged branch would lose
 - Sort the branches and the tags by name or by date, either way — newest first unless you choose
   otherwise, and remembered; select a branch's or a tag's line in the history from its menu
 - Tag management — create (lightweight or annotated), push one tag to the remote, and delete one

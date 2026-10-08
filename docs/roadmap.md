@@ -313,7 +313,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Bulk delete for tags and remotes        | DONE      | (in FEATURE-8E87.md)      |
 | - PHASE03    | Branches as a compact tree              | DONE      | (in FEATURE-8E87.md)      |
 | - PHASE04    | Bulk delete for branches                | DONE      | (in FEATURE-8E87.md)      |
-| FEATURE-AE9F | Release 6.0.0                           | TODO      | docs/plan/FEATURE-AE9F.md |
+| FEATURE-AE9F | Release 6.0.0                           | DONE      | docs/plan/FEATURE-AE9F.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
