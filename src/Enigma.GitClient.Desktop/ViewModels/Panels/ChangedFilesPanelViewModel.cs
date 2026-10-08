@@ -458,6 +458,9 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsListMode));
                 OnPropertyChanged(nameof(IsTreeMode));
                 Rebuild();
+
+                // After the rebuild, so the control now shown is handed a row it actually holds.
+                AnnounceSelection();
             }
         }
     } = ChangedFilesViewMode.Tree;
@@ -501,23 +504,77 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     } = true;
 
     /// <summary>
-    /// Gets or sets the selected row, which the diff viewer follows.
+    /// Gets or sets the selected row, which the diff viewer follows. Only a file is ever selected.
     /// </summary>
+    /// <remarks>
+    /// A directory is refused, whoever offers it: the list, the keyboard or code. A selected directory
+    /// had no diff to show, so the diff page was left open on "Select a file" and the file before it
+    /// was lost (BUG-1B14). The selection stays where it was, and is announced again so that the
+    /// control that offered the directory goes back to it.
+    /// </remarks>
     public ChangedFileNodeViewModel? SelectedNode
     {
         get;
         set
         {
+            if (value is { IsDirectory: true })
+            {
+                AnnounceSelection();
+                return;
+            }
+
             if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(SelectedFile));
+                OnPropertyChanged(nameof(ListSelection));
+                OnPropertyChanged(nameof(TreeSelection));
                 SelectionChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
 
     /// <summary>
-    /// Gets the selected file, or <see langword="null"/> when nothing or a directory is selected.
+    /// Gets or sets the selection as the flat list sees it: <see cref="SelectedNode"/> while the list is
+    /// the one shown, and nothing otherwise.
+    /// </summary>
+    /// <remarks>
+    /// The view holds the list and the tree together, one of them hidden, and a hidden control still
+    /// writes its selection back. The list holds only the tree's top rows, so a file nested in a folder
+    /// is one it cannot select: bound to <see cref="SelectedNode"/> itself, it let go of its own
+    /// selection and wrote that nothing over the tree's choice, and the first click on a nested file
+    /// was lost (BUG-1B14). Each control is handed the selection only while it is the one shown, and
+    /// is not listened to otherwise.
+    /// </remarks>
+    public ChangedFileNodeViewModel? ListSelection
+    {
+        get => IsListMode ? SelectedNode : null;
+        set
+        {
+            if (IsListMode)
+            {
+                SelectedNode = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the selection as the tree sees it: <see cref="SelectedNode"/> while the tree is the
+    /// one shown, and nothing otherwise (see <see cref="ListSelection"/>).
+    /// </summary>
+    public ChangedFileNodeViewModel? TreeSelection
+    {
+        get => IsTreeMode ? SelectedNode : null;
+        set
+        {
+            if (IsTreeMode)
+            {
+                SelectedNode = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the selected file, or <see langword="null"/> when nothing is selected.
     /// </summary>
     public ChangedFile? SelectedFile => SelectedNode?.File;
 
@@ -770,6 +827,17 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     private string? SelectedFilePath => SelectedNode?.IsDirectory == false ? SelectedNode.Path : null;
 
     private void Rebuild() => Rebuild(SelectedFilePath, sameChange: true);
+
+    /// <summary>
+    /// Tells the list and the tree what is selected, whether or not it changed: a control that offered
+    /// a row the panel refused has to be told to go back.
+    /// </summary>
+    private void AnnounceSelection()
+    {
+        OnPropertyChanged(nameof(SelectedNode));
+        OnPropertyChanged(nameof(ListSelection));
+        OnPropertyChanged(nameof(TreeSelection));
+    }
 
     /// <summary>
     /// Builds the rows again, selecting a path when it is still shown.

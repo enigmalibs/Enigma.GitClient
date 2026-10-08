@@ -196,8 +196,10 @@
                            Message="{Binding EmptyMessage}"
                            IsVisible="{Binding IsEmpty}" />
 
+      <!-- Each control binds its own view of the selection, which it is handed only while it is the
+           one shown: the hidden one would otherwise write its own "nothing" over the other's choice. -->
       <ListBox ItemsSource="{Binding Nodes}"
-               SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+               SelectedItem="{Binding ListSelection, Mode=TwoWay}"
                ItemTemplate="{StaticResource ChangedFileRow}"
                IsVisible="{Binding IsListMode}"
                Background="Transparent"
@@ -205,8 +207,9 @@
                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                AutomationProperties.Name="Changed files" />
 
-      <TreeView ItemsSource="{Binding Nodes}"
-                SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+      <TreeView Name="FilesTree"
+                ItemsSource="{Binding Nodes}"
+                SelectedItem="{Binding TreeSelection, Mode=TwoWay}"
                 IsVisible="{Binding IsTreeMode}"
                 Background="Transparent"
                 BorderThickness="0"

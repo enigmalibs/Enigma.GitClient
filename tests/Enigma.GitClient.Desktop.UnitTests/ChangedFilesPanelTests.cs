@@ -368,14 +368,55 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
-    public void Panel_SelectingADirectoryRowSelectsNoFile()
+    public void Panel_NeverSelectsADirectoryRow_AndKeepsTheFileItHad()
     {
         ChangedFilesPanelViewModel panel = LoadedAsTree();
+        ChangedFileNodeViewModel directory = panel.Nodes.Single(node => node.Label == "src/app");
 
-        panel.SelectedNode = panel.Nodes.Single(node => node.Label == "src/app");
+        // Nothing selected: the directory does not take the selection.
+        panel.SelectedNode = directory;
+        Assert.Null(panel.SelectedNode);
 
-        Assert.NotNull(panel.SelectedNode);
-        Assert.Null(panel.SelectedFile);
+        Assert.True(panel.SelectPath("README.md"));
+
+        int changes = 0;
+        List<string?> announced = [];
+        panel.SelectionChanged += (_, _) => changes++;
+        panel.PropertyChanged += (_, e) => announced.Add(e.PropertyName);
+
+        panel.SelectedNode = directory;
+
+        Assert.Equal("README.md", panel.SelectedNode?.Path);
+        Assert.Equal("README.md", panel.SelectedFile?.Path);
+        Assert.Equal(0, changes);
+
+        // Told again, so the control that offered the directory goes back to the file.
+        Assert.Contains(nameof(ChangedFilesPanelViewModel.TreeSelection), announced);
+    }
+
+    [Fact]
+    public void Panel_HandsTheSelectionOnlyToTheControlShown_AndListensOnlyToIt()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        panel.SelectPath("src/app/Program.cs");
+
+        Assert.Equal("src/app/Program.cs", panel.TreeSelection?.Path);
+        Assert.Null(panel.ListSelection);
+
+        // The hidden list letting go of what it could not hold is not heard.
+        panel.ListSelection = null;
+        Assert.Equal("src/app/Program.cs", panel.SelectedNode?.Path);
+
+        panel.ViewMode = ChangedFilesViewMode.List;
+
+        Assert.Equal("src/app/Program.cs", panel.ListSelection?.Path);
+        Assert.Null(panel.TreeSelection);
+
+        panel.TreeSelection = null;
+        Assert.Equal("src/app/Program.cs", panel.SelectedNode?.Path);
+
+        panel.ListSelection = panel.Nodes.Single(node => node.Path == "README.md");
+        Assert.Equal("README.md", panel.SelectedNode?.Path);
     }
 
     [Fact]

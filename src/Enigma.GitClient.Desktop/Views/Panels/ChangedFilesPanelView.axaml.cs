@@ -19,12 +19,21 @@ public partial class ChangedFilesPanelView : UserControl
     // the same line without having become a drag.
     private PendingToggle? _toggle;
 
+    // The folder the first press of a click opened or closed, and how it left it: the tree folds a
+    // folder on a double-click of its own, which would undo that press (see OnDoubleTapped).
+    private (ChangedFileNodeViewModel Folder, bool Expanded)? _folded;
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     public ChangedFilesPanelView()
     {
         InitializeComponent();
+
+        FilesTree.SelectionChanged += OnTreeSelectionChanged;
+
+        // Handled ones too: the tree's item handles the double-tap it folds the folder on.
+        AddHandler(DoubleTappedEvent, OnDoubleTapped, RoutingStrategies.Bubble, handledEventsToo: true);
 
         // Bubbling, and not for handled requests: a right-click on a line's own row has already opened
         // that row's menu by the time the request gets here. What arrives is a right-click that landed
@@ -84,12 +93,12 @@ public partial class ChangedFilesPanelView : UserControl
     {
         _toggle = null;
 
-        // The second press of a double-click is not a toggle: a double-click on a line leaves it
-        // selected, however the first press found it.
-        if (e.ClickCount != 1
-            || e.KeyModifiers != KeyModifiers.None
-            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
-            || e.Source is not Visual source)
+        if (e.ClickCount == 1)
+        {
+            _folded = null;
+        }
+
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.Source is not Visual source)
         {
             return;
         }
@@ -97,6 +106,28 @@ public partial class ChangedFilesPanelView : UserControl
         // A button on the line — its Stage or Unstage, a folder's chevron — does its own thing, and
         // leaves the selection alone.
         if (source.GetSelfAndVisualAncestors().TakeWhile(visual => visual is not (ListBoxItem or TreeViewItem)).OfType<Button>().Any())
+        {
+            return;
+        }
+
+        // A folder is never selected (BUG-1B14): a click on its line opens or closes it instead, and
+        // the tree never sees the press, so the file selected before keeps the selection and its diff.
+        // Both presses of a double-click are kept from the tree, and only the first one folds.
+        if (LineAt(source) is { IsDirectory: true } folder)
+        {
+            if (e.ClickCount == 1)
+            {
+                folder.IsExpanded = !folder.IsExpanded;
+                _folded = (folder, folder.IsExpanded);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        // The second press of a double-click is not a toggle: a double-click on a line leaves it
+        // selected, however the first press found it.
+        if (e.ClickCount != 1 || e.KeyModifiers != KeyModifiers.None)
         {
             return;
         }
@@ -131,6 +162,52 @@ public partial class ChangedFilesPanelView : UserControl
         {
             LetGoOf(toggle.Line);
         }
+    }
+
+    /// <summary>
+    /// Keeps a double-click on a folder to the one fold its first press made.
+    /// </summary>
+    /// <param name="sender">The panel.</param>
+    /// <param name="e">The double-tap.</param>
+    /// <remarks>
+    /// The tree's item folds a folder on a double-tap of its own, after the first press already did:
+    /// left alone, a double-click would open a folder and close it again. Whatever the tree did, the
+    /// folder is left as the press left it.
+    /// </remarks>
+    private void OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_folded is { } folded && e.Source is Visual source && ReferenceEquals(LineAt(source), folded.Folder))
+        {
+            folded.Folder.IsExpanded = folded.Expanded;
+        }
+    }
+
+    /// <summary>
+    /// Puts the tree back on the line the panel holds when the panel refused the one it selected.
+    /// </summary>
+    /// <param name="sender">The tree.</param>
+    /// <param name="e">The change.</param>
+    /// <remarks>
+    /// A click on a folder never reaches the tree, but the keyboard does: the arrows select whatever line
+    /// they reach. The panel refuses a folder (BUG-1B14) and says so at once, while the tree is still in
+    /// the middle of selecting it and does not listen; so the tree is told again once it is done. Its
+    /// focus stays on the folder, which is where the next arrow goes on from.
+    /// </remarks>
+    private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (FilesTree.SelectedItem is not ChangedFileNodeViewModel { IsDirectory: true })
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is ChangedFilesPanelViewModel panel
+                && FilesTree.SelectedItem is ChangedFileNodeViewModel { IsDirectory: true })
+            {
+                FilesTree.SetCurrentValue(TreeView.SelectedItemProperty, panel.TreeSelection);
+            }
+        });
     }
 
     /// <summary>
