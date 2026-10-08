@@ -1,6 +1,6 @@
 # FEATURE-2414 — Faster integration test suite
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** vibe/2026-10-08-slow-hanging-tests
@@ -40,7 +40,7 @@ that buy nothing, without weakening any test's isolation or assertion.
 ## PHASE01 — No git auto-maintenance in tests
 
 **Branch:** `feature/feature-2414-phase01-no-auto-maintenance`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2414-PHASE01.md`
 
 ### Steps
 
