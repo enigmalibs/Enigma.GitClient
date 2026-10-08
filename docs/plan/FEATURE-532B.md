@@ -205,7 +205,7 @@ OS watchers (thread pool)          RepositoryWatcher                        cons
 ## PHASE02 — OS event sources
 
 **Branch:** `feature/feature-532b-phase02-os-event-sources`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-532B-PHASE02.md`
 
 ### Steps
 
