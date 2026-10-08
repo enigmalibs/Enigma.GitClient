@@ -1,5 +1,50 @@
 # Release notes
 
+## 5.9.0 — 2026-10-08
+
+A minor release with one fix: on Windows, a change to your settings, your profiles or the recent
+repositories is no longer lost when another instance of the app reads the same file at that moment.
+
+### Fixes
+
+- **A saved change is no longer lost on Windows.**
+  - The app saves your settings, your identity profiles, the recent repositories and the hidden
+    branches by writing a new file and putting it in place of the old one.
+  - On Windows, putting it in place is refused while another program has the old file open, for
+    instance a second instance of the app reading it at that very moment. The refusal was logged,
+    and the change was lost.
+  - The app now waits for the reader to let go, for half a second or so, and the change lands.
+    A reader holds the file for far less than that. A file held open longer still fails the save, as
+    before, with a warning in the log.
+  - Linux was never affected.
+
+### The test suites
+
+- **The racing write test can no longer hang.**
+  `AtomicFileTests.AReaderRacingTheWriter_AlwaysReadsAWholeDocument` spun forever on Windows. It now
+  passes in seconds, and a writer that fails makes the test fail instead of hang.
+- **The integration suite is about 18% faster** where it was measured.
+  - Its throwaway repositories no longer start git's automatic maintenance, which was 920 of the
+    suite's 7,054 git processes.
+  - The history that `RefReaderTests` and `CommitLogReaderTests` read is built once per run and
+    copied into each test, instead of being rebuilt for each of their 45 tests.
+
+### Upgrading from 5.8
+
+- **Nothing you saved changes.** `settings.json` stays at version 6, and going back to 5.8 keeps
+  everything.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is out; the set moves as a whole).
+
+### Version
+
+- **5.9.0** is a minor release under Semantic Versioning. It carries a fix and faster test suites,
+  which a patch release (5.8.1) could also have carried. Nothing is removed, and the stored settings
+  do not change.
+
 ## 5.8.0 — 2026-10-08
 
 A minor release:

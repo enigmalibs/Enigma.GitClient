@@ -1,6 +1,6 @@
 # FEATURE-158D — Release 5.9.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-158D.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-158d-release-5-9-0`
 **Run:** vibe/2026-10-08-release-5-9-0
