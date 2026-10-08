@@ -77,6 +77,32 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <summary>Gets the tagged commit's short hash.</summary>
     public string ShortSha => Tag.TargetSha.Length >= 7 ? Tag.TargetSha[..7] : Tag.TargetSha;
 
+    /// <summary>
+    /// Gets what the line's tooltip says: everything about the tag the line itself leaves out — its
+    /// kind, its message, who made it, and the commit it points at with that commit's date.
+    /// </summary>
+    public string ToolTip
+    {
+        get
+        {
+            List<string> lines = [Tag.IsAnnotated ? "Annotated tag" : "Lightweight tag"];
+
+            if (HasMessage)
+            {
+                lines.Add(Message.Trim());
+            }
+
+            if (HasTagger)
+            {
+                lines.Add($"Tagged by {Tagger}");
+            }
+
+            lines.Add($"{ShortSha} · {Date}");
+
+            return string.Join('\n', lines);
+        }
+    }
+
     /// <summary>Gets the command that checks the tag out, detaching HEAD.</summary>
     public AsyncRelayCommand<TagRowViewModel> CheckoutCommand { get; }
 

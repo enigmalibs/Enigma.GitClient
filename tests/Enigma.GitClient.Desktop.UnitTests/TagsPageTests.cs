@@ -7,13 +7,15 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Enigma.GitClient.Desktop.Views.Pages;
-using Enigma.Icons.Avalonia;
+using Enigma.GitClient.Desktop.Views.Panels;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
@@ -348,7 +350,7 @@ public sealed class TagsPageTests
     }
 
     [Fact]
-    public void ATagRowsActions_AreVisibleOnEveryRow()
+    public void ATagLine_IsDrawnLikeAChangedFile_WithItsNameAloneAndTheRestInItsTooltip()
     {
         _fixture.RunAsync(async () =>
         {
@@ -358,7 +360,17 @@ public sealed class TagsPageTests
             TagsPageView view = services.Get<TagsPageView>();
             view.DataContext = page;
 
-            Window window = new() { Content = view, Width = 1100, Height = 420 };
+            // A changed file's line beside it, for the shape both have to share.
+            ChangedFilesPanelViewModel files = new(new RecordingSystemInterop()) { ViewMode = ChangedFilesViewMode.List };
+            files.SetFiles([new ChangedFile { Path = "README.md", AddedLines = 1, HasLineCounts = true }]);
+            ChangedFilesPanelView filesView = new() { DataContext = files };
+
+            Grid both = new() { ColumnDefinitions = new ColumnDefinitions("*,*") };
+            both.Children.Add(view);
+            both.Children.Add(filesView);
+            Grid.SetColumn(filesView, 1);
+
+            Window window = new() { Content = both, Width = 1400, Height = 420 };
             window.Show();
             window.UpdateLayout();
 
@@ -369,26 +381,24 @@ public sealed class TagsPageTests
                 .OfType<ListBoxItem>()
                 .Where(container => container.DataContext is TagRowViewModel)];
 
+            ListBoxItem fileRow = filesView.GetVisualDescendants().OfType<ListBoxItem>().First();
+
             Assert.True(rows.Length >= 2, "the tags page realised fewer than two rows");
 
-            Application application = Application.Current!;
-            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+            foreach (ListBoxItem row in rows)
+            {
+                TagRowViewModel tag = (TagRowViewModel)row.DataContext!;
+                Grid line = row.GetVisualDescendants().OfType<Grid>().First(grid => grid.Classes.Contains("listrow"));
 
-            // Check out and delete: the icons of the buttons at the end of the line.
-            static Icon[] Actions(ListBoxItem row) =>
-                [.. row.GetVisualDescendants()
-                    .OfType<Button>()
-                    .Where(button => button.Classes.Contains("toolbar"))
-                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
-
-            Assert.True(Actions(rows[0]).Length >= 2, "a tag row drew fewer than two actions");
-
-            list.SelectedItem = rows[0].DataContext;
-            window.UpdateLayout();
-
-            // The selected row and the rest of them: an action is legible wherever it is.
-            Assert.All(Actions(rows[0]), icon => Assert.Same(full, icon.Foreground));
-            Assert.All(Actions(rows[1]), icon => Assert.Same(full, icon.Foreground));
+                Assert.Equal(fileRow.Bounds.Height, row.Bounds.Height);
+                Assert.Equal(22, line.Bounds.Height);
+                Assert.Empty(row.GetVisualDescendants().OfType<Button>());
+                Assert.DoesNotContain(row.GetVisualDescendants().OfType<Border>(), border => border.Classes.Contains("pill"));
+                Assert.Equal(
+                    [tag.Name],
+                    row.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Text is { Length: > 0 }).Select(block => block.Text));
+                Assert.Equal(tag.ToolTip, ToolTip.GetTip(line));
+            }
 
             window.Close();
         });

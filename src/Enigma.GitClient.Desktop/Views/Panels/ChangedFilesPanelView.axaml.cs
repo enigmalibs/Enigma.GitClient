@@ -35,56 +35,14 @@ public partial class ChangedFilesPanelView : UserControl
         // Handled ones too: the tree's item handles the double-tap it folds the folder on.
         AddHandler(DoubleTappedEvent, OnDoubleTapped, RoutingStrategies.Bubble, handledEventsToo: true);
 
-        // Bubbling, and not for handled requests: a right-click on a line's own row has already opened
-        // that row's menu by the time the request gets here. What arrives is a right-click that landed
-        // on the line's container instead.
-        AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Bubble);
+        // The whole line answers a right-click with its menu, the container's padding included.
+        LineMenus.Attach(this);
 
         // Tunnelling, because the list and the tree handle the pointer themselves: the press has to be
         // seen before they act on it, while the line under it is still the one that was selected.
         AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
-    }
-
-    /// <summary>
-    /// Opens a line's menu when the right-click landed on the line but outside its row.
-    /// </summary>
-    /// <param name="sender">The panel.</param>
-    /// <param name="e">The request.</param>
-    /// <remarks>
-    /// The menu belongs to the row template, and the row is the container's content. It sits inside
-    /// the list item's padding, and inside the tree item's indentation and chevron, all of which are
-    /// the container's own area and carry no menu. A right-click there used to open nothing, so the
-    /// menu only seemed to open over the text. The request is handed to the row the container
-    /// presents, so the whole line answers with the same menu.
-    /// </remarks>
-    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
-    {
-        if (e.Source is not Visual source)
-        {
-            return;
-        }
-
-        // The nearest container: in a tree, a nested line's own item comes before its folder's.
-        Control? container = ContainerOf(source);
-
-        if (container?.DataContext is not ChangedFileNodeViewModel line)
-        {
-            return;
-        }
-
-        Control? row = container.GetVisualDescendants()
-            .OfType<Control>()
-            .FirstOrDefault(control => control.ContextMenu is not null && ReferenceEquals(control.DataContext, line));
-
-        if (row?.ContextMenu is not { } menu)
-        {
-            return;
-        }
-
-        menu.Open(row);
-        e.Handled = true;
     }
 
     // ---------------------------------------------------------------- the lines are toggles

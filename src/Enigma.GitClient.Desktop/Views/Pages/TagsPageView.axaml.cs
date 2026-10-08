@@ -10,5 +10,11 @@ public partial class TagsPageView : UserControl
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
-    public TagsPageView() => InitializeComponent();
+    public TagsPageView()
+    {
+        InitializeComponent();
+
+        // The whole line answers a right-click with its menu, the container's padding included.
+        LineMenus.Attach(this);
+    }
 }

@@ -64,6 +64,15 @@ public sealed class RemoteRowViewModel : ViewModelBase
     /// <summary>Gets a value indicating whether there is a host worth naming.</summary>
     public bool HasHost => Host.Length > 0;
 
+    /// <summary>
+    /// Gets what the line's tooltip says: the host the remote lives on — or, for a path on this
+    /// machine, the path itself — and where pushes go when that is somewhere else.
+    /// </summary>
+    public string ToolTip
+        => HasSeparatePushUrl
+            ? $"{(HasHost ? Host : FetchUrl)}\nPushes to {PushUrl}"
+            : HasHost ? Host : FetchUrl;
+
     /// <summary>Gets how many tracking branches this remote has here.</summary>
     public int BranchCount { get; }
 

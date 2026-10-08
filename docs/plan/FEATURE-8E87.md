@@ -1,6 +1,6 @@
 # FEATURE-8E87 — Compact ref rows with multi-select
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-08-title-watcher-refs-release
@@ -78,7 +78,7 @@ select and delete several items at once.
 ## PHASE01 — Shared rows, compact tags and remotes
 
 **Branch:** `feature/feature-8e87-phase01-compact-tags-remotes`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8E87-PHASE01.md`
 
 ### Steps
 
