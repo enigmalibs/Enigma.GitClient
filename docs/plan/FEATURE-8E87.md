@@ -166,7 +166,7 @@ select and delete several items at once.
 ## PHASE03 — Branches as a compact tree
 
 **Branch:** `feature/feature-8e87-phase03-branch-tree`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 
