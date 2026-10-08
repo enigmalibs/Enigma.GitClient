@@ -20,7 +20,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="CloudArrowUp" Classes="header" VerticalAlignment="Center"
@@ -32,7 +32,21 @@
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
         </StackPanel>
 
+        <!-- The selected remotes, removed: red while there is any to remove. The Delete key on the list
+             does the same. Remove, the remotes' own verb: nothing on the remote itself is deleted. -->
         <Button Grid.Column="2"
+                Name="RemoveSelection"
+                Classes="toolbar danger"
+                Command="{Binding RemoveSelectionCommand}"
+                ToolTip.Tip="Remove the selected remotes"
+                AutomationProperties.Name="Remove the selected remotes">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Trash" Classes="toolbar" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding RemoveSelectionLabel}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <Button Grid.Column="3"
                 Classes="toolbar"
                 Command="{Binding AddCommand}"
                 ToolTip.Tip="Add a remote"
@@ -53,27 +67,37 @@
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
 
+      <!-- Several at once, as on the tags page: Ctrl+click, Shift+click, Ctrl+A. -->
       <ListBox Name="RemoteList"
                Classes="rows"
+               SelectionMode="Multiple"
                IsVisible="{Binding !IsEmpty}"
                ItemsSource="{Binding Remotes}"
                SelectedItem="{Binding SelectedRemote, Mode=TwoWay}"
+               SelectedItems="{Binding SelectedRemotes}"
                AutomationProperties.Name="Remotes">
+        <ListBox.KeyBindings>
+          <KeyBinding Gesture="Delete" Command="{Binding RemoveSelectionCommand}" />
+        </ListBox.KeyBindings>
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:RemoteRowViewModel">
             <!-- The name keeps its width, and the URL takes what is left, from the right. -->
             <Grid Classes="listrow" ColumnDefinitions="Auto,Auto,*" ToolTip.Tip="{Binding ToolTip}">
               <Grid.ContextMenu>
                 <ContextMenu>
+                  <!-- What works on one remote is offered while one is selected; with several, only the
+                       remove, which acts on all of them. -->
                   <MenuItem Header="Fetch"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding FetchCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
                       <ei:Icon Kind="ArrowsDownUp" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <MenuItem Header="Edit…"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding EditCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>

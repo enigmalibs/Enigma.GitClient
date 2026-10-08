@@ -493,6 +493,130 @@ public sealed class RemotesAndSyncTests
         });
     }
 
+    // ---------------------------------------------------------------- several at once
+
+    [Fact]
+    public void SeveralRemotes_GoAfterOneQuestionNamingThemAll()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "mirror", world.OriginPath);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "backup", world.OriginPath);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+            Assert.Equal("Remove", page.RemoveSelectionLabel);
+            Assert.False(page.RemoveSelectionCommand.CanExecute(null));
+
+            foreach (RemoteRowViewModel row in page.Remotes.Where(remote => remote.Name != "origin"))
+            {
+                page.SelectedRemotes.Add(row);
+            }
+
+            Assert.Equal("Remove (2)", page.RemoveSelectionLabel);
+            Assert.True(page.Selection.IsMultiple);
+
+            int refreshes = 0;
+            services.Get<IRepositoryContext>().StateRefreshed += (_, _) => refreshes++;
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.RemoveSelectionCommand.ExecuteAsync(null);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Remove 2 remotes", question.Title);
+            Assert.Equal(
+                "Remove these 2 remotes? Their tracking references go with them.\n"
+                + "\n• backup — 0 branches of tracking references"
+                + "\n• mirror — 0 branches of tracking references"
+                + "\n\nNothing on the remotes themselves is touched.",
+                question.Content);
+
+            Assert.Equal(["origin"], page.Remotes.Select(remote => remote.Name));
+            Assert.Equal(1, refreshes);
+
+            RecordedNotification summary = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Removed 2 remotes", summary.Title);
+        });
+    }
+
+    [Fact]
+    public void SeveralTags_GoFromTheRemote_AfterOneQuestionThatSaysTheRemoteChangesForEveryone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "tag", "2.0.0");
+            await GitAsync(world.Local.WorkTreePath, "push", "origin", "refs/tags/2.0.0");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            TagsPageViewModel page = services.Get<TagsPageViewModel>();
+            await page.OnAppearingAsync();
+
+            foreach (TagRowViewModel row in page.Tags)
+            {
+                page.SelectedTags.Add(row);
+            }
+
+            services.Dialogs.Result = DialogResult.Primary;
+
+            // From one line's menu, which acts on the whole selection the line is part of.
+            TagRowViewModel line = page.Tags.Single(tag => tag.Name == "1.0.0");
+            await line.DeleteRemoteCommand!.ExecuteAsync(line);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete 2 remote tags", question.Title);
+            Assert.EndsWith("This changes \"origin\" for everyone who uses it.", question.Content as string, StringComparison.Ordinal);
+
+            Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Equal(["1.0.0", "2.0.0"], page.Tags.Select(tag => tag.Name).Order());
+            Assert.Equal("Deleted 2 tags from \"origin\"", Assert.Single(services.InfoBar.Shown).Title);
+        });
+    }
+
+    [Fact]
+    public void WithSeveralRemotesSelected_ALinesMenuOffersOnlyTheRemove()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "mirror", world.OriginPath);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+
+            RemotesPageView view = services.Get<RemotesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 400 };
+            window.Show();
+            window.UpdateLayout();
+
+            try
+            {
+                ListBox list = view.FindControl<ListBox>("RemoteList")!;
+                list.SelectedItems!.Add(page.Remotes[0]);
+                list.SelectedItems.Add(page.Remotes[1]);
+                window.UpdateLayout();
+
+                Assert.Equal(2, page.SelectedRemotes.Count);
+
+                Grid line = view.GetVisualDescendants().OfType<Grid>().First(grid => grid.ContextMenu is not null && grid.DataContext is RemoteRowViewModel);
+                ContextMenu menu = line.ContextMenu!;
+                menu.Open(line);
+
+                Assert.Equal(["Remove…"], menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).Select(item => item.Header as string));
+
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- the shell toolbar
 
     [Fact]

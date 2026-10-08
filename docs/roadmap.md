@@ -310,7 +310,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE04    | Setting and 60 s default                | DONE        | (in FEATURE-532B.md)      |
 | FEATURE-8E87 | Compact ref rows with multi-select      | IN PROGRESS | docs/plan/FEATURE-8E87.md |
 | - PHASE01    | Shared rows, compact tags and remotes   | DONE        | (in FEATURE-8E87.md)      |
-| - PHASE02    | Bulk delete for tags and remotes        | TODO        | (in FEATURE-8E87.md)      |
+| - PHASE02    | Bulk delete for tags and remotes        | DONE        | (in FEATURE-8E87.md)      |
 | - PHASE03    | Branches as a compact tree              | TODO        | (in FEATURE-8E87.md)      |
 | - PHASE04    | Bulk delete for branches                | TODO        | (in FEATURE-8E87.md)      |
 | FEATURE-AE9F | Release 6.0.0                           | TODO        | docs/plan/FEATURE-AE9F.md |

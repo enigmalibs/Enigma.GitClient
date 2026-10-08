@@ -21,7 +21,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="Tag" Classes="header" VerticalAlignment="Center"
@@ -65,7 +65,21 @@
           </Button>
         </StackPanel>
 
+        <!-- The selected tags, deleted here: red while there is any to delete, as every button that
+             loses something is. The Delete key on the list does the same. -->
         <Button Grid.Column="3"
+                Name="DeleteSelection"
+                Classes="toolbar danger"
+                Command="{Binding DeleteSelectionCommand}"
+                ToolTip.Tip="Delete the selected tags here"
+                AutomationProperties.Name="Delete the selected tags">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Trash" Classes="toolbar" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding DeleteSelectionLabel}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <Button Grid.Column="4"
                 Classes="toolbar"
                 Command="{Binding CreateCommand}"
                 ToolTip.Tip="Create a tag"
@@ -86,26 +100,39 @@
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
 
+      <!-- Several at once: Ctrl+click adds or takes away one, Shift+click a range, Ctrl+A every tag
+           the filter shows; a right-click outside the selection selects that line first, and one
+           inside keeps the selection. -->
       <ListBox Name="TagList"
                Classes="rows"
+               SelectionMode="Multiple"
                ItemsSource="{Binding Tags}"
                SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
+               SelectedItems="{Binding SelectedTags}"
                AutomationProperties.Name="Tags">
+
+        <ListBox.KeyBindings>
+          <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectionCommand}" />
+        </ListBox.KeyBindings>
 
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:TagRowViewModel">
             <Grid Classes="listrow" ColumnDefinitions="Auto,*" ToolTip.Tip="{Binding ToolTip}">
               <Grid.ContextMenu>
                 <ContextMenu>
+                  <!-- What works on one tag is offered while one is selected; with several, only the
+                       deletes, which act on all of them. -->
                   <MenuItem Header="Select in the history"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding SelectInHistoryCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
                       <ei:Icon Kind="Crosshair" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <MenuItem Header="Check out (detaches HEAD)"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding CheckoutCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
@@ -115,14 +142,19 @@
                   <!-- The tag on its own, to where the current branch pushes: the history's tag badge
                        offers the same push. -->
                   <MenuItem Header="Push to the remote"
-                            IsVisible="{Binding CanPush}"
                             Command="{Binding PushCommand}"
                             CommandParameter="{Binding}">
+                    <MenuItem.IsVisible>
+                      <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="CanPush" />
+                        <Binding Path="!Selection.IsMultiple" />
+                      </MultiBinding>
+                    </MenuItem.IsVisible>
                     <MenuItem.Icon>
                       <ei:Icon Kind="ArrowUp" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <!-- Here, or on the remote the push goes to: the history's tag badge offers the same
                        two, and the question each asks names which copy goes. -->
                   <MenuItem Header="Delete locally…"
