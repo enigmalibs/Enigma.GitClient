@@ -1,6 +1,6 @@
 # FEATURE-532B — File-system watcher for instant refresh
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-08-title-watcher-refs-release
@@ -126,7 +126,7 @@ OS watchers (thread pool)          RepositoryWatcher                        cons
 ## PHASE01 — Coalescer and suppression
 
 **Branch:** `feature/feature-532b-phase01-coalescer`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-532B-PHASE01.md`
 
 ### Steps
 
