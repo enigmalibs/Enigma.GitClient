@@ -1,6 +1,6 @@
 # FEATURE-2414 — Faster integration test suite
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** vibe/2026-10-08-slow-hanging-tests
@@ -59,7 +59,7 @@ that buy nothing, without weakening any test's isolation or assertion.
 ## PHASE02 — History fixture built once, copied
 
 **Branch:** `feature/feature-2414-phase02-history-template`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-2414-PHASE02.md`
 
 ### Steps
 
