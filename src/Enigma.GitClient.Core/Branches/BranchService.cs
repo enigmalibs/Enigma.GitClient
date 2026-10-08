@@ -174,6 +174,21 @@ public interface IBranchService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Counts the commits a branch holds that another does not — all of them, where
+    /// <see cref="GetUnmergedCommitsAsync"/> names only the first few.
+    /// </summary>
+    /// <param name="repository">The repository to read.</param>
+    /// <param name="branch">The branch that might hold unmerged work.</param>
+    /// <param name="into">The branch to compare against. <see langword="null"/> means HEAD.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>How many commits would be lost; 0 when git could not say.</returns>
+    Task<int> CountUnmergedCommitsAsync(
+        RepositoryHandle repository,
+        string branch,
+        string? into = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Answers whether a local branch already exists.
     /// </summary>
     /// <param name="repository">The repository to read.</param>
@@ -448,6 +463,31 @@ public sealed class BranchService : IBranchService
             .ConfigureAwait(false);
 
         return result.IsSuccess ? result.SplitOutput() : [];
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountUnmergedCommitsAsync(
+        RepositoryHandle repository,
+        string branch,
+        string? into = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        string target = into is { Length: > 0 } ? into : "HEAD";
+
+        GitCommand command = _commandFactory.Create(
+            repository.WorkTreePath,
+            ["rev-list", "--count", $"{target}..{branch}"]);
+
+        GitResult result = await _runner.RunAsync(command, throwOnError: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsSuccess
+            && int.TryParse(result.StandardOutput.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int count)
+                ? count
+                : 0;
     }
 
     /// <inheritdoc />

@@ -235,8 +235,14 @@ public sealed class BranchRowViewModel : BranchTreeNode
     /// <summary>Gets the command that renames the branch.</summary>
     public AsyncRelayCommand<BranchRowViewModel> RenameCommand => _owner.RenameCommand;
 
-    /// <summary>Gets the command that deletes the branch.</summary>
+    /// <summary>
+    /// Gets the command that deletes the branch — or every selected branch, when the line is one of
+    /// several selected.
+    /// </summary>
     public AsyncRelayCommand<BranchRowViewModel> DeleteCommand => _owner.DeleteCommand;
+
+    /// <summary>Gets how many branches the page has selected, which the line's menu shows its items by.</summary>
+    public LineSelection Selection => _owner.Selection;
 
     /// <summary>Gets the command that points the branch at an upstream.</summary>
     public AsyncRelayCommand<BranchRowViewModel> SetUpstreamCommand => _owner.SetUpstreamCommand;
@@ -331,6 +337,14 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     // with the repository.
     private readonly Dictionary<string, bool> _expanded = new(StringComparer.Ordinal);
 
+    // The selection as a set, and whether any of it can be deleted, as of the last change: every
+    // line's delete asks, and a Ctrl+A over hundreds of lines must not make each of them scan it.
+    private HashSet<BranchTreeNode> _selected = [];
+    private bool _canDeleteSelection;
+
+    // Set while the page itself refills the selection, which then says once that it changed.
+    private bool _selecting;
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
@@ -392,6 +406,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         CheckoutCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCheckoutAsync, CanCheckout);
         RenameCommand = new AsyncRelayCommand<BranchRowViewModel>(OnRenameAsync, IsLocal);
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
+        DeleteSelectionCommand = new AsyncRelayCommand(OnDeleteSelectionAsync, CanDeleteSelection);
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
         MergeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnMergeAsync, CanMerge);
 
@@ -406,6 +421,8 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         ManualMergeCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.Never), CanManualMerge);
         ManualFastForwardCommand = new AsyncRelayCommand(() => OnManualMergeAsync(FastForwardMode.Only), CanManualMerge);
         ClearManualMergeCommand = new RelayCommand(OnClearManualMerge, () => SelectedMergeSource is not null || SelectedMergeDestination is not null);
+
+        SelectedNodes.CollectionChanged += (_, _) => OnSelectionChanged();
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -445,6 +462,96 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the selected branch, or <see langword="null"/> when none is selected.</summary>
     public BranchRowViewModel? SelectedBranch => SelectedItem as BranchRowViewModel;
+
+    /// <summary>
+    /// Gets the tree's own selection, which Ctrl+click, Shift+click and Ctrl+A make. A folder can get
+    /// into it for a moment — the arrows reach one, a Shift range spans one — and the view takes it
+    /// back out; the page only ever acts on <see cref="SelectedBranches"/>.
+    /// </summary>
+    public ObservableCollection<BranchTreeNode> SelectedNodes { get; } = [];
+
+    /// <summary>
+    /// Gets the selected branches, in the order the tree shows them — never a top-level node or a
+    /// folder, so selecting one deletes nothing.
+    /// </summary>
+    public IReadOnlyList<BranchRowViewModel> SelectedBranches
+    {
+        get
+        {
+            HashSet<BranchTreeNode> selected = [.. SelectedNodes];
+            return [.. AllRows().Where(selected.Contains)];
+        }
+    }
+
+    /// <summary>Gets how many branches are selected, as every line's menu reads it.</summary>
+    public LineSelection Selection { get; } = new();
+
+    /// <summary>Gets what the header's delete button says: how many it would delete.</summary>
+    public string DeleteSelectionLabel
+    {
+        get
+        {
+            int count = SelectedBranches.Count;
+            return count == 0 ? "Delete" : $"Delete ({count.ToString(CultureInfo.CurrentCulture)})";
+        }
+    }
+
+    /// <summary>
+    /// Gets the command that deletes every selected branch, local and remote, after one question naming
+    /// them all — the header's button and the Delete key.
+    /// </summary>
+    public AsyncRelayCommand DeleteSelectionCommand { get; }
+
+    /// <summary>
+    /// Selects exactly these branches, the first one the line the tree's selection starts from.
+    /// </summary>
+    /// <param name="rows">The branches, which the tree is showing.</param>
+    /// <remarks>
+    /// Emptied first and filled from nothing: setting a tree's selected item selects that one alone, so
+    /// the first line comes in as the first of the selection — which the tree then takes as its
+    /// selected item — and the others join it.
+    /// </remarks>
+    internal void SelectBranches(IReadOnlyList<BranchRowViewModel> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        _selecting = true;
+
+        try
+        {
+            SelectedItem = null;
+            SelectedNodes.Clear();
+
+            foreach (BranchRowViewModel row in rows.Distinct())
+            {
+                SelectedNodes.Add(row);
+            }
+
+            SelectedItem = rows.Count > 0 ? rows[0] : null;
+        }
+        finally
+        {
+            _selecting = false;
+        }
+
+        OnSelectionChanged();
+    }
+
+    /// <summary>
+    /// Selects every branch the tree shows — the lines inside open nodes, not the ones a closed folder
+    /// hides — as Ctrl+A does. The line the selection started from stays the first.
+    /// </summary>
+    internal void SelectVisibleBranches()
+    {
+        List<BranchRowViewModel> visible = [.. VisibleRows(Groups)];
+
+        if (SelectedItem is BranchRowViewModel current && visible.Remove(current))
+        {
+            visible.Insert(0, current);
+        }
+
+        SelectBranches(visible);
+    }
 
     // ---------------------------------------------------------------- the order
 
@@ -735,9 +842,6 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Rebuilds the groups from whatever the repository context last read.
-    /// </summary>
-    /// <summary>
     /// Takes the order from the settings: the one remembered, or one changed elsewhere — a reset of
     /// every preference, say.
     /// </summary>
@@ -774,13 +878,18 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(SortDirectionTip));
     }
 
+    /// <summary>
+    /// Rebuilds the tree from whatever the repository context last read.
+    /// </summary>
     private void Rebuild()
     {
         // Captured before the tree is emptied: emptying it tells the tree the selection is gone, and
-        // the tree tells this page so. What survives a rebuild is the name.
-        string? selectedBranch = SelectedBranch?.FullName;
+        // the tree tells this page so. What survives a rebuild is the keys.
+        string? current = SelectedBranch?.Key;
+        HashSet<string> selected = [.. SelectedBranches.Select(row => row.Key)];
 
         SelectedItem = null;
+        SelectedNodes.Clear();
         Groups.Clear();
 
         RefCollection refs = RepositoryContext.Refs;
@@ -811,7 +920,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             Groups.Add(group);
         }
 
-        RestoreSelection(selectedBranch);
+        RestoreSelection(current, selected);
         RebuildMergeChoices(refs);
 
         OnPropertyChanged(nameof(IsEmpty));
@@ -872,19 +981,50 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Puts the selection back on the row that stands for what was selected before the rebuild.
+    /// Puts the selection back on the rows that stand for what was selected before the rebuild.
     /// </summary>
-    /// <param name="branch">The full name of the branch that was selected, if any.</param>
+    /// <param name="current">The key of the line the selection started from, if any.</param>
+    /// <param name="selected">The keys of every selected branch.</param>
     /// <remarks>
-    /// By name, because every row is a new object: the page rebuilds on a refresh, on an operation
+    /// By key, because every row is a new object: the page rebuilds on a refresh, on an operation
     /// and on every keystroke in the filter box, and a selection that did not survive that would be
     /// a selection nobody could keep. A row that is gone — deleted, renamed, filtered out — takes
-    /// the selection with it.
+    /// its place in the selection with it.
     /// </remarks>
-    private void RestoreSelection(string? branch)
-        => SelectedItem = branch is null
-            ? null
-            : AllRows().FirstOrDefault(row => row.FullName == branch);
+    private void RestoreSelection(string? current, IReadOnlySet<string> selected)
+    {
+        BranchRowViewModel? first = current is null ? null : AllRows().FirstOrDefault(row => row.Key == current);
+
+        List<BranchRowViewModel> rows = [.. AllRows().Where(row => row != first && selected.Contains(row.Key))];
+
+        if (first is not null)
+        {
+            rows.Insert(0, first);
+        }
+
+        SelectBranches(rows);
+    }
+
+    /// <summary>
+    /// The branch lines the tree shows: those whose every node above is open.
+    /// </summary>
+    private static IEnumerable<BranchRowViewModel> VisibleRows(IEnumerable<BranchTreeNode> nodes)
+    {
+        foreach (BranchTreeNode node in nodes)
+        {
+            if (node is BranchRowViewModel row)
+            {
+                yield return row;
+            }
+            else if (node.IsExpanded)
+            {
+                foreach (BranchRowViewModel nested in VisibleRows(node.Children))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Refills the manual merge's two lists from the repository, keeping each choice by name when
@@ -961,7 +1101,20 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     private static bool CanCheckout(BranchRowViewModel? row) => row is not null && !row.IsCurrent;
 
-    private static bool CanDelete(BranchRowViewModel? row) => row is { IsCurrent: false };
+    /// <summary>
+    /// A line's delete: the line's branch, unless it is the one checked out — or, when the line is one
+    /// of several selected, the selection, unless every branch in it is the one checked out.
+    /// </summary>
+    private bool CanDelete(BranchRowViewModel? row)
+        => row is not null && (IsOneOfSeveral(row) ? CanDeleteSelection() : !row.IsCurrent);
+
+    private bool CanDeleteSelection() => _canDeleteSelection;
+
+    /// <summary>
+    /// Whether a line's menu speaks for the whole selection: the line is one of several selected — a
+    /// right-click inside the selection keeps it, and one outside selects that line alone first.
+    /// </summary>
+    private bool IsOneOfSeveral(BranchRowViewModel row) => Selection.IsMultiple && _selected.Contains(row);
 
     /// <summary>
     /// Merging a branch into itself is the one case that means nothing.
@@ -1019,10 +1172,46 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     private async Task OnDeleteAsync(BranchRowViewModel? row)
     {
-        if (row is not null)
+        if (row is null)
         {
-            await Run(() => _operations.DeleteAsync(row.FullName, row.IsRemote)).ConfigureAwait(true);
+            return;
         }
+
+        IReadOnlyList<BranchRowViewModel> rows = IsOneOfSeveral(row) ? SelectedBranches : [row];
+
+        await Run(() => _operations.DeleteAsync(ToDelete(rows))).ConfigureAwait(true);
+    }
+
+    private async Task OnDeleteSelectionAsync()
+    {
+        IReadOnlyList<BranchRowViewModel> rows = SelectedBranches;
+
+        if (rows.Count > 0)
+        {
+            await Run(() => _operations.DeleteAsync(ToDelete(rows))).ConfigureAwait(true);
+        }
+    }
+
+    private static IReadOnlyList<BranchToDelete> ToDelete(IReadOnlyList<BranchRowViewModel> rows)
+        => [.. rows.Select(row => new BranchToDelete(row.FullName, row.IsRemote))];
+
+    /// <summary>
+    /// Tells the menus, the header's button and the delete commands what is selected now.
+    /// </summary>
+    private void OnSelectionChanged()
+    {
+        if (_selecting)
+        {
+            return;
+        }
+
+        _selected = [.. SelectedNodes];
+        _canDeleteSelection = _selected.Any(node => node is BranchRowViewModel { IsCurrent: false });
+
+        Selection.Update(_selected.Count(node => node is BranchRowViewModel));
+        OnPropertyChanged(nameof(DeleteSelectionLabel));
+        DeleteSelectionCommand.NotifyCanExecuteChanged();
+        DeleteCommand.NotifyCanExecuteChanged();
     }
 
     private async Task OnSetUpstreamAsync(BranchRowViewModel? row)

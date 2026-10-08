@@ -270,6 +270,27 @@ public sealed class BranchServiceTests : IAsyncLifetime
             cancellationToken: TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task CountUnmergedCommitsAsync_CountsEveryOne_WhereTheListStopsAtItsLimit()
+    {
+        await _repository.GitAsync("checkout", "-b", "long");
+
+        for (int commit = 1; commit <= 12; commit++)
+        {
+            await _repository.CommitFileAsync($"src/long-{commit}.txt", $"{commit}\n", $"Step {commit}");
+        }
+
+        await _repository.GitAsync("checkout", "main");
+        await Service.CreateAsync(_handle, "merged", _firstSha, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(10, (await Service.GetUnmergedCommitsAsync(_handle, "long", cancellationToken: TestContext.Current.CancellationToken)).Count);
+        Assert.Equal(12, await Service.CountUnmergedCommitsAsync(_handle, "long", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(0, await Service.CountUnmergedCommitsAsync(_handle, "merged", cancellationToken: TestContext.Current.CancellationToken));
+
+        // A branch that is not there is not a count of anything.
+        Assert.Equal(0, await Service.CountUnmergedCommitsAsync(_handle, "nowhere", cancellationToken: TestContext.Current.CancellationToken));
+    }
+
     // ---------------------------------------------------------------- checkout
 
     [Fact]

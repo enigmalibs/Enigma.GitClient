@@ -16,6 +16,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
+using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Desktop.Services;
@@ -1796,6 +1797,396 @@ public sealed class BranchesPageTests
         });
     }
 
+    [Fact]
+    public void ASingleDelete_AsksInItsOwnWords_InRed()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            bool red = false;
+            services.Dialogs.OnShown = dialog => red = dialog.Classes.Contains("danger");
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DeleteCommand.ExecuteAsync(Row(page, "merged"));
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete branch", question.Title);
+            Assert.Equal("Delete the branch \"merged\"?", question.Content);
+            Assert.True(red);
+
+            // Silent when it went, as a single delete always was: the line going is the proof.
+            Assert.DoesNotContain("merged", NamesOf(page));
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    // ---------------------------------------------------------------- deleting several
+
+    [Fact]
+    public void SeveralBranches_GoAfterOneQuestion_NamingWhatEachWouldLose_WithOneRefreshAndOneSummary()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildWithRemoteAsync(services);
+
+            // Twelve commits of its own: the question names ten, and counts the rest.
+            await GitAsync(repository, "checkout", "-b", "long", "main");
+
+            for (int step = 1; step <= 12; step++)
+            {
+                await CommitAsync(repository, $"src/long-{step}.txt", $"{step}\n", $"Step {step}");
+            }
+
+            await GitAsync(repository, "checkout", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            foreach (string name in new[] { "long", "main", "merged", "unmerged", "origin/published" })
+            {
+                page.SelectedNodes.Add(Row(page, name));
+            }
+
+            Assert.Equal("Delete (5)", page.DeleteSelectionLabel);
+
+            int refreshes = 0;
+            services.Get<IRepositoryContext>().StateRefreshed += (_, _) => refreshes++;
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DeleteSelectionCommand.ExecuteAsync(null);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete 4 branches", question.Title);
+            Assert.Equal(
+                "Delete these 4 branches?\n"
+                + "\n• long — holds 12 commits the current branch does not; deleting it loses them"
+                + string.Concat(Enumerable.Range(3, 10).Reverse().Select(step => $"\n    Step {step}"))
+                + "\n    …and 2 more"
+                + "\n• main — skipped: it is checked out"
+                + "\n• merged"
+                + "\n• unmerged — holds 1 commit the current branch does not; deleting it loses them"
+                + "\n    Work only on the branch"
+                + "\n• origin/published"
+                + "\n\nDeleting a branch from a remote changes the remote for everyone who uses it.",
+                question.Content);
+
+            Assert.Equal(["main", "origin/main"], NamesOf(page));
+            Assert.Equal(1, refreshes);
+
+            RecordedNotification summary = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Deleted 4 of 5 branches", summary.Title);
+            Assert.Equal("Not deleted:\nmain — it is checked out", summary.Message);
+            Assert.Equal(InfoBarSeverity.Warning, summary.Severity);
+        });
+    }
+
+    [Fact]
+    public void ABranchThatCannotGo_LeavesTheOthersGoing_AndTheSummarySaysWhy()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            page.SelectedNodes.Add(Row(page, "merged"));
+            page.SelectedNodes.Add(Row(page, "unmerged"));
+
+            // Gone already, deleted in a terminal while the page still listed it.
+            await GitAsync(repository, "branch", "-D", "merged");
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DeleteSelectionCommand.ExecuteAsync(null);
+
+            Assert.Equal(["main"], NamesOf(page));
+
+            RecordedNotification summary = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Deleted 1 of 2 branches", summary.Title);
+            Assert.StartsWith("Not deleted:\nmerged — ", summary.Message, StringComparison.Ordinal);
+            Assert.Equal(InfoBarSeverity.Warning, summary.Severity);
+        });
+    }
+
+    [Fact]
+    public void TheDeleteButton_WaitsForABranchItCanDelete()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            Assert.Equal("Delete", page.DeleteSelectionLabel);
+            Assert.False(page.DeleteSelectionCommand.CanExecute(null));
+
+            // A top-level node is not a branch: nothing to delete, nothing counted.
+            page.SelectedNodes.Add(page.Groups[0]);
+
+            Assert.Equal("Delete", page.DeleteSelectionLabel);
+            Assert.False(page.DeleteSelectionCommand.CanExecute(null));
+
+            // The checked-out branch alone is counted, and cannot go.
+            page.SelectedNodes.Add(Row(page, "main"));
+
+            Assert.Equal("Delete (1)", page.DeleteSelectionLabel);
+            Assert.False(page.DeleteSelectionCommand.CanExecute(null));
+            Assert.False(page.Selection.IsMultiple);
+
+            page.SelectedNodes.Add(Row(page, "merged"));
+
+            Assert.Equal("Delete (2)", page.DeleteSelectionLabel);
+            Assert.True(page.DeleteSelectionCommand.CanExecute(null));
+            Assert.True(page.Selection.IsMultiple);
+
+            // The checked-out branch's own line, inside the selection, speaks for all of it.
+            Assert.True(page.DeleteCommand.CanExecute(Row(page, "main")));
+        });
+    }
+
+    [Fact]
+    public void ASelectionHoldingAFolder_DeletesOnlyItsBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            page.SelectedNodes.Add(page.Groups[0]);
+            page.SelectedNodes.Add(Row(page, "merged"));
+
+            Assert.Equal(["merged"], page.SelectedBranches.Select(row => row.FullName));
+
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.DeleteSelectionCommand.ExecuteAsync(null);
+
+            // One branch: the single delete's own question.
+            Assert.Equal("Delete branch", Assert.Single(services.Dialogs.Shown).Title);
+            Assert.Equal(["main", "unmerged"], NamesOf(page));
+        });
+    }
+
+    [Fact]
+    public void ALinesMenu_ActsOnTheWholeSelection_WhenTheLineIsPartOfIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            page.SelectedNodes.Add(Row(page, "merged"));
+            page.SelectedNodes.Add(Row(page, "unmerged"));
+            services.Dialogs.Result = DialogResult.Primary;
+
+            BranchRowViewModel merged = Row(page, "merged");
+            await merged.DeleteCommand.ExecuteAsync(merged);
+
+            Assert.Equal("Delete 2 branches", Assert.Single(services.Dialogs.Shown).Title);
+            Assert.Equal(["main"], NamesOf(page));
+        });
+    }
+
+    [Fact]
+    public void TheSelection_SurvivesARebuild_AsAWhole()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            page.SelectBranches([Row(page, "unmerged"), Row(page, "merged")]);
+
+            await page.RefreshAsync();
+
+            Assert.Equal(["merged", "unmerged"], page.SelectedBranches.Select(row => row.FullName));
+            Assert.Same(Row(page, "unmerged"), page.SelectedItem);
+            Assert.True(page.Selection.IsMultiple);
+        });
+    }
+
+    [Fact]
+    public void WithSeveralSelected_ALinesMenuOffersOnlyTheDelete()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                Assert.Equal(SelectionMode.Multiple, tree.SelectionMode);
+
+                // As Ctrl+click would: both lines, through the tree itself.
+                tree.SelectedItems.Add(Row(page, "merged"));
+                tree.SelectedItems.Add(Row(page, "unmerged"));
+                Settle(window);
+
+                Assert.Equal(["merged", "unmerged"], page.SelectedBranches.Select(row => row.FullName));
+
+                Button delete = window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "DeleteSelection");
+                Assert.Equal("Delete (2)", delete.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+                Assert.True(delete.IsEffectivelyEnabled);
+
+                Grid line = Row(tree, "merged").GetVisualDescendants().OfType<Grid>().First(grid => grid.ContextMenu is not null);
+                ContextMenu menu = line.ContextMenu!;
+                menu.Open(line);
+
+                Assert.Equal(["Delete…"], menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).Select(item => item.Header as string));
+                Assert.DoesNotContain(menu.Items.OfType<Separator>(), separator => separator.IsVisible);
+
+                menu.Close();
+
+                // One line again: everything that works on one is back.
+                tree.SelectedItems.Remove(Row(page, "unmerged"));
+                menu.Open(line);
+
+                Assert.Equal(7, menu.Items.OfType<MenuItem>().Count(item => item.IsVisible));
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheDeleteKey_AsksAboutTheSelection()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildRepositoryAsync(services));
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                Click(window, OnLine(Row(tree, "merged"), window));
+                Click(window, OnLine(Row(tree, "unmerged"), window), RawInputModifiers.Control);
+
+                Assert.Equal(["merged", "unmerged"], page.SelectedBranches.Select(row => row.FullName));
+
+                // Cancelled: the question is the point, and nothing goes.
+                services.Dialogs.Result = DialogResult.Close;
+                window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+
+                for (int attempt = 0; attempt < 50 && services.Dialogs.Shown.Count == 0; attempt++)
+                {
+                    await Task.Delay(10);
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                Assert.Equal("Delete 2 branches", Assert.Single(services.Dialogs.Shown).Title);
+                Assert.Equal(3, NamesOf(page).Count);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void CtrlA_SelectsTheBranchesTheTreeShows_AndNoFolder()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildWithRemoteAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                Click(window, OnLine(Row(tree, "merged"), window));
+                Press(window, Key.A, PhysicalKey.A, RawInputModifiers.Control);
+
+                // "feature/tree" is inside a closed folder: not shown, not selected.
+                Assert.Equal(["main", "merged", "unmerged", "origin/main", "origin/published"], page.SelectedBranches.Select(row => row.FullName));
+                Assert.DoesNotContain(page.SelectedNodes, node => node.IsFolder);
+                Assert.Same(Row(page, "merged"), page.SelectedItem);
+
+                // Open, it is.
+                Assert.Single(page.Groups[0].Children, node => node.IsFolder).IsExpanded = true;
+                Settle(window);
+                Press(window, Key.A, PhysicalKey.A, RawInputModifiers.Control);
+
+                Assert.Contains("feature/tree", page.SelectedBranches.Select(row => row.FullName));
+                Assert.Equal(6, page.SelectedBranches.Count);
+                Assert.Equal(6, tree.SelectedItems.Count);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheArrowsReachingAFolder_LeaveTheBranchesSelectedBefore()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                // Two branches, the focus left on "main", right under the folder.
+                Click(window, OnLine(Row(tree, "merged"), window));
+                Click(window, OnLine(Row(tree, "main"), window), RawInputModifiers.Control);
+
+                Assert.Equal(["main", "merged"], page.SelectedBranches.Select(row => row.FullName));
+
+                Press(window, Key.Up, PhysicalKey.ArrowUp);
+
+                Assert.Equal(["main", "merged"], page.SelectedBranches.Select(row => row.FullName));
+                Assert.DoesNotContain(page.SelectedNodes, node => node.IsFolder);
+                Assert.DoesNotContain(tree.SelectedItems.Cast<BranchTreeNode>(), node => node.IsFolder);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void AShiftRangeAcrossATopLevelNode_SelectsOnlyItsBranches()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            BranchesPageViewModel page = await OpenAsync(services, await BuildWithRemoteAsync(services));
+
+            (Window window, TreeView tree) = ShowTree(services, page);
+
+            try
+            {
+                // From the last local branch to the first of origin's, across origin's own line.
+                Click(window, OnLine(Row(tree, "unmerged"), window));
+                Click(window, OnLine(Row(tree, "origin/main"), window), RawInputModifiers.Shift);
+
+                Assert.Equal(["unmerged", "origin/main"], page.SelectedBranches.Select(row => row.FullName));
+                Assert.DoesNotContain(page.SelectedNodes, node => node.IsFolder);
+                Assert.Same(Row(page, "unmerged"), page.SelectedItem);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- upstream
 
     [Fact]
@@ -2108,17 +2499,17 @@ public sealed class BranchesPageTests
         return new Point(left.X, middle.Y);
     }
 
-    private static void Click(Window window, Point point)
+    private static void Click(Window window, Point point, RawInputModifiers modifiers = RawInputModifiers.None)
     {
-        window.MouseDown(point, MouseButton.Left);
-        window.MouseUp(point, MouseButton.Left);
+        window.MouseDown(point, MouseButton.Left, modifiers);
+        window.MouseUp(point, MouseButton.Left, modifiers);
         Settle(window);
     }
 
-    private static void Press(Window window, Key key, PhysicalKey physicalKey)
+    private static void Press(Window window, Key key, PhysicalKey physicalKey, RawInputModifiers modifiers = RawInputModifiers.None)
     {
-        window.KeyPress(key, RawInputModifiers.None, physicalKey, null);
-        window.KeyRelease(key, RawInputModifiers.None, physicalKey, null);
+        window.KeyPress(key, modifiers, physicalKey, null);
+        window.KeyRelease(key, modifiers, physicalKey, null);
         Settle(window);
     }
 
