@@ -35,8 +35,8 @@ public sealed class StartWindowViewModel : ViewModelBase
     /// <summary>Gets the navigation service the rail and the content area bind to.</summary>
     public INavigationService Navigation => StartNavigation.Service;
 
-    /// <summary>Gets the window title.</summary>
-    public string WindowTitle => ProductInformation.Name;
+    /// <summary>Gets the window title: the product's name in words.</summary>
+    public string WindowTitle => ProductInformation.DisplayName;
 
     /// <summary>
     /// Runs every time the start window opens: the first time, it selects the repositories page;

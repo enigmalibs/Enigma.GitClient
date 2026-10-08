@@ -1,6 +1,6 @@
 # FEATURE-B313 — Window title says Enigma Git Client
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-B313.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-b313-window-title`
 **Run:** feature/2026-10-08-title-watcher-refs-release

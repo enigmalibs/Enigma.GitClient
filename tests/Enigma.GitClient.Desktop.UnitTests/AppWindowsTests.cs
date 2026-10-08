@@ -60,6 +60,7 @@ public sealed class AppWindowsTests
 
                 Assert.Equal(AppWindowKind.Start, windows.Current);
                 Assert.True(window.IsVisible);
+                Assert.Equal("Enigma Git Client", window.Title);
                 Assert.Equal(StartPage.Repositories, viewModel.StartNavigation.Current);
                 Assert.IsType<RepositoriesPageView>(viewModel.Navigation.CurrentPage);
             }
