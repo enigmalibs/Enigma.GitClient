@@ -19,6 +19,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     private CancellationTokenSource _lifetime = new();
+    private int _writes;
     private bool _disposed;
 
     /// <summary>
@@ -68,7 +69,13 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     public CancellationToken RepositoryLifetime => _lifetime.Token;
 
     /// <inheritdoc />
+    public bool IsWriting => Volatile.Read(ref _writes) > 0;
+
+    /// <inheritdoc />
     public event EventHandler<RepositoryChangedEventArgs>? RepositoryChanged;
+
+    /// <inheritdoc />
+    public event EventHandler? WriteEnded;
 
     /// <inheritdoc />
     public event EventHandler? StateRefreshed;
@@ -196,6 +203,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 
         await _writeLock.WaitAsync(linked.Token).ConfigureAwait(true);
+        BeginWrite();
 
         try
         {
@@ -210,7 +218,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         }
         finally
         {
-            _writeLock.Release();
+            EndWrite();
         }
     }
 
@@ -226,6 +234,8 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         {
             return false;
         }
+
+        BeginWrite();
 
         try
         {
@@ -243,7 +253,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         }
         finally
         {
-            _writeLock.Release();
+            EndWrite();
         }
     }
 
@@ -260,6 +270,22 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         _lifetime.Cancel();
         _lifetime.Dispose();
         _writeLock.Dispose();
+    }
+
+    /// <summary>
+    /// Marks a write as running, once the lock is held.
+    /// </summary>
+    private void BeginWrite() => Interlocked.Increment(ref _writes);
+
+    /// <summary>
+    /// Marks the write as over, lets the lock go and says so — whether the write succeeded or not.
+    /// </summary>
+    private void EndWrite()
+    {
+        Interlocked.Decrement(ref _writes);
+        _writeLock.Release();
+
+        WriteEnded?.Invoke(this, EventArgs.Empty);
     }
 
     private void ReplaceLifetime()

@@ -401,7 +401,7 @@ public sealed class ToolDialogTests
     }
 
     [Theory]
-    [InlineData(ToolDialog.Branches, "BranchList", 2)]
+    [InlineData(ToolDialog.Branches, "BranchTree", 2)]
     [InlineData(ToolDialog.Tags, "TagList", 1)]
     [InlineData(ToolDialog.Remotes, "RemoteList", 1)]
     public void ALongList_ScrollsUnderItsHeader_WhichStaysAtTheTop(ToolDialog dialog, string listName, int strips)
@@ -424,10 +424,13 @@ public sealed class ToolDialogTests
                 Task showing = tools.ShowAsync(dialog);
 
                 Control page = Assert.IsAssignableFrom<Control>(window.ToolDialog.Content);
-                ListBox list = page.FindControl<ListBox>(listName)
+                ItemsControl list = page.FindControl<ItemsControl>(listName)
                     ?? throw new InvalidOperationException($"The page has no {listName}.");
 
-                await WaitUntilAsync(() => list.ItemCount >= 30);
+                // A tree's own items are its top-level nodes: what fills it is the lines under them.
+                await WaitUntilAsync(() => list is TreeView tree
+                    ? tree.GetRealizedTreeContainers().Count() >= 20
+                    : list.ItemCount >= 30);
                 Settle(window);
 
                 // The card has nothing to scroll: the page is laid out in the room the card has, and the

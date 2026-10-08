@@ -9,7 +9,7 @@
     <!-- The product version, for the whole solution: Core and Desktop ship as one application, so
          they never carry separate numbers. The splash screen, the About dialog, the Settings page and
          the hosting user agent all read it. -->
-    <Version>5.9.0</Version>
+    <Version>6.0.0</Version>
     <LangVersion>14</LangVersion>
     <Nullable>enable</Nullable>
     <!-- Explicit usings everywhere: every file declares its own using directives. -->

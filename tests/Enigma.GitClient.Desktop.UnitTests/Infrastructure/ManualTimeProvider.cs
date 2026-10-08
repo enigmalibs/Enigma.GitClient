@@ -42,6 +42,13 @@ public sealed class ManualTimeProvider : TimeProvider
     }
 
     /// <inheritdoc />
+    /// <remarks>One tick per tick of <see cref="GetUtcNow"/>, so elapsed times follow this clock too.</remarks>
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    /// <inheritdoc />
+    public override long GetTimestamp() => GetUtcNow().UtcTicks;
+
+    /// <inheritdoc />
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         ManualTimer timer = new(this, callback, state);

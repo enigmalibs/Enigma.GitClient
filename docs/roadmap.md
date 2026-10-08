@@ -302,6 +302,18 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | No git auto-maintenance in tests        | DONE      | (in FEATURE-2414.md)      |
 | - PHASE02    | History fixture built once, copied      | DONE      | (in FEATURE-2414.md)      |
 | FEATURE-158D | Release 5.9.0                           | DONE      | docs/plan/FEATURE-158D.md |
+| FEATURE-B313 | Window title says Enigma Git Client     | DONE      | docs/plan/FEATURE-B313.md |
+| FEATURE-532B | File-system watcher for instant refresh | DONE      | docs/plan/FEATURE-532B.md |
+| - PHASE01    | Coalescer and suppression               | DONE      | (in FEATURE-532B.md)      |
+| - PHASE02    | OS event sources                        | DONE      | (in FEATURE-532B.md)      |
+| - PHASE03    | Wire the watcher into the app           | DONE      | (in FEATURE-532B.md)      |
+| - PHASE04    | Setting and 60 s default                | DONE      | (in FEATURE-532B.md)      |
+| FEATURE-8E87 | Compact ref rows with multi-select      | DONE      | docs/plan/FEATURE-8E87.md |
+| - PHASE01    | Shared rows, compact tags and remotes   | DONE      | (in FEATURE-8E87.md)      |
+| - PHASE02    | Bulk delete for tags and remotes        | DONE      | (in FEATURE-8E87.md)      |
+| - PHASE03    | Branches as a compact tree              | DONE      | (in FEATURE-8E87.md)      |
+| - PHASE04    | Bulk delete for branches                | DONE      | (in FEATURE-8E87.md)      |
+| FEATURE-AE9F | Release 6.0.0                           | DONE      | docs/plan/FEATURE-AE9F.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

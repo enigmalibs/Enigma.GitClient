@@ -315,10 +315,27 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
     public bool SelectFirstFile() => Unstaged.SelectFirstFile() || Staged.SelectFirstFile();
 
     /// <summary>
+    /// Gets the panel's latest reading of the working tree, finished or still under way.
+    /// </summary>
+    /// <remarks>
+    /// The history asks it whether there is uncommitted work while the panel is on screen, rather than
+    /// running a <c>git status</c> of its own beside the one the panel runs anyway.
+    /// </remarks>
+    public Task Reading { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
     /// Re-reads the status and rebuilds both halves.
     /// </summary>
     /// <returns>A task that completes once the panel is up to date.</returns>
-    public async Task RefreshAsync()
+    public Task RefreshAsync()
+    {
+        Task reading = ReadAsync();
+        Reading = reading;
+
+        return reading;
+    }
+
+    private async Task ReadAsync()
     {
         RepositoryHandle? repository = RepositoryContext.Repository;
 

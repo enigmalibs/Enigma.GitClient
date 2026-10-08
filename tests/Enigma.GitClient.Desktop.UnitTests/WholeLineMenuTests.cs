@@ -48,7 +48,7 @@ public sealed class WholeLineMenuTests
             BranchesPageView view = services.Get<BranchesPageView>();
             view.DataContext = page;
 
-            AssertTheWholeLineOpensTheMenu<BranchRowViewModel>(view);
+            AssertTheWholeCompactLineOpensItsMenu<BranchRowViewModel>(view);
         });
     }
 
@@ -66,7 +66,7 @@ public sealed class WholeLineMenuTests
             TagsPageView view = services.Get<TagsPageView>();
             view.DataContext = page;
 
-            AssertTheWholeLineOpensTheMenu<TagRowViewModel>(view);
+            AssertTheWholeCompactLineOpensItsMenu<TagRowViewModel>(view);
         });
     }
 
@@ -85,7 +85,7 @@ public sealed class WholeLineMenuTests
             RemotesPageView view = services.Get<RemotesPageView>();
             view.DataContext = page;
 
-            AssertTheWholeLineOpensTheMenu<RemoteRowViewModel>(view);
+            AssertTheWholeCompactLineOpensItsMenu<RemoteRowViewModel>(view);
         });
     }
 
@@ -242,10 +242,10 @@ public sealed class WholeLineMenuTests
     // ---------------------------------------------------------------- helpers
 
     /// <summary>
-    /// Shows the page and right-clicks — by hit test — a line of it in its left padding and in the gap
-    /// after its first column, where no child is.
+    /// Shows a page whose lines are drawn like the changed files, and right-clicks one of them
+    /// everywhere a file line is right-clicked: the container's padding included.
     /// </summary>
-    private static void AssertTheWholeLineOpensTheMenu<TRow>(Control view)
+    private static void AssertTheWholeCompactLineOpensItsMenu<TRow>(Control view)
     {
         Window window = new() { Content = view, Width = 1100, Height = 600 };
         window.Show();
@@ -254,23 +254,11 @@ public sealed class WholeLineMenuTests
         {
             Render(window);
 
-            Border line = view.GetVisualDescendants()
-                .OfType<Border>()
-                .First(border => border.ContextMenu is not null && border.DataContext is TRow);
+            Grid line = view.GetVisualDescendants()
+                .OfType<Grid>()
+                .First(grid => grid.ContextMenu is not null && grid.DataContext is TRow);
 
-            Grid columns = line.GetVisualChildren().OfType<Grid>().Single();
-
-            // The border's own padding, left of the first column.
-            Point padding = new(2, line.Bounds.Height / 2);
-            Assert.Same(line, MenuOwnerAt(window, line.TranslatePoint(padding, window)));
-
-            // The spacing between the first two columns, which carries no child.
-            Point gap = GapAfterFirstChild(columns);
-            Assert.Same(line, MenuOwnerAt(window, columns.TranslatePoint(gap, window)));
-
-            // And over the text, as before.
-            TextBlock text = line.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text is { Length: > 0 });
-            Assert.Same(line, MenuOwnerAt(window, text.TranslatePoint(new Point(1, text.Bounds.Height / 2), window)));
+            AssertTheWholeFileLineOpensItsMenu(window, line);
         }
         finally
         {

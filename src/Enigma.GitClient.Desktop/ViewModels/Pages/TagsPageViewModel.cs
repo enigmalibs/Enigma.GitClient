@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -30,13 +31,15 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <param name="selectInHistory">The command that selects the tagged commit in the history.</param>
     /// <param name="push">The command that pushes the tag to the remote.</param>
     /// <param name="deleteRemote">The command that deletes the tag from the remote.</param>
+    /// <param name="selection">How many lines of the page are selected, which the line's menu reads.</param>
     public TagRowViewModel(
         GitTag tag,
         AsyncRelayCommand<TagRowViewModel> checkout,
         AsyncRelayCommand<TagRowViewModel> delete,
         RelayCommand<TagRowViewModel>? selectInHistory = null,
         AsyncRelayCommand<TagRowViewModel>? push = null,
-        AsyncRelayCommand<TagRowViewModel>? deleteRemote = null)
+        AsyncRelayCommand<TagRowViewModel>? deleteRemote = null,
+        LineSelection? selection = null)
     {
         ArgumentNullException.ThrowIfNull(tag);
         ArgumentNullException.ThrowIfNull(checkout);
@@ -48,10 +51,17 @@ public sealed class TagRowViewModel : ViewModelBase
         SelectInHistoryCommand = selectInHistory;
         PushCommand = push;
         DeleteRemoteCommand = deleteRemote;
+        Selection = selection ?? new LineSelection();
     }
 
     /// <summary>Gets the tag this row stands for.</summary>
     public GitTag Tag { get; }
+
+    /// <summary>
+    /// Gets how many lines of the page are selected: with several, the line's menu offers only what
+    /// works on all of them — the deletes.
+    /// </summary>
+    public LineSelection Selection { get; }
 
     /// <summary>Gets the tag's name.</summary>
     public string Name => Tag.ShortName;
@@ -77,10 +87,39 @@ public sealed class TagRowViewModel : ViewModelBase
     /// <summary>Gets the tagged commit's short hash.</summary>
     public string ShortSha => Tag.TargetSha.Length >= 7 ? Tag.TargetSha[..7] : Tag.TargetSha;
 
+    /// <summary>
+    /// Gets what the line's tooltip says: everything about the tag the line itself leaves out — its
+    /// kind, its message, who made it, and the commit it points at with that commit's date.
+    /// </summary>
+    public string ToolTip
+    {
+        get
+        {
+            List<string> lines = [Tag.IsAnnotated ? "Annotated tag" : "Lightweight tag"];
+
+            if (HasMessage)
+            {
+                lines.Add(Message.Trim());
+            }
+
+            if (HasTagger)
+            {
+                lines.Add($"Tagged by {Tagger}");
+            }
+
+            lines.Add($"{ShortSha} · {Date}");
+
+            return string.Join('\n', lines);
+        }
+    }
+
     /// <summary>Gets the command that checks the tag out, detaching HEAD.</summary>
     public AsyncRelayCommand<TagRowViewModel> CheckoutCommand { get; }
 
-    /// <summary>Gets the command that deletes the tag.</summary>
+    /// <summary>
+    /// Gets the command that deletes the tag here — and with it every other selected tag, when the
+    /// line is one of several selected.
+    /// </summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteCommand { get; }
 
     /// <summary>Gets the command that closes the dialog and selects the tagged commit in the history.</summary>
@@ -173,6 +212,9 @@ public sealed class TagsPageViewModel : PageViewModelBase
         DeleteCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteAsync, row => row is not null);
         DeleteRemoteCommand = new AsyncRelayCommand<TagRowViewModel>(OnDeleteRemoteAsync, row => row is not null);
         PushCommand = new AsyncRelayCommand<TagRowViewModel>(OnPushAsync, row => row is not null);
+        DeleteSelectionCommand = new AsyncRelayCommand(OnDeleteSelectionAsync, () => SelectedTags.Count > 0);
+
+        SelectedTags.CollectionChanged += (_, _) => OnSelectionChanged();
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -249,13 +291,32 @@ public sealed class TagsPageViewModel : PageViewModelBase
     public RelayCommand<TagRowViewModel> SelectInHistoryCommand { get; }
 
     /// <summary>
-    /// Gets or sets the tag the reader has selected.
+    /// Gets or sets the tag the reader has selected — the first of them, when several are.
     /// </summary>
     public TagRowViewModel? SelectedTag
     {
         get;
         set => SetProperty(ref field, value);
     }
+
+    /// <summary>
+    /// Gets every tag the reader has selected: the list's own selection, which Ctrl+click, Shift+click
+    /// and Ctrl+A make, and what the Delete key and the header's button act on.
+    /// </summary>
+    public ObservableCollection<TagRowViewModel> SelectedTags { get; } = [];
+
+    /// <summary>Gets how many tags are selected, as every line's menu reads it.</summary>
+    public LineSelection Selection { get; } = new();
+
+    /// <summary>Gets what the header's delete button says: how many it would delete.</summary>
+    public string DeleteSelectionLabel
+        => SelectedTags.Count == 0 ? "Delete" : $"Delete ({SelectedTags.Count.ToString(CultureInfo.CurrentCulture)})";
+
+    /// <summary>
+    /// Gets the command that deletes every selected tag here, after one question naming them all — the
+    /// header's button and the Delete key.
+    /// </summary>
+    public AsyncRelayCommand DeleteSelectionCommand { get; }
 
     /// <summary>
     /// Gets or sets a substring the shown tag names must contain.
@@ -298,7 +359,10 @@ public sealed class TagsPageViewModel : PageViewModelBase
     /// <summary>Gets the command that deletes a tag.</summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteCommand { get; }
 
-    /// <summary>Gets the command that deletes a tag from the remote, keeping it here.</summary>
+    /// <summary>
+    /// Gets the command that deletes a tag from the remote, keeping it here — every selected tag, when
+    /// the line is one of several selected.
+    /// </summary>
     public AsyncRelayCommand<TagRowViewModel> DeleteRemoteCommand { get; }
 
     /// <summary>Gets the command that pushes a tag, on its own, to the remote.</summary>
@@ -385,20 +449,32 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
     private void Rebuild()
     {
+        // Captured before the list is emptied: emptying it tells the list the selection is gone, and the
+        // list says so back. What survives a rebuild is the names.
         string? selected = SelectedTag?.Name;
+        HashSet<string> selectedNames = [.. SelectedTags.Select(row => row.Name)];
 
+        SelectedTags.Clear();
         Tags.Clear();
 
         IEnumerable<GitTag> matching = RepositoryContext.Refs.Tags.Where(tag => Matches(tag.ShortName));
 
         foreach (GitTag tag in RefSort.Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection))
         {
-            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand, DeleteRemoteCommand));
+            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand, DeleteRemoteCommand, Selection));
         }
 
         SelectedTag = selected is null
             ? null
             : Tags.FirstOrDefault(row => row.Name == selected);
+
+        foreach (TagRowViewModel row in Tags)
+        {
+            if (selectedNames.Contains(row.Name) && !SelectedTags.Contains(row))
+            {
+                SelectedTags.Add(row);
+            }
+        }
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
@@ -427,7 +503,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
     {
         if (row is not null)
         {
-            await Run(() => _tagOperations.DeleteAsync(row.Name)).ConfigureAwait(true);
+            await Run(() => _tagOperations.DeleteAsync(NamesFor(row))).ConfigureAwait(true);
         }
     }
 
@@ -435,8 +511,34 @@ public sealed class TagsPageViewModel : PageViewModelBase
     {
         if (row is not null)
         {
-            await Run(() => _tagOperations.DeleteRemoteAsync(row.Name)).ConfigureAwait(true);
+            await Run(() => _tagOperations.DeleteRemoteAsync(NamesFor(row))).ConfigureAwait(true);
         }
+    }
+
+    private async Task OnDeleteSelectionAsync()
+    {
+        if (SelectedTags.Count > 0)
+        {
+            await Run(() => _tagOperations.DeleteAsync(SelectedNames())).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// The tags a line's menu acts on: the whole selection when the line is one of several selected,
+    /// and the line alone otherwise — a right-click outside the selection selects that line first.
+    /// </summary>
+    private IReadOnlyList<string> NamesFor(TagRowViewModel row)
+        => SelectedTags.Count > 1 && SelectedTags.Contains(row) ? SelectedNames() : [row.Name];
+
+    /// <summary>The selected tags' names, in the order the list shows them.</summary>
+    private IReadOnlyList<string> SelectedNames()
+        => [.. Tags.Where(SelectedTags.Contains).Select(row => row.Name)];
+
+    private void OnSelectionChanged()
+    {
+        Selection.Update(SelectedTags.Count);
+        OnPropertyChanged(nameof(DeleteSelectionLabel));
+        DeleteSelectionCommand.NotifyCanExecuteChanged();
     }
 
     private async Task OnPushAsync(TagRowViewModel? row)
