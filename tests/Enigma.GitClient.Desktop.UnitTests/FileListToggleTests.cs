@@ -174,7 +174,7 @@ public sealed class FileListToggleTests
     }
 
     [Fact]
-    public void InTheTree_TheSelectedFileLetsGo_AndAFoldersChevronOnlyFoldsIt()
+    public void InTheTree_TheSelectedFileLetsGo_AndAFolderIsNeverSelected()
     {
         _fixture.RunAsync(async () =>
         {
@@ -197,23 +197,40 @@ public sealed class FileListToggleTests
             Assert.Null(model.Files.SelectedNode);
             Assert.False(model.IsDiffViewOpen);
 
-            // A selected folder lets go on a click too.
+            // A folder is never selected (BUG-1B14): with nothing selected, a click on its line folds
+            // it, and the graph stays.
             Click(window, OnFile(view, "DetailsFiles", folder, window, 120));
-            Assert.Same(folder, model.Files.SelectedNode);
+
+            Assert.False(folder.IsExpanded);
+            Assert.Null(model.Files.SelectedNode);
+            Assert.False(model.IsDiffViewOpen);
 
             Click(window, OnFile(view, "DetailsFiles", folder, window, 200));
-            Assert.Null(model.Files.SelectedNode);
-
-            // Its chevron is a button: it folds the folder and leaves the selection where it is.
-            Click(window, OnFile(view, "DetailsFiles", folder, window, 120));
-            Assert.Same(folder, model.Files.SelectedNode);
             Assert.True(folder.IsExpanded);
 
+            // With a file's diff open, the file keeps the selection and the diff stays on it.
+            Click(window, OnFile(view, "DetailsFiles", guide, window));
+            Click(window, OnFile(view, "DetailsFiles", folder, window, 120));
+
+            Assert.False(folder.IsExpanded);
+            Assert.Same(guide, model.Files.SelectedNode);
+            Assert.True(model.IsDiffViewOpen);
+            await WaitUntilAsync(() => model.Diff.Title == "docs/guide.md" && !model.Diff.HasMessage);
+
+            // And the next file is one click away.
+            Click(window, OnFile(view, "DetailsFiles", folder, window, 200));
+            ChangedFileNodeViewModel notes = FileNode(model.Files, "docs/notes.md");
+            Click(window, OnFile(view, "DetailsFiles", notes, window, 180));
+
+            Assert.Same(notes, model.Files.SelectedNode);
+            Assert.True(model.IsDiffViewOpen);
+
+            // Its chevron is a button: it folds the folder and leaves the selection where it is.
             ToggleButton chevron = ChevronOf(view, folder);
             Click(window, chevron.TranslatePoint(new Point(chevron.Bounds.Width / 2, chevron.Bounds.Height / 2), window)!.Value);
 
             Assert.False(folder.IsExpanded);
-            Assert.Same(folder, model.Files.SelectedNode);
+            Assert.Same(notes, model.Files.SelectedNode);
 
             window.Close();
         });

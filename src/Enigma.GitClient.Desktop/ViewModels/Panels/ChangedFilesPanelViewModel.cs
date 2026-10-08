@@ -323,6 +323,11 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         ShowAsTreeCommand = new RelayCommand(() => ViewMode = ChangedFilesViewMode.Tree);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
 
+        // Before the preferences are applied below: applying them rebuilds the rows, which re-evaluates
+        // these two.
+        ExpandAllCommand = new RelayCommand(() => SetAllExpanded(true), HasFolders);
+        CollapseAllCommand = new RelayCommand(() => SetAllExpanded(false), HasFolders);
+
         CopyPathCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
             node => _interop.CopyTextAsync(node?.Path ?? string.Empty));
 
@@ -458,6 +463,9 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsListMode));
                 OnPropertyChanged(nameof(IsTreeMode));
                 Rebuild();
+
+                // After the rebuild, so the control now shown is handed a row it actually holds.
+                AnnounceSelection();
             }
         }
     } = ChangedFilesViewMode.Tree;
@@ -501,23 +509,77 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     } = true;
 
     /// <summary>
-    /// Gets or sets the selected row, which the diff viewer follows.
+    /// Gets or sets the selected row, which the diff viewer follows. Only a file is ever selected.
     /// </summary>
+    /// <remarks>
+    /// A directory is refused, whoever offers it: the list, the keyboard or code. A selected directory
+    /// had no diff to show, so the diff page was left open on "Select a file" and the file before it
+    /// was lost (BUG-1B14). The selection stays where it was, and is announced again so that the
+    /// control that offered the directory goes back to it.
+    /// </remarks>
     public ChangedFileNodeViewModel? SelectedNode
     {
         get;
         set
         {
+            if (value is { IsDirectory: true })
+            {
+                AnnounceSelection();
+                return;
+            }
+
             if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(SelectedFile));
+                OnPropertyChanged(nameof(ListSelection));
+                OnPropertyChanged(nameof(TreeSelection));
                 SelectionChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
 
     /// <summary>
-    /// Gets the selected file, or <see langword="null"/> when nothing or a directory is selected.
+    /// Gets or sets the selection as the flat list sees it: <see cref="SelectedNode"/> while the list is
+    /// the one shown, and nothing otherwise.
+    /// </summary>
+    /// <remarks>
+    /// The view holds the list and the tree together, one of them hidden, and a hidden control still
+    /// writes its selection back. The list holds only the tree's top rows, so a file nested in a folder
+    /// is one it cannot select: bound to <see cref="SelectedNode"/> itself, it let go of its own
+    /// selection and wrote that nothing over the tree's choice, and the first click on a nested file
+    /// was lost (BUG-1B14). Each control is handed the selection only while it is the one shown, and
+    /// is not listened to otherwise.
+    /// </remarks>
+    public ChangedFileNodeViewModel? ListSelection
+    {
+        get => IsListMode ? SelectedNode : null;
+        set
+        {
+            if (IsListMode)
+            {
+                SelectedNode = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the selection as the tree sees it: <see cref="SelectedNode"/> while the tree is the
+    /// one shown, and nothing otherwise (see <see cref="ListSelection"/>).
+    /// </summary>
+    public ChangedFileNodeViewModel? TreeSelection
+    {
+        get => IsTreeMode ? SelectedNode : null;
+        set
+        {
+            if (IsTreeMode)
+            {
+                SelectedNode = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the selected file, or <see langword="null"/> when nothing is selected.
     /// </summary>
     public ChangedFile? SelectedFile => SelectedNode?.File;
 
@@ -564,6 +626,21 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
 
     /// <summary>Gets the command that clears the search box.</summary>
     public RelayCommand ClearSearchCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens every folder of the tree, nested ones included.
+    /// </summary>
+    /// <remarks>
+    /// Whatever <see cref="AutoExpandLimit"/> says: the limit is what the tree opens on its own, and
+    /// this is the reader asking for all of it.
+    /// </remarks>
+    public RelayCommand ExpandAllCommand { get; }
+
+    /// <summary>
+    /// Gets the command that closes every folder of the tree. The selected file keeps the selection: a
+    /// folder never takes it.
+    /// </summary>
+    public RelayCommand CollapseAllCommand { get; }
 
     /// <summary>Gets how many files the change touches.</summary>
     public int FileCount => _files.Count;
@@ -772,6 +849,17 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     private void Rebuild() => Rebuild(SelectedFilePath, sameChange: true);
 
     /// <summary>
+    /// Tells the list and the tree what is selected, whether or not it changed: a control that offered
+    /// a row the panel refused has to be told to go back.
+    /// </summary>
+    private void AnnounceSelection()
+    {
+        OnPropertyChanged(nameof(SelectedNode));
+        OnPropertyChanged(nameof(ListSelection));
+        OnPropertyChanged(nameof(TreeSelection));
+    }
+
+    /// <summary>
     /// Builds the rows again, selecting a path when it is still shown.
     /// </summary>
     /// <param name="previous">The path to select again, or <see langword="null"/> for none.</param>
@@ -827,12 +915,31 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(IsEmpty));
+        ExpandAllCommand.NotifyCanExecuteChanged();
+        CollapseAllCommand.NotifyCanExecuteChanged();
 
         // Keeping the selection across a view-mode switch or a search is what makes the toggle feel
         // like a different view of the same thing rather than a reset.
         if (!SelectPath(previous))
         {
             SelectedNode = null;
+        }
+    }
+
+    /// <summary>
+    /// Whether the tree is shown with a folder in it, which is when there is anything to open or close.
+    /// A nested folder is always under a top one, so the top rows are enough to tell.
+    /// </summary>
+    private bool HasFolders() => IsTreeMode && Nodes.Any(node => node.IsDirectory);
+
+    private void SetAllExpanded(bool expanded)
+    {
+        foreach (ChangedFileNodeViewModel node in Flatten(Nodes))
+        {
+            if (node.IsDirectory)
+            {
+                node.IsExpanded = expanded;
+            }
         }
     }
 

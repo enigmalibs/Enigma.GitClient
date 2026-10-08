@@ -390,6 +390,8 @@ public sealed class DiffViewerViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsUnified));
                 OnPropertyChanged(nameof(IsSideBySide));
+                OnPropertyChanged(nameof(ShowsUnified));
+                OnPropertyChanged(nameof(ShowsSideBySide));
                 OnPropertyChanged(nameof(EffectiveContextLines));
                 Render.Selection.Clear();
 
@@ -406,6 +408,22 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
     /// <summary>Gets a value indicating whether the side-by-side rendering is shown.</summary>
     public bool IsSideBySide => ViewMode == DiffViewMode.SideBySide;
+
+    /// <summary>
+    /// Gets a value indicating whether the unified rendering is on screen: chosen, and with a patch to
+    /// draw rather than a message.
+    /// </summary>
+    /// <remarks>
+    /// A message stands alone. Drawn under an empty editor, its gutter and its background, it read as
+    /// half hidden in the middle of a diff that was not there (BUG-D0D9).
+    /// </remarks>
+    public bool ShowsUnified => IsUnified && !HasMessage;
+
+    /// <summary>
+    /// Gets a value indicating whether the side-by-side rendering is on screen (see
+    /// <see cref="ShowsUnified"/>).
+    /// </summary>
+    public bool ShowsSideBySide => IsSideBySide && !HasMessage;
 
     /// <summary>
     /// Gets or sets how many unchanged lines are shown around each change.
@@ -860,6 +878,8 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasPatch));
         OnPropertyChanged(nameof(HasMessage));
+        OnPropertyChanged(nameof(ShowsUnified));
+        OnPropertyChanged(nameof(ShowsSideBySide));
         OnPropertyChanged(nameof(HasSubtitle));
 
         ExpandContextCommand.NotifyCanExecuteChanged();
