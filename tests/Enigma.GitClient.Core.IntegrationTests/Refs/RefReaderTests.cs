@@ -12,16 +12,22 @@ namespace Enigma.GitClient.Core.IntegrationTests.Refs;
 
 public sealed class RefReaderTests : IAsyncLifetime
 {
+    private readonly HistoryTemplate _template;
     private GitWorkspace _workspace = null!;
     private CoreTestHost _host = null!;
     private HistoryFixture _fixture = null!;
     private RepositoryHandle _handle = null!;
 
+    public RefReaderTests(HistoryTemplate template)
+    {
+        _template = template;
+    }
+
     public async ValueTask InitializeAsync()
     {
         _workspace = GitWorkspace.Create();
         _host = CoreTestHost.Create(_workspace);
-        _fixture = await HistoryFixture.CreateAsync(_workspace);
+        _fixture = _template.CopyInto(_workspace);
 
         RepositoryDiscoveryResult discovery = await _host.GetRequiredService<IRepositoryLocator>()
             .DiscoverAsync(_fixture.Repository.Path, TestContext.Current.CancellationToken);
