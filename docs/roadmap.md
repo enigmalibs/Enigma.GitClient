@@ -297,7 +297,12 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-E2D2 | Expand all / collapse all in the tree   | DONE      | docs/plan/FEATURE-E2D2.md |
 | FEATURE-62B7 | A simpler About dialog                  | DONE      | docs/plan/FEATURE-62B7.md |
 | FEATURE-A57F | Release 5.8.0                           | DONE      | docs/plan/FEATURE-A57F.md |
-| FEATURE-158D | Release 5.9.0                           | TODO      | docs/plan/FEATURE-158D.md |
+| BUG-3163     | Racing write test hangs on Windows      | DONE      | docs/plan/BUG-3163.md     |
+| FEATURE-2414 | Faster integration test suite           | DONE      | docs/plan/FEATURE-2414.md |
+| - PHASE01    | No git auto-maintenance in tests        | DONE      | (in FEATURE-2414.md)      |
+| - PHASE02    | History fixture built once, copied      | DONE      | (in FEATURE-2414.md)      |
+| FEATURE-158D | Release 5.9.0                           | DONE      | docs/plan/FEATURE-158D.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
+> Its Core half (the `AtomicFile` retry, a racing test that cannot hang) is redone by `BUG-3163`.

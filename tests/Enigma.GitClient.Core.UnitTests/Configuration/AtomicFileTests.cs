@@ -101,12 +101,19 @@ public sealed class AtomicFileTests : IDisposable
         Task writer = Task.Run(
             () =>
             {
-                for (int round = 0; round < 300; round++)
+                try
                 {
-                    AtomicFile.WriteAllText(Target, round % 2 == 0 ? large : small);
+                    for (int round = 0; round < 300; round++)
+                    {
+                        AtomicFile.WriteAllText(Target, round % 2 == 0 ? large : small);
+                    }
                 }
-
-                stop.Cancel();
+                finally
+                {
+                    // A writer that fails must release the reader, or the test spins forever instead
+                    // of failing.
+                    stop.Cancel();
+                }
             },
             token);
 
@@ -139,4 +146,62 @@ public sealed class AtomicFileTests : IDisposable
 
         Assert.True(reads > 0);
     }
+
+    [Fact]
+    public async Task WriteAllText_WhileAReaderHoldsTheFile_LandsOnceItLetsGo()
+    {
+        File.WriteAllText(Target, "old");
+        Task writing;
+
+        using (OpenLikeAReader())
+        {
+            writing = Task.Run(() => AtomicFile.WriteAllText(Target, "new"), TestContext.Current.CancellationToken);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+
+        await writing;
+
+        Assert.Equal("new", File.ReadAllText(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
+    [Fact]
+    public async Task WriteAllTextAsync_WhileAReaderHoldsTheFile_LandsOnceItLetsGo()
+    {
+        File.WriteAllText(Target, "old");
+        Task writing;
+
+        using (OpenLikeAReader())
+        {
+            writing = AtomicFile.WriteAllTextAsync(Target, "new", null, TestContext.Current.CancellationToken);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+
+        await writing;
+
+        Assert.Equal("new", File.ReadAllText(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
+    [Fact]
+    public void WriteAllText_AReaderThatNeverLetsGo_FailsTheWriteAndLeavesNoTemporary()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to replace a file another handle holds.");
+
+        File.WriteAllText(Target, "old");
+
+        using (OpenLikeAReader())
+        {
+            Assert.Throws<UnauthorizedAccessException>(() => AtomicFile.WriteAllText(Target, "new"));
+        }
+
+        Assert.Equal("old", File.ReadAllText(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
+    /// <summary>
+    /// Opens the target the way <see cref="File.ReadAllText(string)"/> does: shared for reading only,
+    /// which is what makes Windows refuse to replace it.
+    /// </summary>
+    private FileStream OpenLikeAReader() => new(Target, FileMode.Open, FileAccess.Read, FileShare.Read);
 }
