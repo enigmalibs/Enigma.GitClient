@@ -1,6 +1,6 @@
 # FEATURE-62B7 — A simpler About dialog
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-62B7.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-62b7-simple-about`
 **Run:** vibe/2026-10-08-file-panel-about-release
