@@ -71,6 +71,10 @@ public static class ServiceCollectionExtensions
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);
             services.AddSingleton<IAutoRefreshService, AutoRefreshService>();
+
+            // The file-system watcher, on top of it: what changes on disk is refreshed within a second.
+            services.AddSingleton<IRepositoryEventSource, FileSystemRepositoryEventSource>();
+            services.AddSingleton<IRepositoryWatcher, RepositoryWatcher>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();

@@ -76,6 +76,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private bool _hasMore;
     private bool _refreshPending;
 
+    // Set while the working tree is being read after a change on disk, and when another change asks
+    // for a reading in the meantime: that one runs once, after.
+    private bool _readingWorkingTree;
+    private bool _workingTreeAgain;
+
+    // Whether there is uncommitted work, as the refresh that decided to reload has just read it: the
+    // reload's first page takes it instead of asking git a second time.
+    private bool? _uncommittedJustRead;
+
     // Where HEAD and every reference were when the rows were last read: the badges and the lanes on
     // screen are drawn from that, so a context that has read anything else since has something new.
     private RepositoryStateStamp? _drawnStamp;
@@ -952,6 +961,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Whether to redraw even if the references are those the rows were drawn from: HEAD or a
     /// reference moved in that refresh, or the reader asked for it.
     /// </param>
+    /// <param name="workingTreeRead">
+    /// Whether the working-tree panel has just read the tree, or is reading it, for the same refresh —
+    /// after a re-read of the references, which it follows on its own, or after its own operation.
+    /// While it is on screen its reading then answers whether there is uncommitted work, and no
+    /// second <c>git status</c> runs beside it.
+    /// </param>
     /// <returns>A task that completes once the history is current.</returns>
     /// <remarks>
     /// <para>
@@ -971,7 +986,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// waits for them to close: replacing the rows would take away the commit they describe.
     /// </para>
     /// </remarks>
-    public async Task RefreshInPlaceAsync(bool referencesMoved)
+    public async Task RefreshInPlaceAsync(bool referencesMoved, bool workingTreeRead = false)
     {
         RepositoryHandle? repository = RepositoryContext.Repository;
 
@@ -991,7 +1006,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             moved = !stashes.Select(entry => entry.Sha).SequenceEqual(_stashList.Select(entry => entry.Sha), StringComparer.Ordinal);
         }
 
-        bool dirty = await IsWorkingTreeDirtyAsync(repository, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+        bool dirty = await HasUncommittedWorkAsync(repository, readPanel: !workingTreeRead, RepositoryContext.RepositoryLifetime)
+            .ConfigureAwait(true);
         bool showsUncommitted = Rows.Count > 0 && Rows[0].IsUncommitted;
 
         if (!moved && dirty == showsUncommitted)
@@ -1005,6 +1021,83 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
+        _uncommittedJustRead = dirty;
+        await ReloadKeepingPlaceAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Brings the working tree up to date after a change on disk that moved no reference — a file
+    /// saved, added or deleted outside the application — and draws the uncommitted line again when it
+    /// has to appear or go.
+    /// </summary>
+    /// <returns>A task that completes once the working tree has been read.</returns>
+    /// <remarks>
+    /// <para>
+    /// One <c>git status</c>: the panel's own while it is on screen, which lists the files and answers
+    /// the question both; the probe otherwise. Nothing else is read — no references, no stash — since
+    /// the change moved none.
+    /// </para>
+    /// <para>
+    /// One reading at a time: a change during one makes exactly one more after it, so a build that
+    /// writes for a minute never has two <c>git status</c> running at once.
+    /// </para>
+    /// </remarks>
+    public async Task RefreshWorkingTreeAsync()
+    {
+        if (_readingWorkingTree)
+        {
+            _workingTreeAgain = true;
+            return;
+        }
+
+        _readingWorkingTree = true;
+
+        try
+        {
+            do
+            {
+                _workingTreeAgain = false;
+                await ReadWorkingTreeAsync().ConfigureAwait(true);
+            }
+            while (_workingTreeAgain);
+        }
+        finally
+        {
+            _readingWorkingTree = false;
+        }
+    }
+
+    private async Task ReadWorkingTreeAsync()
+    {
+        if (RepositoryContext.Repository is not { } repository)
+        {
+            return;
+        }
+
+        bool dirty = await HasUncommittedWorkAsync(repository, readPanel: true, RepositoryContext.RepositoryLifetime)
+            .ConfigureAwait(true);
+
+        // A load under way reads the working tree with its first page; and a line still to come, or
+        // already gone, is the next reload's.
+        if (IsBusy || !ReferenceEquals(repository, RepositoryContext.Repository))
+        {
+            return;
+        }
+
+        bool showsUncommitted = Rows.Count > 0 && Rows[0].IsUncommitted;
+
+        if (dirty == showsUncommitted)
+        {
+            return;
+        }
+
+        if (IsDiffViewOpen)
+        {
+            _refreshPending = true;
+            return;
+        }
+
+        _uncommittedJustRead = dirty;
         await ReloadKeepingPlaceAsync().ConfigureAwait(true);
     }
 
@@ -1297,8 +1390,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         try
         {
+            // Taken whatever this page is: an answer is only ever good for the load it was read for.
+            bool? justRead = _uncommittedJustRead;
+            _uncommittedJustRead = null;
+
             bool dirty = includeUncommittedRow
-                && await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true);
+                && (justRead ?? await IsWorkingTreeDirtyAsync(repository, cancellation.Token).ConfigureAwait(true));
 
             // The stash is read with the first page and kept for the pages after it, so every page of
             // one reading walks from the same entries.
@@ -1371,6 +1468,29 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             cancellation.Dispose();
             NotifyEmptyState();
         }
+    }
+
+    /// <summary>
+    /// Says whether there is uncommitted work, with one read of the working tree: the panel's while it
+    /// is on screen — it reads the tree anyway, to list it — and the probe otherwise.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="readPanel">
+    /// Whether to have the panel read the tree again; otherwise its latest reading is taken, finished
+    /// or under way, which the caller knows to be this refresh's.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the probe.</param>
+    /// <returns><see langword="true"/> when something is uncommitted.</returns>
+    private async Task<bool> HasUncommittedWorkAsync(RepositoryHandle repository, bool readPanel, CancellationToken cancellationToken)
+    {
+        if (!WorkingTree.IsActive)
+        {
+            return await IsWorkingTreeDirtyAsync(repository, cancellationToken).ConfigureAwait(true);
+        }
+
+        await (readPanel ? WorkingTree.RefreshAsync() : WorkingTree.Reading).ConfigureAwait(true);
+
+        return !WorkingTree.IsClean;
     }
 
     private async Task<bool> IsWorkingTreeDirtyAsync(RepositoryHandle repository, CancellationToken cancellationToken)
@@ -1952,7 +2072,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             IsDiffViewOpen = false;
         }
 
-        _ = RefreshInPlaceAsync(referencesMoved: e.Committed);
+        // The panel has just read the tree, which is what it raised this after.
+        _ = RefreshInPlaceAsync(referencesMoved: e.Committed, workingTreeRead: true);
     }
 
     /// <summary>
