@@ -12,10 +12,10 @@
     <DataTemplate x:Key="ChangedFileRow" x:DataType="vm:ChangedFileNodeViewModel">
       <!-- The name sits in the one star column so the Grid can shrink it and the trimming
            actually fires. A horizontal StackPanel would measure every child with infinite width,
-           which is what made a deeply indented tree row run past the panel's edge. -->
-      <!-- Painted, if only transparently: a grid with no brush is not hit-testable between its
-           children, and this one carries the row's menu. -->
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Height="22" Background="Transparent">
+           which is what made a deeply indented tree row run past the panel's edge. The line's
+           shape — its height, spacing and brush — is the shared listrow (Themes/Styles.axaml),
+           which the branches, tags and remotes are drawn with too. -->
+      <Grid Classes="listrow" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
 
         <!-- The row's own menu. A ContextMenu opens in its own popup tree, so it cannot reach the
              panel through a visual ancestor: the row passes the panel's commands through instead,
@@ -102,20 +102,15 @@
                  IsVisible="{Binding IsDirectory}" />
 
         <TextBlock Grid.Column="1"
+                   Classes="rowname"
                    Text="{Binding Label}"
-                   VerticalAlignment="Center"
-                   HorizontalAlignment="Left"
-                   TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding Path}"
-                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                   ToolTip.Tip="{Binding Path}" />
 
         <TextBlock Grid.Column="2"
-                   Classes="faint"
+                   Classes="rowdetail faint"
                    Text="{Binding RenameLabel}"
                    IsVisible="{Binding IsRenamed}"
                    ToolTip.Tip="{Binding RenameSource}"
-                   VerticalAlignment="Center"
-                   FontSize="11"
                    MaxWidth="150"
                    TextTrimming="CharacterEllipsis" />
 
@@ -130,17 +125,13 @@
         </Button>
 
         <TextBlock Grid.Column="4"
-                   Classes="faint"
+                   Classes="rowdetail faint"
                    Text="{Binding LineCounts}"
-                   VerticalAlignment="Center"
-                   FontSize="11"
                    IsVisible="{Binding !IsDirectory}" />
 
         <TextBlock Grid.Column="4"
-                   Classes="faint"
+                   Classes="rowdetail faint"
                    Text="{Binding DirectorySummary}"
-                   VerticalAlignment="Center"
-                   FontSize="11"
                    IsVisible="{Binding IsDirectory}" />
 
       </Grid>
@@ -220,23 +211,18 @@
 
       <!-- Each control binds its own view of the selection, which it is handed only while it is the
            one shown: the hidden one would otherwise write its own "nothing" over the other's choice. -->
-      <ListBox ItemsSource="{Binding Nodes}"
+      <ListBox Classes="rows"
+               ItemsSource="{Binding Nodes}"
                SelectedItem="{Binding ListSelection, Mode=TwoWay}"
                ItemTemplate="{StaticResource ChangedFileRow}"
                IsVisible="{Binding IsListMode}"
-               Background="Transparent"
-               BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Auto"
                AutomationProperties.Name="Changed files" />
 
       <TreeView Name="FilesTree"
+                Classes="rows"
                 ItemsSource="{Binding Nodes}"
                 SelectedItem="{Binding TreeSelection, Mode=TwoWay}"
                 IsVisible="{Binding IsTreeMode}"
-                Background="Transparent"
-                BorderThickness="0"
-                Padding="0,2,18,2"
-                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 AutomationProperties.Name="Changed files">
         <TreeView.ItemTemplate>
           <TreeDataTemplate x:DataType="vm:ChangedFileNodeViewModel" ItemsSource="{Binding Children}">

@@ -6,15 +6,12 @@
              x:Class="Enigma.GitClient.Desktop.Views.Pages.RemotesPageView"
              x:DataType="vm:RemotesPageViewModel">
 
-  <UserControl.Styles>
-    <!-- A row fills its container and brings its own separator line; the hover and the selection
-         are the list's, as they are on every other list in the application. -->
-    <Style Selector="ListBox > ListBoxItem">
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="MinHeight" Value="0" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-    </Style>
-  </UserControl.Styles>
+  <!--
+    The remotes page: a flat list of compact lines drawn like the changed files beside the history —
+    the remote's name, and its fetch URL to the right, faint, cut short when it is too long. The host,
+    and where pushes go when that is elsewhere, are in the line's tooltip; what can be done to a
+    remote is in its line's menu.
+  -->
 
   <DockPanel>
 
@@ -23,7 +20,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="CloudArrowUp" Classes="header" VerticalAlignment="Center"
@@ -35,7 +32,21 @@
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
         </StackPanel>
 
+        <!-- The selected remotes, removed: red while there is any to remove. The Delete key on the list
+             does the same. Remove, the remotes' own verb: nothing on the remote itself is deleted. -->
         <Button Grid.Column="2"
+                Name="RemoveSelection"
+                Classes="toolbar danger"
+                Command="{Binding RemoveSelectionCommand}"
+                ToolTip.Tip="Remove the selected remotes"
+                AutomationProperties.Name="Remove the selected remotes">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Trash" Classes="toolbar" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding RemoveSelectionLabel}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <Button Grid.Column="3"
                 Classes="toolbar"
                 Command="{Binding AddCommand}"
                 ToolTip.Tip="Add a remote"
@@ -56,33 +67,37 @@
                            IsVisible="{Binding IsEmpty}"
                            ZIndex="1" />
 
+      <!-- Several at once, as on the tags page: Ctrl+click, Shift+click, Ctrl+A. -->
       <ListBox Name="RemoteList"
+               Classes="rows"
+               SelectionMode="Multiple"
                IsVisible="{Binding !IsEmpty}"
                ItemsSource="{Binding Remotes}"
                SelectedItem="{Binding SelectedRemote, Mode=TwoWay}"
-               Background="Transparent"
-               BorderThickness="0"
-               Padding="0,4"
+               SelectedItems="{Binding SelectedRemotes}"
                AutomationProperties.Name="Remotes">
+        <ListBox.KeyBindings>
+          <KeyBinding Gesture="Delete" Command="{Binding RemoveSelectionCommand}" />
+        </ListBox.KeyBindings>
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:RemoteRowViewModel">
-            <Border Background="Transparent"
-                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="16,10">
-              <!-- On the row's border, whose background is what the pointer hits: a grid with no brush is
-                   not hit-testable between its children, so the menu used to open only over the text. -->
-              <Border.ContextMenu>
+            <!-- The name keeps its width, and the URL takes what is left, from the right. -->
+            <Grid Classes="listrow" ColumnDefinitions="Auto,Auto,*" ToolTip.Tip="{Binding ToolTip}">
+              <Grid.ContextMenu>
                 <ContextMenu>
+                  <!-- What works on one remote is offered while one is selected; with several, only the
+                       remove, which acts on all of them. -->
                   <MenuItem Header="Fetch"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding FetchCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
                       <ei:Icon Kind="ArrowsDownUp" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
-                  <Separator />
+                  <Separator IsVisible="{Binding !Selection.IsMultiple}" />
                   <MenuItem Header="Edit…"
+                            IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding EditCommand}"
                             CommandParameter="{Binding}">
                     <MenuItem.Icon>
@@ -97,74 +112,24 @@
                     </MenuItem.Icon>
                   </MenuItem>
                 </ContextMenu>
-              </Border.ContextMenu>
+              </Grid.ContextMenu>
 
-              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+              <!-- Where a file's line has its status chip: the remote's own mark, so the names line up. -->
+              <ei:Icon Grid.Column="0"
+                       Kind="HardDrives"
+                       Classes="row dim"
+                       VerticalAlignment="Center" />
 
-                <ei:Icon Grid.Column="0"
-                         Kind="HardDrives"
-                         Classes="row dim"
-                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Classes="rowname"
+                         Text="{Binding Name}" />
 
-                <StackPanel Grid.Column="1" Spacing="3">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding Name}"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                    <Border Classes="pill"
-                            Background="{DynamicResource EnigmaSelectionBrush}"
-                            IsVisible="{Binding HasHost}"
-                            VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Host}"
-                                 FontSize="10"
-                                 Classes="dim" />
-                    </Border>
-                  </StackPanel>
-
-                  <TextBlock Text="{Binding FetchUrl}"
-                             FontSize="11"
-                             TextTrimming="CharacterEllipsis"
-                             Classes="dim" />
-
-                  <TextBlock Text="{Binding PushUrl, StringFormat='pushes to {0}'}"
-                             IsVisible="{Binding HasSeparatePushUrl}"
-                             FontSize="11"
-                             TextTrimming="CharacterEllipsis"
-                             Classes="faint" />
-                </StackPanel>
-
-                <TextBlock Grid.Column="2"
-                           Text="{Binding BranchSummary}"
-                           VerticalAlignment="Center"
-                           FontSize="11"
-                           Classes="faint" />
-
-                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                  <Button Classes="toolbar"
-                          Command="{Binding FetchCommand}"
-                          CommandParameter="{Binding}"
-                          ToolTip.Tip="Fetch from this remote"
-                          AutomationProperties.Name="Fetch from this remote">
-                    <ei:Icon Kind="ArrowsDownUp" Classes="row" />
-                  </Button>
-                  <Button Classes="toolbar"
-                          Command="{Binding EditCommand}"
-                          CommandParameter="{Binding}"
-                          ToolTip.Tip="Edit"
-                          AutomationProperties.Name="Edit this remote">
-                    <ei:Icon Kind="PencilSimple" Classes="row" />
-                  </Button>
-                  <Button Classes="toolbar"
-                          Command="{Binding RemoveCommand}"
-                          CommandParameter="{Binding}"
-                          ToolTip.Tip="Remove"
-                          AutomationProperties.Name="Remove this remote">
-                    <ei:Icon Kind="Trash" Classes="row" />
-                  </Button>
-                </StackPanel>
-              </Grid>
-            </Border>
+              <TextBlock Grid.Column="2"
+                         Classes="rowdetail faint"
+                         Text="{Binding FetchUrl}"
+                         HorizontalAlignment="Right"
+                         TextTrimming="CharacterEllipsis" />
+            </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>

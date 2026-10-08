@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -20,7 +22,6 @@ using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views.Pages;
-using Enigma.Icons.Avalonia;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
@@ -454,7 +455,7 @@ public sealed class RemotesAndSyncTests
     }
 
     [Fact]
-    public void ARemoteRowsActions_AreVisibleSelectedOrNot()
+    public void ARemoteLine_HasItsNameAndItsFetchUrl_AndNothingElse()
     {
         _fixture.RunAsync(async () =>
         {
@@ -476,27 +477,143 @@ public sealed class RemotesAndSyncTests
             ListBoxItem row = list.GetRealizedContainers()
                 .OfType<ListBoxItem>()
                 .First(container => container.DataContext is RemoteRowViewModel);
+            RemoteRowViewModel remote = (RemoteRowViewModel)row.DataContext!;
+            Grid line = row.GetVisualDescendants().OfType<Grid>().First(grid => grid.Classes.Contains("listrow"));
 
-            Application application = Application.Current!;
-            Assert.True(application.TryFindResource("EnigmaForegroundBrush", application.ActualThemeVariant, out object? full));
+            TextBlock[] texts = [.. row.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Text is { Length: > 0 })];
 
-            // Fetch, edit and remove: the icons of the buttons at the end of the line.
-            Icon[] Actions() =>
-                [.. row.GetVisualDescendants()
-                    .OfType<Button>()
-                    .Where(button => button.Classes.Contains("toolbar"))
-                    .SelectMany(button => button.GetVisualDescendants().OfType<Icon>())];
-
-            Assert.True(Actions().Length >= 3, "a remote row drew fewer than three actions");
-            Assert.All(Actions(), icon => Assert.Same(full, icon.Foreground));
-
-            // And the selection plate does not swallow them.
-            list.SelectedItem = row.DataContext;
-            window.UpdateLayout();
-
-            Assert.All(Actions(), icon => Assert.Same(full, icon.Foreground));
+            Assert.Equal([remote.Name, remote.FetchUrl], texts.Select(block => block.Text));
+            Assert.Contains("faint", texts[1].Classes);
+            Assert.Equal(HorizontalAlignment.Right, texts[1].HorizontalAlignment);
+            Assert.Equal(TextTrimming.CharacterEllipsis, texts[1].TextTrimming);
+            Assert.Empty(row.GetVisualDescendants().OfType<Button>());
+            Assert.Equal(remote.ToolTip, ToolTip.GetTip(line));
 
             window.Close();
+        });
+    }
+
+    // ---------------------------------------------------------------- several at once
+
+    [Fact]
+    public void SeveralRemotes_GoAfterOneQuestionNamingThemAll()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "mirror", world.OriginPath);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "backup", world.OriginPath);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+            Assert.Equal("Remove", page.RemoveSelectionLabel);
+            Assert.False(page.RemoveSelectionCommand.CanExecute(null));
+
+            foreach (RemoteRowViewModel row in page.Remotes.Where(remote => remote.Name != "origin"))
+            {
+                page.SelectedRemotes.Add(row);
+            }
+
+            Assert.Equal("Remove (2)", page.RemoveSelectionLabel);
+            Assert.True(page.Selection.IsMultiple);
+
+            int refreshes = 0;
+            services.Get<IRepositoryContext>().StateRefreshed += (_, _) => refreshes++;
+            services.Dialogs.Result = DialogResult.Primary;
+
+            await page.RemoveSelectionCommand.ExecuteAsync(null);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Remove 2 remotes", question.Title);
+            Assert.Equal(
+                "Remove these 2 remotes? Their tracking references go with them.\n"
+                + "\n• backup — 0 branches of tracking references"
+                + "\n• mirror — 0 branches of tracking references"
+                + "\n\nNothing on the remotes themselves is touched.",
+                question.Content);
+
+            Assert.Equal(["origin"], page.Remotes.Select(remote => remote.Name));
+            Assert.Equal(1, refreshes);
+
+            RecordedNotification summary = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Removed 2 remotes", summary.Title);
+        });
+    }
+
+    [Fact]
+    public void SeveralTags_GoFromTheRemote_AfterOneQuestionThatSaysTheRemoteChangesForEveryone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldWithAPublishedTagAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "tag", "2.0.0");
+            await GitAsync(world.Local.WorkTreePath, "push", "origin", "refs/tags/2.0.0");
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            TagsPageViewModel page = services.Get<TagsPageViewModel>();
+            await page.OnAppearingAsync();
+
+            foreach (TagRowViewModel row in page.Tags)
+            {
+                page.SelectedTags.Add(row);
+            }
+
+            services.Dialogs.Result = DialogResult.Primary;
+
+            // From one line's menu, which acts on the whole selection the line is part of.
+            TagRowViewModel line = page.Tags.Single(tag => tag.Name == "1.0.0");
+            await line.DeleteRemoteCommand!.ExecuteAsync(line);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Delete 2 remote tags", question.Title);
+            Assert.EndsWith("This changes \"origin\" for everyone who uses it.", question.Content as string, StringComparison.Ordinal);
+
+            Assert.Equal(string.Empty, await ReadGitAsync(world.OriginPath, "tag", "--list"));
+            Assert.Equal(["1.0.0", "2.0.0"], page.Tags.Select(tag => tag.Name).Order());
+            Assert.Equal("Deleted 2 tags from \"origin\"", Assert.Single(services.InfoBar.Shown).Title);
+        });
+    }
+
+    [Fact]
+    public void WithSeveralRemotesSelected_ALinesMenuOffersOnlyTheRemove()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await GitAsync(world.Local.WorkTreePath, "remote", "add", "mirror", world.OriginPath);
+
+            RemotesPageViewModel page = await OpenRemotesAsync(services, world.Local);
+
+            RemotesPageView view = services.Get<RemotesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 400 };
+            window.Show();
+            window.UpdateLayout();
+
+            try
+            {
+                ListBox list = view.FindControl<ListBox>("RemoteList")!;
+                list.SelectedItems!.Add(page.Remotes[0]);
+                list.SelectedItems.Add(page.Remotes[1]);
+                window.UpdateLayout();
+
+                Assert.Equal(2, page.SelectedRemotes.Count);
+
+                Grid line = view.GetVisualDescendants().OfType<Grid>().First(grid => grid.ContextMenu is not null && grid.DataContext is RemoteRowViewModel);
+                ContextMenu menu = line.ContextMenu!;
+                menu.Open(line);
+
+                Assert.Equal(["Remove…"], menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).Select(item => item.Header as string));
+
+                menu.Close();
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -864,9 +981,9 @@ public sealed class RemotesAndSyncTests
                 window.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
 
-                Border line = view.GetVisualDescendants()
-                    .OfType<Border>()
-                    .Single(border => border.ContextMenu is not null && border.DataContext is TagRowViewModel { Name: "1.0.0" });
+                Grid line = view.GetVisualDescendants()
+                    .OfType<Grid>()
+                    .Single(grid => grid.ContextMenu is not null && grid.DataContext is TagRowViewModel { Name: "1.0.0" });
                 ContextMenu menu = line.ContextMenu!;
                 menu.Open(line);
 
@@ -1429,7 +1546,6 @@ public sealed class RemotesAndSyncTests
                     .Select(block => block.Text ?? string.Empty)];
 
                 Assert.Contains("origin", texts);
-                Assert.Contains("1 branch", texts);
                 Assert.Contains(texts, text => text.Contains("origin.git", StringComparison.Ordinal));
 
                 window.Content = null;

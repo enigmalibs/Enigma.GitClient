@@ -127,8 +127,12 @@ public sealed class SettingsServiceTests : IDisposable
     // ---------------------------------------------------------------- the automatic refresh
 
     [Fact]
-    public void TheAutomaticRefresh_RunsEveryFifteenSecondsByDefault()
-        => Assert.Equal(15, AppSettings.Defaults.AutoRefreshSeconds);
+    public void TheAutomaticRefresh_RunsEverySixtySecondsByDefault()
+        => Assert.Equal(60, AppSettings.Defaults.AutoRefreshSeconds);
+
+    [Fact]
+    public void TheRepository_IsWatchedByDefault()
+        => Assert.True(AppSettings.Defaults.WatchFileSystem);
 
     [Theory]
     [InlineData(0, 0)]
@@ -152,7 +156,40 @@ public sealed class SettingsServiceTests : IDisposable
         AppSettings loaded = await settings.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(ThemePreference.Dark, loaded.Theme);
-        Assert.Equal(15, loaded.AutoRefreshSeconds);
+        Assert.Equal(AppSettings.Defaults.AutoRefreshSeconds, loaded.AutoRefreshSeconds);
+        Assert.True(loaded.WatchFileSystem);
+    }
+
+    [Fact]
+    public async Task AVersionSixRefreshNobodyChangedTakesTheNewDefault()
+    {
+        System.IO.Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, """{ "version": 6, "autoRefreshSeconds": 15, "tabWidth": 8 }""");
+
+        using SettingsService settings = Build();
+        AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
+
+        // 15 was versions 1 to 6's own default, so it is an interval nobody chose.
+        Assert.Equal(60, stored.AutoRefreshSeconds);
+        Assert.Equal(AppSettings.CurrentVersion, stored.Version);
+        Assert.Equal(8, stored.TabWidth);
+    }
+
+    [Theory]
+    [InlineData(6, 30, 30)]
+    [InlineData(6, 0, 0)]
+    [InlineData(7, 15, 15)]
+    public async Task ARefreshSomebodyChose_IsKept(int version, int written, int expected)
+    {
+        System.IO.Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(
+            File_,
+            $"{{ \"version\": {version.ToString(CultureInfo.InvariantCulture)}, \"autoRefreshSeconds\": {written.ToString(CultureInfo.InvariantCulture)} }}");
+
+        using SettingsService settings = Build();
+
+        // Off stays off, another interval was picked, and from version 7 on, 15 is a preference like any other.
+        Assert.Equal(expected, (await settings.LoadAsync(TestContext.Current.CancellationToken)).AutoRefreshSeconds);
     }
 
     [Fact]
@@ -538,7 +575,7 @@ public sealed class SettingsServiceTests : IDisposable
         Directory.CreateDirectory(_root);
         System.IO.File.WriteAllText(
             File_,
-            """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified", "graphLaneWidth": 16, "filesView": "Tree" }""");
+            """{ "version": 1, "graphRowHeight": 26, "diffView": "Unified", "graphLaneWidth": 16, "filesView": "Tree", "autoRefreshSeconds": 15 }""");
 
         using SettingsService settings = Build();
         AppSettings stored = await settings.LoadAsync(TestContext.Current.CancellationToken);
@@ -547,6 +584,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(AppSettings.Defaults.DiffView, stored.DiffView);
         Assert.Equal(AppSettings.Defaults.GraphLaneWidth, stored.GraphLaneWidth);
         Assert.Equal(AppSettings.Defaults.FilesView, stored.FilesView);
+        Assert.Equal(AppSettings.Defaults.AutoRefreshSeconds, stored.AutoRefreshSeconds);
         Assert.Equal(AppSettings.CurrentVersion, stored.Version);
     }
 

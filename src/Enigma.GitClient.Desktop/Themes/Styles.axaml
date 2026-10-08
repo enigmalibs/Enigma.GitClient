@@ -205,6 +205,48 @@
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
 
+  <!--
+    A line of a list or a tree of things: a changed file, a branch, a tag, a remote. One shape for
+    all of them, so the branches, the tags and the remotes read like the changed files beside the
+    history — the same height, spacing and type, with the list's own hover and selection.
+
+    The first column is the thing's mark, sixteen pixels wide whatever it is — a file's status chip, a
+    folder, the dim icon of a branch, a tag or a remote — so names line up with folder names. What
+    sits right of the name is a `rowdetail`: a file's line counts, a branch's badges, a remote's URL.
+
+    The row is painted, if only transparently: a grid with no brush is not hit-testable between its
+    children, and it carries the line's menu.
+  -->
+  <Style Selector="Grid.listrow">
+    <Setter Property="Height" Value="22" />
+    <Setter Property="ColumnSpacing" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="TextBlock.rowname">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.rowdetail">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- The list or the tree such lines are in: no frame of its own, and it scrolls sideways when a
+       deep line is wider than the panel. -->
+  <Style Selector="ListBox.rows, TreeView.rows">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+  </Style>
+
+  <Style Selector="TreeView.rows">
+    <Setter Property="Padding" Value="0,2,18,2" />
+  </Style>
+
   <!-- A pill used for a ref badge, a tracking counter or a short state label. -->
   <Style Selector="Border.pill">
     <Setter Property="CornerRadius" Value="4" />

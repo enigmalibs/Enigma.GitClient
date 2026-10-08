@@ -83,8 +83,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         // What follows the repository's state (branches, tags, the working tree, this strip) follows
         // the refresh on its own; the graph is told, because redrawing it is what costs the reader
         // their place, and it only does so when there is something new — or when the reader pressed
-        // refresh, which is asking for exactly that.
-        autoRefresh.Refreshed += (_, result) => _ = history.RefreshInPlaceAsync(result.Changed || result.Requested);
+        // refresh, which is asking for exactly that. The references were read again, which set the
+        // working-tree panel reading too. A file changed on disk moved no reference: only the working
+        // tree is read again, and the uncommitted line follows it.
+        autoRefresh.Refreshed += (_, result) => _ = result.Changes == RepositoryChanges.WorkingTree
+            ? history.RefreshWorkingTreeAsync()
+            : history.RefreshInPlaceAsync(result.Changed || result.Requested, workingTreeRead: true);
 
         Shell = shell;
         Conflicts = conflicts;
@@ -144,12 +148,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     public IRepositoryContext RepositoryContext { get; }
 
     /// <summary>
-    /// Gets the window title.
+    /// Gets the window title: the open repository, then the product's name in words.
     /// </summary>
     public string WindowTitle
         => RepositoryContext.Repository is { } repository
-            ? $"{repository.Name} — {ProductInformation.Name}"
-            : ProductInformation.Name;
+            ? $"{repository.Name} — {ProductInformation.DisplayName}"
+            : ProductInformation.DisplayName;
 
     /// <summary>
     /// Gets the repository name shown in the strip, or a prompt when none is open.

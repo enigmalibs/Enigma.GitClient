@@ -10,13 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.9** — on Windows, a change to your settings, profiles or recent repositories is
-> no longer lost when another instance of the app reads the file at that moment. 5.8 before it: the
-> files panel opens or closes every folder of its tree at once; a click on a folder folds it instead
-> of selecting it, so the file you were reading stays on screen; the diff area's messages stand
-> alone; the About dialog is down to the essentials. Coming from 5.1.0? The program was renamed
-> `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the installer
-> again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 6.0** — what changes on disk, in an editor or a terminal, shows within a second:
+> the repository's files are watched, and the automatic refresh runs every 60 seconds. The branches,
+> tags and remotes are drawn like the changed files, the branches as a tree, and several can be
+> selected and deleted after one question; the window's title says Enigma Git Client. The buttons on
+> those pages' rows moved into each line's menu: read *Upgrading from 5.9*. Coming from 5.1.0? The
+> program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on
+> Linux, run the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
@@ -25,9 +25,9 @@ Two things matter more than everything else in this app:
 - History list with a column header you can resize — the graph's included — and a search, by
   message, SHA or author, that highlights what it found instead of hiding everything else and steps
   through it with its arrows or Enter
-- Hide a branch from the history with the eye on its row in the branches dialog: the commits only it
-  brings and its badge leave the graph, the history says how many branches it is leaving out, and
-  the choice is remembered for the repository
+- Hide a branch from the history with *Hide from the history* in its line's menu in the branches
+  dialog: the commits only it brings and its badge leave the graph, its line says *hidden*, the
+  history says how many branches it is leaving out, and the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit in a panel beside the history, as GitKraken has it — click a
   line to open it, click the line again to close it — shown as a **list or a tree** (your choice),
@@ -50,6 +50,12 @@ Two things matter more than everything else in this app:
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
   drop opens a menu naming both, with the merge, the fast-forward-only merge and the reverse — and
   the list scrolls while you hold a branch near its edge
+- The branches, the tags and the remotes are drawn like the changed files, one line each with the
+  rest in its tooltip; the branches as a tree — *Local*, then each remote, a folder for every `/` in
+  their names — with badges for the branch checked out, hidden, ahead, behind, or on no remote
+- Delete several branches, tags or remotes at once: select them with Ctrl+click, Shift+click or
+  Ctrl+A, then *Delete (n)* (*Remove (n)* for remotes), the Delete key or a selected line's menu;
+  one question names everything that goes, and what an unmerged branch would lose
 - Sort the branches and the tags by name or by date, either way — newest first unless you choose
   otherwise, and remembered; select a branch's or a tag's line in the history from its menu
 - Tag management — create (lightweight or annotated), push one tag to the remote, and delete one
@@ -77,6 +83,10 @@ Two things matter more than everything else in this app:
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
   all the uncommitted work at once
 - Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
+- What changes outside the app shows within a second — a file saved in an editor, a commit,
+  checkout or stash made in a terminal: the repository's files are watched, and a build's thousands
+  of writes make one refresh every two seconds at most; every 60 seconds by default the repository is
+  also fetched and refreshed on its own
 - Stashes in the graph, one line each at the stash itself: stash your uncommitted work from the
   history's toolbar, then apply, pop or delete a stash from its line — a pop that conflicts keeps
   the stash, as git does
@@ -93,8 +103,8 @@ Two things matter more than everything else in this app:
   window, give that repository a name and email of its own (copied from the current profile in one
   click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
-  font and context, the pull strategy and the path to git — every one of them applied without a
-  restart
+  font and context, the pull strategy, the path to git, how often the repository is fetched and
+  whether its files are watched — every one of them applied without a restart
 
 ## Non-goals
 

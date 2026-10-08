@@ -14,6 +14,8 @@ using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views.Pages;
+using Enigma.Icons.Avalonia;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
@@ -93,7 +95,7 @@ public sealed class BranchVisibilityTests
     }
 
     [Fact]
-    public void TheList_DrawsAnEyeOnEveryRow_AndSetsAHiddenOneAside()
+    public void AHiddenBranchsLine_SaysSo_AndItsMenuShowsItAgain()
     {
         _fixture.RunAsync(async () =>
         {
@@ -114,19 +116,23 @@ public sealed class BranchVisibilityTests
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
-                Button[] eyes = [.. view.GetVisualDescendants().OfType<Button>().Where(button => button.Name == "ToggleVisibility")];
-                Assert.Equal(page.Groups.Sum(group => group.Rows.Count), eyes.Length);
+                // The badge, with its struck-through eye, on the hidden branch's line alone.
+                StackPanel[] hidden = [.. view.GetVisualDescendants()
+                    .OfType<StackPanel>()
+                    .Where(badge => badge.Classes.Contains("badge") && badge.IsEffectivelyVisible && badge.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "hidden"))];
 
-                Button mainEye = eyes.Single(button => ((BranchRowViewModel)button.DataContext!).Name == "main");
-                Button featureEye = eyes.Single(button => ((BranchRowViewModel)button.DataContext!).Name == "feature");
+                StackPanel badge = Assert.Single(hidden);
+                Assert.Equal("feature", ((BranchRowViewModel)badge.DataContext!).Name);
+                Assert.Contains(badge.GetVisualDescendants().OfType<Icon>(), icon => icon.Kind == PhosphorIcon.EyeSlash);
+                Assert.NotNull(ToolTip.GetTip(badge));
 
-                Assert.False(mainEye.IsEffectivelyEnabled);
-                Assert.True(featureEye.IsEffectivelyEnabled);
-                Assert.Equal("Hidden from the history — show it again", ToolTip.GetTip(featureEye));
+                // Its line's menu shows it again; the checked-out branch cannot be hidden at all.
+                BranchRowViewModel feature = page.Groups.SelectMany(group => group.Rows).Single(row => row.Name == "feature");
+                BranchRowViewModel main = page.Groups.SelectMany(group => group.Rows).Single(row => row.Name == "main");
 
-                StackPanel[] setAside = [.. view.GetVisualDescendants().OfType<StackPanel>().Where(panel => panel.Classes.Contains("hiddenbranch"))];
-                Assert.Single(setAside);
-                Assert.Equal("feature", ((BranchRowViewModel)setAside[0].DataContext!).Name);
+                Assert.Equal("Show in the history", feature.VisibilityHeader);
+                Assert.True(feature.ToggleVisibilityCommand.CanExecute(feature));
+                Assert.False(main.ToggleVisibilityCommand.CanExecute(main));
             }
             finally
             {

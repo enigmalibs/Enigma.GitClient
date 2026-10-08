@@ -13,7 +13,8 @@ release.
 
 | Version | Supported          |
 |---------|--------------------|
-| 5.9.x   | :white_check_mark: |
+| 6.0.x   | :white_check_mark: |
+| 5.9.x   | :x:                |
 | 5.8.x   | :x:                |
 | 5.7.x   | :x:                |
 | 5.6.x   | :x:                |

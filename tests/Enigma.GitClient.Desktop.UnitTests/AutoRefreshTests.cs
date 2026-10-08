@@ -104,6 +104,7 @@ public sealed class AutoRefreshTests
             using TestServices services = BuildScripted();
             IAutoRefreshService service = services.Get<IAutoRefreshService>();
             ScriptedSync sync = services.Get<ScriptedSync>();
+            services.Get<ISettingsService>().Update(current => current with { AutoRefreshSeconds = 15 });
 
             await services.Get<IRepositoryContext>().OpenAsync(Handle("auto"));
 
@@ -241,6 +242,161 @@ public sealed class AutoRefreshTests
             release.SetResult();
             Assert.Equal(QuietFetchResult.Fetched, (await first.WaitAsync(Patience)).Fetch);
             Assert.Equal(1, sync.QuietFetches);
+        });
+    }
+
+    // ---------------------------------------------------------------- a change seen on disk
+
+    [Fact]
+    public void ALocalRefresh_ReadsTheReferencesOnlyWhenTheyMayHaveMoved_AndFetchesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+            FakeRefReader reader = (FakeRefReader)services.Get<IRefReader>();
+
+            reader.Refs = new RefCollection([Branch("main", "aaa")], [], [], []);
+            await services.Get<IRepositoryContext>().OpenAsync(Handle("auto"));
+            int reads = reader.ReadCount;
+
+            AutoRefreshResult workingTree = await service.RefreshLocallyAsync(RepositoryChanges.WorkingTree);
+
+            Assert.Equal(QuietFetchResult.NotAttempted, workingTree.Fetch);
+            Assert.Equal(RepositoryChanges.WorkingTree, workingTree.Changes);
+            Assert.False(workingTree.Changed);
+            Assert.Equal(reads, reader.ReadCount);
+
+            // A commit made in a terminal: main moved.
+            reader.Refs = new RefCollection([Branch("main", "bbb")], [], [], []);
+
+            AutoRefreshResult references = await service.RefreshLocallyAsync(RepositoryChanges.References);
+
+            Assert.Equal(RepositoryChanges.References, references.Changes);
+            Assert.True(references.Changed);
+            Assert.Equal(reads + 1, reader.ReadCount);
+            Assert.Equal(0, sync.QuietFetches);
+        });
+    }
+
+    [Fact]
+    public void ALocalRefresh_IsPublishedWithWhatChanged()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+
+            await services.Get<IRepositoryContext>().OpenAsync(Handle("auto"));
+
+            AutoRefreshResult published = await NextRefreshAsync(
+                service,
+                () => _ = service.RefreshLocallyAsync(RepositoryChanges.Everything));
+
+            Assert.Equal(RepositoryChanges.Everything, published.Changes);
+            Assert.Equal(QuietFetchResult.NotAttempted, published.Fetch);
+            Assert.False(published.Requested);
+        });
+    }
+
+    [Fact]
+    public void ALocalRefresh_WaitsForTheRunningOne_ThenRuns()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+
+            await services.Get<IRepositoryContext>().OpenAsync(Handle("auto"));
+
+            List<AutoRefreshResult> published = [];
+            service.Refreshed += (_, result) => published.Add(result);
+
+            TaskCompletionSource release = new();
+            sync.Gate = release.Task;
+
+            Task<AutoRefreshResult> periodic = service.RefreshNowAsync();
+            Task<AutoRefreshResult> local = service.RefreshLocallyAsync(RepositoryChanges.References);
+
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(local.IsCompleted);
+
+            release.SetResult();
+
+            Assert.Equal(QuietFetchResult.Fetched, (await periodic.WaitAsync(Patience)).Fetch);
+            Assert.Equal(QuietFetchResult.NotAttempted, (await local.WaitAsync(Patience)).Fetch);
+            Assert.Equal([QuietFetchResult.Fetched, QuietFetchResult.NotAttempted], published.Select(result => result.Fetch));
+        });
+    }
+
+    [Fact]
+    public void APeriodicRefresh_StillSkipsWhileALocalOneRuns()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+            IRepositoryContext context = services.Get<IRepositoryContext>();
+
+            await context.OpenAsync(Handle("auto"));
+
+            // A tick that falls in the middle of the local refresh: the references being read is as
+            // far inside it as anything can be.
+            Task<AutoRefreshResult>? tick = null;
+            context.StateRefreshed += (_, _) => tick ??= service.RefreshNowAsync();
+
+            AutoRefreshResult local = await service.RefreshLocallyAsync(RepositoryChanges.References);
+
+            Assert.Equal(RepositoryChanges.References, local.Changes);
+            Assert.Same(AutoRefreshResult.NotRun, await tick!.WaitAsync(Patience));
+            Assert.Equal(0, sync.QuietFetches);
+        });
+    }
+
+    [Fact]
+    public void ALocalRefresh_WithNoRepositoryOpen_DoesNotRun()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+
+            Assert.Same(AutoRefreshResult.NotRun, await service.RefreshLocallyAsync(RepositoryChanges.Everything));
+        });
+    }
+
+    [Fact]
+    public void ALocalRefresh_CancelledWhileItWaits_PublishesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = BuildScripted();
+            IAutoRefreshService service = services.Get<IAutoRefreshService>();
+            ScriptedSync sync = services.Get<ScriptedSync>();
+
+            await services.Get<IRepositoryContext>().OpenAsync(Handle("auto"));
+
+            TaskCompletionSource release = new();
+            sync.Gate = release.Task;
+
+            Task<AutoRefreshResult> periodic = service.RefreshNowAsync();
+
+            List<AutoRefreshResult> published = [];
+            service.Refreshed += (_, result) => published.Add(result);
+
+            using CancellationTokenSource stop = new();
+            Task<AutoRefreshResult> local = service.RefreshLocallyAsync(RepositoryChanges.Everything, stop.Token);
+
+            // The watcher's session ending — another repository opened — while the refresh waited.
+            stop.Cancel();
+            release.SetResult();
+            await periodic.WaitAsync(Patience);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => local.WaitAsync(Patience, TestContext.Current.CancellationToken));
+            Assert.DoesNotContain(published, result => result.Fetch == QuietFetchResult.NotAttempted);
         });
     }
 

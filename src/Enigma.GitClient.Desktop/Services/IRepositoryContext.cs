@@ -55,6 +55,22 @@ public interface IRepositoryContext : INotifyPropertyChanged
     CancellationToken RepositoryLifetime { get; }
 
     /// <summary>
+    /// Gets a value indicating whether a write is running: an operation handed to
+    /// <see cref="RunExclusiveAsync"/> or <see cref="TryRunExclusiveAsync"/>, with the refresh that
+    /// follows it.
+    /// </summary>
+    /// <remarks>
+    /// Safe to read from any thread: the file-system watcher asks it from the operating system's, to
+    /// tell the application's own writes from everyone else's.
+    /// </remarks>
+    bool IsWriting { get; }
+
+    /// <summary>
+    /// Raised when a write has finished — its refresh included — and the repository is free again.
+    /// </summary>
+    event EventHandler? WriteEnded;
+
+    /// <summary>
     /// Raised after a different repository has been opened or the current one closed.
     /// </summary>
     event EventHandler<RepositoryChangedEventArgs>? RepositoryChanged;

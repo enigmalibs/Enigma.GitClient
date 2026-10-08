@@ -64,6 +64,15 @@ public sealed class RemoteRowViewModel : ViewModelBase
     /// <summary>Gets a value indicating whether there is a host worth naming.</summary>
     public bool HasHost => Host.Length > 0;
 
+    /// <summary>
+    /// Gets what the line's tooltip says: the host the remote lives on — or, for a path on this
+    /// machine, the path itself — and where pushes go when that is somewhere else.
+    /// </summary>
+    public string ToolTip
+        => HasSeparatePushUrl
+            ? $"{(HasHost ? Host : FetchUrl)}\nPushes to {PushUrl}"
+            : HasHost ? Host : FetchUrl;
+
     /// <summary>Gets how many tracking branches this remote has here.</summary>
     public int BranchCount { get; }
 
@@ -73,10 +82,19 @@ public sealed class RemoteRowViewModel : ViewModelBase
             ? "1 branch"
             : $"{BranchCount.ToString(System.Globalization.CultureInfo.CurrentCulture)} branches";
 
+    /// <summary>
+    /// Gets how many lines of the page are selected: with several, the line's menu offers only what
+    /// works on all of them — the remove.
+    /// </summary>
+    public LineSelection Selection => _owner.Selection;
+
     /// <summary>Gets the command that edits the remote.</summary>
     public AsyncRelayCommand<RemoteRowViewModel> EditCommand => _owner.EditCommand;
 
-    /// <summary>Gets the command that removes the remote.</summary>
+    /// <summary>
+    /// Gets the command that removes the remote — and with it every other selected remote, when the
+    /// line is one of several selected.
+    /// </summary>
     public AsyncRelayCommand<RemoteRowViewModel> RemoveCommand => _owner.RemoveCommand;
 
     /// <summary>Gets the command that fetches from this remote alone.</summary>
@@ -131,6 +149,11 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         EditCommand = new AsyncRelayCommand<RemoteRowViewModel>(OnEditAsync, row => row is not null);
         RemoveCommand = new AsyncRelayCommand<RemoteRowViewModel>(OnRemoveAsync, row => row is not null);
         FetchCommand = new AsyncRelayCommand<RemoteRowViewModel>(OnFetchAsync, row => row is not null);
+        RemoveSelectionCommand = new AsyncRelayCommand(
+            () => RemoveAsync([.. Remotes.Where(SelectedRemotes.Contains)]),
+            () => SelectedRemotes.Count > 0);
+
+        SelectedRemotes.CollectionChanged += (_, _) => OnSelectionChanged();
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -152,6 +175,27 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         get;
         set => SetProperty(ref field, value);
     }
+
+    /// <summary>
+    /// Gets every remote the reader has selected: the list's own selection, which Ctrl+click,
+    /// Shift+click and Ctrl+A make, and what the Delete key and the header's button act on.
+    /// </summary>
+    public ObservableCollection<RemoteRowViewModel> SelectedRemotes { get; } = [];
+
+    /// <summary>Gets how many remotes are selected, as every line's menu reads it.</summary>
+    public LineSelection Selection { get; } = new();
+
+    /// <summary>Gets what the header's remove button says: how many it would remove.</summary>
+    public string RemoveSelectionLabel
+        => SelectedRemotes.Count == 0
+            ? "Remove"
+            : $"Remove ({SelectedRemotes.Count.ToString(System.Globalization.CultureInfo.CurrentCulture)})";
+
+    /// <summary>
+    /// Gets the command that removes every selected remote, after one question naming them all — the
+    /// header's button and the Delete key.
+    /// </summary>
+    public AsyncRelayCommand RemoveSelectionCommand { get; }
 
     /// <summary>Gets a value indicating whether the page has nothing to show.</summary>
     public bool IsEmpty => Remotes.Count == 0;
@@ -212,11 +256,13 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         }
 
         // Captured before the list is emptied: clearing it tells the ListBox the selection is gone,
-        // and the ListBox tells this page so. What survives a read is the name.
+        // and the ListBox tells this page so. What survives a read is the names.
         string? selected = SelectedRemote?.Name;
+        HashSet<string> selectedNames = [.. SelectedRemotes.Select(row => row.Name)];
 
         // Read first, replace after. Clearing before the await lets a second refresh — and one
         // arrives on every state change — interleave with this one and list every remote twice.
+        SelectedRemotes.Clear();
         Remotes.Clear();
 
         foreach (GitRemote remote in remotes)
@@ -227,6 +273,14 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         SelectedRemote = selected is null
             ? null
             : Remotes.FirstOrDefault(row => row.Name == selected);
+
+        foreach (RemoteRowViewModel row in Remotes)
+        {
+            if (selectedNames.Contains(row.Name) && !SelectedRemotes.Contains(row))
+            {
+                SelectedRemotes.Add(row);
+            }
+        }
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
@@ -308,25 +362,86 @@ public sealed class RemotesPageViewModel : PageViewModelBase
             return;
         }
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
-        {
-            dialog.Title = "Remove remote";
-            dialog.Content =
-                $"Remove \"{row.Name}\"? Its {row.BranchSummary} of tracking references go with it.\n\n"
-                + "Nothing on the remote itself is touched.";
-            dialog.PrimaryButtonText = "Remove";
-            dialog.CloseButtonText = "Cancel";
-            dialog.DefaultButton = DefaultButton.Close;
-        }).ConfigureAwait(true);
+        // The whole selection when the line is one of several selected; the line alone otherwise — a
+        // right-click outside the selection selects that line first.
+        await RemoveAsync(SelectedRemotes.Count > 1 && SelectedRemotes.Contains(row)
+            ? [.. Remotes.Where(SelectedRemotes.Contains)]
+            : [row]).ConfigureAwait(true);
+    }
 
-        if (answer != DialogResult.Primary)
+    /// <summary>
+    /// Removes remotes after one question naming them all, going on past one that fails, and says
+    /// once what was removed and what was not.
+    /// </summary>
+    /// <param name="rows">The remotes, in the order the list shows them.</param>
+    private async Task RemoveAsync(IReadOnlyList<RemoteRowViewModel> rows)
+    {
+        if (rows.Count == 0 || !IsRepositoryOpen)
         {
             return;
         }
 
-        await RunAsync(
-            (handle, token) => _remotes.RemoveAsync(handle, row.Name, token),
-            $"Could not remove \"{row.Name}\"").ConfigureAwait(true);
+        DeletionItem[] items = [.. rows.Select(row => new DeletionItem(row.Name) { Note = $"{row.BranchSummary} of tracking references" })];
+
+        DeletionPlan plan = rows.Count == 1
+            ? DeletionPlan.ForOne(
+                items[0],
+                "Remove remote",
+                $"Remove \"{rows[0].Name}\"? Its {rows[0].BranchSummary} of tracking references go with it.\n\n"
+                + "Nothing on the remote itself is touched.",
+                "Remove")
+            : DeletionPlan.ForMany(
+                items,
+                $"Remove {DeletionOutcome.Count(rows.Count, "remote", "remotes")}",
+                $"Remove these {rows.Count.ToString(System.Globalization.CultureInfo.CurrentCulture)} remotes? Their tracking references go with them.",
+                "Nothing on the remotes themselves is touched.",
+                "Remove");
+
+        if (!await _dialogs.ConfirmDestructiveAsync(plan.Title, plan.Message, plan.ConfirmText).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            DeletionOutcome outcome = await DeletionBatch.RunAsync(
+                RepositoryContext,
+                plan.ToDelete,
+                (handle, item, token) => _remotes.RemoveAsync(handle, item.Name, token),
+                _logger).ConfigureAwait(true);
+
+            await RefreshAsync().ConfigureAwait(true);
+
+            if (rows.Count > 1)
+            {
+                (string title, string message, InfoBarSeverity severity) = outcome.Summarise("Removed", "remote", "remotes");
+                Report(title, message, severity);
+            }
+            else if (outcome.NotDeleted.Count == 1)
+            {
+                Report(
+                    $"Could not remove \"{rows[0].Name}\"",
+                    outcome.NotDeleted[0].Reason,
+                    outcome.HasErrors ? InfoBarSeverity.Error : InfoBarSeverity.Warning);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the repository closes under the operation.
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void OnSelectionChanged()
+    {
+        Selection.Update(SelectedRemotes.Count);
+        OnPropertyChanged(nameof(RemoveSelectionLabel));
+        RemoveSelectionCommand.NotifyCanExecuteChanged();
     }
 
     private async Task OnFetchAsync(RemoteRowViewModel? row)

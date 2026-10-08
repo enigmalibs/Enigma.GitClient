@@ -68,6 +68,10 @@ public partial class App : Application
             settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);
             settings.Changed += (_, e) => DiffTypography.Apply(e.Settings);
 
+            // Nothing asks for the watcher: it follows the repository context on its own, from here
+            // on, and the host's disposal at exit lets go of what it watches.
+            services.GetRequiredService<IRepositoryWatcher>();
+
             // The start window, or — for a path on the command line — the repository window. The
             // last window to close ends the application, which is what lets one window hand over to
             // the other without the lifetime reading the moment in between as the end.

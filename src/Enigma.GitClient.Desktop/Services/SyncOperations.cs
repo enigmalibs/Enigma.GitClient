@@ -85,6 +85,12 @@ public enum QuietFetchResult
 
     /// <summary>The fetch ran and failed — offline, no credentials, a remote gone.</summary>
     Failed,
+
+    /// <summary>
+    /// No fetch was asked for: a refresh of what changed on disk, which the remote has nothing to do
+    /// with.
+    /// </summary>
+    NotAttempted,
 }
 
 /// <summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -138,9 +139,11 @@ internal static class BranchDragGesture
 /// </summary>
 /// <remarks>
 /// <para>
-/// The code behind this view exists for one gesture: dragging one branch onto another. A drag is a
-/// pointer, a drop target and a menu — three things a binding cannot express — and everything it
-/// decides is asked of the page's ViewModel, which owns the policy and the commands.
+/// The code behind this view exists for two things a binding cannot express. The first is dragging one
+/// branch onto another: a drag is a pointer, a drop target and a menu, and everything it decides is
+/// asked of the page's ViewModel, which owns the policy and the commands. The second is the tree's
+/// folders, which a click opens or closes and which are never selected, as in the changed files —
+/// whichever gesture put one in the selection, and Ctrl+A, which selects only the branches it shows.
 /// </para>
 /// <para>
 /// It is <em>not</em> a platform drag-and-drop session, and that is deliberate. This gesture never
@@ -165,7 +168,18 @@ public partial class BranchesPageView : UserControl
 
     private readonly DispatcherTimer _autoScroll;
 
-    private ListBoxItem? _highlighted;
+    private TreeViewItem? _highlighted;
+
+    // The branches selected last time the selection held no folder: what the selection goes back to
+    // when the keyboard puts it on a folder alone.
+    private IReadOnlyList<BranchRowViewModel> _branchesSelected = [];
+
+    // Set while taking the folders out of the selection is posted, so a burst of changes posts it once.
+    private bool _droppingFolders;
+
+    // The folder the first press of a click opened or closed, and how it left it: the tree folds a
+    // folder on a double-click of its own, which would undo that press (see OnDoubleTapped).
+    private (BranchTreeNode Folder, bool Expanded)? _folded;
     private PendingDrag? _pending;
     private BranchRowViewModel? _dragging;
     private IPointer? _captured;
@@ -191,6 +205,14 @@ public partial class BranchesPageView : UserControl
         // A platform drag session had a way out of its own. An in-house gesture has to bring one, and
         // Escape is what every desktop means by "stop".
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+
+        // Handled ones too: the tree's item handles the double-tap it folds the folder on.
+        AddHandler(DoubleTappedEvent, OnDoubleTapped, RoutingStrategies.Bubble, handledEventsToo: true);
+
+        // The whole line answers a right-click with its menu, the indentation and the chevron included.
+        LineMenus.Attach(this);
+
+        BranchTree.SelectionChanged += OnTreeSelectionChanged;
 
         // A timer, because the pointer stops reporting while it is held still — and a branch held
         // over the bottom of the list is exactly the gesture that has to keep scrolling.
@@ -223,7 +245,33 @@ public partial class BranchesPageView : UserControl
     {
         _pending = null;
 
-        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.ClickCount == 1)
+        {
+            _folded = null;
+        }
+
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.Source is not Visual source)
+        {
+            return;
+        }
+
+        // A top-level node or a folder is never selected, as in the changed files (BUG-1B14): a click on
+        // its line opens or closes it, and the tree never sees the press, so the branch selected before
+        // stays selected. The chevron is a button of the line's own, and folds it as it always did. Both
+        // presses of a double-click are kept from the tree, and only the first one folds.
+        if (!IsOnAButton(source) && LineAt(source) is { IsFolder: true } folder)
+        {
+            if (e.ClickCount == 1)
+            {
+                folder.IsExpanded = !folder.IsExpanded;
+                _folded = (folder, folder.IsExpanded);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ClickCount != 1)
         {
             return;
         }
@@ -235,6 +283,90 @@ public partial class BranchesPageView : UserControl
 
         _pending = new PendingDrag(row, e.GetPosition(this));
     }
+
+    /// <summary>
+    /// Keeps a double-click on a folder to the one fold its first press made.
+    /// </summary>
+    /// <remarks>
+    /// The tree's item folds a folder on a double-tap of its own, after the first press already did:
+    /// left alone, a double-click would open a folder and close it again. Whatever the tree did, the
+    /// folder is left as the press left it.
+    /// </remarks>
+    private void OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_folded is { } folded && e.Source is Visual source && ReferenceEquals(LineAt(source), folded.Folder))
+        {
+            folded.Folder.IsExpanded = folded.Expanded;
+        }
+    }
+
+    /// <summary>
+    /// Takes the folders back out of the tree's selection, once the tree is done putting them there.
+    /// </summary>
+    /// <remarks>
+    /// A click on a folder never reaches the tree, but other gestures do: the arrows select whatever
+    /// line they reach, a Shift range spans the folders between its ends, and a right-click selects the
+    /// line it lands on. The page acts on branches alone, and the tree is put back on them: the
+    /// branches the gesture left selected, or — when it left a folder alone — the branches selected
+    /// before. The tree is in the middle of selecting when it says so, and does not listen; so this
+    /// waits until it is done. Its focus stays on the folder, which is where the next arrow goes on
+    /// from.
+    /// </remarks>
+    private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (Page is not { } page)
+        {
+            return;
+        }
+
+        if (!page.SelectedNodes.Any(node => node.IsFolder))
+        {
+            _branchesSelected = [.. page.SelectedNodes.OfType<BranchRowViewModel>()];
+            return;
+        }
+
+        if (_droppingFolders)
+        {
+            return;
+        }
+
+        _droppingFolders = true;
+        Dispatcher.UIThread.Post(DropFolders);
+    }
+
+    private void DropFolders()
+    {
+        _droppingFolders = false;
+
+        if (Page is not { } page || !page.SelectedNodes.Any(node => node.IsFolder))
+        {
+            return;
+        }
+
+        List<BranchRowViewModel> branches = [.. page.SelectedNodes.OfType<BranchRowViewModel>()];
+
+        if (branches.Count == 0)
+        {
+            HashSet<BranchRowViewModel> shown = [.. page.Groups.SelectMany(group => group.Rows)];
+            branches = [.. _branchesSelected.Where(shown.Contains)];
+        }
+
+        // The line a Shift range runs from stays the first.
+        if (page.SelectedBranch is { } anchor && branches.Remove(anchor))
+        {
+            branches.Insert(0, anchor);
+        }
+
+        page.SelectBranches(branches);
+    }
+
+    /// <summary>Whether a press landed on a button of the line — the chevron — rather than the line itself.</summary>
+    private static bool IsOnAButton(Visual source)
+        => source.GetSelfAndVisualAncestors().TakeWhile(visual => visual is not TreeViewItem).OfType<Button>().Any();
+
+    /// <summary>The node whose line a press landed on: the nearest tree item's.</summary>
+    private static BranchTreeNode? LineAt(Visual source)
+        => source.GetSelfAndVisualAncestors().OfType<TreeViewItem>().FirstOrDefault()?.DataContext as BranchTreeNode;
 
     /// <summary>
     /// Starts the drag once the pointer has actually moved, and steers it afterwards.
@@ -265,12 +397,12 @@ public partial class BranchesPageView : UserControl
 
         _pending = null;
         _dragging = pending.Row;
-        _listCursor = BranchList.Cursor;
+        _listCursor = BranchTree.Cursor;
 
         // The capture is what makes the rest of the gesture the page's: every move is reported here
         // afterwards, wherever the pointer goes, and so is the release that ends it.
         _captured = e.Pointer;
-        _captured.Capture(BranchList);
+        _captured.Capture(BranchTree);
 
         Steer(e);
     }
@@ -288,9 +420,9 @@ public partial class BranchesPageView : UserControl
     {
         e.Handled = true;
 
-        ShowTheGesturesCursor(BranchDragGesture.IsOverTheList(e.GetPosition(BranchList), BranchList.Bounds.Size));
+        ShowTheGesturesCursor(BranchDragGesture.IsOverTheList(e.GetPosition(BranchTree), BranchTree.Bounds.Size));
 
-        ListBoxItem? container = RowUnder(e);
+        TreeViewItem? container = RowUnder(e);
 
         Highlight(DropFor(container) is not null ? container : null);
         FollowTheEdge(e);
@@ -308,7 +440,7 @@ public partial class BranchesPageView : UserControl
             return;
         }
 
-        ListBoxItem? container = RowUnder(e);
+        TreeViewItem? container = RowUnder(e);
         BranchDrop? drop = DropFor(container);
 
         StopDragging();
@@ -342,19 +474,35 @@ public partial class BranchesPageView : UserControl
     }
 
     /// <summary>
-    /// Escape calls a drag off: nothing is dropped, and the row under the pointer is left alone.
+    /// Escape calls a drag off: nothing is dropped, and the row under the pointer is left alone. Ctrl+A
+    /// on the tree selects the branches it shows.
     /// </summary>
+    /// <remarks>
+    /// Tunnelling, so Ctrl+A is seen before the tree's own, which would select the folders and every
+    /// line inside a closed one too.
+    /// </remarks>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_dragging is null || e.Key != Key.Escape)
+        if (_dragging is not null && e.Key == Key.Escape)
         {
+            StopDragging();
+
+            e.Handled = true;
             return;
         }
 
-        StopDragging();
+        if (IsSelectAll(e) && e.Source is Visual source && IsInTree(source) && Page is { } page)
+        {
+            page.SelectVisibleBranches();
 
-        e.Handled = true;
+            e.Handled = true;
+        }
     }
+
+    private static bool IsSelectAll(KeyEventArgs e)
+        => Application.Current?.PlatformSettings?.HotkeyConfiguration.SelectAll.Any(gesture => gesture.Matches(e)) == true;
+
+    private bool IsInTree(Visual source) => ReferenceEquals(source, BranchTree) || BranchTree.IsVisualAncestorOf(source);
 
     /// <summary>
     /// Takes the gesture down: the row being dragged, the drop ring, the scrolling, the cursor and
@@ -367,7 +515,7 @@ public partial class BranchesPageView : UserControl
         Highlight(null);
         StopScrolling();
 
-        BranchList.Cursor = _listCursor;
+        BranchTree.Cursor = _listCursor;
         _listCursor = null;
 
         IPointer? pointer = _captured;
@@ -381,7 +529,7 @@ public partial class BranchesPageView : UserControl
     /// Puts the gesture's pointer on the list, or gives the list its own back.
     /// </summary>
     private void ShowTheGesturesCursor(bool isOverTheList)
-        => BranchList.Cursor = BranchDragGesture.CursorFor(isOverTheList) switch
+        => BranchTree.Cursor = BranchDragGesture.CursorFor(isOverTheList) switch
         {
             StandardCursorType.DragMove => Carrying,
             _ => _listCursor,
@@ -397,7 +545,7 @@ public partial class BranchesPageView : UserControl
     /// </remarks>
     private void ForgetHover()
     {
-        foreach (ListBoxItem container in BranchList.GetRealizedContainers().OfType<ListBoxItem>())
+        foreach (TreeViewItem container in BranchTree.GetRealizedTreeContainers().OfType<TreeViewItem>())
         {
             ((IPseudoClasses)container.Classes).Set(":pointerover", false);
         }
@@ -462,7 +610,7 @@ public partial class BranchesPageView : UserControl
     /// The branches list's own scroll, once the list has a template to find one in.
     /// </summary>
     private ScrollViewer? ListScroll()
-        => _listScroll ??= BranchList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        => _listScroll ??= BranchTree.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
 
     // ---------------------------------------------------------------- the drop
 
@@ -523,7 +671,7 @@ public partial class BranchesPageView : UserControl
     /// The same question on every pointer move and again on the release, so it must cost nothing: the
     /// policy it asks is static and side-effect-free.
     /// </remarks>
-    private BranchDrop? DropFor(ListBoxItem? container)
+    private BranchDrop? DropFor(TreeViewItem? container)
     {
         if (_dragging is not { } source || container?.DataContext is not BranchRowViewModel target)
         {
@@ -538,24 +686,24 @@ public partial class BranchesPageView : UserControl
     /// <summary>
     /// The row the pointer is over, or <see langword="null"/> when it is over none.
     /// </summary>
-    private ListBoxItem? RowUnder(PointerEventArgs e)
+    private TreeViewItem? RowUnder(PointerEventArgs e)
     {
-        Point point = e.GetPosition(BranchList);
+        Point point = e.GetPosition(BranchTree);
 
-        return BranchDragGesture.IsOverTheList(point, BranchList.Bounds.Size)
-            ? RowAt(BranchList.InputHitTest(point))
+        return BranchDragGesture.IsOverTheList(point, BranchTree.Bounds.Size)
+            ? RowAt(BranchTree.InputHitTest(point))
             : null;
     }
 
     /// <summary>
-    /// Finds the row container an event landed on, which is normally a part of its template rather
-    /// than the container itself.
+    /// Finds the branch line's container an event landed on, which is normally a part of its template
+    /// rather than the container itself — and only a branch's: a folder is not something to drag or
+    /// to drop on.
     /// </summary>
-    private static ListBoxItem? RowAt(object? source)
+    private static TreeViewItem? RowAt(object? source)
         => source is Visual visual
-            ? visual.GetSelfAndVisualAncestors()
-                .OfType<ListBoxItem>()
-                .FirstOrDefault(container => container.DataContext is BranchRowViewModel)
+            && visual.GetSelfAndVisualAncestors().OfType<TreeViewItem>().FirstOrDefault() is { DataContext: BranchRowViewModel } container
+            ? container
             : null;
 
     /// <summary>
@@ -568,7 +716,7 @@ public partial class BranchesPageView : UserControl
     /// <summary>
     /// Says where the drag would land, and takes the mark off whatever carried it last.
     /// </summary>
-    private void Highlight(ListBoxItem? container)
+    private void Highlight(TreeViewItem? container)
     {
         if (ReferenceEquals(_highlighted, container))
         {
