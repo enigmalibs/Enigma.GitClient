@@ -306,7 +306,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-532B | File-system watcher for instant refresh | IN PROGRESS | docs/plan/FEATURE-532B.md |
 | - PHASE01    | Coalescer and suppression               | DONE        | (in FEATURE-532B.md)      |
 | - PHASE02    | OS event sources                        | DONE        | (in FEATURE-532B.md)      |
-| - PHASE03    | Wire the watcher into the app           | TODO        | (in FEATURE-532B.md)      |
+| - PHASE03    | Wire the watcher into the app           | DONE        | (in FEATURE-532B.md)      |
 | - PHASE04    | Setting and 60 s default                | TODO        | (in FEATURE-532B.md)      |
 | FEATURE-8E87 | Compact ref rows with multi-select      | TODO        | docs/plan/FEATURE-8E87.md |
 | - PHASE01    | Shared rows, compact tags and remotes   | TODO        | (in FEATURE-8E87.md)      |

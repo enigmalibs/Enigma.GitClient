@@ -260,7 +260,7 @@ OS watchers (thread pool)          RepositoryWatcher                        cons
 ## PHASE03 — Wire the watcher into the app
 
 **Branch:** `feature/feature-532b-phase03-wire-watcher`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-532B-PHASE03.md`
 
 ### Steps
 
