@@ -1,6 +1,6 @@
 # FEATURE-A57F — Release 5.8.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-A57F.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-a57f-release-5-8-0`
 **Run:** vibe/2026-10-08-file-panel-about-release
