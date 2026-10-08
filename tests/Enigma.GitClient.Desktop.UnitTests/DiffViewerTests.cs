@@ -17,6 +17,7 @@ using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.Controls.Diff;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -425,6 +426,55 @@ public sealed class DiffViewerTests
     }
 
     [Fact]
+    public void Viewer_DrawsNoRenderingAroundAMessage_InEitherShape()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            // Nothing picked yet.
+            DiffViewerViewModel empty = Build().Viewer;
+            Assert.False(empty.ShowsUnified);
+            Assert.False(empty.ShowsSideBySide);
+
+            Harness binary = await ShownAsync(
+                new FilePatch(null, "logo.png", FileChangeKind.Modified, [], isBinary: true));
+
+            Assert.False(binary.Viewer.ShowsSideBySide);
+            Assert.False(binary.Viewer.ShowsUnified);
+
+            // The other shape says the same thing, alone too.
+            binary.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(binary, 2);
+
+            Assert.True(binary.Viewer.IsUnified);
+            Assert.False(binary.Viewer.ShowsUnified);
+            Assert.False(binary.Viewer.ShowsSideBySide);
+        });
+    }
+
+    [Fact]
+    public void Viewer_DrawsTheChosenRenderingOfAPatch_AndNoneOnceCleared()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync();
+
+            Assert.True(harness.Viewer.ShowsSideBySide);
+            Assert.False(harness.Viewer.ShowsUnified);
+
+            harness.Viewer.ShowUnifiedCommand.Execute(null);
+            await WaitForRequestsAsync(harness, 2);
+
+            Assert.True(harness.Viewer.ShowsUnified);
+            Assert.False(harness.Viewer.ShowsSideBySide);
+
+            harness.Viewer.Clear();
+
+            Assert.False(harness.Viewer.ShowsUnified);
+            Assert.False(harness.Viewer.ShowsSideBySide);
+        });
+    }
+
+    [Fact]
     public void Viewer_SaysSoForASubmodule()
     {
         _fixture.RunAsync(async () =>
@@ -790,6 +840,46 @@ public sealed class DiffViewerTests
                 "diff-binary.png");
 
             Assert.Contains(texts, text => text.Contains("binary", StringComparison.Ordinal));
+        });
+    }
+
+    [Fact]
+    public void Viewer_DrawsAMessageAlone_AndAPatchWithoutIt()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            Harness harness = await ShownAsync(
+                new FilePatch(null, "logo.png", FileChangeKind.Modified, [], isBinary: true));
+
+            DiffViewerView view = new() { DataContext = harness.Viewer };
+            Window window = new() { Content = view, Width = 900, Height = 420 };
+            window.Show();
+
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                // No editor, gutter or map around the message: nothing of a diff that is not there.
+                EmptyState message = view.GetVisualDescendants().OfType<EmptyState>().Single();
+                Assert.True(message.IsEffectivelyVisible);
+                Assert.All(view.GetVisualDescendants().OfType<DiffTextEditor>(), editor => Assert.False(editor.IsEffectivelyVisible));
+                Assert.All(view.GetVisualDescendants().OfType<DiffMinimap>(), map => Assert.False(map.IsEffectivelyVisible));
+
+                // A file with lines: its rendering, and no message.
+                harness.Diffs.Patch = Parse(SamplePatch);
+                await harness.Viewer.ShowAsync(Repository, DiffTarget.Commit("abc123"), File);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Assert.False(message.IsEffectivelyVisible);
+                Assert.Contains(view.GetVisualDescendants().OfType<DiffTextEditor>(), editor => editor.IsEffectivelyVisible);
+            }
+            finally
+            {
+                window.Content = null;
+                window.Close();
+            }
         });
     }
 

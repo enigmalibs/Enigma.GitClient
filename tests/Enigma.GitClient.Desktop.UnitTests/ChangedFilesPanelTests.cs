@@ -368,14 +368,55 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
-    public void Panel_SelectingADirectoryRowSelectsNoFile()
+    public void Panel_NeverSelectsADirectoryRow_AndKeepsTheFileItHad()
     {
         ChangedFilesPanelViewModel panel = LoadedAsTree();
+        ChangedFileNodeViewModel directory = panel.Nodes.Single(node => node.Label == "src/app");
 
-        panel.SelectedNode = panel.Nodes.Single(node => node.Label == "src/app");
+        // Nothing selected: the directory does not take the selection.
+        panel.SelectedNode = directory;
+        Assert.Null(panel.SelectedNode);
 
-        Assert.NotNull(panel.SelectedNode);
-        Assert.Null(panel.SelectedFile);
+        Assert.True(panel.SelectPath("README.md"));
+
+        int changes = 0;
+        List<string?> announced = [];
+        panel.SelectionChanged += (_, _) => changes++;
+        panel.PropertyChanged += (_, e) => announced.Add(e.PropertyName);
+
+        panel.SelectedNode = directory;
+
+        Assert.Equal("README.md", panel.SelectedNode?.Path);
+        Assert.Equal("README.md", panel.SelectedFile?.Path);
+        Assert.Equal(0, changes);
+
+        // Told again, so the control that offered the directory goes back to the file.
+        Assert.Contains(nameof(ChangedFilesPanelViewModel.TreeSelection), announced);
+    }
+
+    [Fact]
+    public void Panel_HandsTheSelectionOnlyToTheControlShown_AndListensOnlyToIt()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        panel.SelectPath("src/app/Program.cs");
+
+        Assert.Equal("src/app/Program.cs", panel.TreeSelection?.Path);
+        Assert.Null(panel.ListSelection);
+
+        // The hidden list letting go of what it could not hold is not heard.
+        panel.ListSelection = null;
+        Assert.Equal("src/app/Program.cs", panel.SelectedNode?.Path);
+
+        panel.ViewMode = ChangedFilesViewMode.List;
+
+        Assert.Equal("src/app/Program.cs", panel.ListSelection?.Path);
+        Assert.Null(panel.TreeSelection);
+
+        panel.TreeSelection = null;
+        Assert.Equal("src/app/Program.cs", panel.SelectedNode?.Path);
+
+        panel.ListSelection = panel.Nodes.Single(node => node.Path == "README.md");
+        Assert.Equal("README.md", panel.SelectedNode?.Path);
     }
 
     [Fact]
@@ -590,6 +631,97 @@ public sealed class ChangedFilesPanelTests
         // The ones left open stay open.
         Assert.True(DirectoryRow(panel, "docs").IsExpanded);
         Assert.True(DirectoryRow(panel, "assets").IsExpanded);
+    }
+
+    // ---------------------------------------------------------------- expand all, collapse all
+
+    private static IEnumerable<ChangedFileNodeViewModel> Directories(ChangedFilesPanelViewModel panel)
+        => ChangedFilesPanelViewModel.Flatten(panel.Nodes).Where(node => node.IsDirectory);
+
+    [Fact]
+    public void Panel_CollapsesAndExpandsEveryFolder()
+    {
+        ChangedFilesPanelViewModel panel = new(new RecordingSystemInterop())
+        {
+            ViewMode = ChangedFilesViewMode.Tree,
+
+            // Every directory on a row of its own, so there are nested ones.
+            CollapseDirectories = false,
+        };
+        panel.SetFiles(SampleFiles());
+
+        Assert.Contains(Directories(panel), node => node.Path == "src/app");
+
+        panel.CollapseAllCommand.Execute(null);
+        Assert.All(Directories(panel), node => Assert.False(node.IsExpanded));
+
+        panel.ExpandAllCommand.Execute(null);
+        Assert.All(Directories(panel), node => Assert.True(node.IsExpanded));
+    }
+
+    [Fact]
+    public void Panel_ExpandsEveryFolder_PastTheAutoExpandLimit()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        panel.AutoExpandLimit = 1;
+
+        Assert.All(Directories(panel), node => Assert.False(node.IsExpanded));
+
+        panel.ExpandAllCommand.Execute(null);
+
+        Assert.All(Directories(panel), node => Assert.True(node.IsExpanded));
+    }
+
+    [Fact]
+    public void Panel_OffersExpandAndCollapseAll_OnlyForATreeWithFolders()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+
+        Assert.True(panel.ExpandAllCommand.CanExecute(null));
+        Assert.True(panel.CollapseAllCommand.CanExecute(null));
+
+        panel.ViewMode = ChangedFilesViewMode.List;
+
+        Assert.False(panel.ExpandAllCommand.CanExecute(null));
+        Assert.False(panel.CollapseAllCommand.CanExecute(null));
+
+        // A tree of files at the root alone has no folder to open.
+        panel.ViewMode = ChangedFilesViewMode.Tree;
+        panel.SearchText = "README";
+
+        Assert.False(panel.ExpandAllCommand.CanExecute(null));
+        Assert.False(panel.CollapseAllCommand.CanExecute(null));
+
+        panel.SearchText = string.Empty;
+        panel.Clear();
+
+        Assert.False(panel.ExpandAllCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void Panel_KeepsWhatCollapseAllDid_AcrossARefresh()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+
+        panel.CollapseAllCommand.Execute(null);
+        panel.SetFiles(SampleFilesAndAnotherOne());
+
+        Assert.All(Directories(panel), node => Assert.False(node.IsExpanded));
+    }
+
+    [Fact]
+    public void Panel_KeepsTheSelectedFile_ThroughACollapseAll()
+    {
+        ChangedFilesPanelViewModel panel = LoadedAsTree();
+        Assert.True(panel.SelectPath("src/app/Program.cs"));
+
+        int changes = 0;
+        panel.SelectionChanged += (_, _) => changes++;
+
+        panel.CollapseAllCommand.Execute(null);
+
+        Assert.Equal("src/app/Program.cs", panel.SelectedFile?.Path);
+        Assert.Equal(0, changes);
     }
 
     [Fact]

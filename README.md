@@ -10,12 +10,11 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 5.7** — a stash's line lists every file the stash holds, the untracked files it
-> took included. 5.6 before it: the history's search finds commits by SHA and author too, and steps
-> through what it found; the diff of an uncommitted file keeps your place when the automatic refresh
-> runs; the start window's rows open their folder and a terminal. Coming from 5.1.0? The program
-> was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run
-> the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 5.8** — the files panel opens or closes every folder of its tree at once; a click
+> on a folder folds it instead of selecting it, so the file you were reading stays on screen; the
+> diff area's messages stand alone; the About dialog is down to the essentials. Coming from 5.1.0?
+> The program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on
+> Linux, run the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
@@ -29,9 +28,10 @@ Two things matter more than everything else in this app:
   the choice is remembered for the repository
 - Author, timestamp and 7-character short hash on every commit row
 - Changed files for the selected commit in a panel beside the history, as GitKraken has it — click a
-  line to open it, click the line again to close it — shown as a **list or a tree** (your choice);
-  pick a file and its diff opens over the graph, with the panel still beside it, and click the file
-  again to put the diff away
+  line to open it, click the line again to close it — shown as a **list or a tree** (your choice),
+  the tree's folders folding on a click and two buttons opening or closing them all; pick a file and
+  its diff opens over the graph, with the panel still beside it, and click the file again to put the
+  diff away
 - A commit's details — its title, description, author and email, date and how long ago that was, and
   full hash — in a dialog opened from the details panel's header, the diff view's or the commit's
   line menu, every value selectable to copy

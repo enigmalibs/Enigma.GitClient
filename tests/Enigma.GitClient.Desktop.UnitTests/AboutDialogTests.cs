@@ -49,7 +49,6 @@ public sealed class AboutDialogTests
         Assert.Equal(ProductInformation.Version, about.Version);
         Assert.Equal(ProductInformation.BuildSha, about.BuildSha);
         Assert.Equal(ProductInformation.Copyright, about.Copyright);
-        Assert.Same(AboutViewModel.DefaultCredits, about.Credits);
     }
 
     [Theory]
@@ -57,28 +56,16 @@ public sealed class AboutDialogTests
     [InlineData("", false)]
     [InlineData("9a1b2c3", true)]
     public void TheBuildLine_IsThereOnlyWithARevision(string? sha, bool shown)
-        => Assert.Equal(shown, new AboutViewModel("1.0.0", sha, "Copyright", []).HasBuildSha);
+        => Assert.Equal(shown, new AboutViewModel("1.0.0", sha, "Copyright").HasBuildSha);
 
     [Theory]
     [InlineData("", false)]
     [InlineData("Copyright © 2026 Josué Clément", true)]
     public void TheCopyrightLine_IsThereOnlyWithANotice(string copyright, bool shown)
-        => Assert.Equal(shown, new AboutViewModel("1.0.0", null, copyright, []).HasCopyright);
+        => Assert.Equal(shown, new AboutViewModel("1.0.0", null, copyright).HasCopyright);
 
     [Fact]
-    public void TheCredits_NameWhatTheApplicationShipsAndUnderWhichLicence()
-    {
-        Assert.Equal(
-            ["Avalonia", "SkiaSharp", "HarfBuzzSharp", "ANGLE", "CommunityToolkit.Mvvm", "Microsoft.Extensions", "BouncyCastle", "Enigma libraries", "Phosphor Icons", "Inter"],
-            AboutViewModel.DefaultCredits.Select(credit => credit.Name));
-
-        Assert.Equal("SIL Open Font License 1.1", AboutViewModel.DefaultCredits.Single(credit => credit.Name == "Inter").License);
-        Assert.Equal("BSD-3-Clause", AboutViewModel.DefaultCredits.Single(credit => credit.Name == "ANGLE").License);
-        Assert.All(AboutViewModel.DefaultCredits.Where(credit => credit.Name is not ("Inter" or "ANGLE")), credit => Assert.Equal("MIT", credit.License));
-    }
-
-    [Fact]
-    public void TheService_ShowsTheAboutViewWithOneButtonThatOnlyCloses()
+    public void TheService_ShowsTheAboutViewUntitled_WithOneButtonThatOnlyCloses()
     {
         _fixture.RunAsync(async () =>
         {
@@ -86,10 +73,12 @@ public sealed class AboutDialogTests
 
             await services.Get<IAboutDialogService>().ShowAsync();
 
+            // No title and no icon: the card would draw them as a column beside the view.
             ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
-            Assert.Equal("About", dialog.Title);
-            Assert.NotNull(dialog.IconData);
+            Assert.Null(dialog.Title);
+            Assert.Null(dialog.IconData);
             Assert.Equal("Close", dialog.CloseButtonText);
+            Assert.Equal(DefaultButton.Close, dialog.DefaultButton);
             Assert.Null(dialog.PrimaryButtonText);
             Assert.Null(dialog.SecondaryButtonText);
 
@@ -109,7 +98,7 @@ public sealed class AboutDialogTests
             Assert.True(window.OpenAboutCommand.CanExecute(null));
             await window.OpenAboutCommand.ExecuteAsync(null);
 
-            Assert.Equal("About", Assert.Single(services.Dialogs.Shown).Title);
+            Assert.IsType<AboutView>(Assert.Single(services.Dialogs.Shown).Content);
         });
     }
 
@@ -123,7 +112,7 @@ public sealed class AboutDialogTests
 
             await settings.OpenAboutCommand.ExecuteAsync(null);
 
-            Assert.Equal("About", Assert.Single(services.Dialogs.Shown).Title);
+            Assert.IsType<AboutView>(Assert.Single(services.Dialogs.Shown).Content);
         });
     }
 
@@ -139,7 +128,6 @@ public sealed class AboutDialogTests
             await repositories.OpenAboutCommand.ExecuteAsync(null);
 
             ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
-            Assert.Equal("About", dialog.Title);
             Assert.IsType<AboutView>(dialog.Content);
         });
     }
@@ -181,7 +169,7 @@ public sealed class AboutDialogTests
                 window.MouseUp(middle, MouseButton.Left);
                 Dispatcher.UIThread.RunJobs();
 
-                Assert.Equal("About", Assert.Single(services.Dialogs.Shown).Title);
+                Assert.IsType<AboutView>(Assert.Single(services.Dialogs.Shown).Content);
             }
             finally
             {
@@ -191,11 +179,11 @@ public sealed class AboutDialogTests
     }
 
     [Fact]
-    public void TheView_ShowsTheProductItsBuildAndItsCredits()
+    public void TheView_ShowsTheProductAndItsBuild_AndNoCredits()
     {
         _fixture.Run(() =>
         {
-            AboutView view = new() { DataContext = new AboutViewModel("1.0.0", "9a1b2c3", "Copyright © 2026 Josué Clément", AboutViewModel.DefaultCredits) };
+            AboutView view = new() { DataContext = new AboutViewModel("1.0.0", "9a1b2c3", "Copyright © 2026 Josué Clément") };
             Window window = new() { Content = view, Width = 480, Height = 640 };
             window.Show();
 
@@ -208,12 +196,10 @@ public sealed class AboutDialogTests
                 Assert.Contains("1.0.0", texts);
                 Assert.Contains("9a1b2c3", texts);
                 Assert.Contains("Copyright © 2026 Josué Clément", texts);
-                Assert.Contains("BUILT WITH", texts);
 
-                foreach (CreditEntry credit in AboutViewModel.DefaultCredits)
-                {
-                    Assert.Contains(credit.Name, texts);
-                }
+                // The list of what it is built with is gone, box and all.
+                Assert.DoesNotContain("BUILT WITH", texts);
+                Assert.Empty(view.GetLogicalDescendants().OfType<ItemsControl>());
 
                 Image icon = Assert.Single(view.GetLogicalDescendants().OfType<Image>());
                 Assert.NotNull(icon.Source);
@@ -231,7 +217,7 @@ public sealed class AboutDialogTests
     {
         _fixture.Run(() =>
         {
-            AboutView view = new() { DataContext = new AboutViewModel("1.0.0", null, string.Empty, []) };
+            AboutView view = new() { DataContext = new AboutViewModel("1.0.0", null, string.Empty) };
             Window window = new() { Content = view };
             window.Show();
 
@@ -330,6 +316,16 @@ public sealed class AboutDialogTests
                 Assert.Contains(texts, text => text.Text == "Enigma Git Client");
                 Assert.DoesNotContain(texts, text => text.Text == view.ToString());
 
+                // No title drawn beside the view, and the one button under it, on its right.
+                Assert.DoesNotContain(texts, text => text.Text == "About" && text.IsEffectivelyVisible);
+
+                Button close = shown.OfType<Button>().Single(button => button.IsEffectivelyVisible && Equals(button.Content, "Close"));
+                Rect viewBounds = new(view.TranslatePoint(default, window) ?? default, view.Bounds.Size);
+                Rect closeBounds = new(close.TranslatePoint(default, window) ?? default, close.Bounds.Size);
+
+                Assert.True(closeBounds.Top >= viewBounds.Bottom, "the Close button is not under the view");
+                Assert.True(closeBounds.Right >= viewBounds.Center.X, "the Close button is not on the right");
+
                 await host.HideAsync().WaitAsync(TimeSpan.FromSeconds(10));
                 await showing.WaitAsync(TimeSpan.FromSeconds(10));
             }
@@ -349,7 +345,7 @@ public sealed class AboutDialogTests
             ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
             application.RequestedThemeVariant = ThemeVariant.Dark;
 
-            AboutView view = new() { DataContext = new AboutViewModel("1.0.0", "9a1b2c3", "Copyright © 2026 Josué Clément", AboutViewModel.DefaultCredits) };
+            AboutView view = new() { DataContext = new AboutViewModel("1.0.0", "9a1b2c3", "Copyright © 2026 Josué Clément") };
             Window window = new()
             {
                 Content = new Border { Padding = new Thickness(24), Child = view },

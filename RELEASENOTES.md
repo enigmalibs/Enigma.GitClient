@@ -1,5 +1,64 @@
 # Release notes
 
+## 5.8.0 — 2026-10-08
+
+A minor release:
+
+- the files panel beside the history opens or closes every folder of its tree at once;
+- a folder in that panel is never selected: a click folds it, and the file you were reading stays;
+- the diff area's messages stand alone instead of half hidden behind an empty diff;
+- the About dialog is down to the essentials.
+
+### The files panel
+
+- **Expand all, collapse all.** While the panel shows its files as a tree, two buttons to the left of
+  the list/tree toggles open every folder, or close every folder. They are there for the tree only,
+  in a commit's files and in both halves of the working tree. The selected file stays selected, with
+  its diff, and the automatic refresh leaves the folders as you set them.
+- **A folder is never selected.**
+  - A click on a folder's line folds or unfolds it, as its arrow does; a double-click does it once.
+  - The file you had selected keeps the selection, and its diff stays open. With nothing selected,
+    the history stays on screen.
+  - The arrow keys pass over a folder without selecting it.
+  - A folder's right-click menu is unchanged.
+
+### The About dialog
+
+- **Just the essentials:** the icon, the name, the version, the build, the copyright, and a *Close*
+  button. The *About* title, the info icon beside the content and the *Built with* list are gone.
+
+### Fixes
+
+- **One click on a file selects it.** After a folder, or a file at the top of the tree, a click on a
+  file inside a folder could leave nothing selected. The file had to be clicked again to show its
+  diff. It now takes one click, whatever was selected before.
+- **A folder no longer leaves an empty diff on screen.** Selecting a folder while a file's diff was
+  open left the diff page saying *Select a file to see what changed in it*. Getting back took a click
+  to let go of the folder and another on a file. Folders are no longer selected, so this cannot
+  happen.
+- **The diff area's messages are no longer half hidden.**
+  - The messages are for a binary file, a file only renamed, a mode change, or no file selected.
+  - Each one used to be drawn behind an empty diff, line-number gutter and all.
+  - It now stands alone, centred.
+
+### Upgrading from 5.7
+
+- **Nothing you saved changes.** `settings.json` stays at version 6, and going back to 5.7 keeps
+  everything.
+- A click on a folder in the files panel folds it instead of selecting it.
+
+### Dependencies
+
+- Microsoft.Testing.Extensions.CodeCoverage 18.11.2 → 18.12.0 (the test projects only).
+- The Avalonia set is still held back at **12.1.1** with Enigma.Avalonia.Desktop 1.2.0 (12.1.3 is
+  out; the set moves as a whole).
+
+### Version
+
+- **5.8.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  expand and collapse buttons) and fixes. The About dialog's *Built with* list is the only thing taken
+  out, and the stored settings do not change.
+
 ## 5.7.0 — 2026-10-06
 
 A minor release with one fix: a stash's line in the history lists every file the stash holds,
