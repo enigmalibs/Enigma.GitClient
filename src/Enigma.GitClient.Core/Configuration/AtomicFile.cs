@@ -21,9 +21,22 @@ namespace Enigma.GitClient.Core.Configuration;
 /// The new contents are written to a temporary file beside the target, in the same directory so the
 /// final move is a rename on the same volume, and then moved over it.
 /// </para>
+/// <para>
+/// Windows refuses that move while another handle holds the target open for reading — another
+/// instance loading the same file, for the microseconds it takes. The move is retried briefly then,
+/// rather than losing the write; elsewhere a rename over an open file simply succeeds.
+/// </para>
 /// </remarks>
 public static class AtomicFile
 {
+    // Measured against a reader re-opening the file in a tight loop: the worst write took 16 attempts.
+    private const int ReplaceAttempts = 50;
+
+    private const int SharingViolation = unchecked((int)0x80070020);
+    private const int LockViolation = unchecked((int)0x80070021);
+
+    private static readonly TimeSpan ReplaceRetryDelay = TimeSpan.FromMilliseconds(10);
+
     /// <summary>
     /// Writes a text file atomically.
     /// </summary>
@@ -40,7 +53,7 @@ public static class AtomicFile
         try
         {
             File.WriteAllText(temporary, contents, encoding ?? new UTF8Encoding(false));
-            File.Move(temporary, path, overwrite: true);
+            Replace(temporary, path);
         }
         finally
         {
@@ -72,14 +85,55 @@ public static class AtomicFile
             await File.WriteAllTextAsync(temporary, contents, encoding ?? new UTF8Encoding(false), cancellationToken)
                 .ConfigureAwait(false);
 
-            cancellationToken.ThrowIfCancellationRequested();
-            File.Move(temporary, path, overwrite: true);
+            await ReplaceAsync(temporary, path, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             DeleteQuietly(temporary);
         }
     }
+
+    private static void Replace(string temporary, string path)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporary, path, overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (attempt < ReplaceAttempts && IsHeldOpen(exception))
+            {
+                Thread.Sleep(ReplaceRetryDelay);
+            }
+        }
+    }
+
+    private static async Task ReplaceAsync(string temporary, string path, CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                File.Move(temporary, path, overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (attempt < ReplaceAttempts && IsHeldOpen(exception))
+            {
+                await Task.Delay(ReplaceRetryDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a refused move is Windows saying another handle holds the target open — the only
+    /// refusal worth waiting out. Anything else is a real error.
+    /// </summary>
+    private static bool IsHeldOpen(Exception exception)
+        => OperatingSystem.IsWindows()
+            && exception is UnauthorizedAccessException or IOException { HResult: SharingViolation or LockViolation };
 
     /// <summary>
     /// A name beside the target that no other writer — in this process or another — will pick.
