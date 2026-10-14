@@ -322,6 +322,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Force push offered on rejection         | DONE      | (in FEATURE-5BF5.md)      |
 | FEATURE-68B9 | A clear button in the home filter       | DONE      | docs/plan/FEATURE-68B9.md |
 | FEATURE-1CE1 | Release 6.1.0                           | DONE      | docs/plan/FEATURE-1CE1.md |
+| FEATURE-E228 | Redraw the app icon's connections       | DONE      | docs/plan/FEATURE-E228.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
