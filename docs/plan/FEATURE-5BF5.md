@@ -1,6 +1,6 @@
 # FEATURE-5BF5 — Force push a rejected branch
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-14-home-search-force-push
@@ -37,7 +37,7 @@ dangerous.
 
 ## PHASE01 — A lease pinned to a commit
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5BF5-PHASE01.md`
 **Branch:** `feature/feature-5bf5-phase01-pinned-lease`
 
 ### Steps

@@ -345,6 +345,83 @@ public sealed class SyncParsingTests
         Assert.DoesNotContain("-f", arguments);
     }
 
+    private const string Tip = "0123456789abcdef0123456789abcdef01234567";
+
+    [Fact]
+    public void BuildPushArguments_PinsTheLeaseToTheCommitTheUserWasShown()
+    {
+        List<string> arguments = SyncService.BuildPushArguments(new PushRequest
+        {
+            Remote = "origin",
+            Branch = "feature/login",
+            ForceWithLease = true,
+            ExpectedRemoteTip = Tip,
+        });
+
+        Assert.Contains($"--force-with-lease=refs/heads/feature/login:{Tip}", arguments);
+        Assert.DoesNotContain("--force-with-lease", arguments);
+        Assert.DoesNotContain("--force", arguments);
+        Assert.DoesNotContain("-f", arguments);
+        Assert.Equal("feature/login", arguments[^1]);
+    }
+
+    [Fact]
+    public void BuildPushArguments_PinsASha256Lease()
+    {
+        string tip = string.Concat(Enumerable.Repeat("ABCDEF0123456789", 4));
+
+        List<string> arguments = SyncService.BuildPushArguments(new PushRequest
+        {
+            Branch = "main",
+            ForceWithLease = true,
+            ExpectedRemoteTip = tip,
+        });
+
+        Assert.Contains($"--force-with-lease=refs/heads/main:{tip}", arguments);
+    }
+
+    [Theory]
+    [InlineData("main", "0123456")]
+    [InlineData("main", "0123456789abcdef0123456789abcdef0123456z")]
+    [InlineData("main", "--force")]
+    [InlineData("main", "")]
+    [InlineData(null, Tip)]
+    [InlineData("", Tip)]
+    public void BuildPushArguments_APinnedLeaseNeedsABranchAndAFullObjectName(string? branch, string tip)
+        => Assert.Throws<ArgumentException>(() => SyncService.BuildPushArguments(new PushRequest
+        {
+            Branch = branch,
+            ForceWithLease = true,
+            ExpectedRemoteTip = tip,
+        }));
+
+    [Fact]
+    public void BuildPushArguments_ATipWithoutForceForcesNothing()
+    {
+        List<string> arguments = SyncService.BuildPushArguments(new PushRequest
+        {
+            Branch = "main",
+            ExpectedRemoteTip = Tip,
+        });
+
+        Assert.DoesNotContain(arguments, argument => argument.StartsWith("--force", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void BuildPushArguments_ADeleteIgnoresAPinnedLease()
+    {
+        List<string> arguments = SyncService.BuildPushArguments(new PushRequest
+        {
+            Branch = "topic",
+            Delete = true,
+            ForceWithLease = true,
+            ExpectedRemoteTip = Tip,
+        });
+
+        Assert.Contains("--delete", arguments);
+        Assert.DoesNotContain(arguments, argument => argument.StartsWith("--force", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void BuildPushArguments_SetsUpstreamAndFollowsTagsWhenAsked()
     {
