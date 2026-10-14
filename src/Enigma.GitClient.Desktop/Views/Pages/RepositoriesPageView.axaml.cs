@@ -153,13 +153,13 @@ public partial class RepositoriesPageView : UserControl
 
     /// <summary>
     /// Remembers a press on a row's body, which a later move may turn into a drag. A press on one of
-    /// the row's buttons is the button's.
+    /// the row's buttons is the button's, and nothing is dragged while the list is filtered.
     /// </summary>
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _pending = null;
 
-        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || Page is not { CanReorder: true })
         {
             return;
         }

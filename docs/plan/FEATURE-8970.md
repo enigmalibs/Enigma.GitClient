@@ -1,6 +1,6 @@
 # FEATURE-8970 — Home list: filter and drag visuals
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-14-home-search-force-push
@@ -49,7 +49,7 @@ On the start window's repository list (`RepositoriesPageView`):
 
 ## PHASE01 — Filter the repositories
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8970-PHASE01.md`
 **Branch:** `feature/feature-8970-phase01-filter-repositories`
 
 ### Steps
