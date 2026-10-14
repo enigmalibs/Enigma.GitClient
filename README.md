@@ -10,13 +10,15 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.0** — what changes on disk, in an editor or a terminal, shows within a second:
-> the repository's files are watched, and the automatic refresh runs every 60 seconds. The branches,
-> tags and remotes are drawn like the changed files, the branches as a tree, and several can be
-> selected and deleted after one question; the window's title says Enigma Git Client. The buttons on
-> those pages' rows moved into each line's menu: read *Upgrading from 5.9*. Coming from 5.1.0? The
-> program was renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on
-> Linux, run the installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> **What's new in 6.1** — the start window's list of repositories has a filter box, by name or
+> path, with a button at its right edge that clears it; a dragged tile travels under the pointer,
+> and a dashed tile shows where it will land; a push the remote refuses offers a force push, behind
+> a red warning, that replaces only what the warning named. 6.0 before it: what changes on disk
+> shows within a second, because the repository's files are watched; the branches, tags and remotes
+> are drawn like the changed files, and several can be deleted at once; the buttons on those pages'
+> rows moved into each line's menu: read *Upgrading from 5.9*. Coming from 5.1.0? The program was
+> renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the
+> installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
 > [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
@@ -74,8 +76,10 @@ Two things matter more than everything else in this app:
   fast-forwarded; the fast-forward-only merges are the way to move a branch without one
 - Create (with a `README.md` holding its name as the first commit), clone and open repositories from
   a start window that lists a profile's repositories — pick the profile in the page's header: every
-  profile keeps a list of its own, in the order you drag its rows into, and a "Default" profile is
-  made when there is none; a profile can name a base directory, where Open, Clone and Create start
+  profile keeps a list of its own, in the order you drag its rows into (the tile travels under the
+  pointer, a dashed tile shows where it lands), and a "Default" profile is made when there is none;
+  a filter box above the list keeps the repositories whose name or path holds the text, and the ×
+  at its right edge, or Escape, clears it; a profile can name a base directory, where Open, Clone and Create start
   while it is picked (a clone from one of its integrations goes there too); the repository you pick
   opens in a window of its own, and `Enigma.GitClient.Desktop <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
