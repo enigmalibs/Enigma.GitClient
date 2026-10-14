@@ -1255,7 +1255,10 @@ public sealed class RepositoriesPageTests
                 window.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
 
-                EmptyState empty = page.GetVisualDescendants().OfType<EmptyState>().Single();
+                // The page's own empty state, not the filter's "no match" one.
+                EmptyState empty = page.GetVisualDescendants()
+                    .OfType<EmptyState>()
+                    .Single(state => state.Title == "No repositories yet");
                 Assert.True(empty.IsVisible);
 
                 // The empty state has the page's whole width below the header, not the width of its
