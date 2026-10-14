@@ -1,5 +1,44 @@
 # Release notes
 
+## 6.2.0 — 2026-10-14
+
+A minor release with one change: the application icon joins its green commit to the line of commits
+the way the History graph draws a branch, with one rounded elbow.
+
+### The icon
+
+- **One rounded elbow.** The line leaves the bottom blue commit horizontally, turns a quarter
+  circle, and rises into the green commit from below. It used to hang the green commit off the
+  middle blue commit on a short horizontal stub, then drop back to the bottom commit on a diagonal.
+- **Everything else is kept:** the dark tile and its rounded corners, the blue line of commits and
+  its three dots (the top one a ring), the green commit, and both colours. The blue dots are now
+  evenly spaced.
+- **The small sizes are drawn for their size,** as before: at 16 and 32 pixels the ring is filled
+  and the lines are heavier, so the elbow stays visible.
+- **Wherever the icon shows:** the window and the taskbar, the splash screen, the About dialog, and
+  the Linux application launcher.
+- **The icon has a source:** two SVG drawings in `packaging/icon/`, one for 48 pixels and up and one
+  for 16 and 32, each saying how its frames are rendered. They reproduce every frame the
+  application and the installer carry.
+
+### Upgrading from 6.1
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, and going back to 6.1 keeps
+  everything.
+- **On Linux,** running the installer again puts the new icon in place of the old one and refreshes
+  the icon cache. A launcher that keeps showing the old icon shows the new one after logging out and
+  in again.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.2.0** is a minor release under Semantic Versioning. It changes how the application looks,
+  backward-compatibly: nothing is removed, and the stored settings do not change.
+
 ## 6.1.0 — 2026-10-14
 
 A minor release:

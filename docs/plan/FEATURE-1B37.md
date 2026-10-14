@@ -1,6 +1,6 @@
 # FEATURE-1B37 — Release 6.2.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1B37.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1b37-release-6-2-0`
 **Run:** feature/2026-10-14-release-6-2-0
