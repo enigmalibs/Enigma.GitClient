@@ -10,16 +10,16 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.1** — the start window's list of repositories has a filter box, by name or
-> path, with a button at its right edge that clears it; a dragged tile travels under the pointer,
-> and a dashed tile shows where it will land; a push the remote refuses offers a force push, behind
-> a red warning, that replaces only what the warning named. 6.0 before it: what changes on disk
-> shows within a second, because the repository's files are watched; the branches, tags and remotes
-> are drawn like the changed files, and several can be deleted at once; the buttons on those pages'
-> rows moved into each line's menu: read *Upgrading from 5.9*. Coming from 5.1.0? The program was
-> renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the
-> installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
-> [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 6.2** — the application icon joins its green commit to the line of commits with
+> one rounded elbow, the way the History graph draws a branch. 6.1 before it: the start window's
+> list of repositories has a filter box, by name or path, with a button at its right edge that
+> clears it; a dragged tile travels under the pointer, and a dashed tile shows where it will land; a
+> push the remote refuses offers a force push, behind a red warning, that replaces only what the
+> warning named. Coming from 5.9? The buttons on the branches', tags' and remotes' rows moved into
+> each line's menu in 6.0, and the automatic refresh runs every 60 seconds: read *Upgrading from
+> 5.9* under 6.0.0. Coming from 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in 5.1.1:
+> read *Upgrading from 5.1.0* there (on Linux, run the installer again). Coming from 4.x? Read
+> *Upgrading from 4.x* under 5.0.0 first. See [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
