@@ -1,9 +1,11 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Branches;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Hosting;
@@ -34,10 +36,11 @@ public interface ISyncOperations
     Task<bool> PullAsync();
 
     /// <summary>
-    /// Pushes the current branch, setting its upstream when it has none.
+    /// Pushes the current branch, setting its upstream when it has none — and, when the remote
+    /// refuses it because the branch no longer matches what the remote has, offers to force it.
     /// </summary>
     /// <param name="setUpstream">Whether to record the upstream this pushes to.</param>
-    /// <returns><see langword="true"/> when the push finished.</returns>
+    /// <returns><see langword="true"/> when the push, forced or not, finished.</returns>
     Task<bool> PushAsync(bool setUpstream = false);
 
     /// <summary>
@@ -49,10 +52,11 @@ public interface ISyncOperations
     Task<bool> PullBranchAsync(string branch);
 
     /// <summary>
-    /// Pushes a local branch, current or not, setting its upstream when it has none.
+    /// Pushes a local branch, current or not, setting its upstream when it has none — and offers to
+    /// force it as <see cref="PushAsync"/> does.
     /// </summary>
     /// <param name="branch">The local branch's name.</param>
-    /// <returns><see langword="true"/> when the push finished.</returns>
+    /// <returns><see langword="true"/> when the push, forced or not, finished.</returns>
     Task<bool> PushBranchAsync(string branch);
 
     /// <summary>
@@ -98,12 +102,17 @@ public enum QuietFetchResult
 /// </summary>
 public sealed class SyncOperations : ISyncOperations
 {
+    /// <summary>What the red button of the force push question says.</summary>
+    public const string ForcePushConfirmText = "Force push";
+
     private readonly IRepositoryContext _context;
     private readonly ISyncService _sync;
+    private readonly IBranchService _branches;
     private readonly IPushGuard _pushGuard;
     private readonly ISettingsService _settings;
     private readonly IOverlayService _overlay;
     private readonly IInfoBarService _infoBar;
+    private readonly IContentDialogService _dialogs;
     private readonly ILogger<SyncOperations> _logger;
 
     private CancellationTokenSource? _cancellation;
@@ -113,34 +122,42 @@ public sealed class SyncOperations : ISyncOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="sync">Performs the transfer.</param>
+    /// <param name="branches">Counts the commits a force push would take off the remote.</param>
     /// <param name="pushGuard">Says whether the repository's profile may push to the remote.</param>
     /// <param name="settings">Supplies the pull strategy.</param>
     /// <param name="overlay">Shows the progress.</param>
     /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="dialogs">Asks, in red, before a push is forced.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public SyncOperations(
         IRepositoryContext context,
         ISyncService sync,
+        IBranchService branches,
         IPushGuard pushGuard,
         ISettingsService settings,
         IOverlayService overlay,
         IInfoBarService infoBar,
+        IContentDialogService dialogs,
         ILogger<SyncOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(sync);
+        ArgumentNullException.ThrowIfNull(branches);
         ArgumentNullException.ThrowIfNull(pushGuard);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(overlay);
         ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _sync = sync;
+        _branches = branches;
         _pushGuard = pushGuard;
         _settings = settings;
         _overlay = overlay;
         _infoBar = infoBar;
+        _dialogs = dialogs;
         _logger = logger;
 
         CancelCommand = new RelayCommand(() => _cancellation?.Cancel());
@@ -183,12 +200,7 @@ public sealed class SyncOperations : ISyncOperations
             return false;
         }
 
-        return await RunAsync(
-                "Pushing",
-                (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
-                "Pushed",
-                "The remote has your commits.")
-            .ConfigureAwait(true);
+        return await PushOrOfferForceAsync(request, "Pushing", "The remote has your commits.").ConfigureAwait(true);
     }
 
     /// <inheritdoc />
@@ -258,11 +270,7 @@ public sealed class SyncOperations : ISyncOperations
             return false;
         }
 
-        return await RunAsync(
-                $"Pushing {branch}",
-                (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
-                "Pushed",
-                $"The remote has the commits of \"{branch}\".")
+        return await PushOrOfferForceAsync(request, $"Pushing {branch}", $"The remote has the commits of \"{branch}\".")
             .ConfigureAwait(true);
     }
 
@@ -324,6 +332,159 @@ public sealed class SyncOperations : ISyncOperations
             _logger.LogDebug(exception, "The automatic fetch failed");
             return QuietFetchResult.Failed;
         }
+    }
+
+    /// <summary>
+    /// Says what forcing a branch over its remote counterpart takes off the remote, as the question
+    /// that asks for it.
+    /// </summary>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="branch">The branch's name, here and on the remote.</param>
+    /// <param name="lost">How many commits only the remote has.</param>
+    /// <returns>The question's title and message.</returns>
+    internal static (string Title, string Message) DescribeForcePush(string remote, string branch, int lost)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+        ArgumentOutOfRangeException.ThrowIfLessThan(lost, 1);
+
+        string there = $"\"{remote}/{branch}\"";
+        string here = $"\"{branch}\"";
+        string count = lost.ToString(CultureInfo.CurrentCulture);
+
+        (string has, string removed, string keep) = lost == 1
+            ? ("a commit", "that commit is", "it")
+            : ($"{count} commits", $"those {count} commits are", "them");
+
+        return (
+            $"Force push {here}?",
+            $"{there} has {has} that {here} does not have: the branch was rewritten here, or someone else "
+            + "pushed to it.\n\n"
+            + $"Force pushing replaces {there} with {here} as it is here — {removed} removed from the remote "
+            + "for everyone who uses it. This cannot be undone from here.\n\n"
+            + $"To keep {keep}, cancel and pull first.");
+    }
+
+    /// <summary>
+    /// Pushes, and when the remote refuses because the branch no longer matches it, offers to force
+    /// the push after a red warning that says what the remote loses.
+    /// </summary>
+    /// <param name="request">The push, unforced.</param>
+    /// <param name="title">What the progress card says.</param>
+    /// <param name="successMessage">What the notification says once the remote has the commits.</param>
+    /// <returns><see langword="true"/> when the push, forced or not, finished.</returns>
+    private async Task<bool> PushOrOfferForceAsync(PushRequest request, string title, string successMessage)
+    {
+        (bool pushed, SyncFailure? rejection) = await RunCoreAsync(
+                title,
+                (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
+                "Pushed",
+                successMessage,
+                explain: null,
+
+                // Only a named branch can be forced: a detached HEAD's push is reported as before.
+                handOver: failure => failure.Kind == SyncFailureKind.NonFastForward && request.Branch is { Length: > 0 })
+            .ConfigureAwait(true);
+
+        return rejection is null
+            ? pushed
+            : await OfferForcePushAsync(request, request.Branch!, title).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Asks whether to force a refused push, and forces it — pinned to the remote commit the question
+    /// described, so a remote that moves while the user reads it is refused rather than overwritten.
+    /// </summary>
+    /// <param name="request">The refused push.</param>
+    /// <param name="branch">The branch it pushes.</param>
+    /// <param name="title">What the refused push's progress card said.</param>
+    /// <returns><see langword="true"/> when the forced push finished.</returns>
+    private async Task<bool> OfferForcePushAsync(PushRequest request, string branch, string title)
+    {
+        (string Tip, int Lost)? replaced = await DescribeRemoteSideAsync(request.Remote, branch).ConfigureAwait(true);
+
+        // Nothing here says what the remote holds: it has commits this repository never fetched, and
+        // nobody can be asked to throw away commits they have not seen.
+        if (replaced is not { } remoteSide)
+        {
+            Report(
+                $"{title} failed",
+                $"The remote has commits this repository has not fetched, so \"{branch}\" was not pushed. "
+                + "Fetch, look at what arrived, then push again.",
+                InfoBarSeverity.Warning);
+            return false;
+        }
+
+        (string question, string message) = DescribeForcePush(request.Remote, branch, remoteSide.Lost);
+
+        if (!await _dialogs.ConfirmDestructiveAsync(question, message, ForcePushConfirmText).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        PushRequest forced = request with { ForceWithLease = true, ExpectedRemoteTip = remoteSide.Tip };
+
+        return await RunAsync(
+                $"Force pushing {branch}",
+                (handle, progress, token) => _sync.PushAsync(handle, forced, progress, token),
+                "Force pushed",
+                $"\"{request.Remote}/{branch}\" is now \"{branch}\" as it is here.")
+            .ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Reads what the remote's side of a branch was when it was last fetched: its commit, and how
+    /// many commits it has that the local branch does not.
+    /// </summary>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="branch">The branch's name, here and on the remote.</param>
+    /// <returns>
+    /// The remote-tracking branch's commit and that count; <see langword="null"/> when there is no
+    /// remote-tracking branch, or when it has nothing the local branch lacks — the remote's new
+    /// commits were never fetched.
+    /// </returns>
+    private async Task<(string Tip, int Lost)?> DescribeRemoteSideAsync(string remote, string branch)
+    {
+        if (_context.Repository is not { } repository)
+        {
+            return null;
+        }
+
+        string tracking = $"{GitBranch.RemotePrefix}{remote}/{branch}";
+        GitBranch? remoteSide = null;
+
+        foreach (GitBranch candidate in _context.Refs.RemoteBranches)
+        {
+            if (string.Equals(candidate.FullName, tracking, StringComparison.Ordinal))
+            {
+                remoteSide = candidate;
+                break;
+            }
+        }
+
+        if (remoteSide is null)
+        {
+            return null;
+        }
+
+        int lost;
+
+        try
+        {
+            lost = await _branches
+                .CountUnmergedCommitsAsync(
+                    repository,
+                    remoteSide.TargetSha,
+                    into: GitBranch.LocalPrefix + branch,
+                    _context.RepositoryLifetime)
+                .ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+
+        return lost > 0 ? (remoteSide.TargetSha, lost) : null;
     }
 
     /// <summary>
@@ -436,12 +597,27 @@ public sealed class SyncOperations : ISyncOperations
         string successTitle,
         string successMessage,
         Func<SyncFailure, string?>? explain = null)
+        => (await RunCoreAsync(title, operation, successTitle, successMessage, explain, handOver: null)
+            .ConfigureAwait(true)).Succeeded;
+
+    /// <summary>
+    /// Runs a transfer behind the progress card and reports how it went — except a failure
+    /// <paramref name="handOver"/> claims, which is returned unreported for the caller to deal with.
+    /// </summary>
+    /// <returns>Whether it finished, and the failure handed over, if any.</returns>
+    private async Task<(bool Succeeded, SyncFailure? HandedOver)> RunCoreAsync(
+        string title,
+        Func<RepositoryHandle, IProgress<SyncProgress>, CancellationToken, Task> operation,
+        string successTitle,
+        string successMessage,
+        Func<SyncFailure, string?>? explain,
+        Func<SyncFailure, bool>? handOver)
     {
         RepositoryHandle? repository = _context.Repository;
 
         if (repository is null)
         {
-            return false;
+            return (false, null);
         }
 
         using CancellationTokenSource cancellation =
@@ -468,11 +644,17 @@ public sealed class SyncOperations : ISyncOperations
                 .ConfigureAwait(true);
 
             Report(successTitle, successMessage, InfoBarSeverity.Success);
-            return true;
+            return (true, null);
         }
         catch (OperationCanceledException)
         {
             Report($"{title} cancelled", "The transfer was stopped.", InfoBarSeverity.Info);
+        }
+        catch (SyncException exception) when (handOver?.Invoke(exception.Failure) == true)
+        {
+            _logger.LogInformation("{Title} was refused: {Kind}", title, exception.Failure.Kind);
+
+            return (false, exception.Failure);
         }
         catch (SyncException exception)
         {
@@ -501,7 +683,7 @@ public sealed class SyncOperations : ISyncOperations
             await _overlay.HideAsync().ConfigureAwait(true);
         }
 
-        return false;
+        return (false, null);
     }
 
     /// <summary>

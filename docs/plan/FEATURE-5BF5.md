@@ -1,6 +1,6 @@
 # FEATURE-5BF5 — Force push a rejected branch
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-14-home-search-force-push
@@ -63,7 +63,7 @@ dangerous.
 
 ## PHASE02 — Force push offered on rejection
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5BF5-PHASE02.md`
 **Branch:** `feature/feature-5bf5-phase02-force-push-offer`
 
 ### Steps

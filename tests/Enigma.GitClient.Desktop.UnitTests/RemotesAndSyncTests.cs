@@ -818,6 +818,144 @@ public sealed class RemotesAndSyncTests
         });
     }
 
+    // ---------------------------------------------------------------- a push the remote refuses
+
+    [Theory]
+    [InlineData(1, "\"origin/main\" has a commit that \"main\" does not have", "that commit is removed", "To keep it,")]
+    [InlineData(3, "\"origin/main\" has 3 commits that \"main\" does not have", "those 3 commits are removed", "To keep them,")]
+    public void DescribeForcePush_NamesTheRemoteBranchAndWhatItLoses(int lost, string has, string removed, string keep)
+    {
+        (string title, string message) = SyncOperations.DescribeForcePush("origin", "main", lost);
+
+        Assert.Equal("Force push \"main\"?", title);
+        Assert.Contains(has, message, StringComparison.Ordinal);
+        Assert.Contains(removed, message, StringComparison.Ordinal);
+        Assert.Contains("for everyone who uses it", message, StringComparison.Ordinal);
+        Assert.Contains("cannot be undone", message, StringComparison.Ordinal);
+        Assert.Contains(keep, message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The remote's <c>main</c> has a commit made elsewhere, fetched here; the local <c>main</c> has
+    /// one of its own instead — the two no longer match, and a plain push is refused.
+    /// </summary>
+    private static async Task DivergeAsync(World world, bool fetch = true)
+    {
+        Write(world.OtherPath, "src/theirs.txt", "from elsewhere\n");
+        await GitAsync(world.OtherPath, "add", "--all");
+        await GitAsync(world.OtherPath, "commit", "-m", "Work done elsewhere");
+        await GitAsync(world.OtherPath, "push", "origin", "main");
+
+        if (fetch)
+        {
+            await GitAsync(world.Local.WorkTreePath, "fetch", "origin");
+        }
+
+        Write(world.Local.WorkTreePath, "src/ours.txt", "from here\n");
+        await GitAsync(world.Local.WorkTreePath, "add", "--all");
+        await GitAsync(world.Local.WorkTreePath, "commit", "-m", "Work done here");
+    }
+
+    [Fact]
+    public void Shell_ARefusedPush_AsksInRed_AndAConfirmedForceReplacesTheRemote()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await DivergeAsync(world);
+
+            bool red = false;
+            services.Dialogs.OnShown = dialog => red = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
+            services.Dialogs.Script(DialogResult.Primary);
+
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Force push \"main\"?", question.Title);
+            Assert.Equal(SyncOperations.ForcePushConfirmText, question.PrimaryButtonText);
+            Assert.Contains("\"origin/main\" has a commit", question.Content as string, StringComparison.Ordinal);
+            Assert.True(red, "a force push is confirmed with the red button");
+
+            Assert.Equal("Work done here", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Force pushed");
+            Assert.DoesNotContain(services.InfoBar.Shown, note => note.Title == "Pushing failed");
+        });
+    }
+
+    [Fact]
+    public void Shell_ADeclinedForcePush_LeavesTheRemoteAlone_AndSaysNothingMore()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await DivergeAsync(world);
+
+            services.Dialogs.Script(DialogResult.Close);
+
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Work done elsewhere", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+            Assert.DoesNotContain(
+                services.InfoBar.Shown,
+                note => note.Title is "Pushed" or "Force pushed" or "Pushing failed" or "Force pushing main failed");
+        });
+    }
+
+    [Fact]
+    public void Shell_NoForceIsOfferedOverCommitsThisRepositoryNeverFetched()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await DivergeAsync(world, fetch: false);
+
+            services.Dialogs.Script(DialogResult.Primary);
+
+            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+
+            await shell.PushCommand.ExecuteAsync(null);
+
+            Assert.Empty(services.Dialogs.Shown);
+            Assert.Equal("Work done elsewhere", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+
+            RecordedNotification refusal = Assert.Single(services.InfoBar.Shown, note => note.Title == "Pushing failed");
+            Assert.Contains("has not fetched", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, refusal.Severity);
+        });
+    }
+
+    [Fact]
+    public void History_ABranchBadgesRefusedPush_OffersTheForceToo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            World world = await BuildWorldAsync(services);
+            await DivergeAsync(world);
+
+            services.Dialogs.Script(DialogResult.Primary);
+
+            await services.Get<IRepositoryContext>().OpenAsync(world.Local);
+            HistoryBranchViewModel main = await BranchInHistoryAsync(services, "main");
+
+            await main.Commands.Push.ExecuteAsync(main);
+
+            Assert.Equal("Force push \"main\"?", Assert.Single(services.Dialogs.Shown).Title);
+            Assert.Equal("Work done here", await ReadGitAsync(world.OriginPath, "log", "-1", "--format=%s", "main"));
+        });
+    }
+
     // ---------------------------------------------------------------- the profile a push goes out under
 
     private static readonly Core.Identity.GitIdentity WorkIdentity = new("Ada Lovelace", "ada@work.example");
@@ -1445,8 +1583,9 @@ public sealed class RemotesAndSyncTests
                 services.InfoBar.Shown,
                 note => note.Title == "Pushing failed");
 
-            // The whole point of classifying it: "rejected" alone leaves a user guessing.
-            Assert.Contains("Pull first", failure.Message, StringComparison.Ordinal);
+            // The whole point of classifying it: "rejected" alone leaves a user guessing. The remote's
+            // commit was never fetched here, so no force is offered and the user is told to fetch.
+            Assert.Contains("Fetch, look at what arrived", failure.Message, StringComparison.Ordinal);
 
             // A failure the user can fix themselves is a warning, not an error.
             Assert.Equal(Enigma.Avalonia.Desktop.Controls.InfoBar.InfoBarSeverity.Warning, failure.Severity);
