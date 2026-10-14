@@ -1,5 +1,68 @@
 # Release notes
 
+## 6.1.0 — 2026-10-14
+
+A minor release:
+
+- the start window's list of repositories can be filtered by name or path, and a button at the
+  box's right edge clears the filter;
+- reordering that list carries the whole tile under the pointer, and a dashed tile shows where it
+  will land;
+- a push the remote refuses because the branch no longer matches it offers a force push, behind a
+  red warning, that can replace only what the warning named.
+
+### The start window's list
+
+- **A filter box above the tiles:** *Filter by name or path*. A repository stays when its name or
+  its folder's path contains the text, ignoring case and the spaces around it.
+  - The box is there while the profile lists any repository. Switching profile keeps the text and
+    filters the new list.
+  - **The × at the box's right edge clears it**, whenever the box holds anything, and the caret
+    stays in the box. Escape does the same.
+  - A filter that keeps nothing says *No repository matches this filter*, not *No repositories
+    yet*.
+- **No reordering while the list is filtered.** A tile's place among those shown is not its place in
+  your order, so the grip is hidden and a drag does not start. Clear the filter to reorder.
+- **A drag shows what moves.**
+  - A copy of the whole tile follows the pointer up and down, and the tile itself fades in its
+    place.
+  - Where it would land, a small dashed tile opens a gap, and the rows below make room for it.
+  - Dropping, Escape or losing the pointer leaves nothing behind.
+
+### Pushing
+
+- **A refused push offers a force push.** The remote refuses a push when the branch no longer
+  matches it: the branch was rewritten here, or someone else pushed to it. The toolbar's *Push* and
+  a branch badge's *Push "x"* then ask:
+  - *Force push "main"?*, with how many commits `origin/main` has that `main` does not, and that
+    they are removed from the remote for everyone who uses it;
+  - the button that goes ahead is red, and Cancel is the default. To keep those commits, cancel and
+    pull first.
+- **It replaces exactly what it named.** The force push is a `--force-with-lease` pinned to the
+  remote commit the warning described, never a bare `--force`. If the remote moved while the
+  question was open, the push is refused rather than overwriting it.
+- **No force over what was never fetched.** When the remote's new commits are not in this
+  repository, nothing is offered. The message says to fetch, look at what arrived, and push again.
+
+### Upgrading from 6.0
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, and going back to 6.0 keeps
+  everything.
+
+### Dependencies
+
+- Microsoft.Extensions.Hosting, Microsoft.Extensions.Http and
+  System.Security.Cryptography.ProtectedData 10.0.12 → 10.0.13.
+- xunit.v3 4.0.1 → 4.0.2 (the test projects only).
+- The Avalonia set is still held back at **12.1.1** with Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is
+  out; the set moves as a whole).
+
+### Version
+
+- **6.1.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  filter and its clear button, the drag's tile, the force-push offer), removes nothing, and leaves
+  the stored settings as they were.
+
 ## 6.0.0 — 2026-10-08
 
 A major release. What changes on disk — a file saved in an editor, a commit, checkout or stash made

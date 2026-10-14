@@ -1,6 +1,6 @@
 # FEATURE-1CE1 — Release 6.1.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1CE1.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1ce1-release-6-1-0`
 **Run:** feature/2026-10-14-home-filter-clear-release
