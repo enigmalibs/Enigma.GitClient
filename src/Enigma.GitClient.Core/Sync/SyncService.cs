@@ -46,6 +46,19 @@ public sealed record PushRequest
     public bool ForceWithLease { get; init; }
 
     /// <summary>
+    /// Gets the commit the forced push may replace on the remote — the full object name of the
+    /// remote's branch as the user was shown it — or <see langword="null"/> for git's own lease.
+    /// </summary>
+    /// <remarks>
+    /// git's own lease is the remote-tracking branch, which every fetch moves: a background fetch
+    /// while the user is deciding would let the push replace commits nobody told them about. Pinned,
+    /// the push replaces exactly the commit the question named, or nothing. It needs
+    /// <see cref="Branch"/>, the branch's name on the remote, and has no effect without
+    /// <see cref="ForceWithLease"/>.
+    /// </remarks>
+    public string? ExpectedRemoteTip { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether this deletes the branch on the remote instead of publishing
     /// it.
     /// </summary>
@@ -294,6 +307,9 @@ public sealed class SyncService : ISyncService
     /// </summary>
     /// <param name="request">What to push, and how.</param>
     /// <returns>The arguments.</returns>
+    /// <exception cref="ArgumentException">
+    /// A pinned lease names no branch, or its commit is not a full object name.
+    /// </exception>
     public static List<string> BuildPushArguments(PushRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -308,7 +324,9 @@ public sealed class SyncService : ISyncService
         if (request.ForceWithLease && !request.Delete)
         {
             // Never a bare --force: the lease is the whole point.
-            arguments.Add("--force-with-lease");
+            arguments.Add(request.ExpectedRemoteTip is { } tip
+                ? BuildPinnedLease(request.Branch, tip)
+                : "--force-with-lease");
         }
 
         if (request.PushTags && !request.Delete)
@@ -329,6 +347,27 @@ public sealed class SyncService : ISyncService
         }
 
         return arguments;
+    }
+
+    /// <summary>
+    /// Builds the lease that lets a push replace one commit on the remote's branch, and no other.
+    /// </summary>
+    /// <param name="branch">The branch's name on the remote.</param>
+    /// <param name="tip">The full object name of the commit it may replace.</param>
+    /// <returns><c>--force-with-lease=refs/heads/&lt;branch&gt;:&lt;tip&gt;</c>.</returns>
+    private static string BuildPinnedLease(string? branch, string tip)
+    {
+        if (branch is not { Length: > 0 })
+        {
+            throw new ArgumentException("A lease pinned to a commit needs the branch it is about.", nameof(branch));
+        }
+
+        if (tip.Length is not (40 or 64) || tip.AsSpan().IndexOfAnyExcept("0123456789abcdefABCDEF") >= 0)
+        {
+            throw new ArgumentException("A lease is pinned to a full object name.", nameof(tip));
+        }
+
+        return $"--force-with-lease=refs/heads/{branch}:{tip}";
     }
 
     /// <summary>

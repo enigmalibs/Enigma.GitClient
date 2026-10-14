@@ -314,6 +314,14 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Branches as a compact tree              | DONE      | (in FEATURE-8E87.md)      |
 | - PHASE04    | Bulk delete for branches                | DONE      | (in FEATURE-8E87.md)      |
 | FEATURE-AE9F | Release 6.0.0                           | DONE      | docs/plan/FEATURE-AE9F.md |
+| FEATURE-8970 | Home list: filter and drag visuals      | DONE      | docs/plan/FEATURE-8970.md |
+| - PHASE01    | Filter the repositories                 | DONE      | (in FEATURE-8970.md)      |
+| - PHASE02    | The tile drags, a dashed tile lands     | DONE      | (in FEATURE-8970.md)      |
+| FEATURE-5BF5 | Force push a rejected branch            | DONE      | docs/plan/FEATURE-5BF5.md |
+| - PHASE01    | A lease pinned to a commit              | DONE      | (in FEATURE-5BF5.md)      |
+| - PHASE02    | Force push offered on rejection         | DONE      | (in FEATURE-5BF5.md)      |
+| FEATURE-68B9 | A clear button in the home filter       | DONE      | docs/plan/FEATURE-68B9.md |
+| FEATURE-1CE1 | Release 6.1.0                           | DONE      | docs/plan/FEATURE-1CE1.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

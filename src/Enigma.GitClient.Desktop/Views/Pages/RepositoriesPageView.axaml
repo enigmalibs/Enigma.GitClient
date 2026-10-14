@@ -9,30 +9,145 @@
              x:DataType="vm:RepositoriesPageViewModel">
 
   <UserControl.Styles>
-    <!-- The line in the gap between two rows that says where a dragged row would land. Drawn over
-         the gap, never laid out in it, so the rows do not move while the pointer does. -->
-    <Style Selector="Border.dropline">
-      <Setter Property="Height" Value="2" />
-      <Setter Property="CornerRadius" Value="1" />
-      <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+    <!-- Where a dragged row would land: a small dashed tile in the gap above a row, or below the
+         last one, laid out there so the rows below make room for it. The code behind finds the gap
+         as if it were not open, so the rows moving never change which gap the pointer is over. -->
+    <Style Selector="Panel.placeholder">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Margin" Value="0,0,0,8" />
       <Setter Property="IsHitTestVisible" Value="False" />
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <Style Selector="Border.dropline.before">
-      <Setter Property="VerticalAlignment" Value="Top" />
-      <Setter Property="Margin" Value="0,-5,0,0" />
-    </Style>
-    <Style Selector="Border.dropline.after">
-      <Setter Property="VerticalAlignment" Value="Bottom" />
-      <Setter Property="Margin" Value="0,0,0,3" />
-    </Style>
-    <Style Selector="ContentPresenter.insertbefore Border.dropline.before">
+    <Style Selector="ContentPresenter.insertbefore Panel.placeholder.before">
       <Setter Property="IsVisible" Value="True" />
     </Style>
-    <Style Selector="ContentPresenter.insertafter Border.dropline.after">
+    <Style Selector="ContentPresenter.insertafter Panel.placeholder.after">
       <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <!-- The row being carried stays where it is, faded: the copy under the pointer is what moves. -->
+    <Style Selector="ContentPresenter.dragged Border.tile">
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
+
+    <!-- That copy, lifted off the list. -->
+    <Style Selector="ItemsControl.ghost Border.tile">
+      <Setter Property="BoxShadow" Value="0 6 18 0 #50000000" />
     </Style>
   </UserControl.Styles>
+
+  <UserControl.Resources>
+    <!-- One repository's tile, drawn by the list and by the copy a drag carries. Both are
+         ItemsControls whose DataContext is the page, which the tile's buttons bind through. -->
+    <DataTemplate x:Key="RepositoryTile" x:DataType="services:ListedRepository">
+      <StackPanel>
+        <Panel Classes="placeholder before">
+          <Border Background="{DynamicResource ActionAccentBrush}" Opacity="0.08" CornerRadius="6" />
+          <Rectangle Stroke="{DynamicResource ActionAccentBrush}"
+                     StrokeThickness="1.5"
+                     StrokeDashArray="4,3"
+                     RadiusX="6"
+                     RadiusY="6" />
+        </Panel>
+
+        <Border Classes="tile"
+                Background="{DynamicResource EnigmaSurfaceBrush}"
+                BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="8,10,14,10"
+                Margin="0,0,0,8">
+          <!-- The grip's column keeps its width while the grip is hidden, so a filtered
+               row does not shift sideways. -->
+          <Grid ColumnDefinitions="22,Auto,*,Auto">
+            <ei:Icon Grid.Column="0"
+                     Kind="DotsSixVertical"
+                     Size="16"
+                     Margin="0,0,6,0"
+                     VerticalAlignment="Center"
+                     Classes="dim"
+                     Cursor="SizeNorthSouth"
+                     IsVisible="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).CanReorder}"
+                     ToolTip.Tip="Drag to reorder"
+                     AutomationProperties.Name="Drag to reorder" />
+
+            <ei:Icon Grid.Column="1"
+                     Kind="Folder"
+                     Size="20"
+                     Margin="0,0,12,0"
+                     VerticalAlignment="Center"
+                     Classes="dim" />
+
+            <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding Name}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <Border Classes="pill"
+                        Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+                        IsVisible="{Binding !Exists}">
+                  <TextBlock Text="missing" FontSize="11"
+                             Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                </Border>
+              </StackPanel>
+              <TextBlock Text="{Binding Path}"
+                         FontSize="12"
+                         TextTrimming="CharacterEllipsis"
+                         Classes="faint" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+              <Button Classes="toolbar"
+                      Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).ForgetCommand}"
+                      CommandParameter="{Binding}"
+                      ToolTip.Tip="Forget this repository (it is not deleted)"
+                      AutomationProperties.Name="Forget this repository">
+                <ei:Icon Kind="X" Classes="row" />
+              </Button>
+              <!-- The repository's folder, outside the client, as the repository window's
+                   toolbar has it: in the file manager, and in a terminal. -->
+              <Button Classes="toolbar"
+                      Name="OpenFolder"
+                      Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenFolderCommand}"
+                      CommandParameter="{Binding}"
+                      ToolTip.Tip="Open the repository's folder in the file manager"
+                      AutomationProperties.Name="Open the repository's folder">
+                <ei:Icon Kind="FolderOpen" Classes="row" />
+              </Button>
+              <Button Classes="toolbar"
+                      Name="OpenTerminal"
+                      Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenTerminalCommand}"
+                      CommandParameter="{Binding}"
+                      ToolTip.Tip="Open a terminal in the repository's folder"
+                      AutomationProperties.Name="Open a terminal in the repository's folder">
+                <ei:Icon Kind="TerminalWindow" Classes="row" />
+              </Button>
+              <Button Classes="toolbar"
+                      Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenInNewWindowCommand}"
+                      CommandParameter="{Binding}"
+                      ToolTip.Tip="Open in a new window, beside this one"
+                      AutomationProperties.Name="Open this repository in a new window">
+                <ei:Icon Kind="ArrowSquareOut" Classes="row" />
+              </Button>
+              <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenListedCommand}"
+                      CommandParameter="{Binding}"
+                      Content="Open"
+                      AutomationProperties.Name="Open this repository" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Panel Classes="placeholder after">
+          <Border Background="{DynamicResource ActionAccentBrush}" Opacity="0.08" CornerRadius="6" />
+          <Rectangle Stroke="{DynamicResource ActionAccentBrush}"
+                     StrokeThickness="1.5"
+                     StrokeDashArray="4,3"
+                     RadiusX="6"
+                     RadiusY="6" />
+        </Panel>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
 
   <DockPanel>
 
@@ -126,105 +241,70 @@
                            Message="Open a repository you already have, clone one from GitHub, GitLab or Azure DevOps, or create a new one."
                            IsVisible="{Binding !HasRepositories}" />
 
-      <!-- The rows are in the user's order, and a row dragged by its body (anything but its
-           buttons) is dropped between two others: the code behind runs that gesture, and the line in
-           the gap between two rows says where it would land. -->
-      <ScrollViewer Name="RepositoryScroll" IsVisible="{Binding HasRepositories}" Padding="16">
-        <ItemsControl Name="RepositoryList" ItemsSource="{Binding Repositories}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="services:ListedRepository">
-              <Panel>
-                <Border Background="{DynamicResource EnigmaSurfaceBrush}"
-                        BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="8,10,14,10"
-                        Margin="0,0,0,8">
-                  <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                    <ei:Icon Grid.Column="0"
-                             Kind="DotsSixVertical"
-                             Size="16"
-                             Margin="0,0,6,0"
-                             VerticalAlignment="Center"
-                             Classes="dim"
-                             Cursor="SizeNorthSouth"
-                             ToolTip.Tip="Drag to reorder"
-                             AutomationProperties.Name="Drag to reorder" />
+      <DockPanel IsVisible="{Binding HasRepositories}">
 
-                    <ei:Icon Grid.Column="1"
-                             Kind="Folder"
-                             Size="20"
-                             Margin="0,0,12,0"
-                             VerticalAlignment="Center"
-                             Classes="dim" />
+        <!-- The filter, above the rows and aligned with them rather than in the header, which has
+             no room left at the window's narrowest. Escape empties it. -->
+        <TextBox DockPanel.Dock="Top"
+                 Name="RepositoryFilter"
+                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="Filter by name or path"
+                 Margin="16,12,16,0"
+                 AutomationProperties.Name="Filter repositories">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
+          </TextBox.KeyBindings>
 
-                    <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
-                      <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="{Binding Name}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                        <Border Classes="pill"
-                                Background="{DynamicResource EnigmaWarningBackgroundBrush}"
-                                IsVisible="{Binding !Exists}">
-                          <TextBlock Text="missing" FontSize="11"
-                                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                        </Border>
-                      </StackPanel>
-                      <TextBlock Text="{Binding Path}"
-                                 FontSize="12"
-                                 TextTrimming="CharacterEllipsis"
-                                 Classes="faint" />
-                    </StackPanel>
+          <!-- Escape for the mouse, inside the box at its right edge while it holds anything to
+               clear. Without the toolbar button's frame, which would draw a box in the box; and never
+               focused, so a click leaves the caret in the box rather than on a button that is about to
+               disappear. -->
+          <TextBox.InnerRightContent>
+            <Button Name="ClearFilter"
+                    Classes="toolbar"
+                    BorderThickness="0"
+                    Padding="5"
+                    Margin="0,0,4,0"
+                    VerticalAlignment="Center"
+                    Focusable="False"
+                    Command="{Binding ClearSearchCommand}"
+                    IsVisible="{Binding SearchText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    ToolTip.Tip="Clear the filter (Escape)"
+                    AutomationProperties.Name="Clear the filter">
+              <ei:Icon Kind="X" Classes="pill" />
+            </Button>
+          </TextBox.InnerRightContent>
+        </TextBox>
 
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                      <Button Classes="toolbar"
-                              Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).ForgetCommand}"
-                              CommandParameter="{Binding}"
-                              ToolTip.Tip="Forget this repository (it is not deleted)"
-                              AutomationProperties.Name="Forget this repository">
-                        <ei:Icon Kind="X" Classes="row" />
-                      </Button>
-                      <!-- The repository's folder, outside the client, as the repository window's
-                           toolbar has it: in the file manager, and in a terminal. -->
-                      <Button Classes="toolbar"
-                              Name="OpenFolder"
-                              Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenFolderCommand}"
-                              CommandParameter="{Binding}"
-                              ToolTip.Tip="Open the repository's folder in the file manager"
-                              AutomationProperties.Name="Open the repository's folder">
-                        <ei:Icon Kind="FolderOpen" Classes="row" />
-                      </Button>
-                      <Button Classes="toolbar"
-                              Name="OpenTerminal"
-                              Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenTerminalCommand}"
-                              CommandParameter="{Binding}"
-                              ToolTip.Tip="Open a terminal in the repository's folder"
-                              AutomationProperties.Name="Open a terminal in the repository's folder">
-                        <ei:Icon Kind="TerminalWindow" Classes="row" />
-                      </Button>
-                      <Button Classes="toolbar"
-                              Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenInNewWindowCommand}"
-                              CommandParameter="{Binding}"
-                              ToolTip.Tip="Open in a new window, beside this one"
-                              AutomationProperties.Name="Open this repository in a new window">
-                        <ei:Icon Kind="ArrowSquareOut" Classes="row" />
-                      </Button>
-                      <Button Command="{Binding $parent[ItemsControl].((vm:RepositoriesPageViewModel)DataContext).OpenListedCommand}"
-                              CommandParameter="{Binding}"
-                              Content="Open"
-                              AutomationProperties.Name="Open this repository" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
+        <Grid>
+          <controls:EmptyState IconKind="MagnifyingGlass"
+                               Title="No repository matches this filter"
+                               Message="Clear the filter to see every repository."
+                               IsVisible="{Binding HasNoMatch}" />
 
-                <!-- Where a dragged row would land: in the gap above this row, or below it. -->
-                <Border Classes="dropline before" />
-                <Border Classes="dropline after" />
-              </Panel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+          <!-- The rows are in the user's order, and a row dragged by its body (anything but its
+               buttons) is dropped between two others: the code behind runs that gesture, a copy of
+               the tile follows the pointer, and a dashed tile opens the gap it would land in. Not
+               while the list is filtered: a row's place among the rows shown is not its place in
+               the stored order. -->
+          <ScrollViewer Name="RepositoryScroll" IsVisible="{Binding !HasNoMatch}" Padding="16">
+            <ItemsControl Name="RepositoryList"
+                          ItemsSource="{Binding Repositories}"
+                          ItemTemplate="{StaticResource RepositoryTile}" />
+          </ScrollViewer>
+
+          <!-- The tile being carried: a copy that follows the pointer up and down, over the list and
+               clipped to it. Never hit — the pointer belongs to the list while it drags — and empty
+               between drags. -->
+          <Canvas Name="DragLayer" IsHitTestVisible="False" ClipToBounds="True">
+            <ItemsControl Name="DragGhost"
+                          Classes="ghost"
+                          ItemTemplate="{StaticResource RepositoryTile}"
+                          Opacity="0.92"
+                          IsVisible="False" />
+          </Canvas>
+        </Grid>
+      </DockPanel>
     </Grid>
   </DockPanel>
 </UserControl>
