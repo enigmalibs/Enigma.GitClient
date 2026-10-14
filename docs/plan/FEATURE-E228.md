@@ -1,6 +1,6 @@
 # FEATURE-E228 — Redraw the app icon's connections
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-E228.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-e228-icon-elbow`
 **Run:** feature/2026-10-14-app-icon-connections
