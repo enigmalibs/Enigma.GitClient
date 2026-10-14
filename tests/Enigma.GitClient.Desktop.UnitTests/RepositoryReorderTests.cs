@@ -70,7 +70,136 @@ public sealed class RepositoryReorderTests
         Assert.Equal(target, RepositoryReorderGesture.TargetIndex(from, slot));
     }
 
+    [Fact]
+    public void Stack_LaysTheRowsOutOneAfterTheOtherFromTheTop()
+        => Assert.Equal(
+            [(16d, 40d), (56d, 50d), (106d, 30d)],
+            RepositoryReorderGesture.Stack(16, [40, 50, 30]));
+
+    [Fact]
+    public void Stack_OfNoRowsIsEmpty()
+        => Assert.Empty(RepositoryReorderGesture.Stack(0, []));
+
+    [Theory]
+    [InlineData(100, 20, 60, 500, 80)]
+    [InlineData(10, 20, 60, 500, 0)]
+    [InlineData(490, 20, 60, 500, 440)]
+    [InlineData(100, 20, 600, 500, 0)]
+    public void GhostTop_HoldsTheCopyWhereItWasGrabbedAndInsideTheLayer(
+        double pointer, double grab, double height, double layer, double expected)
+        => Assert.Equal(expected, RepositoryReorderGesture.GhostTop(pointer, grab, height, layer));
+
     // ---------------------------------------------------------------- the gesture
+
+    [Fact]
+    public void WhileARowIsCarried_ACopyOfItsTileFollowsThePointer_AndTheRowIsFaded()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            ContentPresenter first = Row(page, 0);
+            ContentPresenter second = Row(page, 1);
+            ItemsControl ghost = Ghost(page);
+
+            Assert.False(ghost.IsVisible);
+
+            Point start = Centre(first, window);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X, start.Y + 8), RawInputModifiers.LeftMouseButton);
+
+            Assert.True(page.IsDragging);
+            Assert.True(ghost.IsVisible, "the carried tile must be drawn under the pointer");
+            Assert.Same(model.Repositories[0], Assert.Single(ghost.ItemsSource!.Cast<ListedRepository>()));
+            Assert.Contains("dragged", first.Classes);
+            Assert.Equal(first.Bounds.Width, ghost.Width);
+
+            Point middle = Centre(second, window);
+            window.MouseMove(middle, RawInputModifiers.LeftMouseButton);
+            double top = Canvas.GetTop(ghost);
+
+            window.MouseMove(new Point(middle.X, middle.Y + 10), RawInputModifiers.LeftMouseButton);
+            Assert.Equal(top + 10, Canvas.GetTop(ghost), 3);
+
+            window.MouseUp(new Point(middle.X, middle.Y + 10), MouseButton.Left);
+
+            Assert.False(ghost.IsVisible);
+            Assert.Null(ghost.ItemsSource);
+            Assert.DoesNotContain(
+                Enumerable.Range(0, 3).Select(index => Row(page, index)),
+                row => row.Classes.Contains("dragged"));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheGapIsADashedTile_OpenedWhereTheRowWouldLand()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (_, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            ContentPresenter last = Row(page, 2);
+            double before = last.Bounds.Height;
+
+            Point start = Centre(Row(page, 0), window);
+            Point end = Below(last, window);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X, start.Y + 8), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            window.UpdateLayout();
+
+            Assert.True(Placeholder(last, "after").IsEffectivelyVisible, "the dashed tile must open below the last row");
+            Assert.False(Placeholder(last, "before").IsEffectivelyVisible);
+            Assert.True(last.Bounds.Height > before, "the dashed tile takes room in the list");
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            window.UpdateLayout();
+
+            Assert.False(Placeholder(last, "after").IsEffectivelyVisible);
+            Assert.False(Ghost(page).IsVisible);
+            Assert.DoesNotContain("dragged", Row(page, 0).Classes);
+
+            window.MouseUp(end, MouseButton.Left);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheRowsMakingRoomForTheDashedTile_DoNotMoveTheGap()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            ContentPresenter first = Row(page, 0);
+            Point start = Centre(Row(page, 2), window);
+            Point end = Above(first, window);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X, start.Y - 8), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+
+            // The dashed tile opens above the first row and pushes every row down; the pointer, which
+            // has not moved, is still over the same gap.
+            window.UpdateLayout();
+            window.MouseMove(new Point(end.X, end.Y + 1), RawInputModifiers.LeftMouseButton);
+            window.UpdateLayout();
+
+            Assert.Contains("insertbefore", first.Classes);
+            Assert.DoesNotContain("insertbefore", Row(page, 1).Classes);
+
+            window.MouseUp(new Point(end.X, end.Y + 1), MouseButton.Left);
+
+            await WaitUntilAsync(() => model.Repositories.Select(entry => entry.Name).SequenceEqual(["gamma", "alpha", "beta"]));
+
+            window.Close();
+        });
+    }
 
     [Fact]
     public void DraggingARowPastTheLastOne_PutsItAtTheEndAndRemembersIt()
@@ -274,6 +403,14 @@ public sealed class RepositoryReorderTests
 
         return Assert.IsType<ContentPresenter>(list.ContainerFromIndex(index));
     }
+
+    private static ItemsControl Ghost(RepositoriesPageView page)
+        => page.GetVisualDescendants().OfType<ItemsControl>().Single(control => control.Name == "DragGhost");
+
+    private static Panel Placeholder(ContentPresenter row, string side)
+        => row.GetVisualDescendants()
+            .OfType<Panel>()
+            .Single(panel => panel.Classes.Contains("placeholder") && panel.Classes.Contains(side));
 
     private static Point Centre(Visual target, Visual relativeTo)
         => target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), relativeTo)
