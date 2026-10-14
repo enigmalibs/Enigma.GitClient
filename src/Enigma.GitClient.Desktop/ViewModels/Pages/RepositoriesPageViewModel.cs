@@ -46,6 +46,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IServiceProvider _services;
     private readonly ILogger<RepositoriesPageViewModel> _logger;
 
+    // The selected profile's whole list, in the stored order; Repositories shows what the filter keeps.
+    private IReadOnlyList<ListedRepository> _all = [];
+
     private CancellationTokenSource? _cloneCancellation;
     private bool _showingProfiles;
 
@@ -142,6 +145,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         OpenFolderCommand = new AsyncRelayCommand<ListedRepository>(OnOpenFolderAsync);
         OpenTerminalCommand = new AsyncRelayCommand<ListedRepository>(OnOpenTerminalAsync);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
+        ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
         ToggleThemeCommand = new RelayCommand(_theme.Toggle);
     }
@@ -182,14 +186,53 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     internal Task PendingIdentityWrite => _identityWrites;
 
     /// <summary>
-    /// Gets the selected profile's repositories, in the user's order.
+    /// Gets the selected profile's repositories that the filter keeps, in the user's order.
     /// </summary>
     public ObservableCollection<ListedRepository> Repositories { get; } = [];
 
     /// <summary>
-    /// Gets a value indicating whether the list has anything in it, which the empty state binds to.
+    /// Gets a value indicating whether the selected profile lists any repository at all, filtered out
+    /// or not — the empty state and the filter box bind to it.
     /// </summary>
-    public bool HasRepositories => Repositories.Count > 0;
+    public bool HasRepositories => _all.Count > 0;
+
+    /// <summary>
+    /// Gets or sets the text the list is filtered by: a repository stays when its name or its path
+    /// contains it, ignoring case and the spaces around it.
+    /// </summary>
+    public string SearchText
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                ClearSearchCommand.NotifyCanExecuteChanged();
+                ApplyFilter();
+                OnPropertyChanged(nameof(IsFiltering));
+                OnPropertyChanged(nameof(CanReorder));
+            }
+        }
+    } = string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the filter hides anything it could: there is text to filter by.
+    /// </summary>
+    public bool IsFiltering => SearchText.Trim().Length > 0;
+
+    /// <summary>
+    /// Gets a value indicating whether the rows can be dragged into another order: not while the list
+    /// is filtered, where a row's place is not its place in the stored order.
+    /// </summary>
+    public bool CanReorder => !IsFiltering;
+
+    /// <summary>
+    /// Gets a value indicating whether the profile has repositories but the filter keeps none of them.
+    /// </summary>
+    public bool HasNoMatch => HasRepositories && Repositories.Count == 0;
+
+    /// <summary>Gets the command that empties the filter box, which shows every repository again.</summary>
+    public RelayCommand ClearSearchCommand { get; }
 
     /// <summary>Gets the command that opens an existing repository from a folder picker.</summary>
     public AsyncRelayCommand OpenCommand { get; }
@@ -269,9 +312,18 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="entry">The repository being moved.</param>
     /// <param name="index">Where it goes, counted in the list without it.</param>
     /// <returns>A task that completes once the list shows the new order, which is already stored.</returns>
+    /// <remarks>
+    /// Nothing moves while the list is filtered: an index among the rows shown is not one in the
+    /// stored order.
+    /// </remarks>
     public async Task MoveAsync(ListedRepository entry, int index)
     {
         ArgumentNullException.ThrowIfNull(entry);
+
+        if (!CanReorder)
+        {
+            return;
+        }
 
         string profileId = await SelectedProfileIdAsync().ConfigureAwait(true);
 
@@ -877,16 +929,48 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
     }
 
+    /// <summary>
+    /// Says whether a repository stays in the list under a filter.
+    /// </summary>
+    /// <param name="entry">The repository.</param>
+    /// <param name="search">The filter box's text.</param>
+    /// <returns>
+    /// <see langword="true"/> when the text, without the spaces around it, is empty or is in the
+    /// repository's name or path, ignoring case.
+    /// </returns>
+    internal static bool Matches(ListedRepository entry, string search)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        ArgumentNullException.ThrowIfNull(search);
+
+        string term = search.Trim();
+
+        return term.Length == 0
+            || entry.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || entry.Path.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void Replace(IReadOnlyList<ListedRepository> entries)
+    {
+        _all = entries;
+
+        ApplyFilter();
+        OnPropertyChanged(nameof(HasRepositories));
+    }
+
+    private void ApplyFilter()
     {
         Repositories.Clear();
 
-        foreach (ListedRepository entry in entries)
+        foreach (ListedRepository entry in _all)
         {
-            Repositories.Add(entry);
+            if (Matches(entry, SearchText))
+            {
+                Repositories.Add(entry);
+            }
         }
 
-        OnPropertyChanged(nameof(HasRepositories));
+        OnPropertyChanged(nameof(HasNoMatch));
     }
 
     /// <summary>

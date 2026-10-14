@@ -24,6 +24,44 @@ namespace Enigma.GitClient.Desktop.Views.Pages;
 internal static class RepositoryReorderGesture
 {
     /// <summary>
+    /// Lays rows out one after the other from a top, as they stand with no gap opened among them.
+    /// </summary>
+    /// <param name="top">Where the first row starts.</param>
+    /// <param name="heights">Each row's height without an open gap — its tile and the space below it.</param>
+    /// <returns>Each row's top and height, in list order.</returns>
+    /// <remarks>
+    /// The slot is found in this geometry rather than in the rows as drawn: the dashed tile that marks
+    /// the slot pushes the rows below it down, and reading their new places would move the slot,
+    /// which would move the dashed tile, and so on.
+    /// </remarks>
+    public static IReadOnlyList<(double Top, double Height)> Stack(double top, IReadOnlyList<double> heights)
+    {
+        ArgumentNullException.ThrowIfNull(heights);
+
+        List<(double Top, double Height)> rows = new(heights.Count);
+
+        foreach (double height in heights)
+        {
+            rows.Add((top, height));
+            top += height;
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Places the copy of a carried tile: where the pointer holds it, kept inside the layer it is
+    /// drawn on.
+    /// </summary>
+    /// <param name="pointer">Where the pointer is, in the layer's coordinates.</param>
+    /// <param name="grab">How far below the tile's top it was grabbed.</param>
+    /// <param name="height">The tile's height.</param>
+    /// <param name="layer">The layer's height.</param>
+    /// <returns>The copy's top, in the layer's coordinates.</returns>
+    public static double GhostTop(double pointer, double grab, double height, double layer)
+        => Math.Clamp(pointer - grab, 0, Math.Max(0, layer - height));
+
+    /// <summary>
     /// Finds the slot a pointer is over: the gap before the first row whose middle is below it.
     /// </summary>
     /// <param name="y">Where the pointer is, in the list's own coordinates.</param>
@@ -70,7 +108,9 @@ internal static class RepositoryReorderGesture
 /// <remarks>
 /// <para>
 /// The code behind this view exists for one gesture: dragging a repository row to another place in
-/// the list. The ViewModel owns the order; this decides only where the pointer is.
+/// the list. The ViewModel owns the order; this decides only where the pointer is. While it lasts, a
+/// copy of the tile follows the pointer, the tile itself is faded in its place, and a dashed tile opens
+/// the gap it would land in.
 /// </para>
 /// <para>
 /// It is a gesture the page runs itself from pointer events, not a platform drag-and-drop session,
@@ -92,6 +132,9 @@ public partial class RepositoriesPageView : UserControl
     private IPointer? _captured;
     private Cursor? _listCursor;
     private ContentPresenter? _marked;
+    private ContentPresenter? _lifted;
+    private double _grab;
+    private double _ghostHeight;
     private Point _lastPointer;
     private double _autoScrollBy;
     private TopLevel? _window;
@@ -153,13 +196,13 @@ public partial class RepositoriesPageView : UserControl
 
     /// <summary>
     /// Remembers a press on a row's body, which a later move may turn into a drag. A press on one of
-    /// the row's buttons is the button's.
+    /// the row's buttons is the button's, and nothing is dragged while the list is filtered.
     /// </summary>
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _pending = null;
 
-        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.ClickCount != 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || Page is not { CanReorder: true })
         {
             return;
         }
@@ -210,6 +253,7 @@ public partial class RepositoriesPageView : UserControl
         _captured = e.Pointer;
         _captured.Capture(RepositoryList);
 
+        Lift(pending);
         Steer(e.GetPosition(RepositoryScroll));
         e.Handled = true;
     }
@@ -270,8 +314,8 @@ public partial class RepositoriesPageView : UserControl
     }
 
     /// <summary>
-    /// Takes the gesture down: the row being carried, the line, the scrolling, the cursor and the
-    /// capture. Every way a drag ends goes through here.
+    /// Takes the gesture down: the row being carried and its copy, the dashed tile, the scrolling,
+    /// the cursor and the capture. Every way a drag ends goes through here.
     /// </summary>
     private void StopDragging()
     {
@@ -279,6 +323,11 @@ public partial class RepositoriesPageView : UserControl
 
         Mark(null, before: true);
         StopScrolling();
+
+        DragGhost.IsVisible = false;
+        DragGhost.ItemsSource = null;
+        _lifted?.Classes.Set("dragged", false);
+        _lifted = null;
 
         RepositoryList.Cursor = _listCursor;
         _listCursor = null;
@@ -289,14 +338,60 @@ public partial class RepositoriesPageView : UserControl
     }
 
     /// <summary>
-    /// Shows where the row would land, and scrolls when the pointer is held near an edge.
+    /// Fades the row being carried in its place, and puts a copy of its tile under the pointer —
+    /// as wide as the row, at the row's left, held where it was grabbed.
+    /// </summary>
+    private void Lift(PendingDrag dragging)
+    {
+        if (RepositoryList.ContainerFromIndex(dragging.Index) is not ContentPresenter row)
+        {
+            return;
+        }
+
+        _lifted = row;
+        row.Classes.Set("dragged", true);
+
+        Point rowOrigin = row.TranslatePoint(default, DragLayer) ?? default;
+        Point press = this.TranslatePoint(dragging.Origin, DragLayer) ?? rowOrigin;
+
+        _grab = press.Y - rowOrigin.Y;
+        _ghostHeight = Tile(row)?.Bounds.Height ?? row.Bounds.Height;
+
+        DragGhost.ItemsSource = new[] { dragging.Entry };
+        DragGhost.Width = row.Bounds.Width;
+        Canvas.SetLeft(DragGhost, rowOrigin.X);
+        DragGhost.IsVisible = true;
+    }
+
+    /// <summary>
+    /// Moves the copy of the carried tile to the pointer, up and down the list.
+    /// </summary>
+    /// <param name="pointer">Where the pointer is, in the scroll viewer's coordinates.</param>
+    private void MoveTheGhost(Point pointer)
+    {
+        if (!DragGhost.IsVisible)
+        {
+            return;
+        }
+
+        Point inLayer = RepositoryScroll.TranslatePoint(pointer, DragLayer) ?? pointer;
+
+        Canvas.SetTop(
+            DragGhost,
+            RepositoryReorderGesture.GhostTop(inLayer.Y, _grab, _ghostHeight, DragLayer.Bounds.Height));
+    }
+
+    /// <summary>
+    /// Shows where the row would land, moves the copy with the pointer, and scrolls when the pointer
+    /// is held near an edge.
     /// </summary>
     /// <param name="pointer">Where the pointer is, in the scroll viewer's coordinates.</param>
     private void Steer(Point pointer)
     {
         _lastPointer = pointer;
 
-        ShowTheLine();
+        OpenTheGap();
+        MoveTheGhost(pointer);
 
         _autoScrollBy = BranchDragGesture.ScrollFor(pointer.Y, RepositoryScroll.Bounds.Height);
 
@@ -311,9 +406,10 @@ public partial class RepositoriesPageView : UserControl
     }
 
     /// <summary>
-    /// Puts the line in the gap the pointer is over — or nowhere, when a drop there would move nothing.
+    /// Opens the dashed tile in the gap the pointer is over — or nowhere, when a drop there would move
+    /// nothing.
     /// </summary>
-    private void ShowTheLine()
+    private void OpenTheGap()
     {
         if (_dragging is not { } dragging)
         {
@@ -338,21 +434,41 @@ public partial class RepositoriesPageView : UserControl
     }
 
     /// <summary>
-    /// The slot under a point given in the scroll viewer's coordinates.
+    /// The slot under a point given in the scroll viewer's coordinates, found among the rows as they
+    /// stand with no dashed tile open (<see cref="RepositoryReorderGesture.Stack"/>).
     /// </summary>
+    /// <remarks>
+    /// The first row's top is where the rows start whatever is open: a dashed tile is laid out inside
+    /// a row, never above the first one.
+    /// </remarks>
     private int SlotAt(Point pointer)
     {
         Point inList = RepositoryScroll.TranslatePoint(pointer, RepositoryList) ?? pointer;
-        List<(double Top, double Height)> bounds = [];
+        List<ContentPresenter> rows = Rows();
 
-        foreach (ContentPresenter row in Rows())
+        if (rows.Count == 0)
         {
-            double top = row.TranslatePoint(default, RepositoryList)?.Y ?? row.Bounds.Top;
-            bounds.Add((top, row.Bounds.Height));
+            return 0;
         }
 
-        return RepositoryReorderGesture.SlotFor(inList.Y, bounds);
+        double top = rows[0].TranslatePoint(default, RepositoryList)?.Y ?? rows[0].Bounds.Top;
+
+        return RepositoryReorderGesture.SlotFor(
+            inList.Y,
+            RepositoryReorderGesture.Stack(top, [.. rows.Select(UnopenedHeight)]));
     }
+
+    /// <summary>
+    /// A row's height with no dashed tile open in it: its tile and the space below the tile.
+    /// </summary>
+    private static double UnopenedHeight(ContentPresenter row)
+        => Tile(row) is { } tile ? tile.Bounds.Height + tile.Margin.Top + tile.Margin.Bottom : row.Bounds.Height;
+
+    /// <summary>
+    /// A row's tile, without the dashed tiles above and below it.
+    /// </summary>
+    private static Border? Tile(ContentPresenter row)
+        => row.GetVisualDescendants().OfType<Border>().FirstOrDefault(border => border.Classes.Contains("tile"));
 
     /// <summary>
     /// The row containers, in list order.
@@ -363,7 +479,7 @@ public partial class RepositoriesPageView : UserControl
             .OrderBy(RepositoryList.IndexFromContainer)];
 
     /// <summary>
-    /// Moves the line onto a row's gap, and takes it off whichever row had it.
+    /// Opens the dashed tile in a row's gap, and closes it in whichever row had it.
     /// </summary>
     private void Mark(ContentPresenter? row, bool before)
     {
@@ -385,7 +501,7 @@ public partial class RepositoriesPageView : UserControl
     }
 
     /// <summary>
-    /// Moves the list by one tick's worth, and keeps the line under the pointer as the rows go by.
+    /// Moves the list by one tick's worth, and keeps the dashed tile under the pointer as the rows go by.
     /// </summary>
     private void ScrollTowardsTheEdge()
     {
@@ -400,7 +516,7 @@ public partial class RepositoriesPageView : UserControl
         RepositoryScroll.Offset = new Vector(RepositoryScroll.Offset.X, moved);
         RepositoryScroll.UpdateLayout();
 
-        ShowTheLine();
+        OpenTheGap();
     }
 
     /// <summary>

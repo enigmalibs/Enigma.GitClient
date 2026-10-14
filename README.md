@@ -82,7 +82,10 @@ Two things matter more than everything else in this app:
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
   all the uncommitted work at once
-- Remotes: fetch, pull (merge only), push (with `--force-with-lease`)
+- Remotes: fetch, pull (merge only), push — a push the remote refuses because the branch no longer
+  matches it offers a force push, after a warning with a red button that says how many commits the
+  remote loses; it is a `--force-with-lease` pinned to the commit the warning named, never a bare
+  `--force`, and is not offered over commits this repository has not fetched
 - What changes outside the app shows within a second — a file saved in an editor, a commit,
   checkout or stash made in a terminal: the repository's files are watched, and a build's thousands
   of writes make one refresh every two seconds at most; every 60 seconds by default the repository is

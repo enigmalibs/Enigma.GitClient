@@ -480,6 +480,50 @@ public sealed class SyncServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PushAsync_APinnedLeaseReplacesTheRemoteWhileItIsAtThatCommit()
+    {
+        string pinned = await _origin.ResolveAsync("refs/heads/main");
+
+        _local.WriteFile("README.md", "# rewritten\n");
+        await _local.GitAsync("add", "--all");
+        await _local.GitAsync("commit", "--amend", "-m", "Say it better");
+
+        await Sync.PushAsync(
+            _handle,
+            new PushRequest { Remote = "origin", Branch = "main", ForceWithLease = true, ExpectedRemoteTip = pinned },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("Say it better", await _origin.GitLineAsync("log", "-1", "--format=%s", "main"));
+    }
+
+    [Fact]
+    public async Task PushAsync_APinnedLeaseRefusesOnceTheRemoteMoved_EvenAfterAFetch()
+    {
+        // The commit the user was told the push would replace.
+        string pinned = await _origin.ResolveAsync("refs/heads/main");
+
+        TemporaryRepository other = await BuildSecondCloneAsync();
+        other.WriteFile("src/theirs.txt", "from the other clone\n");
+        await other.CommitAllAsync("Work done elsewhere");
+        await other.GitAsync("push", "origin", "main");
+
+        // A background fetch moves the remote-tracking branch: git's own lease would now hold.
+        await Sync.FetchAsync(_handle, cancellationToken: TestContext.Current.CancellationToken);
+
+        _local.WriteFile("README.md", "# rewritten\n");
+        await _local.GitAsync("add", "--all");
+        await _local.GitAsync("commit", "--amend", "-m", "Say it better");
+
+        SyncException failure = await Assert.ThrowsAsync<SyncException>(() => Sync.PushAsync(
+            _handle,
+            new PushRequest { Remote = "origin", Branch = "main", ForceWithLease = true, ExpectedRemoteTip = pinned },
+            cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(SyncFailureKind.StaleLease, failure.Failure.Kind);
+        Assert.Equal("Work done elsewhere", await _origin.GitLineAsync("log", "-1", "--format=%s", "main"));
+    }
+
+    [Fact]
     public async Task PushAsync_DeletesABranchOnTheRemote()
     {
         await _local.GitAsync("checkout", "-b", "topic");
