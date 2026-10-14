@@ -254,6 +254,26 @@
           <TextBox.KeyBindings>
             <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
           </TextBox.KeyBindings>
+
+          <!-- Escape for the mouse, inside the box at its right edge while it holds anything to
+               clear. Without the toolbar button's frame, which would draw a box in the box; and never
+               focused, so a click leaves the caret in the box rather than on a button that is about to
+               disappear. -->
+          <TextBox.InnerRightContent>
+            <Button Name="ClearFilter"
+                    Classes="toolbar"
+                    BorderThickness="0"
+                    Padding="5"
+                    Margin="0,0,4,0"
+                    VerticalAlignment="Center"
+                    Focusable="False"
+                    Command="{Binding ClearSearchCommand}"
+                    IsVisible="{Binding SearchText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    ToolTip.Tip="Clear the filter (Escape)"
+                    AutomationProperties.Name="Clear the filter">
+              <ei:Icon Kind="X" Classes="pill" />
+            </Button>
+          </TextBox.InnerRightContent>
         </TextBox>
 
         <Grid>

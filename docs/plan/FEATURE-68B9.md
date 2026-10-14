@@ -1,6 +1,6 @@
 # FEATURE-68B9 — A clear button in the home filter
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-68B9.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-68b9-home-filter-clear`
 **Run:** feature/2026-10-14-home-filter-clear-release
