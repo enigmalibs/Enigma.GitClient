@@ -1,6 +1,6 @@
 # FEATURE-8970 — Home list: filter and drag visuals
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-14-home-search-force-push
@@ -98,7 +98,7 @@ On the start window's repository list (`RepositoriesPageView`):
 
 ## PHASE02 — The tile drags, a dashed tile lands
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-8970-PHASE02.md`
 **Branch:** `feature/feature-8970-phase02-drag-visuals`
 
 ### Steps
