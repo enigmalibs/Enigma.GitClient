@@ -21,7 +21,8 @@ using Xunit;
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
-/// Filtering the start window's list of repositories, and the reordering a filtered list refuses.
+/// Filtering the start window's list of repositories, the box's clear button, and the reordering a
+/// filtered list refuses.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class RepositoryFilterTests
@@ -250,6 +251,109 @@ public sealed class RepositoryFilterTests
         });
     }
 
+    // ---------------------------------------------------------------- the clear button
+
+    [Fact]
+    public void TheClearButton_ShowsOnlyWhileTheBoxHoldsSomethingToClear()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            Button clear = ClearButton(page);
+            Assert.False(clear.IsEffectivelyVisible);
+
+            model.SearchText = "beta";
+            Settle(window);
+            Assert.True(clear.IsEffectivelyVisible);
+
+            // Spaces filter nothing, but they are in the box, and Escape would clear them too.
+            model.SearchText = "   ";
+            Settle(window);
+            Assert.True(clear.IsEffectivelyVisible);
+
+            model.SearchText = string.Empty;
+            Settle(window);
+            Assert.False(clear.IsEffectivelyVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheClearButton_SitsInsideTheBoxAtItsRightEdge()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            model.SearchText = "beta";
+            Settle(window);
+
+            Rect box = BoundsIn(Filter(page), window);
+            Rect button = BoundsIn(ClearButton(page), window);
+
+            Assert.True(box.Contains(button), "the clear button must sit inside the filter box");
+            Assert.True(button.Left > box.Center.X, "the clear button must sit in the box's right half");
+            Assert.True(box.Right - button.Right < button.Width, "the clear button must sit at the box's right edge");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ClickingTheClearButton_EmptiesTheBoxShowsEveryRepositoryAndKeepsTheCaretInTheBox()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            TextBox filter = Filter(page);
+            filter.Focus();
+            model.SearchText = "beta";
+            Settle(window);
+
+            Assert.Equal(["beta"], model.Repositories.Select(entry => entry.Name));
+            Assert.True(filter.IsFocused);
+
+            Button clear = ClearButton(page);
+            Click(window, Centre(clear, window));
+
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.Equal(string.Empty, filter.Text);
+            Assert.Equal(Names, model.Repositories.Select(entry => entry.Name));
+            Assert.False(clear.IsEffectivelyVisible);
+            Assert.True(filter.IsFocused, "the click took the focus away from the filter box");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void ClickingTheClearButton_WhenNothingMatches_BringsTheListBack()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (RepositoriesPageViewModel model, RepositoriesPageView page, Window window) = await ShowAsync(services);
+
+            model.SearchText = "nothing like it";
+            Settle(window);
+            Assert.True(model.HasNoMatch);
+
+            Click(window, Centre(ClearButton(page), window));
+
+            Assert.False(model.HasNoMatch);
+            Assert.Equal(Names, model.Repositories.Select(entry => entry.Name));
+            Assert.True(Row(page, 0).IsEffectivelyVisible);
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static async Task<RepositoriesPageViewModel> LoadAsync(TestServices services)
@@ -293,6 +397,36 @@ public sealed class RepositoryFilterTests
         => row.GetVisualDescendants()
             .OfType<Control>()
             .Single(control => AutomationProperties.GetName(control) == "Drag to reorder");
+
+    private static TextBox Filter(RepositoriesPageView page)
+        => page.GetVisualDescendants()
+            .OfType<TextBox>()
+            .Single(box => AutomationProperties.GetName(box) == "Filter repositories");
+
+    private static Button ClearButton(RepositoriesPageView page)
+        => Filter(page).GetVisualDescendants()
+            .OfType<Button>()
+            .Single(button => AutomationProperties.GetName(button) == "Clear the filter");
+
+    private static Rect BoundsIn(Visual target, Visual relativeTo)
+        => new(
+            target.TranslatePoint(default, relativeTo)
+                ?? throw new InvalidOperationException("The control is not in the same tree as the window."),
+            target.Bounds.Size);
+
+    private static void Click(Window window, Point point)
+    {
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Settle(window);
+    }
+
+    private static void Settle(Window window)
+    {
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+    }
 
     private static Point Centre(Visual target, Visual relativeTo)
         => target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), relativeTo)
