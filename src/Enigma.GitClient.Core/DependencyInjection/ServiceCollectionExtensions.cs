@@ -19,6 +19,7 @@ using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Core.Sync;
 using Enigma.GitClient.Core.Tags;
+using Enigma.GitClient.Core.Worktrees;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -79,6 +80,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IConflictService, ConflictService>();
             services.AddSingleton<IDiffService, DiffService>();
             services.AddSingleton<IBranchService, BranchService>();
+            services.AddSingleton<IWorktreeService, WorktreeService>();
             services.AddSingleton<ITagService, TagService>();
             services.AddSingleton<ICheckoutService, CheckoutService>();
             services.AddSingleton<IResetService, ResetService>();

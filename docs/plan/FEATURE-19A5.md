@@ -1,6 +1,6 @@
 # FEATURE-19A5 — Create a worktree from a branch or line
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-15-worktrees-toolbar
@@ -38,7 +38,7 @@ never inside it, named `<repository folder>.worktree.<branch>`.
 
 ## PHASE01 — A worktree service
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-19A5-PHASE01.md`
 **Branch:** `feature/feature-19a5-phase01-worktree-service`
 
 ### Steps
