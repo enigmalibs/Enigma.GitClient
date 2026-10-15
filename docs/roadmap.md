@@ -327,7 +327,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-70F3 | No New window button in the toolbar     | DONE        | docs/plan/FEATURE-70F3.md |
 | FEATURE-19A5 | Create a worktree from a branch or line | IN PROGRESS | docs/plan/FEATURE-19A5.md |
 | - PHASE01    | A worktree service                      | DONE        | (in FEATURE-19A5.md)      |
-| - PHASE02    | The worktree dialog                     | TODO        | (in FEATURE-19A5.md)      |
+| - PHASE02    | The worktree dialog                     | DONE        | (in FEATURE-19A5.md)      |
 | - PHASE03    | Worktree items in the menus             | TODO        | (in FEATURE-19A5.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
