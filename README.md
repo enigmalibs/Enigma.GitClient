@@ -47,6 +47,10 @@ Two things matter more than everything else in this app:
 - A minimap in place of the diff's vertical scrollbar: where the changes are, where you are, and
   click or drag it to go there
 - Branch management — create, rename, delete, set upstream, checkout
+- Worktrees: *Create worktree…* on a commit's line, a branch's badge or a branch's line in the
+  branches dialog creates a new branch from it, checked out in a working directory of its own —
+  proposed next to the repository, never inside it, as `<repository>.worktree.<branch>` — and opens
+  it in a new window
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the

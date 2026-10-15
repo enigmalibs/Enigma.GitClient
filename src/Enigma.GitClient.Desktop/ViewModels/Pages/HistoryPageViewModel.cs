@@ -41,6 +41,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
     private readonly IBranchOperations _branchOperations;
+    private readonly IWorktreeOperations _worktreeOperations;
     private readonly ITagOperations _tagOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IResetOperations _resetOperations;
@@ -111,6 +112,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
+    /// <param name="worktreeOperations">Creates a worktree on a new branch from a line or a branch, dialog and all.</param>
     /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
     /// <param name="revertOperations">Records a commit undoing a line's commit on the branch that is checked out.</param>
     /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
@@ -128,6 +130,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IDiffService diffs,
         ISystemInterop interop,
         IBranchOperations branchOperations,
+        IWorktreeOperations worktreeOperations,
         ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IResetOperations resetOperations,
@@ -153,6 +156,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(branchOperations);
+        ArgumentNullException.ThrowIfNull(worktreeOperations);
         ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(resetOperations);
@@ -178,6 +182,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         Diff = diff;
         _branchOperations = branchOperations;
+        _worktreeOperations = worktreeOperations;
         _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _resetOperations = resetOperations;
@@ -230,7 +235,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             new AsyncRelayCommand<HistoryBranchViewModel>(OnPushBranchAsync, branch => branch?.CanSynchronise == true),
             () => MergeSource,
             () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null,
-            CopyCommand);
+            CopyCommand,
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnCreateWorktreeFromBranchAsync, branch => branch is not null));
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -263,7 +269,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             PushTag: new AsyncRelayCommand<string>(OnPushTagAsync, tag => !string.IsNullOrEmpty(tag)),
             DeleteTag: new AsyncRelayCommand<string>(OnDeleteTagAsync, tag => !string.IsNullOrEmpty(tag)),
             DeleteRemoteTag: new AsyncRelayCommand<string>(OnDeleteRemoteTagAsync, tag => !string.IsNullOrEmpty(tag)),
-            Revert: new AsyncRelayCommand<CommitRowViewModel>(OnRevertAsync, HasCommit));
+            Revert: new AsyncRelayCommand<CommitRowViewModel>(OnRevertAsync, HasCommit),
+            CreateWorktreeHere: new AsyncRelayCommand<CommitRowViewModel>(OnCreateWorktreeHereAsync, HasCommit));
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -2109,7 +2116,33 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
+    private async Task OnCreateWorktreeHereAsync(CommitRowViewModel? row)
+    {
+        if (row?.Commit is null)
+        {
+            return;
+        }
+
+        if (await _worktreeOperations.CreateAsync(row.Sha, row.ShortSha).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
     // ---------------------------------------------------------------- a branch's own menu
+
+    private async Task OnCreateWorktreeFromBranchAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch is null)
+        {
+            return;
+        }
+
+        if (await _worktreeOperations.CreateAsync(branch.Name, branch.Name).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
 
     private async Task OnCheckoutBranchAsync(HistoryBranchViewModel? branch)
     {

@@ -2042,7 +2042,7 @@ public sealed class BranchesPageTests
                 tree.SelectedItems.Remove(Row(page, "unmerged"));
                 menu.Open(line);
 
-                Assert.Equal(7, menu.Items.OfType<MenuItem>().Count(item => item.IsVisible));
+                Assert.Equal(8, menu.Items.OfType<MenuItem>().Count(item => item.IsVisible));
                 menu.Close();
             }
             finally
