@@ -78,7 +78,7 @@ never inside it, named `<repository folder>.worktree.<branch>`.
 
 ## PHASE02 — The worktree dialog
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-19A5-PHASE02.md`
 **Branch:** `feature/feature-19a5-phase02-worktree-dialog`
 
 ### Steps
