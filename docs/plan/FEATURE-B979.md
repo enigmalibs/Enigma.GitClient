@@ -1,6 +1,6 @@
 # FEATURE-B979 — Create offers the global identity
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-B979.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-b979-create-offers-identity`
 **Run:** feature/2026-10-15-create-identity-release

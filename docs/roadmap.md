@@ -329,7 +329,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | A worktree service                      | DONE      | (in FEATURE-19A5.md)      |
 | - PHASE02    | The worktree dialog                     | DONE      | (in FEATURE-19A5.md)      |
 | - PHASE03    | Worktree items in the menus             | DONE      | (in FEATURE-19A5.md)      |
-| FEATURE-B979 | Create offers the global identity       | TODO      | docs/plan/FEATURE-B979.md |
+| FEATURE-B979 | Create offers the global identity       | DONE      | docs/plan/FEATURE-B979.md |
 | FEATURE-6352 | Release 6.3.0                           | TODO      | docs/plan/FEATURE-6352.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in

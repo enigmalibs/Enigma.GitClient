@@ -64,7 +64,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="lists">Keeps each profile's list of repositories.</param>
     /// <param name="selection">Says whose list is shown.</param>
     /// <param name="identity">
-    /// Sets git's global identity to the profile picked, and offers it to a new clone as its own.
+    /// Sets git's global identity to the profile picked, and offers it to a new clone or repository as
+    /// its own.
     /// </param>
     /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
@@ -513,6 +514,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                     .InitAsync(model.TargetPath, branch)
                     .ConfigureAwait(true);
 
+                // Asked before the first commit, so that it is already made as the identity the
+                // repository keeps.
+                await OfferGlobalIdentityAsync(repository, "repository").ConfigureAwait(true);
+
                 // The first commit is a README holding the repository's name. A commit that fails —
                 // no name and email configured, most often — leaves a real repository all the same,
                 // so it is opened either way and the reader is told what is missing.
@@ -659,7 +664,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             await _overlay.HideAsync().ConfigureAwait(true);
             overlayShown = false;
 
-            await OfferGlobalIdentityAsync(repository).ConfigureAwait(true);
+            await OfferGlobalIdentityAsync(repository, "clone").ConfigureAwait(true);
 
             await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
             await AddToListAsync(repository).ConfigureAwait(true);
@@ -694,17 +699,18 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Asks whether a new clone should commit as the global identity whatever it later becomes, and
-    /// writes it into the clone's own configuration when told to.
+    /// Asks whether a new clone or repository should commit as the global identity whatever it later
+    /// becomes, and writes it into the repository's own configuration when told to.
     /// </summary>
-    /// <param name="repository">The clone.</param>
+    /// <param name="repository">The clone or the new repository.</param>
+    /// <param name="what">What the repository is to the reader: <c>clone</c> or <c>repository</c>.</param>
     /// <returns>A task that completes once the question is answered and the answer applied.</returns>
     /// <remarks>
     /// Nothing is asked without a complete global identity — there is nothing to copy — and nothing is
-    /// written unless the reader says so. A write that fails leaves the clone as git made it, and says
-    /// so. Names and emails are never logged.
+    /// written unless the reader says so. A write that fails leaves the repository as git made it, and
+    /// says so. Names and emails are never logged.
     /// </remarks>
-    private async Task OfferGlobalIdentityAsync(RepositoryHandle repository)
+    private async Task OfferGlobalIdentityAsync(RepositoryHandle repository, string what)
     {
         GitIdentity global;
 
@@ -714,7 +720,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
         catch (Exception exception) when (exception is GitCommandException or GitNotFoundException)
         {
-            _logger.LogWarning("Reading the global git identity after a clone failed ({Kind})", exception.GetType().Name);
+            _logger.LogWarning(
+                "Reading the global git identity for a new {What} failed ({Kind})",
+                what,
+                exception.GetType().Name);
             return;
         }
 
@@ -746,10 +755,13 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
         catch (Exception exception) when (exception is GitCommandException or GitNotFoundException or ArgumentException)
         {
-            _logger.LogWarning("Writing the global git identity into a clone failed ({Kind})", exception.GetType().Name);
+            _logger.LogWarning(
+                "Writing the global git identity into a new {What} failed ({Kind})",
+                what,
+                exception.GetType().Name);
 
             Report(
-                "The clone has no identity of its own",
+                $"The {what} has no identity of its own",
                 $"{repository.Name} commits with the global identity. {ProfilesPageViewModel.Describe(exception)}",
                 InfoBarSeverity.Warning);
         }
