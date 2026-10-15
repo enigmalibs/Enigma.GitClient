@@ -1,6 +1,6 @@
 # FEATURE-70F3 — No New window button in the toolbar
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-70F3.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-70f3-drop-new-window-button`
 **Run:** feature/2026-10-15-worktrees-toolbar
