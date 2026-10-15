@@ -1,5 +1,69 @@
 # Release notes
 
+## 6.3.0 — 2026-10-15
+
+A minor release:
+
+- a worktree — a second working directory of the same repository, on a new branch — can be created
+  from a commit's line, a branch's badge or a branch's line in the branches dialog, and opens in a
+  window of its own;
+- creating a repository offers your identity to it, as a clone already did;
+- the repository window's toolbar no longer has the *Open another window* button.
+
+### Worktrees
+
+- **Create worktree…** is offered in three places:
+  - a commit's line in the history: *Create worktree here…*, after *Create branch here…*. The new
+    branch starts at that commit. It is greyed on the uncommitted line and absent on a stash's;
+  - a branch's badge in the history: *Create worktree from "main"…*, after *Check out "main"*, for
+    local and remote branches (a remote branch is tracked, as git sets it up);
+  - a branch's line in the branches dialog: *Create worktree…*, after *Check out*, for one branch at
+    a time.
+- **The dialog asks for:**
+  - the branch to create, refused when its name is invalid or a local branch already has it;
+  - the working directory, proposed **next to the repository, never inside it**:
+    `<repository>.worktree.<branch>`, with any `/`, `\` or other character a folder name cannot hold
+    turned into `-` (`feature/login` → `project.worktree.feature-login`). It follows the branch as
+    you type until you edit it, and *Browse* picks where it goes. A folder inside the repository, a
+    file, or a directory that is not empty is refused;
+  - whether to **open it in a new window** once it is created, checked by default.
+- **Afterwards:** the new branch shows in the history and the branches dialog, and the info bar says
+  where it is checked out. A worktree git refuses leaves no branch behind.
+
+### The new repository's identity
+
+- **Create a repository asks what a clone asks:** *Use your identity in this repository* — make your
+  global name and email the new repository's own, so its commits are made as them whatever the
+  global identity becomes when you pick another profile.
+  - *Use it* writes them into the repository's own configuration, before its first commit, so the
+    README commit is already made as them. *Not now*, the default, writes nothing.
+  - Nothing is asked when git has no complete global name and email.
+  - A write that fails says *The repository has no identity of its own*; the repository is still
+    created, committed and opened.
+
+### The toolbar
+
+- **The *Open another window, for another repository* button is gone** from the repository window's
+  toolbar. To work on another repository beside this one, use *Open in a new window, beside this one*
+  on a repository listed in the start window.
+
+### Upgrading from 6.2
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, and going back to 6.2 keeps
+  everything.
+- **One toolbar button less:** see *The toolbar*.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.3.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  worktrees, the identity offered to a new repository), and leaves the stored settings as they were.
+  The toolbar button it removes was a shortcut: what it did is still on the start window.
+
 ## 6.2.0 — 2026-10-14
 
 A minor release with one change: the application icon joins its green commit to the line of commits

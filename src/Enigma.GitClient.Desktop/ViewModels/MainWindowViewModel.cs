@@ -19,7 +19,6 @@ namespace Enigma.GitClient.Desktop.ViewModels;
 public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly IAppWindows _windows;
-    private readonly IInstanceLauncher _launcher;
     private readonly IInfoBarService _infoBar;
     private readonly HistoryPageViewModel _history;
     private readonly ISyncOperations _sync;
@@ -36,8 +35,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="shell">Owns the navigation rail and the pages on it.</param>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="windows">Takes the reader back to the start window when the repository is closed.</param>
-    /// <param name="launcher">Starts another instance, for another repository beside this one.</param>
-    /// <param name="infoBar">Says so when that instance could not be started.</param>
+    /// <param name="infoBar">Says so when the folder or a terminal could not be opened.</param>
     /// <param name="history">
     /// The graph page, which the toolbar's fetch, pull and push bring up to date.
     /// </param>
@@ -55,7 +53,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
         IAppWindows windows,
-        IInstanceLauncher launcher,
         IInfoBarService infoBar,
         HistoryPageViewModel history,
         ConflictResolutionPageViewModel conflicts,
@@ -69,7 +66,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
         ArgumentNullException.ThrowIfNull(windows);
-        ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(conflicts);
@@ -94,7 +90,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         Conflicts = conflicts;
         RepositoryContext = repositoryContext;
         _windows = windows;
-        _launcher = launcher;
         _infoBar = infoBar;
         _history = history;
 
@@ -118,7 +113,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         CloseRepositoryCommand = new RelayCommand(OnCloseRepository);
         OpenFolderCommand = new AsyncRelayCommand(OnOpenFolderAsync, () => RepositoryContext.IsRepositoryOpen);
         OpenTerminalCommand = new AsyncRelayCommand(OnOpenTerminalAsync, () => RepositoryContext.IsRepositoryOpen);
-        NewWindowCommand = new RelayCommand(OnNewWindow);
 
         RepositoryContext.PropertyChanged += OnRepositoryContextPropertyChanged;
     }
@@ -225,12 +219,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Gets the command that closes the repository and goes back to the start window.
     /// </summary>
     public RelayCommand CloseRepositoryCommand { get; }
-
-    /// <summary>
-    /// Gets the command that starts another instance on its start window, for working on another
-    /// repository beside this one.
-    /// </summary>
-    public RelayCommand NewWindowCommand { get; }
 
     /// <summary>
     /// Gets the command that opens the repository's folder in the file manager — Explorer on Windows.
@@ -440,17 +428,6 @@ public sealed class MainWindowViewModel : ViewModelBase
                 "No terminal started",
                 $"No terminal could be started in '{repository.WorkTreePath}'.",
                 InfoBarSeverity.Warning);
-        }
-    }
-
-    private void OnNewWindow()
-    {
-        if (!_launcher.Launch())
-        {
-            _infoBar.Notify(
-                "No new window",
-                "Another instance of Enigma.GitClient could not be started.",
-                InfoBarSeverity.Error);
         }
     }
 

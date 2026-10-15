@@ -5,14 +5,14 @@ using System.Linq;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
-using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
-/// Several instances side by side: how another one is started, and the two places that ask for one.
+/// Several instances side by side: how another one is started, and the start window's item that asks
+/// for one.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class InstanceTests
@@ -114,35 +114,6 @@ public sealed class InstanceTests
             page.OpenInNewWindowCommand.Execute(new ListedRepository(path, "other-repo"));
 
             Assert.Equal(InfoBarSeverity.Error, Assert.Single(services.InfoBar.Shown).Severity);
-        });
-    }
-
-    [Fact]
-    public void NewWindow_StartsAnotherInstanceOnItsStartWindow()
-    {
-        _fixture.Run(() =>
-        {
-            using TestServices services = TestServices.Build();
-            MainWindowViewModel shell = services.Get<MainWindowViewModel>();
-
-            shell.NewWindowCommand.Execute(null);
-
-            Assert.Equal([null], services.Launcher.Launched);
-            Assert.Empty(services.InfoBar.Shown);
-        });
-    }
-
-    [Fact]
-    public void NewWindow_WhenTheInstanceCannotStart_SaysSo()
-    {
-        _fixture.Run(() =>
-        {
-            using TestServices services = TestServices.Build();
-            services.Launcher.Succeeds = false;
-
-            services.Get<MainWindowViewModel>().NewWindowCommand.Execute(null);
-
-            Assert.Equal("No new window", Assert.Single(services.InfoBar.Shown).Title);
         });
     }
 }
