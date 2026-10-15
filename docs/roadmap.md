@@ -324,6 +324,11 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-1CE1 | Release 6.1.0                           | DONE      | docs/plan/FEATURE-1CE1.md |
 | FEATURE-E228 | Redraw the app icon's connections       | DONE      | docs/plan/FEATURE-E228.md |
 | FEATURE-1B37 | Release 6.2.0                           | DONE      | docs/plan/FEATURE-1B37.md |
+| FEATURE-70F3 | No New window button in the toolbar     | TODO      | docs/plan/FEATURE-70F3.md |
+| FEATURE-19A5 | Create a worktree from a branch or line | TODO      | docs/plan/FEATURE-19A5.md |
+| - PHASE01    | A worktree service                      | TODO      | (in FEATURE-19A5.md)      |
+| - PHASE02    | The worktree dialog                     | TODO      | (in FEATURE-19A5.md)      |
+| - PHASE03    | Worktree items in the menus             | TODO      | (in FEATURE-19A5.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
