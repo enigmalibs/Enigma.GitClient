@@ -909,6 +909,138 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the new repository's own identity
+
+    /// <summary>
+    /// Fills the create dialog in for a repository called <paramref name="name"/>.
+    /// </summary>
+    /// <returns>Where the repository will be.</returns>
+    private static string ReadyToCreate(TestServices services, string name)
+    {
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        FillInitDialog(services, root, name);
+
+        return Path.Combine(root, name);
+    }
+
+    [Fact]
+    public void ACreateOffersTheGlobalIdentity_AndUseItWritesItIntoTheNewRepository()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAnIdentityOnEveryNewRepository);
+            services.Identity.Global = WorkIdentity;
+            string path = ReadyToCreate(services, "brand-new");
+
+            // The question comes before the first commit, so that it is made as the identity kept.
+            Action<ContentDialog> fill = services.Dialogs.OnShown!;
+            string? commitsWhenAsked = null;
+            services.Dialogs.OnShown = dialog =>
+            {
+                fill(dialog);
+
+                if (dialog.Content is string)
+                {
+                    commitsWhenAsked = ReadGit(path, "rev-list", "--all", "--count").Trim();
+                }
+            };
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            Assert.Equal(2, services.Dialogs.Shown.Count);
+            ContentDialog question = services.Dialogs.Shown[1];
+            Assert.Equal("Use your identity in this repository", question.Title);
+            Assert.Contains("Make Ada Lovelace <ada@work.example> the name and email of brand-new?", question.Content as string, StringComparison.Ordinal);
+            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.Equal("0", commitsWhenAsked);
+
+            RepositoryHandle created = services.Get<IRepositoryContext>().Repository!;
+            Assert.Equal("brand-new", created.Name);
+            Assert.Equal(WorkIdentity, services.Identity.LocalOf(created.WorkTreePath));
+            Assert.Equal("Initial commit", ReadGit(path, "log", "--format=%s").Trim());
+
+            // The global identity itself is left as it was.
+            Assert.Equal(0, services.Identity.GlobalWrites);
+            Assert.Equal("Repository created", Assert.Single(services.InfoBar.Shown).Title);
+        });
+    }
+
+    [Fact]
+    public void NotNow_LeavesTheNewRepositoryWithoutAnIdentityOfItsOwn()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAnIdentityOnEveryNewRepository);
+            services.Identity.Global = WorkIdentity;
+            ReadyToCreate(services, "brand-new");
+            services.Dialogs.Script(DialogResult.Primary, DialogResult.None);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            Assert.Equal(2, services.Dialogs.Shown.Count);
+            Assert.Empty(services.Identity.LocalWrites);
+            Assert.Equal("brand-new", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Equal("Repository created", Assert.Single(services.InfoBar.Shown).Title);
+        });
+    }
+
+    [Fact]
+    public void WithoutAGlobalIdentity_ACreateAsksNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAnIdentityOnEveryNewRepository);
+            services.Identity.Global = new GitIdentity("Ada Lovelace", string.Empty);
+            ReadyToCreate(services, "brand-new");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            // Only the create dialog itself.
+            Assert.IsNotType<string>(Assert.Single(services.Dialogs.Shown).Content);
+            Assert.Empty(services.Identity.LocalWrites);
+            Assert.Equal("brand-new", services.Get<IRepositoryContext>().Repository?.Name);
+        });
+    }
+
+    [Fact]
+    public void AFailedWrite_WarnsAndStillCreatesTheRepository()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: WithAnIdentityOnEveryNewRepository);
+            services.Identity.Global = WorkIdentity;
+            string path = ReadyToCreate(services, "brand-new");
+
+            // git's configuration is locked from the moment the question is on screen.
+            Action<ContentDialog> fill = services.Dialogs.OnShown!;
+            services.Dialogs.OnShown = dialog =>
+            {
+                fill(dialog);
+
+                if (dialog.Content is string)
+                {
+                    services.Identity.Failure = FakeGitIdentityService.LockFailure();
+                }
+            };
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.CreateCommand.ExecuteAsync(null);
+
+            RecordedNotification warning = services.InfoBar.Shown.Single(note => note.Severity == InfoBarSeverity.Warning);
+            Assert.Equal("The repository has no identity of its own", warning.Title);
+            Assert.StartsWith("brand-new commits with the global identity.", warning.Message, StringComparison.Ordinal);
+
+            Assert.Equal("Initial commit", ReadGit(path, "log", "--format=%s").Trim());
+            Assert.Equal("brand-new", services.Get<IRepositoryContext>().Repository?.Name);
+            Assert.Contains(services.InfoBar.Shown, note => note.Title == "Repository created");
+        });
+    }
+
     [Fact]
     public void ACloneThatFailed_LeavesTheSuggestionWhereItWas()
     {

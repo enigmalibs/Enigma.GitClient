@@ -250,6 +250,14 @@
                       <ei:Icon Kind="SignIn" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
+                  <MenuItem Header="Create worktree…"
+                            IsVisible="{Binding !Selection.IsMultiple}"
+                            Command="{Binding CreateWorktreeCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="FolderPlus" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <MenuItem Header="Merge into the current branch"
                             IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding MergeCommand}"

@@ -83,6 +83,7 @@ public sealed class CompositionRootTests
     [InlineData(typeof(ISyncOperations))]
     [InlineData(typeof(IMergeOperations))]
     [InlineData(typeof(IBranchDropOperations))]
+    [InlineData(typeof(IWorktreeOperations))]
     public void Container_ResolvesEveryOperationsService(Type serviceType)
     {
         using ServiceProvider provider = BuildProvider();

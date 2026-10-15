@@ -10,16 +10,17 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.2** — the application icon joins its green commit to the line of commits with
-> one rounded elbow, the way the History graph draws a branch. 6.1 before it: the start window's
-> list of repositories has a filter box, by name or path, with a button at its right edge that
-> clears it; a dragged tile travels under the pointer, and a dashed tile shows where it will land; a
-> push the remote refuses offers a force push, behind a red warning, that replaces only what the
-> warning named. Coming from 5.9? The buttons on the branches', tags' and remotes' rows moved into
-> each line's menu in 6.0, and the automatic refresh runs every 60 seconds: read *Upgrading from
-> 5.9* under 6.0.0. Coming from 5.1.0? The program was renamed `Enigma.GitClient.Desktop` in 5.1.1:
-> read *Upgrading from 5.1.0* there (on Linux, run the installer again). Coming from 4.x? Read
-> *Upgrading from 4.x* under 5.0.0 first. See [RELEASENOTES.md](RELEASENOTES.md).
+> **What's new in 6.3** — create a worktree, on a new branch and in a folder next to the
+> repository, from a commit's line, a branch's badge or a branch's line in the branches dialog; it
+> opens in a window of its own. Creating a repository offers it your identity, as a clone does, and
+> the toolbar's *Open another window* button is gone (the start window's *Open in a new window*
+> stays). 6.2 before it: the application icon joins its green commit to the line of commits with one
+> rounded elbow, the way the History graph draws a branch. Coming from 5.9? The buttons on the
+> branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
+> runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
+> renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the
+> installer again). Coming from 4.x? Read *Upgrading from 4.x* under 5.0.0 first. See
+> [RELEASENOTES.md](RELEASENOTES.md).
 
 ## Features
 
@@ -47,6 +48,10 @@ Two things matter more than everything else in this app:
 - A minimap in place of the diff's vertical scrollbar: where the changes are, where you are, and
   click or drag it to go there
 - Branch management — create, rename, delete, set upstream, checkout
+- Worktrees: *Create worktree…* on a commit's line, a branch's badge or a branch's line in the
+  branches dialog creates a new branch from it, checked out in a working directory of its own —
+  proposed next to the repository, never inside it, as `<repository>.worktree.<branch>` — and opens
+  it in a new window
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
@@ -173,8 +178,9 @@ Everything the client remembers about you lives in one per-user directory —
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email, use a profile on the Profiles
-page, pick one in the start window, or let a new clone use your identity — and nothing is sent
-anywhere: the client talks to your git and to the hosts you connected, and to nothing else.
+page, pick one in the start window, or let a new clone or repository use your identity — and
+nothing is sent anywhere: the client talks to your git and to the hosts you connected, and to
+nothing else.
 
 ## Requirements
 

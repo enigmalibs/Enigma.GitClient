@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryWatcher, RepositoryWatcher>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
+            services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
             services.AddSingleton<IResetOperations, ResetOperations>();
