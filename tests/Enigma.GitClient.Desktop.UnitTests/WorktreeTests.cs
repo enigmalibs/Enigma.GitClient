@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.Core.Repositories;
@@ -10,14 +12,16 @@ using Enigma.GitClient.Core.Worktrees;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
+using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The "create a worktree" dialog and the flow behind it: the folder it proposes next to the
-/// repository, what it refuses and why, and what confirming, declining and a window that cannot
-/// start each leave behind — checked against a real repository.
+/// repository, what it refuses and why, what confirming, declining and a window that cannot start
+/// each leave behind, and the three menus that offer it — checked against a real repository.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class WorktreeTests
@@ -357,6 +361,153 @@ public sealed class WorktreeTests
 
             Assert.False(await services.Get<IWorktreeOperations>().CreateAsync("main", "main"));
             Assert.Empty(services.Dialogs.Shown);
+        });
+    }
+
+    // ---------------------------------------------------------------- the menus
+
+    /// <summary>
+    /// Two commits, a stash on top of them and uncommitted work — every kind of line the history has —
+    /// opened, with the history read.
+    /// </summary>
+    private static async Task<(RepositoryHandle Repository, HistoryPageViewModel History)> OpenEveryLineAsync(TestServices services)
+    {
+        RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+        await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# two\n");
+        Git(repository, "commit", "-a", "-m", "Say it twice");
+
+        await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# stashed\n");
+        Git(repository, "stash", "push", "-m", "Work");
+
+        await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "README.md"), "# uncommitted\n");
+
+        await services.Get<IRepositoryContext>().RefreshAsync();
+
+        HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+        await history.ReloadAsync();
+
+        return (repository, history);
+    }
+
+    /// <summary>
+    /// Answers the dialog with a branch name, and keeps what it said the branch starts from.
+    /// </summary>
+    private static Func<string?> AnswerWith(TestServices services, string branch, bool open = false)
+    {
+        string? label = null;
+
+        services.Dialogs.OnShown = dialog =>
+        {
+            if (dialog.Content is Control { DataContext: CreateWorktreeDialogViewModel model })
+            {
+                label = model.StartPointLabel;
+                model.Name = branch;
+                model.OpenAfterCreate = open;
+            }
+        };
+        services.Dialogs.Result = DialogResult.Primary;
+
+        return () => label;
+    }
+
+    private static string HeadOf(string worktree)
+        => GitProbe.Sha(new RepositoryHandle(worktree, Path.Combine(worktree, ".git")), "HEAD");
+
+    [Fact]
+    public void ALinesMenu_OffersAWorktreeRightAfterTheBranch_AndStartsItAtTheLinesCommit()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (RepositoryHandle repository, HistoryPageViewModel history) = await OpenEveryLineAsync(services);
+
+            CommitRowViewModel older = history.Rows.Single(row => row.Subject == "Add the readme");
+            string[] headers = [.. older.MenuEntries.Where(entry => !entry.IsSeparator).Select(entry => entry.Header)];
+            HistoryMenuEntry entry = older.MenuEntries.Single(candidate => candidate.Header == "Create worktree here…");
+
+            Assert.Equal(Array.IndexOf(headers, "Create branch here…") + 1, Array.IndexOf(headers, "Create worktree here…"));
+            Assert.Equal(PhosphorIcon.FolderPlus, entry.Icon);
+            Assert.True(entry.Command!.CanExecute(entry.Parameter));
+
+            Func<string?> label = AnswerWith(services, "from-the-line");
+            await ((IAsyncRelayCommand)entry.Command).ExecuteAsync(entry.Parameter);
+
+            string folder = WorktreePaths.DefaultFor(repository.WorkTreePath, "from-the-line");
+
+            Assert.Equal(older.ShortSha, label());
+            Assert.Equal(older.Sha, HeadOf(folder));
+        });
+    }
+
+    [Fact]
+    public void ALinesMenu_GreysTheWorktreeOnTheUncommittedLine_AndLeavesItOffAStash()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (_, HistoryPageViewModel history) = await OpenEveryLineAsync(services);
+
+            CommitRowViewModel uncommitted = Assert.Single(history.Rows, row => row.IsUncommitted);
+            CommitRowViewModel stash = Assert.Single(history.Rows, row => row.IsStash);
+
+            HistoryMenuEntry entry = uncommitted.MenuEntries.Single(candidate => candidate.Header == "Create worktree here…");
+
+            Assert.False(entry.Command!.CanExecute(entry.Parameter));
+            Assert.DoesNotContain(stash.MenuEntries, candidate => candidate.Header == "Create worktree here…");
+        });
+    }
+
+    [Fact]
+    public void ABranchBadge_OffersAWorktreeStartingFromThatBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (RepositoryHandle repository, HistoryPageViewModel history) = await OpenEveryLineAsync(services);
+
+            HistoryBranchViewModel main = history.Rows.SelectMany(row => row.Branches).Single(branch => branch.Name == "main");
+
+            Assert.True(main.CanCreateWorktree);
+            Assert.Equal("Create worktree from \"main\"…", main.CreateWorktreeHeader);
+
+            Func<string?> label = AnswerWith(services, "from-the-badge", open: true);
+            await main.Commands.CreateWorktree!.ExecuteAsync(main);
+
+            string folder = WorktreePaths.DefaultFor(repository.WorkTreePath, "from-the-badge");
+
+            Assert.Equal("main", label());
+            Assert.Equal(GitProbe.Sha(repository, "main"), HeadOf(folder));
+            Assert.Equal([folder], services.Launcher.Launched);
+        });
+    }
+
+    [Fact]
+    public void ABranchRow_OffersAWorktreeStartingFromThatBranch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            services.OrderListsByName();
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            Git(repository, "branch", "older", "HEAD");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+
+            BranchesPageViewModel page = services.Get<BranchesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            BranchRowViewModel older = page.Groups.SelectMany(group => group.Rows).Single(row => row.FullName == "older");
+
+            Assert.True(older.CreateWorktreeCommand.CanExecute(older));
+
+            Func<string?> label = AnswerWith(services, "from-the-row");
+            await older.CreateWorktreeCommand.ExecuteAsync(older);
+
+            string folder = WorktreePaths.DefaultFor(repository.WorkTreePath, "from-the-row");
+
+            Assert.Equal("older", label());
+            Assert.Equal(GitProbe.Sha(repository, "older"), HeadOf(folder));
+            Assert.Contains(page.Groups.SelectMany(group => group.Rows), row => row.FullName == "from-the-row");
         });
     }
 }

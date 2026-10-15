@@ -235,6 +235,9 @@ public sealed class BranchRowViewModel : BranchTreeNode
     /// <summary>Gets the command that renames the branch.</summary>
     public AsyncRelayCommand<BranchRowViewModel> RenameCommand => _owner.RenameCommand;
 
+    /// <summary>Gets the command that creates a worktree on a new branch starting from this one.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> CreateWorktreeCommand => _owner.CreateWorktreeCommand;
+
     /// <summary>
     /// Gets the command that deletes the branch — or every selected branch, when the line is one of
     /// several selected.
@@ -319,6 +322,7 @@ public sealed record BranchDrop(BranchRowViewModel Source, BranchRowViewModel Ta
 public sealed class BranchesPageViewModel : PageViewModelBase
 {
     private readonly IBranchOperations _operations;
+    private readonly IWorktreeOperations _worktreeOperations;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IMergeOperations _mergeOperations;
     private readonly IBranchDropOperations _dropOperations;
@@ -350,6 +354,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="operations">Performs the branch operations, dialogs and all.</param>
+    /// <param name="worktreeOperations">Creates a worktree on a new branch from a branch, dialog and all.</param>
     /// <param name="checkoutOperations">Performs a checkout, including the questions it has to ask.</param>
     /// <param name="mergeOperations">Merges a branch into the current one.</param>
     /// <param name="dropOperations">Carries out one branch dropped onto another.</param>
@@ -357,6 +362,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     public BranchesPageViewModel(
         IRepositoryContext repositoryContext,
         IBranchOperations operations,
+        IWorktreeOperations worktreeOperations,
         ICheckoutOperations checkoutOperations,
         IMergeOperations mergeOperations,
         IBranchDropOperations dropOperations,
@@ -366,6 +372,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(operations);
+        ArgumentNullException.ThrowIfNull(worktreeOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(mergeOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
@@ -374,6 +381,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(tools);
 
         _operations = operations;
+        _worktreeOperations = worktreeOperations;
         _checkoutOperations = checkoutOperations;
         _mergeOperations = mergeOperations;
         _dropOperations = dropOperations;
@@ -405,6 +413,7 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         CheckoutCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCheckoutAsync, CanCheckout);
         RenameCommand = new AsyncRelayCommand<BranchRowViewModel>(OnRenameAsync, IsLocal);
+        CreateWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCreateWorktreeAsync, row => row is not null);
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
         DeleteSelectionCommand = new AsyncRelayCommand(OnDeleteSelectionAsync, CanDeleteSelection);
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
@@ -661,6 +670,11 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that renames a branch.</summary>
     public AsyncRelayCommand<BranchRowViewModel> RenameCommand { get; }
+
+    /// <summary>
+    /// Gets the command that creates a worktree on a new branch starting from a branch, local or remote.
+    /// </summary>
+    public AsyncRelayCommand<BranchRowViewModel> CreateWorktreeCommand { get; }
 
     /// <summary>Gets the command that deletes a branch.</summary>
     public AsyncRelayCommand<BranchRowViewModel> DeleteCommand { get; }
@@ -1167,6 +1181,14 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         if (row is not null)
         {
             await Run(() => _operations.RenameAsync(row.FullName)).ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnCreateWorktreeAsync(BranchRowViewModel? row)
+    {
+        if (row is not null)
+        {
+            await Run(() => _worktreeOperations.CreateAsync(row.FullName, row.FullName)).ConfigureAwait(true);
         }
     }
 

@@ -64,6 +64,10 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// Records a commit on the branch HEAD is on that undoes the row's commit, after asking; offered beside
 /// the reset items, under the same condition.
 /// </param>
+/// <param name="CreateWorktreeHere">
+/// Creates a worktree — a working directory of its own, next to the repository — on a new branch
+/// starting at the row's commit; offered beside "create branch here", under the same condition.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -82,7 +86,8 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<string>? PushTag = null,
     AsyncRelayCommand<string>? DeleteTag = null,
     AsyncRelayCommand<string>? DeleteRemoteTag = null,
-    AsyncRelayCommand<CommitRowViewModel>? Revert = null);
+    AsyncRelayCommand<CommitRowViewModel>? Revert = null,
+    AsyncRelayCommand<CommitRowViewModel>? CreateWorktreeHere = null);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -378,6 +383,12 @@ public sealed class CommitRowViewModel : ViewModelBase
 
             entries.Add(HistoryMenuEntry.Separator);
             entries.Add(new HistoryMenuEntry("Create branch here…", commands.CreateBranchHere, this, PhosphorIcon.GitBranch));
+
+            if (commands.CreateWorktreeHere is { } worktree)
+            {
+                entries.Add(new HistoryMenuEntry("Create worktree here…", worktree, this, PhosphorIcon.FolderPlus));
+            }
+
             entries.Add(new HistoryMenuEntry("Create tag here…", commands.CreateTagHere, this, PhosphorIcon.Tag));
             entries.Add(HistoryMenuEntry.Separator);
             entries.Add(new HistoryMenuEntry("Check out this commit (detaches HEAD)", commands.CheckoutCommit, this, PhosphorIcon.SignIn));

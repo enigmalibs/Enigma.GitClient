@@ -505,6 +505,14 @@
                                   <ei:Icon Kind="SignIn" Classes="menu" />
                                 </MenuItem.Icon>
                               </MenuItem>
+                              <MenuItem Header="{Binding CreateWorktreeHeader}"
+                                        IsVisible="{Binding CanCreateWorktree}"
+                                        Command="{Binding Commands.CreateWorktree}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="FolderPlus" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
                               <Separator />
                               <MenuItem Header="{Binding SetAsMergeSourceHeader}"
                                         IsVisible="{Binding CanSetAsMergeSource}"

@@ -28,6 +28,9 @@ public sealed record MergeSource(string Name, bool IsRemote);
 /// <param name="Push">Pushes a local branch, current or not.</param>
 /// <param name="CurrentSource">Reads the merge source at the moment it is asked for.</param>
 /// <param name="CurrentBranch">Reads the name of the branch HEAD is on, or <see langword="null"/> when detached.</param>
+/// <param name="CreateWorktree">
+/// Creates a worktree on a new branch starting from the branch, local or remote; not offered without it.
+/// </param>
 public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Checkout,
     RelayCommand<HistoryBranchViewModel> SetAsMergeSource,
@@ -40,7 +43,8 @@ public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Push,
     Func<MergeSource?> CurrentSource,
     Func<string?> CurrentBranch,
-    AsyncRelayCommand<string>? Copy = null);
+    AsyncRelayCommand<string>? Copy = null,
+    AsyncRelayCommand<HistoryBranchViewModel>? CreateWorktree = null);
 
 /// <summary>
 /// One branch on a history line: the badge it is drawn as, and the menu that badge opens.
@@ -166,6 +170,12 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets what the check-out item says.</summary>
     public string CheckoutHeader => $"Check out \"{Name}\"";
+
+    /// <summary>Gets a value indicating whether the badge's menu can create a worktree from the branch.</summary>
+    public bool CanCreateWorktree => Commands.CreateWorktree is not null;
+
+    /// <summary>Gets what the item that creates a worktree from the branch says.</summary>
+    public string CreateWorktreeHeader => $"Create worktree from \"{Name}\"…";
 
     /// <summary>Gets what the pull item says.</summary>
     public string PullHeader => $"Pull \"{Name}\"";
