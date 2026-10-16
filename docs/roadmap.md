@@ -331,6 +331,17 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Worktree items in the menus             | DONE      | (in FEATURE-19A5.md)      |
 | FEATURE-B979 | Create offers the global identity       | DONE      | docs/plan/FEATURE-B979.md |
 | FEATURE-6352 | Release 6.3.0                           | DONE      | docs/plan/FEATURE-6352.md |
+| FEATURE-C3F3 | Remove worktrees, mark their branches   | TODO      | docs/plan/FEATURE-C3F3.md |
+| - PHASE01    | List, probe and remove in Core          | TODO      | (in FEATURE-C3F3.md)      |
+| - PHASE02    | Worktrees in the state, tree marks      | TODO      | (in FEATURE-C3F3.md)      |
+| - PHASE03    | Guards on delete and checkout           | TODO      | (in FEATURE-C3F3.md)      |
+| - PHASE04    | Remove and open from branch menus       | TODO      | (in FEATURE-C3F3.md)      |
+| - PHASE05    | The Worktrees tool dialog               | TODO      | (in FEATURE-C3F3.md)      |
+| FEATURE-CA9D | Windows open on the screen in use       | TODO      | docs/plan/FEATURE-CA9D.md |
+| - PHASE01    | Hand-over keeps the screen              | TODO      | (in FEATURE-CA9D.md)      |
+| - PHASE02    | Fresh start on the last screen          | TODO      | (in FEATURE-CA9D.md)      |
+| - PHASE03    | New instances on the caller's screen    | TODO      | (in FEATURE-CA9D.md)      |
+| FEATURE-C56E | Release 6.4.0                           | TODO      | docs/plan/FEATURE-C56E.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
