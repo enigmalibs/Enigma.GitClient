@@ -84,6 +84,7 @@ public sealed class CompositionRootTests
     [InlineData(typeof(IMergeOperations))]
     [InlineData(typeof(IBranchDropOperations))]
     [InlineData(typeof(IWorktreeOperations))]
+    [InlineData(typeof(IWorktreeGuard))]
     public void Container_ResolvesEveryOperationsService(Type serviceType)
     {
         using ServiceProvider provider = BuildProvider();
@@ -96,6 +97,7 @@ public sealed class CompositionRootTests
     [InlineData(typeof(BranchesPageViewModel))]
     [InlineData(typeof(TagsPageViewModel))]
     [InlineData(typeof(RemotesPageViewModel))]
+    [InlineData(typeof(WorktreesPageViewModel))]
     [InlineData(typeof(ProfilesPageViewModel))]
     [InlineData(typeof(SettingsPageViewModel))]
     public void Container_ResolvesEveryPageViewModel(Type viewModelType)

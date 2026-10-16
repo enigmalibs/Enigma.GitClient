@@ -60,6 +60,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
             services.AddSingleton<IStartNavigation, StartNavigation>();
+            services.AddSingleton<IScreenReader, AvaloniaScreenReader>();
+            services.AddSingleton<IWindowPlacer, WindowPlacer>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
@@ -76,6 +78,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryEventSource, FileSystemRepositoryEventSource>();
             services.AddSingleton<IRepositoryWatcher, RepositoryWatcher>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
+            services.AddSingleton<IWorktreeGuard, WorktreeGuard>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
@@ -101,6 +104,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<BranchesPageView>();
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
+            services.AddTransient<WorktreesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
             services.AddTransient<ProfilesPageView>();
             services.AddTransient<SettingsPageView>();
@@ -110,6 +114,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<BranchesPageViewModel>();
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
+            services.AddSingleton<WorktreesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();

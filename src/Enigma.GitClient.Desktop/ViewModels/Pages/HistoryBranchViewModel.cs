@@ -2,6 +2,7 @@ using System;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Core.Worktrees;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.Icons.Phosphor;
 
@@ -31,6 +32,9 @@ public sealed record MergeSource(string Name, bool IsRemote);
 /// <param name="CreateWorktree">
 /// Creates a worktree on a new branch starting from the branch, local or remote; not offered without it.
 /// </param>
+/// <param name="Worktrees">
+/// What the menu offers for a branch another working tree has checked out; nothing without it.
+/// </param>
 public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Checkout,
     RelayCommand<HistoryBranchViewModel> SetAsMergeSource,
@@ -44,7 +48,26 @@ public sealed record HistoryBranchCommands(
     Func<MergeSource?> CurrentSource,
     Func<string?> CurrentBranch,
     AsyncRelayCommand<string>? Copy = null,
-    AsyncRelayCommand<HistoryBranchViewModel>? CreateWorktree = null);
+    AsyncRelayCommand<HistoryBranchViewModel>? CreateWorktree = null,
+    HistoryWorktreeCommands? Worktrees = null);
+
+/// <summary>
+/// What a branch badge's menu offers for a branch another working tree has checked out — the branches
+/// dialog's row menu offers the same four, in the same order.
+/// </summary>
+/// <param name="WorktreeOf">
+/// Finds, at the moment it is asked, the other working tree that has a branch checked out, by its name.
+/// </param>
+/// <param name="Open">Opens that worktree in a new window.</param>
+/// <param name="OpenFolder">Opens its folder in the file manager.</param>
+/// <param name="OpenTerminal">Opens a terminal in it.</param>
+/// <param name="Remove">Removes it, after saying what that costs.</param>
+public sealed record HistoryWorktreeCommands(
+    Func<string, GitWorktree?> WorktreeOf,
+    AsyncRelayCommand<HistoryBranchViewModel> Open,
+    AsyncRelayCommand<HistoryBranchViewModel> OpenFolder,
+    AsyncRelayCommand<HistoryBranchViewModel> OpenTerminal,
+    AsyncRelayCommand<HistoryBranchViewModel> Remove);
 
 /// <summary>
 /// One branch on a history line: the badge it is drawn as, and the menu that badge opens.
@@ -176,6 +199,25 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets what the item that creates a worktree from the branch says.</summary>
     public string CreateWorktreeHeader => $"Create worktree from \"{Name}\"…";
+
+    /// <summary>
+    /// Gets the other working tree that has this local branch checked out, read when it is asked for,
+    /// or <see langword="null"/> — never for the branch HEAD is on here.
+    /// </summary>
+    public GitWorktree? Worktree
+        => IsLocal && !IsCurrent && Commands.Worktrees is { } worktrees ? worktrees.WorktreeOf(Name) : null;
+
+    /// <summary>
+    /// Gets a value indicating whether another working tree has this branch checked out, which is when
+    /// the menu offers its worktree's items.
+    /// </summary>
+    public bool IsInOtherWorktree => Worktree is not null;
+
+    /// <summary>
+    /// Gets a value indicating whether the menu offers removing that worktree: any linked one — never the
+    /// main working tree.
+    /// </summary>
+    public bool CanRemoveWorktree => Worktree is { IsMain: false };
 
     /// <summary>Gets what the pull item says.</summary>
     public string PullHeader => $"Pull \"{Name}\"";

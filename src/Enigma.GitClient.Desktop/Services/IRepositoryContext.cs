@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Worktrees;
 
 namespace Enigma.GitClient.Desktop.Services;
 
@@ -42,6 +44,42 @@ public interface IRepositoryContext : INotifyPropertyChanged
     /// Gets the commit-to-references index the graph draws badges from.
     /// </summary>
     RefDecorationIndex Decorations { get; }
+
+    /// <summary>
+    /// Gets every working tree of the open repository, the main one first; empty while none is open,
+    /// and when they could not be read.
+    /// </summary>
+    /// <remarks>
+    /// Read with the references on every refresh. A list git cannot give is logged and left empty: it
+    /// never fails the refresh, it only loses the worktree marks until the next one.
+    /// </remarks>
+    IReadOnlyList<GitWorktree> Worktrees { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the open repository was opened from a linked worktree rather
+    /// than from its main working tree.
+    /// </summary>
+    bool IsLinkedWorktree { get; }
+
+    /// <summary>
+    /// Gets the main working tree's folder, or <see langword="null"/> while none is open or the
+    /// worktrees could not be read.
+    /// </summary>
+    string? MainWorktreePath { get; }
+
+    /// <summary>
+    /// Finds the working tree that has a branch checked out, other than the one open here.
+    /// </summary>
+    /// <param name="branch">The local branch's short name.</param>
+    /// <returns>
+    /// The worktree — the main working tree too, when the open one is a linked worktree — or
+    /// <see langword="null"/> when no other working tree has the branch checked out.
+    /// </returns>
+    /// <remarks>
+    /// git refuses to delete, check out or force-move such a branch, because a branch can be checked
+    /// out in one working tree at a time.
+    /// </remarks>
+    GitWorktree? WorktreeOf(string branch);
 
     /// <summary>
     /// Gets or sets the commit the history view has selected, which the details panel follows.

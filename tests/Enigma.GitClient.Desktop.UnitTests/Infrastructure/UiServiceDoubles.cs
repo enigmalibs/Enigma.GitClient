@@ -7,6 +7,7 @@ using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Services;
 
 namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -322,7 +323,7 @@ public sealed class RecordingAppWindows : IAppWindows
     public Window? CurrentWindow => null;
 
     /// <inheritdoc />
-    public Task StartAsync(string? path, SplashHandOver? splash = null)
+    public Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
     {
         Started.Add(path);
         splash?.Close();

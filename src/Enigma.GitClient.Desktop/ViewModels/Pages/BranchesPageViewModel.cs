@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Core.Worktrees;
 using Enigma.GitClient.Desktop.Formatting;
 using Enigma.GitClient.Desktop.Services;
 
@@ -34,12 +35,20 @@ public sealed class BranchRowViewModel : BranchTreeNode
     /// The remote-tracking branch this one is on — <c>origin/main</c> — or <see langword="null"/> when
     /// the branch is on no remote at all.
     /// </param>
+    /// <param name="worktree">
+    /// The other working tree that has this local branch checked out, or <see langword="null"/> when none
+    /// has.
+    /// </param>
     /// <remarks>
-    /// The page works out <paramref name="publishedAs"/>, because a row is in no position to: the
-    /// question is about the other refs in the repository, and the answer is the same for every row, so
-    /// it is resolved once per rebuild rather than scanned for per line.
+    /// The page works out <paramref name="publishedAs"/> and <paramref name="worktree"/>, because a row is
+    /// in no position to: each question is about the rest of the repository, and the answer is resolved
+    /// once per rebuild rather than scanned for per line.
     /// </remarks>
-    public BranchRowViewModel(BranchesPageViewModel owner, GitBranch branch, string? publishedAs = null)
+    public BranchRowViewModel(
+        BranchesPageViewModel owner,
+        GitBranch branch,
+        string? publishedAs = null,
+        GitWorktree? worktree = null)
         : base(KeyOf(branch))
     {
         ArgumentNullException.ThrowIfNull(owner);
@@ -48,6 +57,9 @@ public sealed class BranchRowViewModel : BranchTreeNode
         _owner = owner;
         Branch = branch;
         PublishedAs = publishedAs;
+
+        // The branch this window has checked out keeps its "checked out" badge, never the tree.
+        Worktree = branch.IsRemote || branch.IsCurrent ? null : worktree;
     }
 
     /// <summary>Gets the branch this row stands for.</summary>
@@ -164,6 +176,44 @@ public sealed class BranchRowViewModel : BranchTreeNode
 
     /// <summary>Gets what the "local only" badge says when the pointer rests on it.</summary>
     public string LocalOnlyTip => "On no remote — this branch only exists here";
+
+    /// <summary>
+    /// Gets the other working tree that has this local branch checked out, or <see langword="null"/>.
+    /// </summary>
+    public GitWorktree? Worktree { get; }
+
+    /// <summary>
+    /// Gets the folder of the other working tree that has this branch checked out, or
+    /// <see langword="null"/>.
+    /// </summary>
+    public string? WorktreePath => Worktree?.Path;
+
+    /// <summary>
+    /// Gets a value indicating whether another working tree has this local branch checked out — which
+    /// is why git refuses to delete it or check it out here.
+    /// </summary>
+    public bool IsInOtherWorktree => Worktree is not null;
+
+    /// <summary>Gets what the "worktree" badge says when the pointer rests on it: where the branch is.</summary>
+    public string WorktreeTip => Worktree is { } worktree ? WorktreeText.CheckedOutTip(worktree) : string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the row's menu offers removing the worktree that has the branch:
+    /// any linked one — never the main working tree.
+    /// </summary>
+    public bool CanRemoveWorktree => Worktree is { IsMain: false };
+
+    /// <summary>Gets the command that opens the branch's worktree in a new window.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeCommand => _owner.OpenWorktreeCommand;
+
+    /// <summary>Gets the command that opens the branch's worktree folder in the file manager.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeFolderCommand => _owner.OpenWorktreeFolderCommand;
+
+    /// <summary>Gets the command that opens a terminal in the branch's worktree.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeTerminalCommand => _owner.OpenWorktreeTerminalCommand;
+
+    /// <summary>Gets the command that removes the branch's worktree, after saying what it costs.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> RemoveWorktreeCommand => _owner.RemoveWorktreeCommand;
 
     /// <summary>
     /// Gets what the line's tooltip says: everything about the branch the line itself leaves out — its
@@ -414,6 +464,21 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         CheckoutCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCheckoutAsync, CanCheckout);
         RenameCommand = new AsyncRelayCommand<BranchRowViewModel>(OnRenameAsync, IsLocal);
         CreateWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCreateWorktreeAsync, row => row is not null);
+
+        // The worktree that has the branch: opened anywhere but where its folder has gone, and removed
+        // unless it is the main working tree.
+        OpenWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => _worktreeOperations.OpenAsync(row!.Worktree!),
+            HasWorktreeFolder);
+        OpenWorktreeFolderCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => _worktreeOperations.OpenFolderAsync(row!.Worktree!),
+            HasWorktreeFolder);
+        OpenWorktreeTerminalCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => _worktreeOperations.OpenTerminalAsync(row!.Worktree!),
+            HasWorktreeFolder);
+        RemoveWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => Run(() => _worktreeOperations.RemoveAsync(row!.Worktree!)),
+            row => row?.CanRemoveWorktree == true);
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
         DeleteSelectionCommand = new AsyncRelayCommand(OnDeleteSelectionAsync, CanDeleteSelection);
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
@@ -676,6 +741,18 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// </summary>
     public AsyncRelayCommand<BranchRowViewModel> CreateWorktreeCommand { get; }
 
+    /// <summary>Gets the command that opens, in a new window, the worktree that has a branch checked out.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeCommand { get; }
+
+    /// <summary>Gets the command that opens that worktree's folder in the file manager.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeFolderCommand { get; }
+
+    /// <summary>Gets the command that opens a terminal in that worktree.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeTerminalCommand { get; }
+
+    /// <summary>Gets the command that removes that worktree, after saying what it costs.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> RemoveWorktreeCommand { get; }
+
     /// <summary>Gets the command that deletes a branch.</summary>
     public AsyncRelayCommand<BranchRowViewModel> DeleteCommand { get; }
 
@@ -914,7 +991,11 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         List<BranchRowViewModel> local = [.. refs.LocalBranches
             .Where(Matches)
-            .Select(branch => new BranchRowViewModel(this, branch, published.GetValueOrDefault(branch.ShortName)))];
+            .Select(branch => new BranchRowViewModel(
+                this,
+                branch,
+                published.GetValueOrDefault(branch.ShortName),
+                RepositoryContext.WorktreeOf(branch.ShortName)))];
 
         List<BranchRowViewModel> remote = [.. refs.RemoteBranches
             .Where(Matches)
@@ -1114,6 +1195,8 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private static bool IsLocal(BranchRowViewModel? row) => row is { IsRemote: false };
 
     private static bool CanCheckout(BranchRowViewModel? row) => row is not null && !row.IsCurrent;
+
+    private static bool HasWorktreeFolder(BranchRowViewModel? row) => row?.Worktree is { IsMissing: false };
 
     /// <summary>
     /// A line's delete: the line's branch, unless it is the one checked out — or, when the line is one

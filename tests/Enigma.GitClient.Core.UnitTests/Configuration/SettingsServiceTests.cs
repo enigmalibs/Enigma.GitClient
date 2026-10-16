@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Configuration;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Core.Sync;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -308,6 +309,74 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TheLastScreen_IsRemembered_AndAnOlderFileHasNone()
+    {
+        Assert.Null(AppSettings.Defaults.LastScreen);
+
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, $"{{ \"version\": {AppSettings.CurrentVersion.ToString(CultureInfo.InvariantCulture)} }}");
+
+        ScreenArea screen = new(-1920, 0, 1920, 1080);
+
+        using (SettingsService first = Build())
+        {
+            AppSettings loaded = await first.LoadAsync(TestContext.Current.CancellationToken);
+            Assert.Null(loaded.LastScreen);
+
+            first.Update(current => current with { LastScreen = screen });
+            await first.FlushAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Its four numbers, and nothing worked out from them.
+        string json = System.IO.File.ReadAllText(File_);
+        Assert.Contains("\"lastScreen\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"width\": 1920", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"right\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"isEmpty\"", json, StringComparison.Ordinal);
+
+        using SettingsService second = Build();
+        AppSettings reloaded = await second.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(screen, reloaded.LastScreen);
+        Assert.Equal(AppSettings.CurrentVersion, reloaded.Version);
+    }
+
+    [Theory]
+    [InlineData(0, 1080)]
+    [InlineData(1920, 0)]
+    [InlineData(-5, 1080)]
+    public void ALastScreenWithNoArea_IsNormalisedAway(int width, int height)
+        => Assert.Null((AppSettings.Defaults with { LastScreen = new ScreenArea(0, 0, width, height) }).Normalised().LastScreen);
+
+    [Fact]
+    public void ALastScreenWithAnArea_IsKeptAsItIs()
+    {
+        ScreenArea screen = new(1920, -200, 2560, 1440);
+
+        Assert.Equal(screen, (AppSettings.Defaults with { LastScreen = screen }).Normalised().LastScreen);
+    }
+
+    [Fact]
+    public async Task RememberingTheSameScreenAgain_WritesNothing()
+    {
+        using SettingsService settings = Build();
+        ScreenArea screen = new(0, 0, 1920, 1080);
+
+        int raised = 0;
+        settings.Changed += (_, _) => raised++;
+
+        settings.Update(current => current with { LastScreen = screen });
+        await settings.FlushAsync(TestContext.Current.CancellationToken);
+        int writes = settings.Writes;
+
+        settings.Update(current => current with { LastScreen = screen });
+        await settings.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, raised);
+        Assert.Equal(writes, settings.Writes);
+    }
+
+    [Fact]
     public void AnOrderThisBuildDoesNotHave_FallsBackToNewestFirst()
     {
         AppSettings odd = AppSettings.Defaults with { BranchSortKey = (RefSortKey)42, BranchSortDirection = (SortDirection)7 };
@@ -336,7 +405,7 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public void ChangingSomethingRaisesTheEventWithTheNewSettings()
+    public async Task ChangingSomethingRaisesTheEventWithTheNewSettings()
     {
         using SettingsService settings = Build();
 
@@ -347,6 +416,10 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(ThemePreference.Dark, seen!.Theme);
         Assert.Equal(ThemePreference.Dark, settings.Current.Theme);
+
+        // The change started a write of its own; the folder is deleted after the test, and must not
+        // be while that write still has its temporary file open.
+        await settings.FlushAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
