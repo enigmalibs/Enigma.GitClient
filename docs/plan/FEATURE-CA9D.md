@@ -1,6 +1,6 @@
 # FEATURE-CA9D — Windows open on the screen in use
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-16-feature-c3f3-feature-ca9d-feature-c56e
@@ -59,7 +59,7 @@ Centred start window and maximised repository window stay as they are — only t
 
 ## PHASE01 — Hand-over keeps the screen
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-ca9d-phase01-hand-over-screen`
 
 ### Steps

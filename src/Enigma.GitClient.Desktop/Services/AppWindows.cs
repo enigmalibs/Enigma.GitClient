@@ -11,6 +11,7 @@ using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.Views;
 using Enigma.Icons.Avalonia;
@@ -98,8 +99,13 @@ public sealed class AppWindows : IAppWindows
     private readonly IServiceProvider _services;
     private readonly IRepositoryOpener _opener;
     private readonly IGitEnvironment _git;
+    private readonly IWindowPlacer _placer;
     private readonly ILogger<AppWindows> _logger;
     private bool _gitChecked;
+
+    // The screen the current window was last seen on while not minimised: where the next one goes
+    // when this one hands over from the taskbar.
+    private ScreenArea? _lastScreen;
 
     /// <summary>
     /// Initialises a new instance.
@@ -107,23 +113,33 @@ public sealed class AppWindows : IAppWindows
     /// <param name="services">Builds the windows, which are transient, and their ViewModels.</param>
     /// <param name="opener">Opens the repository a command-line path points at.</param>
     /// <param name="git">Probes the host's git installation once, when the first window opens.</param>
+    /// <param name="placer">Finds the screen a window is on, and puts the next window on it.</param>
     /// <param name="logger">Receives startup failures.</param>
     public AppWindows(
         IServiceProvider services,
         IRepositoryOpener opener,
         IGitEnvironment git,
+        IWindowPlacer placer,
         ILogger<AppWindows> logger)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(opener);
         ArgumentNullException.ThrowIfNull(git);
+        ArgumentNullException.ThrowIfNull(placer);
         ArgumentNullException.ThrowIfNull(logger);
 
         _services = services;
         _opener = opener;
         _git = git;
+        _placer = placer;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Gets the bounds of the screen the current window was last seen on while not minimised, or
+    /// <see langword="null"/> before any window was.
+    /// </summary>
+    public ScreenArea? LastScreen => _lastScreen;
 
     /// <inheritdoc />
     public AppWindowKind Current { get; private set; }
@@ -227,10 +243,56 @@ public sealed class AppWindows : IAppWindows
             window.Opened += OnFirstWindowOpened;
         }
 
+        // On the screen the previous window was on, rather than wherever the platform puts a new
+        // one — the primary screen. With no previous window, the platform's own placement stands.
+        if (previous is not null && ScreenToHandOverTo(previous, window) is { } screen)
+        {
+            _placer.PlaceOn(window, screen);
+        }
+
+        window.Opened += OnWindowSeen;
+        window.PositionChanged += OnWindowSeen;
+
         // Shown before the previous one is closed, so there is never a moment without a window —
         // which is what the lifetime reads as "the last window closed".
         window.Show();
-        previous?.Close();
+
+        if (previous is not null)
+        {
+            previous.Opened -= OnWindowSeen;
+            previous.PositionChanged -= OnWindowSeen;
+            previous.Close();
+        }
+    }
+
+    /// <summary>
+    /// Finds, among the screens there are now, the one a window handing over is on — the one it was
+    /// last seen on when it is minimised, where the taskbar's own position says nothing.
+    /// </summary>
+    /// <param name="previous">The window handing over.</param>
+    /// <param name="next">The window taking over, which reads the screens.</param>
+    /// <returns>The screen, or <see langword="null"/> when none is known.</returns>
+    private ScreenInfo? ScreenToHandOverTo(Window previous, Window next)
+    {
+        ScreenArea? hint = previous.WindowState == WindowState.Minimized
+            ? _lastScreen
+            : _placer.ScreenOf(previous)?.Bounds ?? _lastScreen;
+
+        return hint is null ? null : ScreenPlacement.Choose(_placer.ScreensOf(next), hint);
+    }
+
+    /// <summary>
+    /// Remembers the screen the current window is on, each time it opens or moves while not minimised.
+    /// </summary>
+    private void OnWindowSeen(object? sender, EventArgs e)
+    {
+        if (sender is Window window
+            && ReferenceEquals(window, CurrentWindow)
+            && window.WindowState != WindowState.Minimized
+            && _placer.ScreenOf(window) is { } screen)
+        {
+            _lastScreen = screen.Bounds;
+        }
     }
 
     /// <summary>

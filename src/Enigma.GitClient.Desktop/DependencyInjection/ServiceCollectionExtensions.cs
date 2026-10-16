@@ -60,6 +60,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IHiddenBranches, HiddenBranches>();
             services.AddSingleton<IShellNavigation, ShellNavigation>();
             services.AddSingleton<IStartNavigation, StartNavigation>();
+            services.AddSingleton<IScreenReader, AvaloniaScreenReader>();
+            services.AddSingleton<IWindowPlacer, WindowPlacer>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
