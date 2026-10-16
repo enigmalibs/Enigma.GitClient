@@ -97,6 +97,7 @@ public sealed class CompositionRootTests
     [InlineData(typeof(BranchesPageViewModel))]
     [InlineData(typeof(TagsPageViewModel))]
     [InlineData(typeof(RemotesPageViewModel))]
+    [InlineData(typeof(WorktreesPageViewModel))]
     [InlineData(typeof(ProfilesPageViewModel))]
     [InlineData(typeof(SettingsPageViewModel))]
     public void Container_ResolvesEveryPageViewModel(Type viewModelType)

@@ -27,6 +27,9 @@ public enum ToolDialog
 
     /// <summary>Remotes, synchronisation and stashes.</summary>
     Remotes,
+
+    /// <summary>Worktrees: every working tree of the repository.</summary>
+    Worktrees,
 }
 
 /// <summary>
@@ -134,6 +137,7 @@ public sealed class ToolDialogService : IToolDialogService
             ToolDialog.Branches => (typeof(BranchesPageView), typeof(BranchesPageViewModel)),
             ToolDialog.Tags => (typeof(TagsPageView), typeof(TagsPageViewModel)),
             ToolDialog.Remotes => (typeof(RemotesPageView), typeof(RemotesPageViewModel)),
+            ToolDialog.Worktrees => (typeof(WorktreesPageView), typeof(WorktreesPageViewModel)),
             _ => throw new ArgumentOutOfRangeException(nameof(dialog), dialog, "Not a tool dialog."),
         };
 

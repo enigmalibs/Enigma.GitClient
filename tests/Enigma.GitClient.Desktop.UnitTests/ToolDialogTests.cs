@@ -73,6 +73,7 @@ public sealed class ToolDialogTests
     [InlineData(ToolDialog.Branches, typeof(BranchesPageView), typeof(BranchesPageViewModel))]
     [InlineData(ToolDialog.Tags, typeof(TagsPageView), typeof(TagsPageViewModel))]
     [InlineData(ToolDialog.Remotes, typeof(RemotesPageView), typeof(RemotesPageViewModel))]
+    [InlineData(ToolDialog.Worktrees, typeof(WorktreesPageView), typeof(WorktreesPageViewModel))]
     public void ShowAsync_ShowsThePageWithItsViewModelUntilItIsClosed(ToolDialog dialog, Type view, Type viewModel)
     {
         _fixture.RunAsync(async () =>
@@ -235,6 +236,7 @@ public sealed class ToolDialogTests
             {
                 await history.OnAppearingAsync();
                 Assert.False(history.OpenBranchesCommand.CanExecute(null));
+                Assert.False(history.OpenWorktreesCommand.CanExecute(null));
 
                 // A real repository: the remotes page reads git as it appears.
                 string root = System.IO.Path.Combine(services.ConfigurationRoot, "workspace");
@@ -246,6 +248,7 @@ public sealed class ToolDialogTests
                 (AsyncRelayCommandProbe command, Type page)[] buttons =
                 [
                     (new(history.OpenBranchesCommand), typeof(BranchesPageView)),
+                    (new(history.OpenWorktreesCommand), typeof(WorktreesPageView)),
                     (new(history.OpenTagsCommand), typeof(TagsPageView)),
                     (new(history.OpenRemotesCommand), typeof(RemotesPageView)),
                 ];
