@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Enigma.GitClient.Core.Branches;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.IntegrationTests.Infrastructure;
 using Enigma.GitClient.Core.Refs;
@@ -212,5 +214,231 @@ public sealed class WorktreeServiceTests : IAsyncLifetime
 
         Assert.False(await BranchExistsAsync("topic"));
         Assert.False(Directory.Exists(folder));
+    }
+
+    // ---------------------------------------------------------------- listing
+
+    private Task<IReadOnlyList<GitWorktree>> ListAsync(RepositoryHandle? repository = null)
+        => Service.ListAsync(repository ?? _handle, TestContext.Current.CancellationToken);
+
+    private Task RemoveAsync(string path, bool force = false, RepositoryHandle? repository = null)
+        => Service.RemoveAsync(repository ?? _handle, path, force, TestContext.Current.CancellationToken);
+
+    private async Task<string> AddTopicAsync(string branch = "topic")
+    {
+        string folder = WorktreePaths.DefaultFor(_handle.WorkTreePath, branch);
+        await AddAsync(folder, branch, _firstSha);
+        return folder;
+    }
+
+    private async Task<RepositoryHandle> OpenAsync(string folder)
+    {
+        RepositoryDiscoveryResult discovery = await _host.GetRequiredService<IRepositoryLocator>()
+            .DiscoverAsync(folder, TestContext.Current.CancellationToken);
+
+        return discovery.Repository!;
+    }
+
+    [Fact]
+    public async Task ListAsync_WithNoOtherWorktree_ListsTheMainOne()
+    {
+        GitWorktree main = Assert.Single(await ListAsync());
+
+        Assert.True(main.IsMain);
+        Assert.Equal(_handle.WorkTreePath, main.Path);
+        Assert.Equal("main", main.Branch);
+        Assert.Equal(_secondSha, main.HeadSha);
+        Assert.False(main.IsMissing);
+    }
+
+    [Fact]
+    public async Task ListAsync_AfterAdd_HasTheMainOneFirstAndTheNewOneWithItsBranchAndSha()
+    {
+        string folder = await AddTopicAsync("feature/login");
+
+        IReadOnlyList<GitWorktree> worktrees = await ListAsync();
+
+        Assert.Equal(2, worktrees.Count);
+        Assert.True(worktrees[0].IsMain);
+        Assert.Equal(_handle.WorkTreePath, worktrees[0].Path);
+
+        GitWorktree linked = worktrees[1];
+        Assert.False(linked.IsMain);
+        Assert.Equal(folder, linked.Path);
+        Assert.Equal("feature/login", linked.Branch);
+        Assert.Equal(_firstSha, linked.HeadSha);
+        Assert.False(linked.IsDetached);
+        Assert.False(linked.IsLocked);
+        Assert.False(linked.IsMissing);
+    }
+
+    [Fact]
+    public async Task ListAsync_FromALinkedWorktree_StillListsTheMainOneFirst()
+    {
+        string folder = await AddTopicAsync();
+
+        IReadOnlyList<GitWorktree> worktrees = await ListAsync(await OpenAsync(folder));
+
+        Assert.Equal([_handle.WorkTreePath, folder], worktrees.Select(worktree => worktree.Path));
+        Assert.True(worktrees[0].IsMain);
+    }
+
+    [Fact]
+    public async Task ListAsync_ADetachedWorktree_HasNoBranch()
+    {
+        string folder = await AddTopicAsync();
+        await GitInAsync(folder, "checkout", "--detach");
+
+        GitWorktree linked = (await ListAsync())[1];
+
+        Assert.True(linked.IsDetached);
+        Assert.Null(linked.Branch);
+    }
+
+    [Fact]
+    public async Task ListAsync_ALockedWorktree_HasItsReason()
+    {
+        string folder = await AddTopicAsync();
+        await _repository.GitAsync("worktree", "lock", "--reason", "on a USB stick", folder);
+
+        GitWorktree linked = (await ListAsync())[1];
+
+        Assert.True(linked.IsLocked);
+        Assert.Equal("on a USB stick", linked.LockReason);
+    }
+
+    // ---------------------------------------------------------------- counting changes
+
+    [Fact]
+    public async Task CountChangesAsync_ACleanWorktree_HasNone()
+    {
+        await AddTopicAsync();
+
+        Assert.Equal(0, await Service.CountChangesAsync((await ListAsync())[1], TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task CountChangesAsync_IgnoredFilesDoNotCount()
+    {
+        string folder = await AddTopicAsync();
+        File.WriteAllText(Path.Combine(folder, ".gitignore"), "*.log\n");
+        await GitInAsync(folder, "add", ".gitignore");
+        await GitInAsync(folder, "commit", "-m", "Ignore the logs");
+        File.WriteAllText(Path.Combine(folder, "build.log"), "noise\n");
+
+        GitWorktree linked = (await ListAsync())[1];
+
+        Assert.Equal(0, await Service.CountChangesAsync(linked, TestContext.Current.CancellationToken));
+
+        // And git removes it without being forced, the ignored file with it.
+        await RemoveAsync(folder);
+        Assert.False(Directory.Exists(folder));
+    }
+
+    // ---------------------------------------------------------------- removing
+
+    [Fact]
+    public async Task RemoveAsync_ACleanWorktree_DeletesTheFolderAndTheRecordAndKeepsTheBranch()
+    {
+        string folder = await AddTopicAsync();
+
+        await RemoveAsync(folder);
+
+        Assert.False(Directory.Exists(folder));
+        Assert.Single(await ListAsync());
+        Assert.True(await BranchExistsAsync("topic"));
+
+        // The branch is no longer checked out anywhere, so it can go now.
+        await _host.GetRequiredService<IBranchService>()
+            .DeleteAsync(_handle, "topic", force: true, TestContext.Current.CancellationToken);
+
+        Assert.False(await BranchExistsAsync("topic"));
+    }
+
+    [Fact]
+    public async Task RemoveAsync_WithChanges_IsRefusedByGitUnlessForced()
+    {
+        string folder = await AddTopicAsync();
+        File.WriteAllText(Path.Combine(folder, "README.md"), "# changed\n");
+        File.WriteAllText(Path.Combine(folder, "new.txt"), "untracked\n");
+
+        GitWorktree linked = (await ListAsync())[1];
+        Assert.Equal(2, await Service.CountChangesAsync(linked, TestContext.Current.CancellationToken));
+
+        await Assert.ThrowsAsync<GitCommandException>(() => RemoveAsync(folder));
+        Assert.True(File.Exists(Path.Combine(folder, "new.txt")));
+        Assert.Equal(2, (await ListAsync()).Count);
+
+        await RemoveAsync(folder, force: true);
+
+        Assert.False(Directory.Exists(folder));
+        Assert.Single(await ListAsync());
+        Assert.True(await BranchExistsAsync("topic"));
+    }
+
+    [Fact]
+    public async Task RemoveAsync_AFolderDeletedByHand_IsMissingAndRemovingClearsTheRecord()
+    {
+        string folder = await AddTopicAsync();
+        DirectoryCleanup.Delete(folder);
+
+        GitWorktree linked = (await ListAsync())[1];
+        Assert.True(linked.IsMissing);
+        Assert.Equal(0, await Service.CountChangesAsync(linked, TestContext.Current.CancellationToken));
+
+        await RemoveAsync(folder);
+
+        Assert.Single(await ListAsync());
+        Assert.True(await BranchExistsAsync("topic"));
+    }
+
+    [Fact]
+    public async Task RemoveAsync_TheMainWorkingTree_IsRefusedAndNothingIsRemoved()
+    {
+        string folder = await AddTopicAsync();
+        RepositoryHandle fromLinked = await OpenAsync(folder);
+
+        GitOperationRefusedException refusal = await Assert.ThrowsAsync<GitOperationRefusedException>(
+            () => RemoveAsync(_handle.WorkTreePath, repository: fromLinked));
+
+        Assert.Contains("main working tree", refusal.Message, System.StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(_handle.WorkTreePath, "README.md")));
+        Assert.Equal(2, (await ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_TheWorkingTreeTheRepositoryIsOpenIn_IsRefusedAndNothingIsRemoved()
+    {
+        string folder = await AddTopicAsync();
+        RepositoryHandle fromLinked = await OpenAsync(folder);
+
+        await Assert.ThrowsAsync<GitOperationRefusedException>(() => RemoveAsync(folder, repository: fromLinked));
+
+        Assert.True(File.Exists(Path.Combine(folder, "README.md")));
+        Assert.Equal(2, (await ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ALockedWorktree_IsRefusedNamingUnlockAndNothingIsRemoved()
+    {
+        string folder = await AddTopicAsync();
+        await _repository.GitAsync("worktree", "lock", "--reason", "on a USB stick", folder);
+
+        GitOperationRefusedException refusal = await Assert.ThrowsAsync<GitOperationRefusedException>(
+            () => RemoveAsync(folder, force: true));
+
+        Assert.Contains("git worktree unlock", refusal.Message, System.StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(folder, "README.md")));
+        Assert.Equal(2, (await ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_AFolderThatIsNotAWorktree_IsRefused()
+    {
+        string folder = _workspace.CreateDirectory("not-a-worktree");
+
+        await Assert.ThrowsAsync<GitOperationRefusedException>(() => RemoveAsync(folder));
+
+        Assert.True(Directory.Exists(folder));
     }
 }
