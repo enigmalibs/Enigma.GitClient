@@ -1,4 +1,5 @@
 using System;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Core.Sync;
 
 namespace Enigma.GitClient.Core.Configuration;
@@ -311,6 +312,20 @@ public sealed record AppSettings
     /// </remarks>
     public string SelectedProfileId { get; init; } = string.Empty;
 
+    // ---------------------------------------------------------------- windows
+
+    /// <summary>
+    /// Gets the bounds of the screen the application was last used on, which a fresh start opens its
+    /// splash and its first window on; <see langword="null"/> until a window has been seen on one.
+    /// </summary>
+    /// <remarks>
+    /// Remembered rather than chosen, like <see cref="CloneParentDirectory"/>: every window placed,
+    /// handed over or closed writes it. A screen that is gone by the next start is looked for among
+    /// the ones there are, and the primary one is used when it cannot be found. A file written before
+    /// this setting existed reads as none, so no schema migration is needed.
+    /// </remarks>
+    public ScreenArea? LastScreen { get; init; }
+
     /// <summary>
     /// Returns these settings with every value forced into a range the application can use.
     /// </summary>
@@ -339,6 +354,9 @@ public sealed record AppSettings
             GitExecutablePath = GitExecutablePath?.Trim() ?? string.Empty,
             CloneParentDirectory = CloneParentDirectory?.Trim() ?? string.Empty,
             SelectedProfileId = SelectedProfileId?.Trim() ?? string.Empty,
+
+            // A screen with no area is no screen to open on: as if none had been remembered.
+            LastScreen = LastScreen is { IsEmpty: false } screen ? screen : null,
             Theme = Enum.IsDefined(Theme) ? Theme : ThemePreference.System,
             DateDisplay = Enum.IsDefined(DateDisplay) ? DateDisplay : DateDisplay.Relative,
             FilesView = Enum.IsDefined(FilesView) ? FilesView : Defaults.FilesView,

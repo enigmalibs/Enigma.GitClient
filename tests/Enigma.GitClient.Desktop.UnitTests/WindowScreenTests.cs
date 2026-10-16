@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -27,14 +27,6 @@ public sealed class WindowScreenTests
     public WindowScreenTests(HeadlessAvaloniaFixture fixture) => _fixture = fixture;
 
     /// <summary>
-    /// A desktop of the test's choosing.
-    /// </summary>
-    private sealed class FixedScreens(params ScreenInfo[] screens) : IScreenReader
-    {
-        public IReadOnlyList<ScreenInfo> Read(Window window) => screens;
-    }
-
-    /// <summary>
     /// The real window coordinator, over the desktop given.
     /// </summary>
     private static TestServices Build(params ScreenInfo[] screens)
@@ -43,7 +35,7 @@ public sealed class WindowScreenTests
             services.RemoveAll<IAppWindows>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.RemoveAll<IScreenReader>();
-            services.AddSingleton<IScreenReader>(new FixedScreens(screens));
+            services.AddSingleton<IScreenReader>(new FixedScreenReader(screens));
         });
 
     private static PixelPoint CentredOn(ScreenInfo screen, double width, double height)
@@ -56,19 +48,23 @@ public sealed class WindowScreenTests
         return new PixelPoint(x, y);
     }
 
+    // ---------------------------------------------------------------- a fresh start
+
     [Fact]
-    public void TheFirstWindow_IsPlacedAsBefore()
+    public void TheFirstWindow_WithNoScreenRemembered_OpensCentredOnThePrimary()
     {
         _fixture.Run(() =>
         {
-            using TestServices services = Build(First, Second);
+            using TestServices services = Build(Second, First);
             IAppWindows windows = services.Get<IAppWindows>();
 
             try
             {
                 windows.ShowStart();
 
-                Assert.Equal(WindowStartupLocation.CenterScreen, windows.CurrentWindow!.WindowStartupLocation);
+                Window start = windows.CurrentWindow!;
+                Assert.Equal(WindowStartupLocation.Manual, start.WindowStartupLocation);
+                Assert.Equal(CentredOn(First, start.Width, start.Height), start.Position);
             }
             finally
             {
@@ -76,6 +72,107 @@ public sealed class WindowScreenTests
             }
         });
     }
+
+    [Fact]
+    public void TheFirstWindow_OpensOnTheScreenTheApplicationWasLastUsedOn()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = Build(First, Second);
+            services.Get<ISettingsService>().Update(current => current with { LastScreen = Second.Bounds });
+            IAppWindows windows = services.Get<IAppWindows>();
+
+            try
+            {
+                windows.ShowStart();
+
+                Window start = windows.CurrentWindow!;
+                Assert.Equal(CentredOn(Second, start.Width, start.Height), start.Position);
+            }
+            finally
+            {
+                windows.CurrentWindow?.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheFirstWindow_OpensOnThePrimary_WhenTheRememberedScreenIsGone()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = Build(First);
+            services.Get<ISettingsService>().Update(current => current with { LastScreen = Second.Bounds });
+            IAppWindows windows = services.Get<IAppWindows>();
+
+            try
+            {
+                windows.ShowStart();
+
+                Window start = windows.CurrentWindow!;
+                Assert.Equal(CentredOn(First, start.Width, start.Height), start.Position);
+            }
+            finally
+            {
+                windows.CurrentWindow?.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheScreen_IsRecordedInTheSettings_AsWindowsArePlacedMovedAndClosed()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = Build(First, Second);
+            ISettingsService settings = services.Get<ISettingsService>();
+            IAppWindows windows = services.Get<IAppWindows>();
+
+            windows.ShowStart();
+            Assert.Equal(First.Bounds, settings.Current.LastScreen);
+
+            // Moved to the second screen: remembered as it moves.
+            windows.CurrentWindow!.Position = new PixelPoint(2200, 100);
+            Assert.Equal(Second.Bounds, settings.Current.LastScreen);
+
+            // Handed over there, then moved back by hand and closed by its ✕: the screen it closed on.
+            windows.ShowRepository();
+            Assert.Equal(Second.Bounds, settings.Current.LastScreen);
+
+            Window repository = windows.CurrentWindow!;
+            repository.WindowState = WindowState.Normal;
+            repository.Position = new PixelPoint(100, 100);
+            repository.Close();
+
+            Assert.Equal(First.Bounds, settings.Current.LastScreen);
+        });
+    }
+
+    [Fact]
+    public void TheRememberedScreen_SurvivesARestart()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = Build(First, Second);
+            ISettingsService settings = services.Get<ISettingsService>();
+            IAppWindows windows = services.Get<IAppWindows>();
+
+            windows.ShowStart();
+            windows.CurrentWindow!.Position = new PixelPoint(2200, 100);
+            windows.CurrentWindow!.Close();
+
+            // What App.OnExit does before the host goes.
+            await settings.FlushAsync();
+
+            using SettingsService reread = new(
+                services.Get<IAppPaths>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<SettingsService>.Instance);
+
+            Assert.Equal(Second.Bounds, (await reread.LoadAsync()).LastScreen);
+        });
+    }
+
+    // ---------------------------------------------------------------- a hand-over
 
     [Fact]
     public void TheRepositoryWindow_OpensOnTheScreenTheStartWindowWasOn_AtThatScreensScaling()
@@ -213,7 +310,7 @@ public sealed class WindowScreenTests
     {
         _fixture.Run(() =>
         {
-            WindowPlacer placer = new(new FixedScreens(First, Second));
+            WindowPlacer placer = new(new FixedScreenReader(First, Second));
             Window window = new() { Width = 1000, Height = 600 };
 
             try

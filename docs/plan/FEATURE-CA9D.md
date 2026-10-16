@@ -91,7 +91,7 @@ Centred start window and maximised repository window stay as they are — only t
 
 ## PHASE02 — Fresh start on the last screen
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-ca9d-phase02-last-screen`
 
 ### Steps
