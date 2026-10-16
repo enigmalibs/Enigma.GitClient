@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Worktrees;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Desktop.Services;
@@ -14,7 +16,10 @@ namespace Enigma.GitClient.Desktop.Services;
 /// </summary>
 public sealed class RepositoryContext : ObservableObject, IRepositoryContext, IDisposable
 {
+    private static readonly IReadOnlyList<GitWorktree> NoWorktrees = [];
+
     private readonly IRefReader _refReader;
+    private readonly IWorktreeService _worktreeService;
     private readonly ILogger<RepositoryContext> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
@@ -22,17 +27,23 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     private int _writes;
     private bool _disposed;
 
+    // The other working trees by the branch each has checked out, as of the last read.
+    private Dictionary<string, GitWorktree> _worktreesByBranch = new(StringComparer.Ordinal);
+
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="refReader">Reads the reference state after every change.</param>
+    /// <param name="worktreeService">Lists the repository's working trees with the references.</param>
     /// <param name="logger">Receives failures that must not take the shell down.</param>
-    public RepositoryContext(IRefReader refReader, ILogger<RepositoryContext> logger)
+    public RepositoryContext(IRefReader refReader, IWorktreeService worktreeService, ILogger<RepositoryContext> logger)
     {
         ArgumentNullException.ThrowIfNull(refReader);
+        ArgumentNullException.ThrowIfNull(worktreeService);
         ArgumentNullException.ThrowIfNull(logger);
 
         _refReader = refReader;
+        _worktreeService = worktreeService;
         _logger = logger;
     }
 
@@ -61,6 +72,38 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     /// <inheritdoc />
     public RefDecorationIndex Decorations { get; private set => SetProperty(ref field, value); }
         = RefDecorationIndex.Empty;
+
+    /// <inheritdoc />
+    public IReadOnlyList<GitWorktree> Worktrees
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                _worktreesByBranch = IndexByBranch(value, Repository);
+                OnPropertyChanged(nameof(IsLinkedWorktree));
+                OnPropertyChanged(nameof(MainWorktreePath));
+            }
+        }
+    } = NoWorktrees;
+
+    /// <inheritdoc />
+    public bool IsLinkedWorktree
+        => Repository is { } repository
+            && MainWorktreePath is { } main
+            && !SamePath(main, repository.WorkTreePath);
+
+    /// <inheritdoc />
+    public string? MainWorktreePath => Worktrees is [{ IsMain: true } main, ..] ? main.Path : null;
+
+    /// <inheritdoc />
+    public GitWorktree? WorktreeOf(string branch)
+    {
+        ArgumentNullException.ThrowIfNull(branch);
+
+        return _worktreesByBranch.GetValueOrDefault(branch);
+    }
 
     /// <inheritdoc />
     public GitCommit? SelectedCommit { get; set => SetProperty(ref field, value); }
@@ -99,6 +142,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         SelectedCommit = null;
         Refs = RefCollection.Empty;
         Decorations = RefDecorationIndex.Empty;
+        Worktrees = NoWorktrees;
         Head = null;
 
         RepositoryChanged?.Invoke(this, new RepositoryChangedEventArgs(previous, repository));
@@ -123,6 +167,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         Head = null;
         Refs = RefCollection.Empty;
         Decorations = RefDecorationIndex.Empty;
+        Worktrees = NoWorktrees;
 
         RepositoryChanged?.Invoke(this, new RepositoryChangedEventArgs(previous, null));
     }
@@ -142,7 +187,13 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
 
         try
         {
-            RepositoryRefState state = await _refReader.GetStateAsync(repository, linked.Token).ConfigureAwait(true);
+            // Both reads at once: the worktrees are one more git process, and never worth waiting for
+            // the references to finish first.
+            Task<RepositoryRefState> reading = _refReader.GetStateAsync(repository, linked.Token);
+            Task<IReadOnlyList<GitWorktree>> listing = ReadWorktreesAsync(repository, linked.Token);
+
+            RepositoryRefState state = await reading.ConfigureAwait(true);
+            IReadOnlyList<GitWorktree> worktrees = await listing.ConfigureAwait(true);
 
             // The repository may have been swapped while the read was in flight; a stale answer must
             // never be published.
@@ -154,6 +205,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
             Refs = state.Refs;
             Head = state.Head;
             Decorations = state.Decorations;
+            Worktrees = worktrees;
 
             StateRefreshed?.Invoke(this, EventArgs.Empty);
         }
@@ -287,6 +339,52 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
 
         WriteEnded?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// Lists the working trees, which is never worth failing a refresh for: a list that cannot be read
+    /// is logged and left empty.
+    /// </summary>
+    private async Task<IReadOnlyList<GitWorktree>> ReadWorktreesAsync(RepositoryHandle repository, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _worktreeService.ListAsync(repository, cancellationToken).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(exception, "Listing the worktrees of {Repository} failed", repository.WorkTreePath);
+            return NoWorktrees;
+        }
+    }
+
+    /// <summary>
+    /// Indexes the working trees other than the open one by the branch each has checked out.
+    /// </summary>
+    private static Dictionary<string, GitWorktree> IndexByBranch(IReadOnlyList<GitWorktree> worktrees, RepositoryHandle? repository)
+    {
+        Dictionary<string, GitWorktree> byBranch = new(StringComparer.Ordinal);
+
+        if (repository is null)
+        {
+            return byBranch;
+        }
+
+        foreach (GitWorktree worktree in worktrees)
+        {
+            if (worktree.Branch is { Length: > 0 } branch && !SamePath(worktree.Path, repository.WorkTreePath))
+            {
+                byBranch.TryAdd(branch, worktree);
+            }
+        }
+
+        return byBranch;
+    }
+
+    private static bool SamePath(string first, string second)
+        => string.Equals(
+            first,
+            second,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private void ReplaceLifetime()
     {

@@ -26,7 +26,7 @@ public sealed class RepositoryContextTests
     private static (RepositoryContext Context, FakeRefReader Reader) Build()
     {
         FakeRefReader reader = new();
-        return (new RepositoryContext(reader, NullLogger<RepositoryContext>.Instance), reader);
+        return (new RepositoryContext(reader, new FakeWorktreeService(), NullLogger<RepositoryContext>.Instance), reader);
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public sealed class RepositoryContextTests
     public async Task RefreshAsync_SwallowsAFailingReadRatherThanTakingTheShellDown()
     {
         ThrowingRefReader reader = new();
-        using RepositoryContext context = new(reader, NullLogger<RepositoryContext>.Instance);
+        using RepositoryContext context = new(reader, new FakeWorktreeService(), NullLogger<RepositoryContext>.Instance);
 
         await context.OpenAsync(Handle("one"), TestContext.Current.CancellationToken);
 

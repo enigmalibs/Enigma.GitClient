@@ -123,7 +123,7 @@ public sealed class BulkDeletionTests
     public async Task EveryItemIsTried_PastAFailure_UnderOneHold_WithOneRefresh()
     {
         FakeRefReader reader = new();
-        using RepositoryContext context = new(reader, NullLogger<RepositoryContext>.Instance);
+        using RepositoryContext context = new(reader, new FakeWorktreeService(), NullLogger<RepositoryContext>.Instance);
         await context.OpenAsync(Handle("batch"), TestContext.Current.CancellationToken);
 
         int refreshes = 0;
@@ -155,7 +155,7 @@ public sealed class BulkDeletionTests
     public async Task AGitFailure_IsGitsFirstMeaningfulLine()
     {
         FakeRefReader reader = new();
-        using RepositoryContext context = new(reader, NullLogger<RepositoryContext>.Instance);
+        using RepositoryContext context = new(reader, new FakeWorktreeService(), NullLogger<RepositoryContext>.Instance);
         await context.OpenAsync(Handle("batch"), TestContext.Current.CancellationToken);
 
         DeletionOutcome outcome = await DeletionBatch.RunAsync(

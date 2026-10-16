@@ -7,7 +7,8 @@ namespace Enigma.GitClient.Desktop.Services;
 
 /// <summary>
 /// What the history is drawn from, reduced to a value two moments can be compared by: where HEAD is,
-/// what is in progress, and where every reference points.
+/// what is in progress, where every reference points, and which branches other working trees have
+/// checked out.
 /// </summary>
 /// <remarks>
 /// A refresh publishes new objects every time, whether or not anything moved, so comparing the
@@ -16,7 +17,11 @@ namespace Enigma.GitClient.Desktop.Services;
 /// </remarks>
 /// <param name="Head">Where HEAD was, and what was in progress.</param>
 /// <param name="References">Every reference as <c>full name → target</c>, in ordinal order.</param>
-public sealed record RepositoryStateStamp(HeadState? Head, string References)
+/// <param name="Worktrees">
+/// Every working tree as <c>folder → branch</c>, with whether it is the main one and whether its folder
+/// is missing, in git's order: what the pills' trees are drawn from.
+/// </param>
+public sealed record RepositoryStateStamp(HeadState? Head, string References, string Worktrees = "")
 {
     /// <summary>
     /// Takes the stamp of what a repository context last read.
@@ -31,6 +36,9 @@ public sealed record RepositoryStateStamp(HeadState? Head, string References)
             .Select(reference => reference.FullName + "=" + reference.TargetSha)
             .Order(StringComparer.Ordinal);
 
-        return new RepositoryStateStamp(context.Head, string.Join('\n', references));
+        IEnumerable<string> worktrees = context.Worktrees
+            .Select(worktree => $"{worktree.Path}={worktree.Branch}|{worktree.IsMain}|{worktree.IsMissing}");
+
+        return new RepositoryStateStamp(context.Head, string.Join('\n', references), string.Join('\n', worktrees));
     }
 }

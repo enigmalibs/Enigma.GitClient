@@ -495,6 +495,8 @@
                                            Text="{Binding Name}"
                                            Upstream="{Binding Badge.Upstream}"
                                            IsCurrent="{Binding IsCurrent}"
+                                           IsWorktree="{Binding Badge.IsWorktree}"
+                                           WorktreeTip="{Binding Badge.Worktree}"
                                            Classes.mergesource="{Binding IsDrawnAsMergeSource}">
                           <controls:RefBadge.ContextMenu>
                             <ContextMenu>
@@ -649,7 +651,9 @@
                       <DataTemplate DataType="vm:RefBadgeItem" x:DataType="vm:RefBadgeItem">
                         <controls:RefBadge Kind="{Binding Kind}"
                                            Text="{Binding Name}"
-                                           IsCurrent="{Binding IsCurrent}" />
+                                           IsCurrent="{Binding IsCurrent}"
+                                           IsWorktree="{Binding IsWorktree}"
+                                           WorktreeTip="{Binding Worktree}" />
                       </DataTemplate>
                     </ItemsControl.DataTemplates>
                   </ItemsControl>

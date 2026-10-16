@@ -20,6 +20,7 @@ using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.Controls.Graph;
+using Enigma.GitClient.Desktop.Formatting;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Microsoft.Extensions.Logging;
@@ -1577,7 +1578,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 now,
                 RowCommands,
                 _absoluteDates,
-                _stashBySha.GetValueOrDefault(commit.Sha)));
+                _stashBySha.GetValueOrDefault(commit.Sha),
+                WorktreeTipOf));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
@@ -1718,6 +1720,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         return max;
     }
+
+    /// <summary>
+    /// Says where a local branch is checked out in another working tree, for its pill's tree — or
+    /// <see langword="null"/> when no other working tree has it.
+    /// </summary>
+    private string? WorktreeTipOf(string branch)
+        => RepositoryContext.WorktreeOf(branch) is { } worktree ? WorktreeText.CheckedOutTip(worktree) : null;
 
     /// <summary>
     /// The refs the graph leaves out: every hidden one that still exists, less the branch HEAD is on —

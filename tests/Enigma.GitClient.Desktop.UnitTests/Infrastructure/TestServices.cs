@@ -4,6 +4,7 @@ using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Core.Worktrees;
 using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -69,6 +70,12 @@ public sealed class TestServices : IDisposable
         {
             services.RemoveAll<IRefReader>();
             services.AddSingleton<IRefReader, FakeRefReader>();
+
+            // The worktrees are listed with the references, and must answer as synchronously. Writes
+            // still go to the real service.
+            services.RemoveAll<IWorktreeService>();
+            services.AddSingleton<WorktreeService>();
+            services.AddSingleton<IWorktreeService>(provider => new FakeWorktreeService(provider.GetRequiredService<WorktreeService>()));
         }
 
         // Never the developer's own ~/.config: a test that writes there is a test that changes the
