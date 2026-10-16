@@ -10,12 +10,15 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.3** — create a worktree, on a new branch and in a folder next to the
-> repository, from a commit's line, a branch's badge or a branch's line in the branches dialog; it
-> opens in a window of its own. Creating a repository offers it your identity, as a clone does, and
-> the toolbar's *Open another window* button is gone (the start window's *Open in a new window*
-> stays). 6.2 before it: the application icon joins its green commit to the line of commits with one
-> rounded elbow, the way the History graph draws a branch. Coming from 5.9? The buttons on the
+> **What's new in 6.4** — remove a worktree, its branch too if you tick the box, from the menu of
+> the branch it has checked out or from the new *Worktrees* dialog; a branch checked out in another
+> worktree carries a tree, and deleting or checking it out is refused up front, naming the folder.
+> The windows open on the screen you are working on: the repository and start windows hand over on
+> the same screen, a fresh start opens where you left off, and another instance opens on the screen
+> of the window that started it. 6.3 before it: create a worktree from a commit's line, a branch's
+> badge or a branch's line; creating a repository offers it your identity, as a clone does; and the
+> toolbar's *Open another window* button is gone (the start window's *Open in a new window* stays).
+> Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
 > renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the

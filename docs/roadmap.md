@@ -341,7 +341,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Hand-over keeps the screen              | DONE      | (in FEATURE-CA9D.md)      |
 | - PHASE02    | Fresh start on the last screen          | DONE      | (in FEATURE-CA9D.md)      |
 | - PHASE03    | New instances on the caller's screen    | DONE      | (in FEATURE-CA9D.md)      |
-| FEATURE-C56E | Release 6.4.0                           | TODO      | docs/plan/FEATURE-C56E.md |
+| FEATURE-C56E | Release 6.4.0                           | DONE      | docs/plan/FEATURE-C56E.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
