@@ -198,6 +198,24 @@ public sealed class BranchRowViewModel : BranchTreeNode
     public string WorktreeTip => Worktree is { } worktree ? WorktreeText.CheckedOutTip(worktree) : string.Empty;
 
     /// <summary>
+    /// Gets a value indicating whether the row's menu offers removing the worktree that has the branch:
+    /// any linked one — never the main working tree.
+    /// </summary>
+    public bool CanRemoveWorktree => Worktree is { IsMain: false };
+
+    /// <summary>Gets the command that opens the branch's worktree in a new window.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeCommand => _owner.OpenWorktreeCommand;
+
+    /// <summary>Gets the command that opens the branch's worktree folder in the file manager.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeFolderCommand => _owner.OpenWorktreeFolderCommand;
+
+    /// <summary>Gets the command that opens a terminal in the branch's worktree.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeTerminalCommand => _owner.OpenWorktreeTerminalCommand;
+
+    /// <summary>Gets the command that removes the branch's worktree, after saying what it costs.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> RemoveWorktreeCommand => _owner.RemoveWorktreeCommand;
+
+    /// <summary>
     /// Gets what the line's tooltip says: everything about the branch the line itself leaves out — its
     /// full name, the upstream it tracks, and its last commit's subject, author and date.
     /// </summary>
@@ -446,6 +464,21 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         CheckoutCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCheckoutAsync, CanCheckout);
         RenameCommand = new AsyncRelayCommand<BranchRowViewModel>(OnRenameAsync, IsLocal);
         CreateWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(OnCreateWorktreeAsync, row => row is not null);
+
+        // The worktree that has the branch: opened anywhere but where its folder has gone, and removed
+        // unless it is the main working tree.
+        OpenWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => _worktreeOperations.OpenAsync(row!.Worktree!),
+            HasWorktreeFolder);
+        OpenWorktreeFolderCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => _worktreeOperations.OpenFolderAsync(row!.Worktree!),
+            HasWorktreeFolder);
+        OpenWorktreeTerminalCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => _worktreeOperations.OpenTerminalAsync(row!.Worktree!),
+            HasWorktreeFolder);
+        RemoveWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(
+            row => Run(() => _worktreeOperations.RemoveAsync(row!.Worktree!)),
+            row => row?.CanRemoveWorktree == true);
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
         DeleteSelectionCommand = new AsyncRelayCommand(OnDeleteSelectionAsync, CanDeleteSelection);
         SetUpstreamCommand = new AsyncRelayCommand<BranchRowViewModel>(OnSetUpstreamAsync, IsLocal);
@@ -707,6 +740,18 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// Gets the command that creates a worktree on a new branch starting from a branch, local or remote.
     /// </summary>
     public AsyncRelayCommand<BranchRowViewModel> CreateWorktreeCommand { get; }
+
+    /// <summary>Gets the command that opens, in a new window, the worktree that has a branch checked out.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeCommand { get; }
+
+    /// <summary>Gets the command that opens that worktree's folder in the file manager.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeFolderCommand { get; }
+
+    /// <summary>Gets the command that opens a terminal in that worktree.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> OpenWorktreeTerminalCommand { get; }
+
+    /// <summary>Gets the command that removes that worktree, after saying what it costs.</summary>
+    public AsyncRelayCommand<BranchRowViewModel> RemoveWorktreeCommand { get; }
 
     /// <summary>Gets the command that deletes a branch.</summary>
     public AsyncRelayCommand<BranchRowViewModel> DeleteCommand { get; }
@@ -1150,6 +1195,8 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     private static bool IsLocal(BranchRowViewModel? row) => row is { IsRemote: false };
 
     private static bool CanCheckout(BranchRowViewModel? row) => row is not null && !row.IsCurrent;
+
+    private static bool HasWorktreeFolder(BranchRowViewModel? row) => row?.Worktree is { IsMissing: false };
 
     /// <summary>
     /// A line's delete: the line's branch, unless it is the one checked out — or, when the line is one

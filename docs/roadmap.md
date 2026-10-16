@@ -335,7 +335,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | List, probe and remove in Core          | DONE        | (in FEATURE-C3F3.md)      |
 | - PHASE02    | Worktrees in the state, tree marks      | DONE        | (in FEATURE-C3F3.md)      |
 | - PHASE03    | Guards on delete and checkout           | DONE        | (in FEATURE-C3F3.md)      |
-| - PHASE04    | Remove and open from branch menus       | TODO        | (in FEATURE-C3F3.md)      |
+| - PHASE04    | Remove and open from branch menus       | DONE        | (in FEATURE-C3F3.md)      |
 | - PHASE05    | The Worktrees tool dialog               | TODO        | (in FEATURE-C3F3.md)      |
 | FEATURE-CA9D | Windows open on the screen in use       | TODO        | docs/plan/FEATURE-CA9D.md |
 | - PHASE01    | Hand-over keeps the screen              | TODO        | (in FEATURE-CA9D.md)      |
