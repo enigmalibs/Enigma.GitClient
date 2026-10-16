@@ -1,6 +1,6 @@
 # FEATURE-C3F3 — Remove worktrees, mark their branches
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-16-feature-c3f3-feature-ca9d-feature-c56e
@@ -84,7 +84,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE01 — List, probe and remove in Core
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase01-worktree-list-remove`
 
 ### Steps
