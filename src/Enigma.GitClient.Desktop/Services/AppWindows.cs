@@ -82,8 +82,12 @@ public interface IAppWindows
     /// its floor has passed, then closed once the first window is on screen — or on the way out of a
     /// start that failed.
     /// </param>
+    /// <param name="screen">
+    /// The screen to open on — the one of the window that started this instance — or
+    /// <see langword="null"/> for the screen the application was last used on.
+    /// </param>
     /// <returns>A task that completes once a window is on screen.</returns>
-    Task StartAsync(string? path, SplashHandOver? splash = null);
+    Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null);
 
     /// <summary>Shows the start window in place of whatever is on screen.</summary>
     void ShowStart();
@@ -108,6 +112,9 @@ public sealed class AppWindows : IAppWindows
     // The screen the current window was last seen on while not minimised: where the next one goes
     // when this one hands over from the taskbar.
     private ScreenArea? _lastScreen;
+
+    // The screen the command line names, which the first window opens on before the remembered one.
+    private ScreenArea? _startScreen;
 
     /// <summary>
     /// Initialises a new instance.
@@ -176,8 +183,10 @@ public sealed class AppWindows : IAppWindows
     public Window? CurrentWindow { get; private set; }
 
     /// <inheritdoc />
-    public async Task StartAsync(string? path, SplashHandOver? splash = null)
+    public async Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
     {
+        _startScreen = screen;
+
         string? failure = null;
         bool opened = false;
 
@@ -282,7 +291,7 @@ public sealed class AppWindows : IAppWindows
                 Remember(screen.Bounds);
             }
         }
-        else if (PlaceForStart(_placer, window, _settings.Current.LastScreen) is { } first)
+        else if (PlaceForStart(_placer, window, _startScreen ?? _settings.Current.LastScreen) is { } first)
         {
             Remember(first.Bounds);
         }

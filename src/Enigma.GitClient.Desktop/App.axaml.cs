@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.DependencyInjection;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Controls.Diff;
 using Enigma.GitClient.Desktop.DependencyInjection;
 using Enigma.GitClient.Desktop.Services;
@@ -81,21 +82,29 @@ public partial class App : Application
             // The splash, once the theme it is painted in is known: a splash that paints dark and then
             // flips to light is the flicker it exists to hide. The window service closes it once the
             // first real window is on screen.
-            // On the screen the application was last used on — the primary one when it is gone — as
-            // the first window will be.
+            // The repository to open, and the screen of the window that started this instance, if one
+            // did: what the splash and the first window open on, before the screen last used.
+            StartupArguments startup = StartupArguments.Parse(desktop.Args);
+
+            // On that screen — or the one the application was last used on, the primary one when it is
+            // gone — as the first window will be.
             SplashWindow splash = new();
-            AppWindows.PlaceForStart(services.GetRequiredService<IWindowPlacer>(), splash, settings.Current.LastScreen);
+            AppWindows.PlaceForStart(
+                services.GetRequiredService<IWindowPlacer>(),
+                splash,
+                startup.Screen ?? settings.Current.LastScreen);
             splash.Show();
             SplashHandOver handOver = new(splash, SplashTiming.MinimumDisplay, TimeProvider.System);
 
             IAppWindows windows = services.GetRequiredService<IAppWindows>();
-            string? path = FirstArgument(desktop.Args);
 
             // Posted, so this method returns and the message loop paints the splash before the first
             // window is built. Background priority is the point: layout and rendering run above
             // Normal, so a start posted at the default would take its turn before the splash had drawn
             // a single frame.
-            Dispatcher.UIThread.Post(() => _ = windows.StartAsync(path, handOver), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(
+                () => _ = windows.StartAsync(startup.RepositoryPath, handOver, startup.Screen),
+                DispatcherPriority.Background);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -160,14 +169,6 @@ public partial class App : Application
         services.AddEnigmaDesktopServices();
         services.AddGitClientApp();
     }
-
-    /// <summary>
-    /// The first command-line argument, which is a repository to open straight away.
-    /// </summary>
-    /// <param name="args">The command line.</param>
-    /// <returns>The argument, or <see langword="null"/> when there is none.</returns>
-    internal static string? FirstArgument(string[]? args)
-        => args is { Length: > 0 } && args[0].Trim() is { Length: > 0 } first ? first : null;
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {

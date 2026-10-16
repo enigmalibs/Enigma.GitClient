@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
@@ -62,6 +63,68 @@ public sealed class InstanceTests
     [InlineData("/usr/bin/dotnet", null)]
     public void BuildStartInfo_WithNothingToStart_ReturnsNothing(string? processPath, string? assembly)
         => Assert.Null(InstanceLauncher.BuildStartInfo(processPath, assembly, "/src/repo"));
+
+    // ---------------------------------------------------------------- the caller's screen
+
+    [Fact]
+    public void BuildStartInfo_WithAScreen_NamesItAheadOfThePath()
+    {
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo(
+            "/opt/enigma/Enigma.GitClient.Desktop",
+            null,
+            "/src/repo",
+            new ScreenArea(1920, 0, 2560, 1440))!;
+
+        Assert.Equal(["--screen=1920,0,2560,1440", "/src/repo"], start.ArgumentList);
+
+        // What the new instance reads back.
+        StartupArguments startup = StartupArguments.Parse([.. start.ArgumentList]);
+        Assert.Equal("/src/repo", startup.RepositoryPath);
+        Assert.Equal(new ScreenArea(1920, 0, 2560, 1440), startup.Screen);
+    }
+
+    [Fact]
+    public void BuildStartInfo_WithAScreenAndNoRepository_NamesTheScreenOnly()
+        => Assert.Equal(
+            ["--screen=-1920,0,1920,1080"],
+            InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.Desktop", null, null, new ScreenArea(-1920, 0, 1920, 1080))!.ArgumentList);
+
+    [Fact]
+    public void BuildStartInfo_WithAScreen_UnderTheDotnetHost_HandsItTheAssemblyFirst()
+    {
+        string host = OperatingSystem.IsWindows()
+            ? @"C:\Program Files\dotnet\dotnet.exe"
+            : "/usr/share/dotnet/dotnet";
+
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo(
+            host,
+            "/opt/enigma/Enigma.GitClient.Desktop.dll",
+            "/src/repo",
+            new ScreenArea(0, 0, 1920, 1080))!;
+
+        Assert.Equal(["/opt/enigma/Enigma.GitClient.Desktop.dll", "--screen=0,0,1920,1080", "/src/repo"], start.ArgumentList);
+    }
+
+    [Fact]
+    public void BuildStartInfo_WithNoScreen_IsTheCommandLineItAlwaysWas()
+        => Assert.Equal(
+            ["/src/repo"],
+            InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.Desktop", null, "/src/repo", screen: null)!.ArgumentList);
+
+    [Fact]
+    public void BuildStartInfo_APathStartingWithADash_GoesAfterTheEndOfTheOptions()
+    {
+        ProcessStartInfo start = InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.Desktop", null, "-odd", new ScreenArea(0, 0, 1920, 1080))!;
+
+        Assert.Equal(["--screen=0,0,1920,1080", "--", "-odd"], start.ArgumentList);
+        Assert.Equal("-odd", StartupArguments.Parse([.. start.ArgumentList]).RepositoryPath);
+    }
+
+    [Fact]
+    public void BuildStartInfo_AScreenWithNoArea_IsLeftOut()
+        => Assert.Equal(
+            ["/src/repo"],
+            InstanceLauncher.BuildStartInfo("/opt/enigma/Enigma.GitClient.Desktop", null, "/src/repo", new ScreenArea(0, 0, 0, 0))!.ArgumentList);
 
     [Fact]
     public void OpenInNewWindow_StartsAnotherInstanceOnThatRepositoryAndLeavesThisWindowAlone()
