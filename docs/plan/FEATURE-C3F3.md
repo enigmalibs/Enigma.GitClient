@@ -1,8 +1,9 @@
 # FEATURE-C3F3 — Remove worktrees, mark their branches
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
+**Run:** feature/2026-10-16-feature-c3f3-feature-ca9d-feature-c56e
 
 ## Objective
 
@@ -83,7 +84,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE01 — List, probe and remove in Core
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase01-worktree-list-remove`
 
 ### Steps
@@ -129,7 +130,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE02 — Worktrees in the state, tree marks
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase02-worktree-marks`
 
 ### Steps
@@ -162,7 +163,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE03 — Guards on delete and checkout
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase03-worktree-guards`
 
 ### Steps
@@ -191,7 +192,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE04 — Remove and open from branch menus
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase04-worktree-remove-flow`
 
 ### Steps
@@ -236,7 +237,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE05 — The Worktrees tool dialog
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase05-worktrees-dialog`
 
 ### Steps

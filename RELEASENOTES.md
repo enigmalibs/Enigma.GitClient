@@ -1,5 +1,87 @@
 # Release notes
 
+## 6.4.0 — 2026-10-16
+
+A minor release:
+
+- a worktree can now be removed from the application — its branch with it if you choose — and a
+  *Worktrees* dialog lists them all;
+- a branch checked out in another worktree is marked with a tree, and deleting or checking it out is
+  refused up front, naming the folder, instead of failing in git;
+- the windows open on the screen you are working on: the repository window and the start window hand
+  over on the same screen, a fresh start opens where the application was last used, and another
+  instance opens on the screen of the window that started it.
+
+### Worktrees
+
+- **Remove worktree…** is in the menu of a branch checked out in another worktree — its line in the
+  branches dialog and its badge in the history — and in the new *Worktrees* dialog. Before anything
+  goes, it says what the removal costs:
+  - the folder that is deleted (or, for a folder already gone, that only git's record of it goes);
+  - the uncommitted changes in it, in the warning colour, and *Remove anyway* instead of *Remove* when
+    there are any;
+  - *Close any window working in it first*;
+  - *Also delete the branch "x"*, **ticked when the branch is merged and unticked when it is not**,
+    with the commits it would lose listed under it. A detached worktree has no branch to offer.
+
+  The main working tree, the one this window has open and a locked worktree are never removed: the
+  first two are not offered, and a locked one is refused, naming `git worktree unlock`.
+- **Open it elsewhere:** the same menus offer *Open worktree in a new window*, *Open worktree folder*
+  and *Open a terminal in the worktree*, greyed when the worktree's folder is missing.
+- **The Worktrees dialog**, a tree in the history's toolbar right after *Branches*, lists every working
+  tree, the main one first, with its folder, what it has checked out, and badges for *main*, *this
+  window*, *locked* (with its reason) and *folder missing*. Its line menu offers the same four actions,
+  and a double-click opens one in a new window. What does not apply is greyed, and its tooltip says
+  why. With no other worktree, it says how to make one.
+- **The tree mark:** a branch checked out in another working tree carries a tree in the branches
+  dialog (a *worktree* badge) and on its pill in the history, its tooltip naming the folder. The branch
+  this window has checked out keeps its own badge. A window opened on a worktree shows a tree after the
+  repository's name, its tooltip naming the main working tree.
+- **Refused up front:**
+  - deleting such a branch says *"x" is checked out in the worktree at <folder>. Remove the worktree
+    first.*, and a batch skips it with that reason while deleting the rest;
+  - checking it out, from the branches dialog, a badge, a drop-merge or a revision, offers to open
+    that worktree in a new window instead.
+
+  git's *used by worktree* error is no longer what you meet.
+
+### Windows and screens
+
+- **The hand-over keeps the screen.** Opening a repository maximises its window on the screen the
+  start window was on. *Close repository* brings the start window back, centred on the screen the
+  repository window was on. A window handing over while minimised uses the screen it was last seen on.
+  Each window is sized for the scaling of the screen it opens on, so a 100 % and a 150 % screen side by
+  side both centre it right.
+- **A fresh start opens where you left off.** The splash and the first window open on the screen the
+  application was last used on, remembered in the settings as windows open, move and close. If that
+  screen is gone, they open on the primary one.
+- **Another instance opens on its caller's screen.** *Open in a new window* on a repository tile, or on
+  a worktree, starts the new instance on the screen of the window you clicked in. It is passed on the
+  command line as `--screen=x,y,width,height`, ahead of the path. A command line without it opens as
+  before.
+- **Unchanged:** the start window is still centred and the repository window still maximised. The
+  repository window's ✕ still quits.
+- **On Linux** the window manager has the last word on X11; native Wayland compositors ignore where an
+  application asks to put its windows.
+
+### Upgrading from 6.3
+
+- **Nothing you saved changes.** `settings.json` stays at version 7. It gains one remembered value,
+  `lastScreen`, that an older version ignores, so going back to 6.3 keeps everything.
+- **New in the menus:** a branch checked out in another worktree has four more items, and the history's
+  toolbar has one more button, *Worktrees*.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.4.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  worktrees' removal, their dialog and their marks; the windows' screens), keeps every stored format,
+  and removes nothing.
+
 ## 6.3.0 — 2026-10-15
 
 A minor release:

@@ -12,6 +12,8 @@ using Enigma.GitClient.Core.Branches;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Worktrees;
+using Enigma.GitClient.Desktop.Formatting;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.Views.Dialogs;
 using Microsoft.Extensions.Logging;
@@ -102,6 +104,14 @@ public sealed class BranchOperations : IBranchOperations
     /// <summary>Why a delete leaves the checked-out branch out, after its name in the question.</summary>
     public const string CheckedOutReason = "it is checked out";
 
+    /// <summary>
+    /// Why a delete leaves out a branch another working tree has checked out, after its name in the
+    /// question: git would refuse it.
+    /// </summary>
+    /// <param name="worktree">The working tree that has the branch checked out.</param>
+    /// <returns><c>it is checked out in the worktree at &lt;path&gt;</c>.</returns>
+    public static string WorktreeReason(GitWorktree worktree) => $"it is checked out in {WorktreeText.Location(worktree)}";
+
     /// <summary>What the question about several branches ends with when any of them is on a remote.</summary>
     public const string RemoteWarning = "Deleting a branch from a remote changes the remote for everyone who uses it.";
 
@@ -113,6 +123,7 @@ public sealed class BranchOperations : IBranchOperations
 
     private readonly IRepositoryContext _context;
     private readonly IBranchService _branches;
+    private readonly IWorktreeGuard _worktreeGuard;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<BranchOperations> _logger;
@@ -122,24 +133,28 @@ public sealed class BranchOperations : IBranchOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="branches">Performs the branch operations.</param>
+    /// <param name="worktreeGuard">Refuses a checkout of a branch another working tree has.</param>
     /// <param name="dialogs">Raises the confirmations and the forms.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public BranchOperations(
         IRepositoryContext context,
         IBranchService branches,
+        IWorktreeGuard worktreeGuard,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         ILogger<BranchOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(branches);
+        ArgumentNullException.ThrowIfNull(worktreeGuard);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _branches = branches;
+        _worktreeGuard = worktreeGuard;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _logger = logger;
@@ -261,9 +276,8 @@ public sealed class BranchOperations : IBranchOperations
 
         if (plan.ToDelete.Count == 0)
         {
-            // The checked-out branch alone: nothing to ask about, and git would refuse it anyway.
-            string name = plan.Skipped[0].Name;
-            Report($"Could not delete \"{name}\"", $"\"{name}\" is the branch you have checked out. Switch to another branch first.", InfoBarSeverity.Warning);
+            // Only branches git would refuse: nothing to ask about.
+            ReportNothingToDelete(plan.Skipped);
             return false;
         }
 
@@ -306,6 +320,47 @@ public sealed class BranchOperations : IBranchOperations
     }
 
     /// <summary>
+    /// Says why nothing is deleted when every branch named is one git would refuse: one branch in the
+    /// words its own delete uses, several in one summary.
+    /// </summary>
+    private void ReportNothingToDelete(IReadOnlyList<DeletionItem> skipped)
+    {
+        if (skipped.Count == 1)
+        {
+            string name = skipped[0].Name;
+
+            Report(
+                $"Could not delete \"{name}\"",
+                _context.WorktreeOf(name) is { } worktree && skipped[0].SkipReason != CheckedOutReason
+                    ? WhyNotInWorktree(name, worktree)
+                    : $"\"{name}\" is the branch you have checked out. Switch to another branch first.",
+                InfoBarSeverity.Warning);
+
+            return;
+        }
+
+        DeletionOutcome outcome = new();
+
+        foreach (DeletionItem item in skipped)
+        {
+            outcome.Failed(item.Name, item.SkipReason!);
+        }
+
+        (string title, string message, _) = outcome.Summarise("Deleted", "branch", "branches");
+
+        // A refusal, not a failure: nothing was tried.
+        Report(title, message, InfoBarSeverity.Warning);
+    }
+
+    /// <summary>
+    /// Says why a branch another working tree has checked out cannot be deleted, and what frees it.
+    /// </summary>
+    private static string WhyNotInWorktree(string name, GitWorktree worktree)
+        => worktree.IsMain
+            ? $"\"{name}\" is checked out in {WorktreeText.Location(worktree)}. Switch it to another branch there first."
+            : $"\"{name}\" is checked out in {WorktreeText.Location(worktree)}. Remove the worktree first.";
+
+    /// <summary>
     /// What the question says about one branch: what it would lose, or why it is left out — and
     /// whether deleting it needs the force only a branch named as unmerged gets.
     /// </summary>
@@ -319,6 +374,12 @@ public sealed class BranchOperations : IBranchOperations
         if (string.Equals(_context.Head?.BranchName, branch.Name, StringComparison.Ordinal))
         {
             return new Described(new DeletionItem(branch.Name) { SkipReason = CheckedOutReason }, branch, Force: false, Unmerged: 0);
+        }
+
+        // git refuses it with "used by worktree at …"; saying where before it does is the point.
+        if (_context.WorktreeOf(branch.Name) is { } worktree)
+        {
+            return new Described(new DeletionItem(branch.Name) { SkipReason = WorktreeReason(worktree) }, branch, Force: false, Unmerged: 0);
         }
 
         bool merged = await _branches
@@ -438,6 +499,13 @@ public sealed class BranchOperations : IBranchOperations
     public async Task<bool> CheckoutAsync(string name, bool isRemote)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        // A remote branch checks out its local branch when there is one, which another working tree
+        // may have; git would refuse either.
+        if (await _worktreeGuard.RefuseCheckoutAsync(isRemote ? BranchService.LocalNameFor(name) : name).ConfigureAwait(true))
+        {
+            return false;
+        }
 
         if (!isRemote)
         {

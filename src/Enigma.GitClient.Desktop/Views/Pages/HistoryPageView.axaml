@@ -231,6 +231,13 @@
                       AutomationProperties.Name="Open the branches">
                 <ei:Icon Kind="GitBranch" Classes="toolbar" />
               </Button>
+              <Button Name="OpenWorktrees"
+                      Classes="toolbar"
+                      Command="{Binding OpenWorktreesCommand}"
+                      ToolTip.Tip="Worktrees"
+                      AutomationProperties.Name="Open the worktrees">
+                <ei:Icon Kind="Tree" Classes="toolbar" />
+              </Button>
               <Button Name="OpenTags"
                       Classes="toolbar"
                       Command="{Binding OpenTagsCommand}"
@@ -495,6 +502,8 @@
                                            Text="{Binding Name}"
                                            Upstream="{Binding Badge.Upstream}"
                                            IsCurrent="{Binding IsCurrent}"
+                                           IsWorktree="{Binding Badge.IsWorktree}"
+                                           WorktreeTip="{Binding Badge.Worktree}"
                                            Classes.mergesource="{Binding IsDrawnAsMergeSource}">
                           <controls:RefBadge.ContextMenu>
                             <ContextMenu>
@@ -511,6 +520,40 @@
                                         CommandParameter="{Binding}">
                                 <MenuItem.Icon>
                                   <ei:Icon Kind="FolderPlus" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <!-- The worktree that has this branch checked out: the branches dialog's
+                                   four items, in its order. -->
+                              <MenuItem Header="Open worktree in a new window"
+                                        IsVisible="{Binding IsInOtherWorktree}"
+                                        Command="{Binding Commands.Worktrees.Open}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="AppWindow" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Open worktree folder"
+                                        IsVisible="{Binding IsInOtherWorktree}"
+                                        Command="{Binding Commands.Worktrees.OpenFolder}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="FolderOpen" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Open a terminal in the worktree"
+                                        IsVisible="{Binding IsInOtherWorktree}"
+                                        Command="{Binding Commands.Worktrees.OpenTerminal}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="TerminalWindow" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Remove worktree…"
+                                        IsVisible="{Binding CanRemoveWorktree}"
+                                        Command="{Binding Commands.Worktrees.Remove}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="FolderMinus" Classes="menu" />
                                 </MenuItem.Icon>
                               </MenuItem>
                               <Separator />
@@ -649,7 +692,9 @@
                       <DataTemplate DataType="vm:RefBadgeItem" x:DataType="vm:RefBadgeItem">
                         <controls:RefBadge Kind="{Binding Kind}"
                                            Text="{Binding Name}"
-                                           IsCurrent="{Binding IsCurrent}" />
+                                           IsCurrent="{Binding IsCurrent}"
+                                           IsWorktree="{Binding IsWorktree}"
+                                           WorktreeTip="{Binding Worktree}" />
                       </DataTemplate>
                     </ItemsControl.DataTemplates>
                   </ItemsControl>

@@ -164,10 +164,11 @@ public sealed class HistoryGroupedBadgeTests
                 Assert.Contains("head", badge.Classes);
                 Assert.Equal("main and origin/main", badge.Description);
 
-                // The checked-out branch's check first, then the branch's own icon and the remote's.
-                Icon[] icons = [.. badge.GetVisualDescendants().OfType<Icon>()];
+                // The checked-out branch's check first, then the branch's own icon and the remote's —
+                // and no worktree's tree, which this branch is not in.
+                Icon[] icons = [.. badge.GetVisualDescendants().OfType<Icon>().Where(icon => icon.IsVisible)];
                 Assert.Equal([PhosphorIcon.Check, PhosphorIcon.GitBranch, PhosphorIcon.CloudArrowDown], icons.Select(icon => icon.Kind));
-                Assert.All(icons, icon => Assert.True(icon.IsVisible));
+                Assert.False(badge.GetVisualDescendants().OfType<Icon>().Single(icon => icon.Name == "WorktreeIcon").IsVisible);
 
                 Border pill = badge.GetVisualDescendants().OfType<Border>().First();
                 Assert.Equal("main and origin/main", ToolTip.GetTip(pill));

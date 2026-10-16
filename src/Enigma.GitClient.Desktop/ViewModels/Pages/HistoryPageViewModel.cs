@@ -20,6 +20,7 @@ using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.Controls.Graph;
+using Enigma.GitClient.Desktop.Formatting;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Microsoft.Extensions.Logging;
@@ -236,7 +237,24 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             () => MergeSource,
             () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null,
             CopyCommand,
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnCreateWorktreeFromBranchAsync, branch => branch is not null));
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnCreateWorktreeFromBranchAsync, branch => branch is not null),
+
+            // The worktree that has the branch: opened anywhere but where its folder has gone, and
+            // removed unless it is the main working tree.
+            new HistoryWorktreeCommands(
+                RepositoryContext.WorktreeOf,
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    branch => _worktreeOperations.OpenAsync(branch!.Worktree!),
+                    branch => branch?.Worktree is { IsMissing: false }),
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    branch => _worktreeOperations.OpenFolderAsync(branch!.Worktree!),
+                    branch => branch?.Worktree is { IsMissing: false }),
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    branch => _worktreeOperations.OpenTerminalAsync(branch!.Worktree!),
+                    branch => branch?.Worktree is { IsMissing: false }),
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    OnRemoveWorktreeAsync,
+                    branch => branch?.CanRemoveWorktree == true)));
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -309,6 +327,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         PreviousMatchCommand = new RelayCommand(() => GoToMatch(forward: false), () => MatchCount > 0);
 
         OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
+        OpenWorktreesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Worktrees), () => IsRepositoryOpen);
         OpenTagsCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Tags), () => IsRepositoryOpen);
         OpenRemotesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Remotes), () => IsRepositoryOpen);
         ShowHiddenBranchesCommand = new RelayCommand(_hidden.ShowAll, () => HiddenBranchCount > 0);
@@ -908,6 +927,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that opens the branches over the history.</summary>
     public AsyncRelayCommand OpenBranchesCommand { get; }
 
+    /// <summary>Gets the command that opens the worktrees over the history.</summary>
+    public AsyncRelayCommand OpenWorktreesCommand { get; }
+
     /// <summary>Gets the command that opens the tags over the history.</summary>
     public AsyncRelayCommand OpenTagsCommand { get; }
 
@@ -1273,6 +1295,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         base.OnRepositoryChanged();
 
         OpenBranchesCommand.NotifyCanExecuteChanged();
+        OpenWorktreesCommand.NotifyCanExecuteChanged();
         OpenTagsCommand.NotifyCanExecuteChanged();
         OpenRemotesCommand.NotifyCanExecuteChanged();
         NotifyHiddenBranches();
@@ -1577,7 +1600,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 now,
                 RowCommands,
                 _absoluteDates,
-                _stashBySha.GetValueOrDefault(commit.Sha)));
+                _stashBySha.GetValueOrDefault(commit.Sha),
+                WorktreeTipOf));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
@@ -1718,6 +1742,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         return max;
     }
+
+    /// <summary>
+    /// Says where a local branch is checked out in another working tree, for its pill's tree — or
+    /// <see langword="null"/> when no other working tree has it.
+    /// </summary>
+    private string? WorktreeTipOf(string branch)
+        => RepositoryContext.WorktreeOf(branch) is { } worktree ? WorktreeText.CheckedOutTip(worktree) : null;
 
     /// <summary>
     /// The refs the graph leaves out: every hidden one that still exists, less the branch HEAD is on —
@@ -2139,6 +2170,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         if (await _worktreeOperations.CreateAsync(branch.Name, branch.Name).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Removes the worktree that has a branch checked out, and reloads the history as a branch
+    /// deletion does: its badge loses the tree, and the branch may be gone with it.
+    /// </summary>
+    private async Task OnRemoveWorktreeAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch?.Worktree is not { } worktree)
+        {
+            return;
+        }
+
+        if (await _worktreeOperations.RemoveAsync(worktree).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }

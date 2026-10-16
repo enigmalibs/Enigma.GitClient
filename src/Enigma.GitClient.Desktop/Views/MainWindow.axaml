@@ -42,6 +42,18 @@
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
+            <!-- A linked worktree says whose it is. The border catches the pointer for the tip: an
+                 icon alone is hit only where it has ink. -->
+            <Border Name="LinkedWorktreeMark"
+                    Background="Transparent"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding IsLinkedWorktree}"
+                    ToolTip.Tip="{Binding LinkedWorktreeTip}"
+                    AutomationProperties.Name="{Binding LinkedWorktreeTip}">
+              <ei:Icon Kind="Tree" Classes="header"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            </Border>
+
             <Border Classes="pill"
                     Background="{DynamicResource EnigmaSelectionBrush}"
                     IsVisible="{Binding RepositoryContext.IsRepositoryOpen}">

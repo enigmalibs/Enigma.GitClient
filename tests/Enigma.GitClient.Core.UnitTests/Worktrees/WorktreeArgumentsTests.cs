@@ -67,4 +67,37 @@ public sealed class WorktreeArgumentsTests
 
         Assert.Throws<ArgumentException>(() => WorktreeService.BuildAddArguments(path, branch, startPoint));
     }
+
+    // ---------------------------------------------------------------- removing
+
+    [Fact]
+    public void BuildRemoveArguments_EndsTheOptionsBeforeTheFolder()
+        => Assert.Equal(["worktree", "remove", "--", Folder], WorktreeService.BuildRemoveArguments(Folder, force: false));
+
+    [Fact]
+    public void BuildRemoveArguments_Forced_PassesOneForce()
+        => Assert.Equal(
+            ["worktree", "remove", "--force", "--", Folder],
+            WorktreeService.BuildRemoveArguments(Folder, force: true));
+
+    [Fact]
+    public void BuildRemoveArguments_HandsAFolderWithSpacesOverAsOneArgument()
+    {
+        string folder = Path.Combine(Path.GetDirectoryName(Folder)!, "my repo.worktree.topic");
+
+        Assert.Equal(folder, WorktreeService.BuildRemoveArguments(folder, force: false)[^1]);
+    }
+
+    [Theory]
+    [InlineData("repo.worktree.topic")]
+    [InlineData("../repo.worktree.topic")]
+    [InlineData("--force")]
+    public void BuildRemoveArguments_RefusesARelativeFolder(string folder)
+        => Assert.Throws<ArgumentException>(() => WorktreeService.BuildRemoveArguments(folder, force: false));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void BuildRemoveArguments_RefusesABlankFolder(string folder)
+        => Assert.Throws<ArgumentException>(() => WorktreeService.BuildRemoveArguments(folder, force: true));
 }

@@ -160,6 +160,18 @@ public sealed class MainWindowViewModel : ViewModelBase
     public string? RepositoryPath => RepositoryContext.Repository?.WorkTreePath;
 
     /// <summary>
+    /// Gets a value indicating whether the open repository is a linked worktree, which the strip marks
+    /// with a tree after its name.
+    /// </summary>
+    public bool IsLinkedWorktree => RepositoryContext.IsLinkedWorktree;
+
+    /// <summary>
+    /// Gets what the strip's tree says when the pointer rests on it: whose worktree this is.
+    /// </summary>
+    public string LinkedWorktreeTip
+        => RepositoryContext.MainWorktreePath is { } main ? $"A worktree of {main}" : string.Empty;
+
+    /// <summary>
     /// Gets where HEAD is, as a short label.
     /// </summary>
     public string HeadDisplayName => RepositoryContext.Head?.DisplayName ?? string.Empty;
@@ -322,6 +334,10 @@ public sealed class MainWindowViewModel : ViewModelBase
                 break;
             case nameof(IRepositoryContext.Refs):
                 NotifyTracking();
+                break;
+            case nameof(IRepositoryContext.Worktrees):
+                OnPropertyChanged(nameof(IsLinkedWorktree));
+                OnPropertyChanged(nameof(LinkedWorktreeTip));
                 break;
             case nameof(IRepositoryContext.Head):
                 OnPropertyChanged(nameof(HeadDisplayName));

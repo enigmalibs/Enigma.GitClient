@@ -101,9 +101,10 @@
       <ControlTemplate>
         <!-- The numbers here are mirrored by Controls/RefBadgeMetrics, which is what measures the
              Refs column; a test reads them back off a realised badge so the two cannot drift. -->
-        <!-- A branch drawn with its upstream adds the remote's cloud after the branch icon, and the
-             checked-out branch a check before it: each is one more icon and one more gap, which
-             RefBadgeMetrics counts too. -->
+        <!-- A branch drawn with its upstream adds the remote's cloud after the branch icon, the
+             checked-out branch a check before it, and a branch checked out in another working tree
+             a tree between the two: each is one more icon and one more gap, which RefBadgeMetrics
+             counts too. -->
         <Border Background="{TemplateBinding Background}"
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="1"
@@ -118,6 +119,12 @@
                      Size="13"
                      VerticalAlignment="Center"
                      IsVisible="{TemplateBinding IsCurrent}"
+                     Foreground="{TemplateBinding Foreground}" />
+            <ei:Icon Name="WorktreeIcon"
+                     Kind="Tree"
+                     Size="13"
+                     VerticalAlignment="Center"
+                     IsVisible="{TemplateBinding IsWorktree}"
                      Foreground="{TemplateBinding Foreground}" />
             <ei:Icon Name="KindIcon"
                      Kind="{TemplateBinding IconKind}"

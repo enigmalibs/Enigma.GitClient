@@ -11,10 +11,62 @@ using Enigma.GitClient.Core.Repositories;
 namespace Enigma.GitClient.Core.Worktrees;
 
 /// <summary>
-/// Creates worktrees: more working directories of the same repository, each on a branch of its own.
+/// Creates, lists and removes worktrees: more working directories of the same repository, each on a
+/// branch of its own.
 /// </summary>
 public interface IWorktreeService
 {
+    /// <summary>
+    /// Lists every working tree of a repository.
+    /// </summary>
+    /// <param name="repository">The repository, opened from any of its working trees.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The working trees, the main one first, then the linked ones in git's order.</returns>
+    /// <remarks>
+    /// <c>git worktree list --porcelain</c>, which every git from the 2.20 floor reads. A folder that is
+    /// gone is <see cref="GitWorktree.IsMissing"/> whether or not git says so — git before 2.31 does
+    /// not.
+    /// </remarks>
+    Task<IReadOnlyList<GitWorktree>> ListAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts the uncommitted changes in a working tree that would stop git removing it.
+    /// </summary>
+    /// <param name="worktree">The working tree.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>
+    /// How many entries <c>git status --porcelain</c> lists there — modified, staged and untracked
+    /// files, and changed submodules; 0 for a folder that is gone. Ignored files do not count: git
+    /// deletes them with the folder.
+    /// </returns>
+    /// <exception cref="GitCommandException">git could not read the working tree.</exception>
+    Task<int> CountChangesAsync(GitWorktree worktree, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a linked worktree: its folder and git's record of it.
+    /// </summary>
+    /// <param name="repository">The repository, opened from another of its working trees.</param>
+    /// <param name="worktreePath">The worktree's folder, as a full path.</param>
+    /// <param name="force">
+    /// Whether to remove it with uncommitted changes in it (<see cref="CountChangesAsync"/>), which are
+    /// lost.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the worktree is gone.</returns>
+    /// <remarks>
+    /// The branch the worktree had checked out is left alone: deleting it is a separate step. A worktree
+    /// whose folder is already gone is removed all the same, which clears git's record of it.
+    /// </remarks>
+    /// <exception cref="GitOperationRefusedException">
+    /// The folder is not a worktree of the repository, is its main working tree, is the working tree the
+    /// repository was opened from, or is locked. Every refusal comes before git runs.
+    /// </exception>
+    Task RemoveAsync(
+        RepositoryHandle repository,
+        string worktreePath,
+        bool force = false,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Creates a worktree on a new branch.
     /// </summary>
@@ -66,6 +118,140 @@ public sealed class WorktreeService : IWorktreeService
         _runner = runner;
         _commandFactory = commandFactory;
         _branches = branches;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GitWorktree>> ListAsync(
+        RepositoryHandle repository,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        GitCommand command = _commandFactory.Create(repository.WorkTreePath, "worktree", "list", "--porcelain");
+        GitResult result = await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
+
+        IReadOnlyList<GitWorktree> listed = WorktreeListParser.Parse(result.StandardOutput);
+        List<GitWorktree> worktrees = new(listed.Count);
+
+        foreach (GitWorktree worktree in listed)
+        {
+            worktrees.Add(worktree.IsMissing || Directory.Exists(worktree.Path)
+                ? worktree
+                : worktree with { IsMissing = true });
+        }
+
+        return worktrees;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountChangesAsync(GitWorktree worktree, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(worktree);
+
+        if (worktree.IsMissing || worktree.IsBare || !Directory.Exists(worktree.Path))
+        {
+            return 0;
+        }
+
+        // The very status git worktree remove runs before it refuses a worktree that is not clean.
+        GitCommand command = _commandFactory.Create(
+            worktree.Path,
+            "status",
+            "--porcelain",
+            "--ignore-submodules=none");
+
+        GitResult result = await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
+
+        int count = 0;
+
+        foreach (string line in result.SplitOutput())
+        {
+            if (line.Length > 0)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <inheritdoc />
+    public async Task RemoveAsync(
+        RepositoryHandle repository,
+        string worktreePath,
+        bool force = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
+
+        IReadOnlyList<GitWorktree> worktrees = await ListAsync(repository, cancellationToken).ConfigureAwait(false);
+        GitWorktree worktree = FindRemovable(repository, worktrees, worktreePath);
+
+        GitCommand command = _commandFactory.Create(
+            repository.WorkTreePath,
+            BuildRemoveArguments(worktree.Path, force));
+
+        await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Finds the worktree a removal is for, and refuses one that cannot be removed.
+    /// </summary>
+    /// <param name="repository">The repository, opened from one of its working trees.</param>
+    /// <param name="worktrees">Its working trees, as just listed.</param>
+    /// <param name="worktreePath">The folder asked for.</param>
+    /// <returns>The worktree to remove.</returns>
+    /// <exception cref="GitOperationRefusedException">
+    /// The folder is not one of the worktrees, or is one that cannot be removed.
+    /// </exception>
+    public static GitWorktree FindRemovable(
+        RepositoryHandle repository,
+        IReadOnlyList<GitWorktree> worktrees,
+        string worktreePath)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(worktrees);
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
+
+        string full = Path.IsPathFullyQualified(worktreePath) ? WorktreeListParser.Normalise(worktreePath) : worktreePath;
+        GitWorktree? worktree = null;
+
+        foreach (GitWorktree candidate in worktrees)
+        {
+            if (string.Equals(candidate.Path, full, PathComparison))
+            {
+                worktree = candidate;
+                break;
+            }
+        }
+
+        if (worktree is null)
+        {
+            throw new GitOperationRefusedException($"\"{worktreePath}\" is not a worktree of this repository.");
+        }
+
+        if (worktree.IsMain)
+        {
+            throw new GitOperationRefusedException(
+                $"\"{worktree.Path}\" is the repository's main working tree, which cannot be removed.");
+        }
+
+        if (string.Equals(worktree.Path, repository.WorkTreePath, PathComparison))
+        {
+            throw new GitOperationRefusedException(
+                $"\"{worktree.Path}\" is the working tree the repository is open in. Remove it from another working tree of the repository.");
+        }
+
+        if (worktree.IsLocked)
+        {
+            string reason = worktree.LockReason.Length > 0 ? $" ({worktree.LockReason})" : string.Empty;
+
+            throw new GitOperationRefusedException(
+                $"The worktree at \"{worktree.Path}\" is locked{reason}. Unlock it with git worktree unlock first.");
+        }
+
+        return worktree;
     }
 
     /// <inheritdoc />
@@ -152,6 +338,32 @@ public sealed class WorktreeService : IWorktreeService
 
         return ["worktree", "add", "-b", branch, "--", path, startPoint];
     }
+
+    /// <summary>
+    /// Builds the argument vector that removes a worktree.
+    /// </summary>
+    /// <param name="path">The worktree's folder, as a full path.</param>
+    /// <param name="force">Whether to remove it with uncommitted changes in it.</param>
+    /// <returns>The arguments.</returns>
+    /// <remarks>
+    /// One <c>--force</c> removes a worktree that is not clean. A locked one would take two, which is
+    /// never passed: a locked worktree is refused instead.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The folder is blank or not a full path.</exception>
+    public static List<string> BuildRemoveArguments(string path, bool force)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (!Path.IsPathFullyQualified(path))
+        {
+            throw new ArgumentException("A worktree's folder must be a full path.", nameof(path));
+        }
+
+        return force ? ["worktree", "remove", "--force", "--", path] : ["worktree", "remove", "--", path];
+    }
+
+    private static StringComparison PathComparison
+        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     /// <summary>
     /// Deletes the branch a failed <c>worktree add</c> created anyway.

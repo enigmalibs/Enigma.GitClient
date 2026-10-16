@@ -26,7 +26,7 @@ public sealed class HiddenBranchesTests : IDisposable
 
     public HiddenBranchesTests()
     {
-        _context = new RepositoryContext(_reader, NullLogger<RepositoryContext>.Instance);
+        _context = new RepositoryContext(_reader, new FakeWorktreeService(), NullLogger<RepositoryContext>.Instance);
         _store = new HiddenBranchStore(new AppPaths(_root), NullLogger<HiddenBranchStore>.Instance);
     }
 
