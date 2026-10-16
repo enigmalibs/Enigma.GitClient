@@ -76,6 +76,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRepositoryEventSource, FileSystemRepositoryEventSource>();
             services.AddSingleton<IRepositoryWatcher, RepositoryWatcher>();
             services.AddSingleton<ISystemInterop, SystemInterop>();
+            services.AddSingleton<IWorktreeGuard, WorktreeGuard>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();

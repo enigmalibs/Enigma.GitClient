@@ -52,6 +52,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
     private readonly IDiffService _diffs;
     private readonly IWorkingTreeProbe _probe;
     private readonly IBranchOperations _branches;
+    private readonly IWorktreeGuard _worktreeGuard;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<CheckoutOperations> _logger;
@@ -64,6 +65,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
     /// <param name="diffs">Lists the files a discard would take.</param>
     /// <param name="probe">Answers whether there is anything uncommitted at all.</param>
     /// <param name="branches">Offers "create a branch here" instead of detaching.</param>
+    /// <param name="worktreeGuard">Refuses a checkout of a branch another working tree has.</param>
     /// <param name="dialogs">Raises the warnings and the questions.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
@@ -73,6 +75,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
         IDiffService diffs,
         IWorkingTreeProbe probe,
         IBranchOperations branches,
+        IWorktreeGuard worktreeGuard,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         ILogger<CheckoutOperations> logger)
@@ -82,6 +85,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(probe);
         ArgumentNullException.ThrowIfNull(branches);
+        ArgumentNullException.ThrowIfNull(worktreeGuard);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
@@ -91,6 +95,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
         _diffs = diffs;
         _probe = probe;
         _branches = branches;
+        _worktreeGuard = worktreeGuard;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _logger = logger;
@@ -109,6 +114,13 @@ public sealed class CheckoutOperations : ICheckoutOperations
         }
 
         string name = label is { Length: > 0 } ? label : revision;
+
+        // A revision naming a local branch another working tree has checked out is refused by git
+        // unless it is detached onto; nothing else is asked before saying so.
+        if (!detach && await _worktreeGuard.RefuseCheckoutAsync(revision).ConfigureAwait(true))
+        {
+            return false;
+        }
 
         bool detaching = detach ||
             await _checkout.WouldDetachAsync(repository, revision, _context.RepositoryLifetime).ConfigureAwait(true);
