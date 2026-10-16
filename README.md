@@ -52,6 +52,14 @@ Two things matter more than everything else in this app:
   branches dialog creates a new branch from it, checked out in a working directory of its own —
   proposed next to the repository, never inside it, as `<repository>.worktree.<branch>` — and opens
   it in a new window
+- A branch checked out in another worktree carries a tree, on its badge in the history and its line
+  in the branches dialog, the tooltip naming the folder; its menu opens that worktree in a new
+  window, its folder or a terminal in it, or removes it — its branch too if you tick the box, which
+  starts ticked only when nothing would be lost — after naming the uncommitted changes it would take.
+  The *Worktrees* dialog, beside *Branches* in the toolbar, lists them all with the same actions.
+  Deleting or checking out such a branch is refused up front, naming the folder, and the checkout
+  offers to open the worktree instead; a window opened on a worktree shows a tree after the
+  repository's name
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
@@ -59,7 +67,8 @@ Two things matter more than everything else in this app:
   the list scrolls while you hold a branch near its edge
 - The branches, the tags and the remotes are drawn like the changed files, one line each with the
   rest in its tooltip; the branches as a tree — *Local*, then each remote, a folder for every `/` in
-  their names — with badges for the branch checked out, hidden, ahead, behind, or on no remote
+  their names — with badges for the branch checked out, checked out in another worktree, hidden,
+  ahead, behind, or on no remote
 - Delete several branches, tags or remotes at once: select them with Ctrl+click, Shift+click or
   Ctrl+A, then *Delete (n)* (*Remove (n)* for remotes), the Delete key or a selected line's menu;
   one question names everything that goes, and what an unmerged branch would lose

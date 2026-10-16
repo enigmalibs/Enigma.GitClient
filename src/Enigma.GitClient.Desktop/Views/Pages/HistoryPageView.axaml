@@ -231,6 +231,13 @@
                       AutomationProperties.Name="Open the branches">
                 <ei:Icon Kind="GitBranch" Classes="toolbar" />
               </Button>
+              <Button Name="OpenWorktrees"
+                      Classes="toolbar"
+                      Command="{Binding OpenWorktreesCommand}"
+                      ToolTip.Tip="Worktrees"
+                      AutomationProperties.Name="Open the worktrees">
+                <ei:Icon Kind="Tree" Classes="toolbar" />
+              </Button>
               <Button Name="OpenTags"
                       Classes="toolbar"
                       Command="{Binding OpenTagsCommand}"

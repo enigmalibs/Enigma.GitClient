@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.Desktop.Controls"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Pages"
+             x:Class="Enigma.GitClient.Desktop.Views.Pages.WorktreesPageView"
+             x:DataType="vm:WorktreesPageViewModel">
+
+  <!--
+    The Worktrees dialog: every working tree of the repository, the main one first, as compact lines
+    drawn like the tags dialog's — the folder's name, what it has checked out, and its state as badges.
+    Everything that can be done with one is in its line's menu, and a double-click opens it in a new
+    window. What cannot be done says why, in the greyed item's tooltip.
+  -->
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <ei:Icon Kind="Tree" Classes="header" VerticalAlignment="Center"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+        <TextBlock Text="{Binding Title}"
+                   VerticalAlignment="Center"
+                   FontSize="15"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+      </StackPanel>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="Tree"
+                           Title="Worktrees"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding IsEmpty}"
+                           ZIndex="1" />
+
+      <ListBox Name="WorktreeList"
+               Classes="rows"
+               IsVisible="{Binding !IsEmpty}"
+               ItemsSource="{Binding Rows}"
+               AutomationProperties.Name="Worktrees">
+
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:WorktreeRowViewModel">
+            <Grid Classes="listrow" ColumnDefinitions="Auto,Auto,*,Auto">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Open in a new window"
+                            Command="{Binding OpenCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding OpenTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="AppWindow" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Open folder"
+                            Command="{Binding OpenFolderCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding OpenTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="FolderOpen" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Open a terminal"
+                            Command="{Binding OpenTerminalCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding OpenTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="TerminalWindow" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <Separator />
+                  <MenuItem Header="Remove…"
+                            Command="{Binding RemoveCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding RemoveTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="FolderMinus" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                </ContextMenu>
+              </Grid.ContextMenu>
+
+              <!-- Where a file's line has its status chip: the worktree's own mark. -->
+              <ei:Icon Grid.Column="0"
+                       Kind="Tree"
+                       Classes="row dim"
+                       VerticalAlignment="Center" />
+
+              <TextBlock Grid.Column="1"
+                         Classes="rowname"
+                         Text="{Binding Name}"
+                         ToolTip.Tip="{Binding Path}" />
+
+              <TextBlock Grid.Column="2"
+                         Classes="rowdetail faint"
+                         Margin="12,0,0,0"
+                         Text="{Binding Checkout}"
+                         TextTrimming="CharacterEllipsis" />
+
+              <!-- Its state, each badge only when it applies, each saying what it means. -->
+              <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <StackPanel Classes="badge"
+                            IsVisible="{Binding IsMain}"
+                            ToolTip.Tip="{Binding MainTip}"
+                            AutomationProperties.Name="{Binding MainTip}">
+                  <TextBlock Classes="rowdetail faint" Text="main" />
+                </StackPanel>
+
+                <StackPanel Classes="badge"
+                            IsVisible="{Binding IsThisWindow}"
+                            ToolTip.Tip="{Binding ThisWindowTip}"
+                            AutomationProperties.Name="{Binding ThisWindowTip}">
+                  <TextBlock Classes="rowdetail faint" Text="this window" />
+                </StackPanel>
+
+                <StackPanel Classes="badge"
+                            IsVisible="{Binding IsLocked}"
+                            ToolTip.Tip="{Binding LockTip}"
+                            AutomationProperties.Name="{Binding LockTip}">
+                  <ei:Icon Kind="Lock" Classes="pill faint" VerticalAlignment="Center" />
+                  <TextBlock Classes="rowdetail faint" Text="locked" />
+                </StackPanel>
+
+                <StackPanel Classes="badge"
+                            IsVisible="{Binding IsMissing}"
+                            ToolTip.Tip="{Binding MissingTip}"
+                            AutomationProperties.Name="{Binding MissingTip}">
+                  <ei:Icon Kind="FolderDashed" Classes="pill faint" VerticalAlignment="Center" />
+                  <TextBlock Classes="rowdetail faint" Text="folder missing" />
+                </StackPanel>
+              </StackPanel>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </DockPanel>
+</UserControl>

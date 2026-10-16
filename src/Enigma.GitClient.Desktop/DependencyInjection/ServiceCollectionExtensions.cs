@@ -102,6 +102,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<BranchesPageView>();
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
+            services.AddTransient<WorktreesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
             services.AddTransient<ProfilesPageView>();
             services.AddTransient<SettingsPageView>();
@@ -111,6 +112,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<BranchesPageViewModel>();
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
+            services.AddSingleton<WorktreesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
