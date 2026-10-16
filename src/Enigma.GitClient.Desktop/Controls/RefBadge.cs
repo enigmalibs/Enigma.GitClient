@@ -40,6 +40,18 @@ public sealed class RefBadge : TemplatedControl
         AvaloniaProperty.Register<RefBadge, string?>(nameof(Upstream));
 
     /// <summary>
+    /// Defines the <see cref="IsWorktree"/> property.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsWorktreeProperty =
+        AvaloniaProperty.Register<RefBadge, bool>(nameof(IsWorktree));
+
+    /// <summary>
+    /// Defines the <see cref="WorktreeTip"/> property.
+    /// </summary>
+    public static readonly StyledProperty<string?> WorktreeTipProperty =
+        AvaloniaProperty.Register<RefBadge, string?>(nameof(WorktreeTip));
+
+    /// <summary>
     /// Defines the read-only <see cref="HasUpstream"/> property, which the control template binds.
     /// </summary>
     public static readonly DirectProperty<RefBadge, bool> HasUpstreamProperty =
@@ -60,6 +72,7 @@ public sealed class RefBadge : TemplatedControl
         IsCurrentProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateClasses());
         TextProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateDescription());
         UpstreamProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateDescription());
+        WorktreeTipProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateDescription());
     }
 
     /// <summary>
@@ -109,6 +122,26 @@ public sealed class RefBadge : TemplatedControl
     }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the branch is checked out in another working tree, which
+    /// the pill marks with a tree after the check and before the branch icon.
+    /// </summary>
+    public bool IsWorktree
+    {
+        get => GetValue(IsWorktreeProperty);
+        set => SetValue(IsWorktreeProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets where the branch is checked out when it is in another working tree, which the
+    /// tooltip adds on a line of its own; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? WorktreeTip
+    {
+        get => GetValue(WorktreeTipProperty);
+        set => SetValue(WorktreeTipProperty, value);
+    }
+
+    /// <summary>
     /// Gets a value indicating whether the pill draws an upstream too, and so its cloud icon.
     /// </summary>
     public bool HasUpstream
@@ -118,8 +151,8 @@ public sealed class RefBadge : TemplatedControl
     }
 
     /// <summary>
-    /// Gets what the pill stands for, in words — its tooltip and its accessible name: the label, and
-    /// the upstream when it draws one.
+    /// Gets what the pill stands for, in words — its tooltip and its accessible name: the label, the
+    /// upstream when it draws one, and where the branch is checked out when another working tree has it.
     /// </summary>
     public string? Description
     {
@@ -164,7 +197,9 @@ public sealed class RefBadge : TemplatedControl
     private void UpdateDescription()
     {
         HasUpstream = Upstream is { Length: > 0 };
-        Description = HasUpstream ? $"{Text} and {Upstream}" : Text;
+
+        string? name = HasUpstream ? $"{Text} and {Upstream}" : Text;
+        Description = WorktreeTip is { Length: > 0 } worktree ? $"{name}\n{worktree}" : name;
     }
 
     /// <summary>

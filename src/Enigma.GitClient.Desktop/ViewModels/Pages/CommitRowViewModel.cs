@@ -123,15 +123,25 @@ public sealed record HistoryResetRequest(CommitRowViewModel Row, string Branch);
 /// For a local branch drawn together with its upstream — both on this commit — the upstream's short
 /// name (<c>origin/main</c>); <see langword="null"/> for every other badge.
 /// </param>
+/// <param name="Worktree">
+/// For a local branch checked out in another working tree, where it is
+/// (<see cref="WorktreeText.CheckedOutTip"/>); <see langword="null"/> for every other badge.
+/// </param>
 /// <remarks>
 /// Flattened out of <see cref="GitRef"/> on purpose: only <see cref="GitBranch"/> knows whether it
 /// is checked out, and a template bound to the base type cannot see that — which is exactly how the
 /// checked-out branch ends up drawn like any other.
 /// </remarks>
-public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent, string? Upstream = null)
+public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent, string? Upstream = null, string? Worktree = null)
 {
     /// <summary>Gets a value indicating whether the badge stands for a local branch and its upstream.</summary>
     public bool HasUpstream => Upstream is { Length: > 0 };
+
+    /// <summary>
+    /// Gets a value indicating whether the badge stands for a local branch checked out in another
+    /// working tree, which its pill marks with a tree.
+    /// </summary>
+    public bool IsWorktree => Worktree is { Length: > 0 };
 
     /// <summary>
     /// Projects a reference onto a badge.
@@ -174,6 +184,10 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// built: the one that is not shown is the tooltip.
     /// </param>
     /// <param name="stash">The stash entry the commit records, when it is one.</param>
+    /// <param name="worktreeOf">
+    /// Says where a local branch is checked out in another working tree, by its short name, or
+    /// <see langword="null"/> when no other working tree has it; without it no badge carries a tree.
+    /// </param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
@@ -182,7 +196,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         DateTimeOffset now,
         HistoryRowCommands? commands = null,
         bool absoluteDates = false,
-        StashEntry? stash = null)
+        StashEntry? stash = null,
+        Func<string, string?>? worktreeOf = null)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
@@ -191,7 +206,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commit = commit;
         Row = row;
         Stash = stash;
-        Refs = Project(refs, stash);
+        Refs = Project(refs, stash, worktreeOf);
         (Branches, Badges) = BuildBranches(Refs, commands);
         IsHead = isHead;
 
@@ -659,7 +674,10 @@ public sealed class CommitRowViewModel : ViewModelBase
         return (branches.Count == 0 ? NoBranches : branches, badges);
     }
 
-    private static IReadOnlyList<RefBadgeItem> Project(IReadOnlyList<GitRef>? refs, StashEntry? stash)
+    private static IReadOnlyList<RefBadgeItem> Project(
+        IReadOnlyList<GitRef>? refs,
+        StashEntry? stash,
+        Func<string, string?>? worktreeOf)
     {
         if ((refs is null || refs.Count == 0) && stash is null)
         {
@@ -685,9 +703,21 @@ public sealed class CommitRowViewModel : ViewModelBase
                 continue;
             }
 
-            items.Add(reference is GitBranch { IsRemote: false } local && joined.TryGetValue(local.ShortName, out string? upstream)
-                ? new RefBadgeItem(GitRefKind.LocalBranch, local.ShortName, local.IsCurrent, upstream)
-                : RefBadgeItem.From(reference));
+            if (reference is not GitBranch { IsRemote: false } local)
+            {
+                items.Add(RefBadgeItem.From(reference));
+                continue;
+            }
+
+            // The branch this window has checked out keeps its check, never the tree.
+            string? worktree = local.IsCurrent ? null : worktreeOf?.Invoke(local.ShortName);
+
+            items.Add(new RefBadgeItem(
+                GitRefKind.LocalBranch,
+                local.ShortName,
+                local.IsCurrent,
+                joined.GetValueOrDefault(local.ShortName),
+                worktree));
         }
 
         return items;

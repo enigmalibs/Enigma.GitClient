@@ -80,7 +80,7 @@ public static class RefBadgeMetrics
 
         foreach (ViewModels.Pages.RefBadgeItem badge in badges)
         {
-            width += MeasureBadge(badge.Name, badge.HasUpstream, badge.IsCurrent);
+            width += MeasureBadge(badge.Name, badge.HasUpstream, badge.IsCurrent, badge.IsWorktree);
         }
 
         return width + (BadgeSpacing * (badges.Count - 1));
@@ -92,10 +92,13 @@ public static class RefBadgeMetrics
     /// <param name="label">The reference's short name.</param>
     /// <param name="withUpstream">Whether the badge draws its branch's upstream too, and so the remote's icon.</param>
     /// <param name="isCurrent">Whether it is the checked-out branch's, and so draws the check.</param>
+    /// <param name="isWorktree">
+    /// Whether its branch is checked out in another working tree, and so draws the tree.
+    /// </param>
     /// <returns>The badge's width.</returns>
-    public static double MeasureBadge(string? label, bool withUpstream = false, bool isCurrent = false)
+    public static double MeasureBadge(string? label, bool withUpstream = false, bool isCurrent = false, bool isWorktree = false)
         => (HorizontalPadding * 2)
-            + ((IconSize + IconSpacing) * (1 + (withUpstream ? 1 : 0) + (isCurrent ? 1 : 0)))
+            + ((IconSize + IconSpacing) * (1 + (withUpstream ? 1 : 0) + (isCurrent ? 1 : 0) + (isWorktree ? 1 : 0)))
             + MeasureLabel(label ?? string.Empty);
 
     private static double MeasureLabel(string label)

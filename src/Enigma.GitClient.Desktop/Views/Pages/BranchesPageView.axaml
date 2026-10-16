@@ -311,13 +311,24 @@
               <TextBlock Grid.Column="1" Classes="rowname" Text="{Binding Label}" />
 
               <!-- The badges, each only when it applies, in the order they matter when scanning the
-                   list: checked out, hidden, ahead, behind, local only. Each says what it means. -->
+                   list: checked out, in another worktree, hidden, ahead, behind, local only. Each says
+                   what it means. -->
               <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <StackPanel Classes="badge"
                             IsVisible="{Binding IsCurrent}"
                             ToolTip.Tip="{Binding CheckedOutTip}"
                             AutomationProperties.Name="{Binding CheckedOutTip}">
                   <TextBlock Classes="rowdetail faint" Text="checked out" />
+                </StackPanel>
+
+                <!-- Checked out in another working tree, which is why git will not delete it or check
+                     it out here; the tip names the folder. -->
+                <StackPanel Classes="badge"
+                            IsVisible="{Binding IsInOtherWorktree}"
+                            ToolTip.Tip="{Binding WorktreeTip}"
+                            AutomationProperties.Name="{Binding WorktreeTip}">
+                  <ei:Icon Kind="Tree" Classes="pill faint" VerticalAlignment="Center" />
+                  <TextBlock Classes="rowdetail faint" Text="worktree" />
                 </StackPanel>
 
                 <StackPanel Classes="badge"

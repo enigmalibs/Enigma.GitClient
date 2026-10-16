@@ -333,7 +333,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6352 | Release 6.3.0                           | DONE        | docs/plan/FEATURE-6352.md |
 | FEATURE-C3F3 | Remove worktrees, mark their branches   | IN PROGRESS | docs/plan/FEATURE-C3F3.md |
 | - PHASE01    | List, probe and remove in Core          | DONE        | (in FEATURE-C3F3.md)      |
-| - PHASE02    | Worktrees in the state, tree marks      | TODO        | (in FEATURE-C3F3.md)      |
+| - PHASE02    | Worktrees in the state, tree marks      | DONE        | (in FEATURE-C3F3.md)      |
 | - PHASE03    | Guards on delete and checkout           | TODO        | (in FEATURE-C3F3.md)      |
 | - PHASE04    | Remove and open from branch menus       | TODO        | (in FEATURE-C3F3.md)      |
 | - PHASE05    | The Worktrees tool dialog               | TODO        | (in FEATURE-C3F3.md)      |

@@ -130,7 +130,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE02 — Worktrees in the state, tree marks
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase02-worktree-marks`
 
 ### Steps

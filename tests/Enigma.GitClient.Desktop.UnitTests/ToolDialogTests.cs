@@ -589,7 +589,7 @@ public sealed class ToolDialogTests
     public async Task AStamp_ChangesWhenAReferenceMovesAndOnlyThen()
     {
         FakeRefReader reader = new();
-        using RepositoryContext context = new(reader, Microsoft.Extensions.Logging.Abstractions.NullLogger<RepositoryContext>.Instance);
+        using RepositoryContext context = new(reader, new FakeWorktreeService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<RepositoryContext>.Instance);
 
         reader.Head = new HeadState(false, false, "main", "aaa", RepositoryOperation.None);
         reader.Refs = new RefCollection([Branch("main", "aaa")], [], [], []);

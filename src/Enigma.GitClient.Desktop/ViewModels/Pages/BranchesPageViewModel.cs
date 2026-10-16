@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
+using Enigma.GitClient.Core.Worktrees;
 using Enigma.GitClient.Desktop.Formatting;
 using Enigma.GitClient.Desktop.Services;
 
@@ -34,12 +35,20 @@ public sealed class BranchRowViewModel : BranchTreeNode
     /// The remote-tracking branch this one is on — <c>origin/main</c> — or <see langword="null"/> when
     /// the branch is on no remote at all.
     /// </param>
+    /// <param name="worktree">
+    /// The other working tree that has this local branch checked out, or <see langword="null"/> when none
+    /// has.
+    /// </param>
     /// <remarks>
-    /// The page works out <paramref name="publishedAs"/>, because a row is in no position to: the
-    /// question is about the other refs in the repository, and the answer is the same for every row, so
-    /// it is resolved once per rebuild rather than scanned for per line.
+    /// The page works out <paramref name="publishedAs"/> and <paramref name="worktree"/>, because a row is
+    /// in no position to: each question is about the rest of the repository, and the answer is resolved
+    /// once per rebuild rather than scanned for per line.
     /// </remarks>
-    public BranchRowViewModel(BranchesPageViewModel owner, GitBranch branch, string? publishedAs = null)
+    public BranchRowViewModel(
+        BranchesPageViewModel owner,
+        GitBranch branch,
+        string? publishedAs = null,
+        GitWorktree? worktree = null)
         : base(KeyOf(branch))
     {
         ArgumentNullException.ThrowIfNull(owner);
@@ -48,6 +57,9 @@ public sealed class BranchRowViewModel : BranchTreeNode
         _owner = owner;
         Branch = branch;
         PublishedAs = publishedAs;
+
+        // The branch this window has checked out keeps its "checked out" badge, never the tree.
+        Worktree = branch.IsRemote || branch.IsCurrent ? null : worktree;
     }
 
     /// <summary>Gets the branch this row stands for.</summary>
@@ -164,6 +176,26 @@ public sealed class BranchRowViewModel : BranchTreeNode
 
     /// <summary>Gets what the "local only" badge says when the pointer rests on it.</summary>
     public string LocalOnlyTip => "On no remote — this branch only exists here";
+
+    /// <summary>
+    /// Gets the other working tree that has this local branch checked out, or <see langword="null"/>.
+    /// </summary>
+    public GitWorktree? Worktree { get; }
+
+    /// <summary>
+    /// Gets the folder of the other working tree that has this branch checked out, or
+    /// <see langword="null"/>.
+    /// </summary>
+    public string? WorktreePath => Worktree?.Path;
+
+    /// <summary>
+    /// Gets a value indicating whether another working tree has this local branch checked out — which
+    /// is why git refuses to delete it or check it out here.
+    /// </summary>
+    public bool IsInOtherWorktree => Worktree is not null;
+
+    /// <summary>Gets what the "worktree" badge says when the pointer rests on it: where the branch is.</summary>
+    public string WorktreeTip => Worktree is { } worktree ? WorktreeText.CheckedOutTip(worktree) : string.Empty;
 
     /// <summary>
     /// Gets what the line's tooltip says: everything about the branch the line itself leaves out — its
@@ -914,7 +946,11 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         List<BranchRowViewModel> local = [.. refs.LocalBranches
             .Where(Matches)
-            .Select(branch => new BranchRowViewModel(this, branch, published.GetValueOrDefault(branch.ShortName)))];
+            .Select(branch => new BranchRowViewModel(
+                this,
+                branch,
+                published.GetValueOrDefault(branch.ShortName),
+                RepositoryContext.WorktreeOf(branch.ShortName)))];
 
         List<BranchRowViewModel> remote = [.. refs.RemoteBranches
             .Where(Matches)
