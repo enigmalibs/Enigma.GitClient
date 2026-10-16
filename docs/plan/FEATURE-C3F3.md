@@ -192,7 +192,7 @@ The user created a worktree on `testwt`, then could not delete `testwt` from the
 
 ## PHASE04 — Remove and open from branch menus
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-c3f3-phase04-worktree-remove-flow`
 
 ### Steps

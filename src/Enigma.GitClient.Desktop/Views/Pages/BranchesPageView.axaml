@@ -258,6 +258,63 @@
                       <ei:Icon Kind="FolderPlus" Classes="menu" />
                     </MenuItem.Icon>
                   </MenuItem>
+
+                  <!-- The worktree that has this branch checked out, for a branch another working tree
+                       has: the same four items as the history badge's, in the same order. The three
+                       Open items are greyed when its folder is gone; Remove is absent for the main
+                       working tree. -->
+                  <MenuItem Header="Open worktree in a new window"
+                            Command="{Binding OpenWorktreeCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.IsVisible>
+                      <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsInOtherWorktree" />
+                        <Binding Path="!Selection.IsMultiple" />
+                      </MultiBinding>
+                    </MenuItem.IsVisible>
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="AppWindow" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Open worktree folder"
+                            Command="{Binding OpenWorktreeFolderCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.IsVisible>
+                      <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsInOtherWorktree" />
+                        <Binding Path="!Selection.IsMultiple" />
+                      </MultiBinding>
+                    </MenuItem.IsVisible>
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="FolderOpen" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Open a terminal in the worktree"
+                            Command="{Binding OpenWorktreeTerminalCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.IsVisible>
+                      <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsInOtherWorktree" />
+                        <Binding Path="!Selection.IsMultiple" />
+                      </MultiBinding>
+                    </MenuItem.IsVisible>
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="TerminalWindow" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Remove worktree…"
+                            Command="{Binding RemoveWorktreeCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.IsVisible>
+                      <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="CanRemoveWorktree" />
+                        <Binding Path="!Selection.IsMultiple" />
+                      </MultiBinding>
+                    </MenuItem.IsVisible>
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="FolderMinus" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
                   <MenuItem Header="Merge into the current branch"
                             IsVisible="{Binding !Selection.IsMultiple}"
                             Command="{Binding MergeCommand}"

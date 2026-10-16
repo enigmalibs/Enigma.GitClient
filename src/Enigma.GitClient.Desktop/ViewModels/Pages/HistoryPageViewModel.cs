@@ -237,7 +237,24 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             () => MergeSource,
             () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null,
             CopyCommand,
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnCreateWorktreeFromBranchAsync, branch => branch is not null));
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnCreateWorktreeFromBranchAsync, branch => branch is not null),
+
+            // The worktree that has the branch: opened anywhere but where its folder has gone, and
+            // removed unless it is the main working tree.
+            new HistoryWorktreeCommands(
+                RepositoryContext.WorktreeOf,
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    branch => _worktreeOperations.OpenAsync(branch!.Worktree!),
+                    branch => branch?.Worktree is { IsMissing: false }),
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    branch => _worktreeOperations.OpenFolderAsync(branch!.Worktree!),
+                    branch => branch?.Worktree is { IsMissing: false }),
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    branch => _worktreeOperations.OpenTerminalAsync(branch!.Worktree!),
+                    branch => branch?.Worktree is { IsMissing: false }),
+                new AsyncRelayCommand<HistoryBranchViewModel>(
+                    OnRemoveWorktreeAsync,
+                    branch => branch?.CanRemoveWorktree == true)));
 
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
@@ -2148,6 +2165,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         if (await _worktreeOperations.CreateAsync(branch.Name, branch.Name).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Removes the worktree that has a branch checked out, and reloads the history as a branch
+    /// deletion does: its badge loses the tree, and the branch may be gone with it.
+    /// </summary>
+    private async Task OnRemoveWorktreeAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch?.Worktree is not { } worktree)
+        {
+            return;
+        }
+
+        if (await _worktreeOperations.RemoveAsync(worktree).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }

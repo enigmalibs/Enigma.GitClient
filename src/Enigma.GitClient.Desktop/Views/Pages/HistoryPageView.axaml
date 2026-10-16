@@ -515,6 +515,40 @@
                                   <ei:Icon Kind="FolderPlus" Classes="menu" />
                                 </MenuItem.Icon>
                               </MenuItem>
+                              <!-- The worktree that has this branch checked out: the branches dialog's
+                                   four items, in its order. -->
+                              <MenuItem Header="Open worktree in a new window"
+                                        IsVisible="{Binding IsInOtherWorktree}"
+                                        Command="{Binding Commands.Worktrees.Open}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="AppWindow" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Open worktree folder"
+                                        IsVisible="{Binding IsInOtherWorktree}"
+                                        Command="{Binding Commands.Worktrees.OpenFolder}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="FolderOpen" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Open a terminal in the worktree"
+                                        IsVisible="{Binding IsInOtherWorktree}"
+                                        Command="{Binding Commands.Worktrees.OpenTerminal}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="TerminalWindow" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
+                              <MenuItem Header="Remove worktree…"
+                                        IsVisible="{Binding CanRemoveWorktree}"
+                                        Command="{Binding Commands.Worktrees.Remove}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="FolderMinus" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
                               <Separator />
                               <MenuItem Header="{Binding SetAsMergeSourceHeader}"
                                         IsVisible="{Binding CanSetAsMergeSource}"

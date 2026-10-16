@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="using:System"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.Desktop.Views.Dialogs.RemoveWorktreeDialogView"
+             x:DataType="vm:RemoveWorktreeDialogViewModel"
+             MinWidth="480">
+  <StackPanel Spacing="12">
+
+    <TextBlock Name="QuestionText"
+               Text="{Binding Question}"
+               TextWrapping="Wrap"
+               MaxWidth="440"
+               HorizontalAlignment="Left"
+               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+    <!-- The work that goes with the folder, in the warning colour: the one line that must not be
+         skimmed. -->
+    <TextBlock Name="ChangesText"
+               Text="{Binding ChangesWarning}"
+               IsVisible="{Binding HasChanges}"
+               TextWrapping="Wrap"
+               MaxWidth="440"
+               HorizontalAlignment="Left"
+               FontWeight="SemiBold"
+               Foreground="{DynamicResource EnigmaWarningBrush}" />
+
+    <TextBlock Name="CloseWindowsText"
+               Text="{Binding CloseWindowsNote}"
+               TextWrapping="Wrap"
+               MaxWidth="440"
+               HorizontalAlignment="Left"
+               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+    <!-- The branch: ticked when deleting it loses nothing, unticked — with what it would lose — when
+         it holds commits the current branch does not. None for a detached worktree. -->
+    <StackPanel Spacing="4" IsVisible="{Binding HasBranch}">
+      <CheckBox Name="DeleteBranchBox"
+                IsChecked="{Binding DeleteBranch, Mode=TwoWay}"
+                Content="{Binding DeleteBranchLabel}"
+                AutomationProperties.Name="{Binding DeleteBranchLabel}" />
+
+      <StackPanel Spacing="2" Margin="28,0,0,0" IsVisible="{Binding IsUnmerged}">
+        <TextBlock Text="{Binding UnmergedNote}"
+                   TextWrapping="Wrap"
+                   MaxWidth="412"
+                   HorizontalAlignment="Left"
+                   FontSize="12"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+        <ItemsControl Name="UnmergedCommitList" ItemsSource="{Binding UnmergedList}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="sys:String">
+              <TextBlock Text="{Binding}"
+                         TextTrimming="CharacterEllipsis"
+                         MaxWidth="412"
+                         HorizontalAlignment="Left"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </StackPanel>
+</UserControl>
