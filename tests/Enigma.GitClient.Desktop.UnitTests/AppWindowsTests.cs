@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Navigation;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -524,6 +525,7 @@ public sealed class AppWindowsTests
     [InlineData(new[] { "  " }, null)]
     [InlineData(new[] { "/src/repo" }, "/src/repo")]
     [InlineData(new[] { "/src/repo", "--ignored" }, "/src/repo")]
-    public void FirstArgument_IsTheRepositoryToOpen(string[]? args, string? expected)
-        => Assert.Equal(expected, App.FirstArgument(args));
+    [InlineData(new[] { "--screen=1920,0,2560,1440", "/src/repo" }, "/src/repo")]
+    public void TheCommandLinesFirstPath_IsTheRepositoryToOpen(string[]? args, string? expected)
+        => Assert.Equal(expected, StartupArguments.Parse(args).RepositoryPath);
 }

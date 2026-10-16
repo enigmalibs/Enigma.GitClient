@@ -1,6 +1,6 @@
 # FEATURE-CA9D — Windows open on the screen in use
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-16-feature-c3f3-feature-ca9d-feature-c56e
@@ -117,7 +117,7 @@ Centred start window and maximised repository window stay as they are — only t
 
 ## PHASE03 — New instances on the caller's screen
 
-**Status:** TODO
+**Status:** DONE
 **Branch:** `feature/feature-ca9d-phase03-instance-screen`
 
 ### Steps
