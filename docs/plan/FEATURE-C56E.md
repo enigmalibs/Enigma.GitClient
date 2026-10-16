@@ -1,6 +1,6 @@
 # FEATURE-C56E — Release 6.4.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-c56e-release-6-4-0`
 **Run:** feature/2026-10-16-feature-c3f3-feature-ca9d-feature-c56e
