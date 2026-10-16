@@ -339,7 +339,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE05    | The Worktrees tool dialog               | DONE        | (in FEATURE-C3F3.md)      |
 | FEATURE-CA9D | Windows open on the screen in use       | IN PROGRESS | docs/plan/FEATURE-CA9D.md |
 | - PHASE01    | Hand-over keeps the screen              | DONE        | (in FEATURE-CA9D.md)      |
-| - PHASE02    | Fresh start on the last screen          | TODO        | (in FEATURE-CA9D.md)      |
+| - PHASE02    | Fresh start on the last screen          | DONE        | (in FEATURE-CA9D.md)      |
 | - PHASE03    | New instances on the caller's screen    | TODO        | (in FEATURE-CA9D.md)      |
 | FEATURE-C56E | Release 6.4.0                           | TODO        | docs/plan/FEATURE-C56E.md |
 

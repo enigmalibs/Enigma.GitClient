@@ -81,7 +81,10 @@ public partial class App : Application
             // The splash, once the theme it is painted in is known: a splash that paints dark and then
             // flips to light is the flicker it exists to hide. The window service closes it once the
             // first real window is on screen.
+            // On the screen the application was last used on — the primary one when it is gone — as
+            // the first window will be.
             SplashWindow splash = new();
+            AppWindows.PlaceForStart(services.GetRequiredService<IWindowPlacer>(), splash, settings.Current.LastScreen);
             splash.Show();
             SplashHandOver handOver = new(splash, SplashTiming.MinimumDisplay, TimeProvider.System);
 
@@ -178,6 +181,9 @@ public partial class App : Application
         _host = null;
 
         // The process is tearing down and no message pump remains, so blocking here is correct.
+        // The settings first: a change still inside its debounce window — the screen the last window
+        // closed on, after a quit by its ✕ — is written before the host takes the service away.
+        host.Services.GetService<ISettingsService>()?.FlushAsync().GetAwaiter().GetResult();
         (host.Services.GetService<IRepositoryContext>() as IDisposable)?.Dispose();
         host.StopAsync().GetAwaiter().GetResult();
         host.Dispose();

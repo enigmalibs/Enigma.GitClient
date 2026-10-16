@@ -156,7 +156,15 @@ public sealed class AppWindowsTests
     {
         _fixture.Run(() =>
         {
-            using TestServices services = Build();
+            // On a desktop that says nothing of its screens, so the platform centres them; on one that
+            // does, each is centred on the screen it opens on (WindowScreenTests).
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IAppWindows>();
+                collection.AddSingleton<IAppWindows, AppWindows>();
+                collection.RemoveAll<IScreenReader>();
+                collection.AddSingleton<IScreenReader>(new FixedScreenReader());
+            });
             IAppWindows windows = services.Get<IAppWindows>();
 
             try

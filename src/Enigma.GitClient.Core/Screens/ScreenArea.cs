@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace Enigma.GitClient.Core.Screens;
 
@@ -13,12 +14,15 @@ namespace Enigma.GitClient.Core.Screens;
 public readonly record struct ScreenArea(int X, int Y, int Width, int Height)
 {
     /// <summary>Gets the edge just past the right of the rectangle.</summary>
+    [JsonIgnore]
     public long Right => (long)X + Width;
 
     /// <summary>Gets the edge just past the bottom of the rectangle.</summary>
+    [JsonIgnore]
     public long Bottom => (long)Y + Height;
 
     /// <summary>Gets a value indicating whether the rectangle covers anything at all.</summary>
+    [JsonIgnore]
     public bool IsEmpty => Width <= 0 || Height <= 0;
 
     /// <summary>
