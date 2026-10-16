@@ -336,7 +336,7 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public void ChangingSomethingRaisesTheEventWithTheNewSettings()
+    public async Task ChangingSomethingRaisesTheEventWithTheNewSettings()
     {
         using SettingsService settings = Build();
 
@@ -347,6 +347,10 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(ThemePreference.Dark, seen!.Theme);
         Assert.Equal(ThemePreference.Dark, settings.Current.Theme);
+
+        // The change started a write of its own; the folder is deleted after the test, and must not
+        // be while that write still has its temporary file open.
+        await settings.FlushAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
