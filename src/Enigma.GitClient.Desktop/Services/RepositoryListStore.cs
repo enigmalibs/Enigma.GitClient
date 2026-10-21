@@ -31,7 +31,8 @@ public sealed record ListedRepository(string Path, string Name)
 /// </summary>
 /// <remarks>
 /// The order is the user's: adding a repository that is already listed leaves it where it is, and a new
-/// one goes at the end. Nothing is ever dropped to make room.
+/// one goes at the top, where the reader who just added it looks first. Nothing is ever dropped to make
+/// room.
 /// </remarks>
 public interface IRepositoryListStore
 {
@@ -44,7 +45,7 @@ public interface IRepositoryListStore
     Task<IReadOnlyList<ListedRepository>> GetAsync(string profileId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Adds a repository at the end of a profile's list, or — when it is listed already — keeps it where
+    /// Adds a repository at the top of a profile's list, or — when it is listed already — keeps it where
     /// it stands and takes the new name.
     /// </summary>
     /// <param name="profileId">The profile's identifier.</param>
@@ -185,7 +186,7 @@ public sealed class RepositoryListStore : IRepositoryListStore
 
                 if (index < 0)
                 {
-                    entries.Add(entry);
+                    entries.Insert(0, entry);
                 }
                 else
                 {
