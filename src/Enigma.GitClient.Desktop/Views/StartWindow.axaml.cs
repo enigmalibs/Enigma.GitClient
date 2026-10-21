@@ -24,6 +24,8 @@ public partial class StartWindow : Window, IHostWindow
         // x:Name'd host fields.
         InitializeComponent();
         Opened += OnOpened;
+        SizeChanged += (_, e) => InfoBarPlacement.Place(HostInfoBar, e.NewSize.Width, NavigationRail.PaneSize);
+        InfoBarPlacement.Place(HostInfoBar, Width, NavigationRail.PaneSize);
     }
 
     /// <inheritdoc />

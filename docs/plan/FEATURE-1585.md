@@ -1,6 +1,6 @@
 # FEATURE-1585 — Info bars at the bottom left
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1585.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1585-infobar-bottom-left`
 **Run:** feature/2026-10-21-ui-polish-release-650
