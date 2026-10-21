@@ -1,6 +1,6 @@
 # FEATURE-6E21 — Release 6.5.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-6E21.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-6e21-release-6-5-0`
 **Run:** feature/2026-10-21-ui-polish-release-650
