@@ -1,6 +1,6 @@
 # BUG-1E83 — Diff freezes when its grammar is removed
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-1E83.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-1e83-diff-grammar-deadlock`
 **Run:** bugfix/2026-10-21-diff-grammar-deadlock
