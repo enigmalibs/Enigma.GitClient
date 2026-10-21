@@ -102,6 +102,52 @@ public sealed class DiffSyntaxHighlightingTests
         });
     }
 
+    [Theory]
+    [InlineData("notes.txt")]
+    [InlineData("Makefile")]
+    public void AHighlightedFileGoingPlain_IsReinstalled_NotStrippedOfItsGrammar(string path)
+        => _fixture.RunAsync(() => GoesPlainByAReinstallAsync(path));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void ClearingTheFile_GoesPlainTheSameWay(string? path)
+        => _fixture.RunAsync(() => GoesPlainByAReinstallAsync(path));
+
+    [Fact]
+    public void PlainAndBack_KeepsTheCurrentTheme()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using Themed themed = new(ThemeVariant.Dark);
+            (DiffTextEditor editor, Window window) = Show("src/App.cs");
+
+            // The registry was built for Dark+; the installation the file comes back on must be in
+            // the theme the window shows now.
+            Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
+            Settle(window);
+
+            editor.FilePath = "notes.txt";
+            Settle(window);
+            editor.FilePath = "src/App.cs";
+            Settle(window);
+
+            Assert.Equal(ThemeName.LightPlus, editor.Highlighting!.Theme);
+
+            (DiffTextEditor fresh, Window freshWindow) = Show("src/App.cs");
+            Color freshPlain = Assert.IsAssignableFrom<ISolidColorBrush>(fresh.Foreground).Color;
+            Color plain = Assert.IsAssignableFrom<ISolidColorBrush>(editor.Foreground).Color;
+
+            await WaitUntilAsync(() => ForegroundAt(fresh, line: 2, column: 0) is { } keyword && keyword != freshPlain);
+            await WaitUntilAsync(() => ForegroundAt(editor, line: 2, column: 0) is { } keyword && keyword != plain);
+
+            Assert.Equal(ForegroundAt(fresh, line: 2, column: 0), ForegroundAt(editor, line: 2, column: 0));
+
+            freshWindow.Close();
+            window.Close();
+        });
+    }
+
     [Fact]
     public void TheTokensTheme_FollowsTheWindowsThemeVariant()
     {
@@ -215,6 +261,55 @@ public sealed class DiffSyntaxHighlightingTests
         });
     }
 
+    [Fact]
+    public void ClearingTheViewer_ReinstallsEveryPane()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using Themed themed = new(ThemeVariant.Dark);
+
+            RecordingDiffService diffs = new() { Patch = UnifiedDiffParser.Parse(CSharpPatch).Files[0] };
+            DiffViewerViewModel viewer = new(
+                diffs,
+                new RecordingSystemInterop(),
+                new SettingsService(
+                    new AppPaths(Path.Combine(Path.GetTempPath(), "enigma-syntax-tests-" + Guid.NewGuid().ToString("N"))),
+                    NullLogger<SettingsService>.Instance),
+                NullLogger<DiffViewerViewModel>.Instance);
+
+            await viewer.ShowAsync(
+                Repository,
+                DiffTarget.Commit("abc123"),
+                new ChangedFile { Path = "src/App.cs", ChangeKind = FileChangeKind.Modified, AddedLines = 1, RemovedLines = 1 });
+
+            DiffViewerView view = new() { DataContext = viewer };
+            Window window = new() { Content = view, Width = 900, Height = 300 };
+            window.Show();
+            Settle(window);
+
+            string[] panes = ["UnifiedEditor", "LeftEditor", "RightEditor"];
+            Dictionary<string, TextMateColoringTransformer> before = panes.ToDictionary(
+                name => name,
+                name => Assert.Single(Transformers(view.FindControl<DiffTextEditor>(name)!)));
+
+            // Deselecting a file: the title the panes take their path from goes to "".
+            viewer.Clear();
+            Settle(window);
+
+            foreach (string name in panes)
+            {
+                DiffTextEditor editor = view.FindControl<DiffTextEditor>(name)!;
+
+                Assert.NotNull(editor.Highlighting);
+                Assert.Null(editor.Highlighting.Scope);
+                Assert.False(editor.Highlighting.IsDisposed);
+                Assert.NotSame(before[name], Assert.Single(Transformers(editor)));
+            }
+
+            window.Close();
+        });
+    }
+
     [Theory]
     [InlineData("Dark", ThemeName.DarkPlus)]
     [InlineData("Light", ThemeName.LightPlus)]
@@ -258,6 +353,42 @@ public sealed class DiffSyntaxHighlightingTests
 
         return (editor, window);
     }
+
+    /// <summary>
+    /// Takes a highlighted file to a path with no grammar, and checks it went plain by the safe route:
+    /// a fresh installation, never its grammar taken away (BUG-1E83).
+    /// </summary>
+    /// <remarks>
+    /// The deadlock itself cannot be tested: a lost race hangs the UI thread rather than failing. A new
+    /// transformer is what shows the installation was replaced; a single one, that the one replaced
+    /// left nothing behind.
+    /// </remarks>
+    private static async Task GoesPlainByAReinstallAsync(string? path)
+    {
+        using Themed themed = new(ThemeVariant.Dark);
+        (DiffTextEditor editor, Window window) = Show("src/App.cs");
+        Color plain = Assert.IsAssignableFrom<ISolidColorBrush>(editor.Foreground).Color;
+
+        // Coloured first, so that plain afterwards says something.
+        await WaitUntilAsync(() => ForegroundAt(editor, line: 2, column: 0) is { } keyword && keyword != plain);
+
+        DiffSyntaxHighlighting highlighting = editor.Highlighting!;
+        TextMateColoringTransformer before = Assert.Single(Transformers(editor));
+
+        editor.FilePath = path;
+        Settle(window);
+
+        Assert.Same(highlighting, editor.Highlighting);
+        Assert.Null(highlighting.Scope);
+        Assert.False(highlighting.IsDisposed);
+        Assert.NotSame(before, Assert.Single(Transformers(editor)));
+        Assert.Equal(plain, ForegroundAt(editor, line: 2, column: 0));
+
+        window.Close();
+    }
+
+    private static IEnumerable<TextMateColoringTransformer> Transformers(DiffTextEditor editor)
+        => editor.TextArea.TextView.LineTransformers.OfType<TextMateColoringTransformer>();
 
     /// <summary>The colour a character of a document line is drawn in, once its visual line is built.</summary>
     private static Color? ForegroundAt(DiffTextEditor editor, int line, int column)

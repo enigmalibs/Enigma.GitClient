@@ -347,7 +347,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5595 | Branch tree open, expand/collapse all    | DONE      | docs/plan/FEATURE-5595.md |
 | FEATURE-1085 | Legible ref row details                  | DONE      | docs/plan/FEATURE-1085.md |
 | FEATURE-6E21 | Release 6.5.0                            | DONE      | docs/plan/FEATURE-6E21.md |
-| BUG-1E83     | Diff freezes when its grammar is removed | TODO      | docs/plan/BUG-1E83.md     |
+| BUG-1E83     | Diff freezes when its grammar is removed | DONE      | docs/plan/BUG-1E83.md     |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
