@@ -8,7 +8,7 @@
 
   <!--
     The remotes page: a flat list of compact lines drawn like the changed files beside the history —
-    the remote's name, and its fetch URL to the right, faint, cut short when it is too long. The host,
+    the remote's name, and its fetch URL to the right, dim, cut short when it is too long. The host,
     and where pushes go when that is elsewhere, are in the line's tooltip; what can be done to a
     remote is in its line's menu.
   -->
@@ -125,7 +125,7 @@
                          Text="{Binding Name}" />
 
               <TextBlock Grid.Column="2"
-                         Classes="rowdetail faint"
+                         Classes="refdetail dim"
                          Text="{Binding FetchUrl}"
                          HorizontalAlignment="Right"
                          TextTrimming="CharacterEllipsis" />

@@ -1,6 +1,6 @@
 # FEATURE-1085 — Legible ref row details
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1085.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1085-ref-row-details`
 **Run:** feature/2026-10-21-ui-polish-release-650

@@ -483,7 +483,9 @@ public sealed class RemotesAndSyncTests
             TextBlock[] texts = [.. row.GetVisualDescendants().OfType<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Text is { Length: > 0 })];
 
             Assert.Equal([remote.Name, remote.FetchUrl], texts.Select(block => block.Text));
-            Assert.Contains("faint", texts[1].Classes);
+            Assert.Contains("refdetail", texts[1].Classes);
+            Assert.Contains("dim", texts[1].Classes);
+            Assert.Equal(12, texts[1].FontSize);
             Assert.Equal(HorizontalAlignment.Right, texts[1].HorizontalAlignment);
             Assert.Equal(TextTrimming.CharacterEllipsis, texts[1].TextTrimming);
             Assert.Empty(row.GetVisualDescendants().OfType<Button>());

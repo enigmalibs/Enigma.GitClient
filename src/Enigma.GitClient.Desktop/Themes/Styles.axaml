@@ -212,7 +212,8 @@
 
     The first column is the thing's mark, sixteen pixels wide whatever it is — a file's status chip, a
     folder, the dim icon of a branch, a tag or a remote — so names line up with folder names. What
-    sits right of the name is a `rowdetail`: a file's line counts, a branch's badges, a remote's URL.
+    sits right of the name is a `rowdetail` — a file's line counts — or, on a ref's line, a
+    `refdetail`: a branch's badges, a remote's URL.
 
     The row is painted, if only transparently: a grid with no brush is not hit-testable between its
     children, and it carries the line's menu.
@@ -232,6 +233,18 @@
 
   <Style Selector="TextBlock.rowdetail">
     <Setter Property="FontSize" Value="11" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!--
+    A ref's detail — a branch's badges and counts, a remote's URL — is a step up from a file's: one
+    point larger, and drawn `dim` rather than `faint`. A file's line counts are glanced at; whether a
+    branch is checked out, how far it is ahead, where a remote points, are read, and in the dark theme
+    the faint grey (#4E5157 on #1E1F22) was too close to the background to read. The same role in both
+    themes: the secondary foreground is legible in each.
+  -->
+  <Style Selector="TextBlock.refdetail">
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
