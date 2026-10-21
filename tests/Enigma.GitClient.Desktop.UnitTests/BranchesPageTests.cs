@@ -1587,6 +1587,19 @@ public sealed class BranchesPageTests
             // Its badges in their order: checked out, and — this repository has no remote — local only.
             Assert.Equal(["main", "checked out", "local only"], texts);
 
+            // The badges are read, not glanced at: a step larger than a file's line counts, and in the
+            // secondary foreground rather than the faint one, in either theme.
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundSecondaryBrush", application.ActualThemeVariant, out object? secondary));
+
+            TextBlock[] badges = [.. line.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible && text.Classes.Contains("refdetail"))];
+
+            Assert.Equal(["checked out", "local only"], badges.Select(text => text.Text));
+            Assert.All(badges, text => Assert.Equal(12, text.FontSize));
+            Assert.All(badges, text => Assert.Same(secondary, text.Foreground));
+
             window.Close();
         });
     }
