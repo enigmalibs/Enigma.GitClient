@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -319,6 +320,24 @@ public sealed class ShellRenderTests
             Layout(window, 200, 100);
 
             Assert.Same(Brush(key), text.Foreground);
+        });
+    }
+
+    [Fact]
+    public void ARefsDetail_IsAStepLargerThanAFilesDetail()
+    {
+        _fixture.Run(() =>
+        {
+            TextBlock file = new() { Text = "+3 −1", Classes = { "rowdetail", "faint" } };
+            TextBlock reference = new() { Text = "checked out", Classes = { "refdetail", "dim" } };
+            Window window = new() { Content = new StackPanel { Children = { file, reference } }, Width = 200, Height = 100 };
+
+            Layout(window, 200, 100);
+
+            Assert.Equal(11, file.FontSize);
+            Assert.Equal(12, reference.FontSize);
+            Assert.Equal(VerticalAlignment.Center, reference.VerticalAlignment);
+            Assert.Same(Brush("EnigmaForegroundSecondaryBrush"), reference.Foreground);
         });
     }
 

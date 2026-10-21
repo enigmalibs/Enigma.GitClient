@@ -22,7 +22,7 @@
       <Setter Property="BorderThickness" Value="1" />
     </Style>
 
-    <!-- A badge: a few faint words, with an icon when it has one, in the right-hand column where a
+    <!-- A badge: a few dim words, with an icon when it has one, in the right-hand column where a
          changed file has its line counts. -->
     <Style Selector="StackPanel.badge">
       <Setter Property="Orientation" Value="Horizontal" />
@@ -40,7 +40,7 @@
             BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
           <ei:Icon Kind="GitBranch" Classes="header" VerticalAlignment="Center"
@@ -60,8 +60,27 @@
                  VerticalAlignment="Center"
                  AutomationProperties.Name="Filter branches" />
 
+        <!-- Every node of the tree open, or every node closed — the top-level ones too — as the
+             changed files' tree offers. -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+          <Button Name="ExpandAll"
+                  Classes="toolbar"
+                  Command="{Binding ExpandAllCommand}"
+                  ToolTip.Tip="Expand all folders"
+                  AutomationProperties.Name="Expand all folders">
+            <ei:Icon Kind="CaretDoubleDown" Classes="toolbar" />
+          </Button>
+          <Button Name="CollapseAll"
+                  Classes="toolbar"
+                  Command="{Binding CollapseAllCommand}"
+                  ToolTip.Tip="Collapse all folders"
+                  AutomationProperties.Name="Collapse all folders">
+            <ei:Icon Kind="CaretDoubleUp" Classes="toolbar" />
+          </Button>
+        </StackPanel>
+
         <!-- The order of the lines within each group: by name or by date, and which way. -->
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
           <TextBlock Text="Sort by"
                      VerticalAlignment="Center"
                      FontSize="12"
@@ -86,7 +105,7 @@
 
         <!-- The selected branches, deleted after one question: red while there is any to delete, as
              every button that loses something is. The Delete key on the tree does the same. -->
-        <Button Grid.Column="3"
+        <Button Grid.Column="4"
                 Name="DeleteSelection"
                 Classes="toolbar danger"
                 Command="{Binding DeleteSelectionCommand}"
@@ -98,7 +117,7 @@
           </StackPanel>
         </Button>
 
-        <Button Grid.Column="4"
+        <Button Grid.Column="5"
                 Classes="toolbar"
                 Command="{Binding CreateBranchCommand}"
                 ToolTip.Tip="Create a branch"
@@ -217,7 +236,7 @@
                 <ei:Icon Kind="HardDrives" Classes="row dim" IsVisible="{Binding IsRemote}" />
               </Panel>
               <TextBlock Grid.Column="1" Classes="rowname" Text="{Binding Title}" />
-              <TextBlock Grid.Column="2" Classes="rowdetail faint" Text="{Binding Count}" />
+              <TextBlock Grid.Column="2" Classes="refdetail dim" Text="{Binding Count}" />
             </Grid>
           </TreeDataTemplate>
 
@@ -225,7 +244,7 @@
             <Grid Classes="listrow" ColumnDefinitions="Auto,*,Auto">
               <ei:Icon Grid.Column="0" Kind="Folder" Classes="row dim" VerticalAlignment="Center" />
               <TextBlock Grid.Column="1" Classes="rowname" Text="{Binding Label}" />
-              <TextBlock Grid.Column="2" Classes="rowdetail faint" Text="{Binding Count}" />
+              <TextBlock Grid.Column="2" Classes="refdetail dim" Text="{Binding Count}" />
             </Grid>
           </TreeDataTemplate>
 
@@ -375,7 +394,7 @@
                             IsVisible="{Binding IsCurrent}"
                             ToolTip.Tip="{Binding CheckedOutTip}"
                             AutomationProperties.Name="{Binding CheckedOutTip}">
-                  <TextBlock Classes="rowdetail faint" Text="checked out" />
+                  <TextBlock Classes="refdetail dim" Text="checked out" />
                 </StackPanel>
 
                 <!-- Checked out in another working tree, which is why git will not delete it or check
@@ -384,39 +403,39 @@
                             IsVisible="{Binding IsInOtherWorktree}"
                             ToolTip.Tip="{Binding WorktreeTip}"
                             AutomationProperties.Name="{Binding WorktreeTip}">
-                  <ei:Icon Kind="Tree" Classes="pill faint" VerticalAlignment="Center" />
-                  <TextBlock Classes="rowdetail faint" Text="worktree" />
+                  <ei:Icon Kind="Tree" Classes="pill dim" VerticalAlignment="Center" />
+                  <TextBlock Classes="refdetail dim" Text="worktree" />
                 </StackPanel>
 
                 <StackPanel Classes="badge"
                             IsVisible="{Binding IsHiddenInHistory}"
                             ToolTip.Tip="{Binding HiddenTip}"
                             AutomationProperties.Name="{Binding HiddenTip}">
-                  <ei:Icon Kind="EyeSlash" Classes="pill faint" VerticalAlignment="Center" />
-                  <TextBlock Classes="rowdetail faint" Text="hidden" />
+                  <ei:Icon Kind="EyeSlash" Classes="pill dim" VerticalAlignment="Center" />
+                  <TextBlock Classes="refdetail dim" Text="hidden" />
                 </StackPanel>
 
                 <StackPanel Classes="badge"
                             IsVisible="{Binding IsAhead}"
                             ToolTip.Tip="{Binding AheadTip}"
                             AutomationProperties.Name="{Binding AheadTip}">
-                  <ei:Icon Kind="ArrowUp" Classes="pill faint" VerticalAlignment="Center" />
-                  <TextBlock Classes="rowdetail faint" Text="{Binding Ahead}" />
+                  <ei:Icon Kind="ArrowUp" Classes="pill dim" VerticalAlignment="Center" />
+                  <TextBlock Classes="refdetail dim" Text="{Binding Ahead}" />
                 </StackPanel>
 
                 <StackPanel Classes="badge"
                             IsVisible="{Binding IsBehind}"
                             ToolTip.Tip="{Binding BehindTip}"
                             AutomationProperties.Name="{Binding BehindTip}">
-                  <ei:Icon Kind="ArrowDown" Classes="pill faint" VerticalAlignment="Center" />
-                  <TextBlock Classes="rowdetail faint" Text="{Binding Behind}" />
+                  <ei:Icon Kind="ArrowDown" Classes="pill dim" VerticalAlignment="Center" />
+                  <TextBlock Classes="refdetail dim" Text="{Binding Behind}" />
                 </StackPanel>
 
                 <StackPanel Classes="badge"
                             IsVisible="{Binding IsLocalOnly}"
                             ToolTip.Tip="{Binding LocalOnlyTip}"
                             AutomationProperties.Name="{Binding LocalOnlyTip}">
-                  <TextBlock Classes="rowdetail faint" Text="local only" />
+                  <TextBlock Classes="refdetail dim" Text="local only" />
                 </StackPanel>
               </StackPanel>
             </Grid>

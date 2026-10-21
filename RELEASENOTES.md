@@ -1,5 +1,69 @@
 # Release notes
 
+## 6.5.0 — 2026-10-21
+
+A minor release:
+
+- a repository you open, create or clone for the first time joins the **top** of the list, not its
+  bottom;
+- the info bar sits in the **bottom-left corner**, a quarter of the window wide, instead of a band
+  across the top;
+- the branches dialog opens on **every branch**, with *Expand all* and *Collapse all* in its header;
+- the words on the right of a branch's or a remote's line are **lighter and a little larger**, so
+  they can be read in the dark theme.
+
+### The repositories list
+
+- **A new repository joins at the top.** *Open*, *Create*, *Clone* and
+  `Enigma.GitClient.Desktop <path>` put a repository the profile's list does not have yet first in
+  it, where you look after adding it.
+- **The order is still yours.** A repository already listed stays where you dragged it, whichever way
+  you open it, and takes its new name if it has one.
+
+### The info bar
+
+- **Bottom-left, past the rail.** It no longer covers the repository strip or the page headers, and
+  it starts right of the navigation rail, so *Profiles* and *Settings* stay in sight.
+- **A quarter of the window wide**, at least 360 px, never wider than the room right of the rail. It
+  follows the window when you resize it.
+- Unchanged: successes and information still close themselves after 2.5 s, and warnings and errors
+  stay until you close them. The bar still draws over an open dialog.
+
+### Branches
+
+- **Every node starts open:** *Local*, each remote and every folder, so the dialog opens on every
+  branch. A folder you close stays closed when the dialog refreshes.
+- **Expand all** and **Collapse all** sit in the header, before the sort controls, with the same
+  icons as the changed files' tree. They reach every node, the top-level ones included. What they do
+  is remembered like a click, and the selected branches stay selected.
+
+### Branch and remote lines
+
+- **Lighter:** a branch's badges (*checked out*, *worktree*, *hidden*, ahead and behind, *local
+  only*), the branch counts and a remote's URL move from the faintest grey to the secondary one, as
+  do the badges' icons. The same colour in both themes. In the dark theme it was close to the
+  background; in the light theme it is a touch darker than before.
+- **Larger:** 12 px instead of 11. A file's line counts in the changed files keep their size and
+  colour.
+
+### Upgrading from 6.4
+
+- **Nothing you saved changes.** `settings.json` stays at version 7 and `repository-lists.json` at
+  version 1. Your lists keep their order; only the next repository you add lands on top. Going back
+  to 6.4 keeps everything.
+- **The branches dialog opens fully expanded.** Use *Collapse all* to fold it.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.5.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (where
+  a new repository lands, where the info bar sits, the branch tree's buttons and default, the
+  legibility of the ref lines), keeps every stored format, and removes nothing.
+
 ## 6.4.0 — 2026-10-16
 
 A minor release:

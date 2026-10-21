@@ -830,7 +830,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         => _infoBar.Notify(title, message, severity);
 
     /// <summary>
-    /// Adds a repository just created or cloned to the selected profile's list, at its end.
+    /// Adds a repository just created or cloned to the selected profile's list, at its top.
     /// </summary>
     private async Task AddToListAsync(RepositoryHandle repository)
     {

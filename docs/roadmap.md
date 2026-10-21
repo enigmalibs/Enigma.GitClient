@@ -342,6 +342,11 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Fresh start on the last screen          | DONE      | (in FEATURE-CA9D.md)      |
 | - PHASE03    | New instances on the caller's screen    | DONE      | (in FEATURE-CA9D.md)      |
 | FEATURE-C56E | Release 6.4.0                           | DONE      | docs/plan/FEATURE-C56E.md |
+| FEATURE-1DC2 | New repositories join at the top        | DONE      | docs/plan/FEATURE-1DC2.md |
+| FEATURE-1585 | Info bars at the bottom left            | DONE      | docs/plan/FEATURE-1585.md |
+| FEATURE-5595 | Branch tree open, expand/collapse all   | DONE      | docs/plan/FEATURE-5595.md |
+| FEATURE-1085 | Legible ref row details                 | DONE      | docs/plan/FEATURE-1085.md |
+| FEATURE-6E21 | Release 6.5.0                           | DONE      | docs/plan/FEATURE-6E21.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

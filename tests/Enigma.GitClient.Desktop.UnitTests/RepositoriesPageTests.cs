@@ -508,7 +508,7 @@ public sealed class RepositoriesPageTests
     }
 
     [Fact]
-    public void OpeningAListedRepositoryAgain_LeavesItWhereItIs()
+    public void OpeningANewRepository_PutsItOnTop_AndAListedOneAgain_LeavesItWhereItIs()
     {
         _fixture.RunAsync(async () =>
         {
@@ -525,7 +525,8 @@ public sealed class RepositoriesPageTests
             await page.OpenPathAsync(second.WorkTreePath);
             await page.OpenPathAsync(first.WorkTreePath);
 
-            Assert.Equal(["first", "second"], page.Repositories.Select(entry => entry.Name));
+            // The second joined above the first; opening the first again did not move it back up.
+            Assert.Equal(["second", "first"], page.Repositories.Select(entry => entry.Name));
         });
     }
 

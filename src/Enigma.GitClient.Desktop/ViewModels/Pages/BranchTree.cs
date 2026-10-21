@@ -169,8 +169,9 @@ public sealed class BranchGroupViewModel : BranchFolderViewModel
 /// by name; branches after, in the page's order and direction.
 /// </para>
 /// <para>
-/// A top-level node starts open and a folder closed, unless the page remembered otherwise; while the
-/// filter narrows the tree, every node is open, so every match shows with the folders above it.
+/// Every node starts open — a top-level node and a folder alike, so the page opens on every branch —
+/// unless the page remembered that the reader closed it; while the filter narrows the tree, every node
+/// is open, so every match shows with the folders above it.
 /// </para>
 /// </remarks>
 public static class BranchTreeBuilder
@@ -268,7 +269,7 @@ public static class BranchTreeBuilder
                 }
 
                 BranchFolderViewModel node = new($"{groupKey}/{effectivePath}", label, Freeze(effective, groupKey, effectivePath));
-                node.Restore(expandAll || (remembered(node.Key) ?? false), expansionChanged);
+                node.Restore(expandAll || (remembered(node.Key) ?? true), expansionChanged);
 
                 nodes.Add(node);
             }

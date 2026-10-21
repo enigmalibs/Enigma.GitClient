@@ -26,8 +26,13 @@ public partial class MainWindow : Window, IHostWindow, IToolDialogHostWindow
         // AvaloniaXamlLoader.Load leaves them null, and every dialog then fails at runtime.
         InitializeComponent();
         Opened += OnOpened;
-        SizeChanged += (_, e) => SizeToolDialog(e.NewSize);
+        SizeChanged += (_, e) =>
+        {
+            SizeToolDialog(e.NewSize);
+            InfoBarPlacement.Place(HostInfoBar, e.NewSize.Width, NavigationRail.PaneSize);
+        };
         SizeToolDialog(new Size(Width, Height));
+        InfoBarPlacement.Place(HostInfoBar, Width, NavigationRail.PaneSize);
     }
 
     /// <inheritdoc />

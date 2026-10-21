@@ -458,19 +458,19 @@ public sealed class BranchesPageTests
 
             BranchTreeNode Feature() => Assert.Single(page.Groups[0].Children, node => node.IsFolder);
 
+            // Everything starts open.
             Assert.True(page.Groups[0].IsExpanded);
-            Assert.False(Feature().IsExpanded);
+            Assert.True(Feature().IsExpanded);
 
-            Feature().IsExpanded = true;
-            page.Groups[0].IsExpanded = false;
+            Feature().IsExpanded = false;
             BranchTreeNode before = Feature();
 
             await page.RefreshAsync();
 
             // New nodes, open and closed as the reader left them.
             Assert.NotSame(before, Feature());
-            Assert.True(Feature().IsExpanded);
-            Assert.False(page.Groups[0].IsExpanded);
+            Assert.False(Feature().IsExpanded);
+            Assert.True(page.Groups[0].IsExpanded);
 
             // The filter opens everything above a match; closing a node meanwhile is not remembered.
             page.SearchText = "watch";
@@ -478,16 +478,16 @@ public sealed class BranchesPageTests
             Assert.True(page.Groups[0].IsExpanded);
             Assert.True(Feature().IsExpanded);
 
-            Feature().IsExpanded = false;
+            page.Groups[0].IsExpanded = false;
             page.SearchText = string.Empty;
 
-            Assert.True(Feature().IsExpanded);
-            Assert.False(page.Groups[0].IsExpanded);
+            Assert.True(page.Groups[0].IsExpanded);
+            Assert.False(Feature().IsExpanded);
         });
     }
 
     [Fact]
-    public void TheTree_KeepsAFolderTheReaderOpenedOpen_AcrossARefresh()
+    public void TheTree_KeepsAFolderTheReaderClosedClosed_AcrossARefresh()
     {
         _fixture.RunAsync(async () =>
         {
@@ -510,21 +510,125 @@ public sealed class BranchesPageTests
                 .OfType<TreeViewItem>()
                 .Single(container => container.DataContext is BranchFolderViewModel and not BranchGroupViewModel);
 
-            Assert.False(Folder().IsExpanded);
+            Assert.True(Folder().IsExpanded);
 
             // What the expander does: the line's own state, which the node follows.
-            Folder().SetCurrentValue(TreeViewItem.IsExpandedProperty, true);
+            Folder().SetCurrentValue(TreeViewItem.IsExpandedProperty, false);
 
-            Assert.True(((BranchTreeNode)Folder().DataContext!).IsExpanded);
+            Assert.False(((BranchTreeNode)Folder().DataContext!).IsExpanded);
 
             await page.RefreshAsync();
             window.UpdateLayout();
 
-            // The tree was rebuilt — new nodes, new lines — and the folder is still open.
-            Assert.True(Folder().IsExpanded);
-            Assert.True(((BranchTreeNode)Folder().DataContext!).IsExpanded);
+            // The tree was rebuilt — new nodes, new lines — and the folder is still closed.
+            Assert.False(Folder().IsExpanded);
+            Assert.False(((BranchTreeNode)Folder().DataContext!).IsExpanded);
 
             window.Close();
+        });
+    }
+
+    [Fact]
+    public void ExpandAllAndCollapseAll_ReachEveryNode_NestedFoldersAndTheTopLevelNodesToo()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildWithRemoteAsync(services);
+            await GitAsync(repository, "branch", "feature/deep/x", "main");
+            await GitAsync(repository, "branch", "feature/y", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            // Two top-level nodes, "feature" and "feature/deep" under Local.
+            Assert.Equal(4, FoldersOf(page).Count);
+            Assert.All(FoldersOf(page), node => Assert.True(node.IsExpanded));
+
+            page.CollapseAllCommand.Execute(null);
+
+            Assert.All(FoldersOf(page), node => Assert.False(node.IsExpanded));
+
+            page.ExpandAllCommand.Execute(null);
+
+            Assert.All(FoldersOf(page), node => Assert.True(node.IsExpanded));
+        });
+    }
+
+    [Fact]
+    public void CollapseAll_IsRememberedAcrossARefresh_AndKeepsTheSelectedBranches()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            page.SelectedItem = Row(page, "feature/tree");
+
+            page.CollapseAllCommand.Execute(null);
+
+            Assert.Same(Row(page, "feature/tree"), page.SelectedItem);
+            Assert.Equal(["feature/tree"], page.SelectedBranches.Select(row => row.FullName));
+
+            await page.RefreshAsync();
+
+            Assert.All(FoldersOf(page), node => Assert.False(node.IsExpanded));
+            Assert.Equal("feature/tree", page.SelectedBranch?.FullName);
+        });
+    }
+
+    [Fact]
+    public void ExpandAllAndCollapseAll_HaveNothingToDo_WithNoRepository()
+    {
+        _fixture.Run(() =>
+        {
+            using TestServices services = TestServices.Build();
+            BranchesPageViewModel page = services.Get<BranchesPageViewModel>();
+
+            Assert.Empty(page.Groups);
+            Assert.False(page.ExpandAllCommand.CanExecute(null));
+            Assert.False(page.CollapseAllCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void TheHeadersButtons_CollapseAndExpandTheTree()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+            await GitAsync(repository, "branch", "feature/tree", "main");
+            BranchesPageViewModel page = await OpenAsync(services, repository);
+
+            (Window window, TreeView _) = ShowTree(services, page);
+
+            try
+            {
+                BranchesPageView view = Assert.IsType<BranchesPageView>(window.Content);
+
+                Button Header(string name) => view.FindControl<Button>(name)
+                    ?? throw new InvalidOperationException($"The branches page has no {name} button.");
+
+                Point Centre(Button button)
+                    => button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)
+                        ?? throw new InvalidOperationException("The button is not in the window.");
+
+                Assert.Equal("Collapse all folders", ToolTip.GetTip(Header("CollapseAll")));
+                Assert.Equal("Expand all folders", ToolTip.GetTip(Header("ExpandAll")));
+
+                Click(window, Centre(Header("CollapseAll")));
+
+                Assert.All(FoldersOf(page), node => Assert.False(node.IsExpanded));
+
+                Click(window, Centre(Header("ExpandAll")));
+
+                Assert.All(FoldersOf(page), node => Assert.True(node.IsExpanded));
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -566,25 +670,25 @@ public sealed class BranchesPageTests
                 Assert.Equal("merged", page.SelectedBranch?.FullName);
 
                 BranchTreeNode feature = Assert.Single(page.Groups[0].Children, node => node.IsFolder);
-                Assert.False(feature.IsExpanded);
+                Assert.True(feature.IsExpanded);
 
                 Click(window, OnLine(Line(tree, feature), window));
 
-                Assert.True(feature.IsExpanded);
+                Assert.False(feature.IsExpanded);
                 Assert.Same(Row(page, "merged"), page.SelectedItem);
                 Assert.Same(Row(page, "merged"), tree.SelectedItem);
 
                 // Further along the line, so it is a second click and not a double-click.
                 Click(window, OnLine(Line(tree, feature), window, 240));
 
-                Assert.False(feature.IsExpanded);
+                Assert.True(feature.IsExpanded);
 
                 // A double-click folds it once: the tree's own fold on the second press is undone.
                 Point point = OnLine(Line(tree, feature), window);
                 Click(window, point);
                 Click(window, point);
 
-                Assert.True(feature.IsExpanded);
+                Assert.False(feature.IsExpanded);
 
                 // A top-level node's line folds the same way.
                 Click(window, OnLine(Line(tree, page.Groups[0]), window));
@@ -613,6 +717,10 @@ public sealed class BranchesPageTests
 
             try
             {
+                // Closed, so its line is the one right above "main".
+                Assert.Single(page.Groups[0].Children, node => node.IsFolder).IsExpanded = false;
+                Settle(window);
+
                 Click(window, OnLine(Row(tree, "main"), window));
                 Assert.Equal("main", page.SelectedBranch?.FullName);
 
@@ -1479,6 +1587,19 @@ public sealed class BranchesPageTests
             // Its badges in their order: checked out, and — this repository has no remote — local only.
             Assert.Equal(["main", "checked out", "local only"], texts);
 
+            // The badges are read, not glanced at: a step larger than a file's line counts, and in the
+            // secondary foreground rather than the faint one, in either theme.
+            Application application = Application.Current!;
+            Assert.True(application.TryFindResource("EnigmaForegroundSecondaryBrush", application.ActualThemeVariant, out object? secondary));
+
+            TextBlock[] badges = [.. line.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible && text.Classes.Contains("refdetail"))];
+
+            Assert.Equal(["checked out", "local only"], badges.Select(text => text.Text));
+            Assert.All(badges, text => Assert.Equal(12, text.FontSize));
+            Assert.All(badges, text => Assert.Same(secondary, text.Foreground));
+
             window.Close();
         });
     }
@@ -2104,6 +2225,8 @@ public sealed class BranchesPageTests
             try
             {
                 Click(window, OnLine(Row(tree, "merged"), window));
+                Assert.Single(page.Groups[0].Children, node => node.IsFolder).IsExpanded = false;
+                Settle(window);
                 Press(window, Key.A, PhysicalKey.A, RawInputModifiers.Control);
 
                 // "feature/tree" is inside a closed folder: not shown, not selected.
@@ -2141,6 +2264,10 @@ public sealed class BranchesPageTests
 
             try
             {
+                // Closed, so its line is the one right above "main".
+                Assert.Single(page.Groups[0].Children, node => node.IsFolder).IsExpanded = false;
+                Settle(window);
+
                 // Two branches, the focus left on "main", right under the folder.
                 Click(window, OnLine(Row(tree, "merged"), window));
                 Click(window, OnLine(Row(tree, "main"), window), RawInputModifiers.Control);
@@ -2524,6 +2651,23 @@ public sealed class BranchesPageTests
 
     private static BranchRowViewModel Row(BranchesPageViewModel page, string name)
         => page.Groups.SelectMany(group => group.Rows).Single(row => row.FullName == name);
+
+    /// <summary>Every node of the tree that holds others, the top-level ones included, at any depth.</summary>
+    private static List<BranchTreeNode> FoldersOf(BranchesPageViewModel page)
+    {
+        List<BranchTreeNode> folders = [];
+        Collect(page.Groups);
+        return folders;
+
+        void Collect(IEnumerable<BranchTreeNode> nodes)
+        {
+            foreach (BranchTreeNode node in nodes.Where(node => node.IsFolder))
+            {
+                folders.Add(node);
+                Collect(node.Children);
+            }
+        }
+    }
 
     private static void FillCreateDialog(TestServices services, string name, bool checkout)
         => services.Dialogs.OnShown = dialog =>
