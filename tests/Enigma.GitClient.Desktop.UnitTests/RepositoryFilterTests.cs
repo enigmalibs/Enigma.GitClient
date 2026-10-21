@@ -360,7 +360,8 @@ public sealed class RepositoryFilterTests
     {
         IRepositoryListStore store = services.Get<IRepositoryListStore>();
 
-        foreach (string name in Names)
+        // Each joins at the top, so the list reads in Names' order.
+        foreach (string name in Enumerable.Reverse(Names))
         {
             await store.AddAsync(IdentityProfile.DefaultId, Path.Combine(services.ConfigurationRoot, name), name);
         }

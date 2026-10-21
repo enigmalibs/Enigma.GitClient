@@ -63,14 +63,14 @@ public sealed class RepositoryListStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task AddAsync_PutsANewRepositoryAtTheEnd()
+    public async Task AddAsync_PutsANewRepositoryAtTheTop()
     {
         await _store.AddAsync(Work, File("one"), "one", TestContext.Current.CancellationToken);
         await _store.AddAsync(Work, File("two"), "two", TestContext.Current.CancellationToken);
         IReadOnlyList<ListedRepository> entries =
             await _store.AddAsync(Work, File("three"), "three", TestContext.Current.CancellationToken);
 
-        Assert.Equal(["one", "two", "three"], Names(entries));
+        Assert.Equal(["three", "two", "one"], Names(entries));
     }
 
     [Fact]
@@ -79,14 +79,31 @@ public sealed class RepositoryListStoreTests : IDisposable
         await _store.AddAsync(Work, File("one"), "one", TestContext.Current.CancellationToken);
         await _store.AddAsync(Work, File("two"), "two", TestContext.Current.CancellationToken);
 
-        // Opening the first one again, from a path written with a trailing separator.
+        // Opening the bottom one again, from a path written with a trailing separator.
         IReadOnlyList<ListedRepository> entries = await _store.AddAsync(
             Work,
             File("one") + Path.DirectorySeparatorChar,
             "renamed",
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(["renamed", "two"], Names(entries));
+        Assert.Equal(["two", "renamed"], Names(entries));
+    }
+
+    [Fact]
+    public async Task AddAsync_OfAListedRepository_KeepsTheOrderTheUserDraggedItInto()
+    {
+        foreach (string name in new[] { "one", "two", "three" })
+        {
+            await _store.AddAsync(Work, File(name), name, TestContext.Current.CancellationToken);
+        }
+
+        await _store.MoveAsync(Work, File("one"), 1, TestContext.Current.CancellationToken);
+
+        // Opening it from the list goes through the same add, and must not move it back to the top.
+        IReadOnlyList<ListedRepository> entries =
+            await _store.AddAsync(Work, File("one"), "one", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["three", "one", "two"], Names(entries));
     }
 
     [Fact]
@@ -110,8 +127,8 @@ public sealed class RepositoryListStoreTests : IDisposable
         IReadOnlyList<ListedRepository> entries = await _store.GetAsync(Work, TestContext.Current.CancellationToken);
 
         Assert.Equal(40, entries.Count);
-        Assert.Equal("repo-0", entries[0].Name);
-        Assert.Equal("repo-39", entries[^1].Name);
+        Assert.Equal("repo-39", entries[0].Name);
+        Assert.Equal("repo-0", entries[^1].Name);
     }
 
     [Fact]
@@ -124,7 +141,7 @@ public sealed class RepositoryListStoreTests : IDisposable
         IReadOnlyList<ListedRepository> entries =
             await _store.RemoveAsync(Work, File("two"), TestContext.Current.CancellationToken);
 
-        Assert.Equal(["one", "three"], Names(entries));
+        Assert.Equal(["three", "one"], Names(entries));
     }
 
     [Theory]
@@ -137,7 +154,8 @@ public sealed class RepositoryListStoreTests : IDisposable
     [InlineData("three", -5, new[] { "three", "one", "two", "four" })]
     public async Task MoveAsync_PutsTheRepositoryWhereItWasDropped(string name, int index, string[] expected)
     {
-        foreach (string entry in new[] { "one", "two", "three", "four" })
+        // Each joins at the top, so the list reads one, two, three, four.
+        foreach (string entry in new[] { "four", "three", "two", "one" })
         {
             await _store.AddAsync(Work, File(entry), entry, TestContext.Current.CancellationToken);
         }
@@ -158,7 +176,7 @@ public sealed class RepositoryListStoreTests : IDisposable
         IReadOnlyList<ListedRepository> entries =
             await _store.MoveAsync(Work, File("elsewhere"), 0, TestContext.Current.CancellationToken);
 
-        Assert.Equal(["one", "two"], Names(entries));
+        Assert.Equal(["two", "one"], Names(entries));
     }
 
     [Fact]
@@ -169,10 +187,10 @@ public sealed class RepositoryListStoreTests : IDisposable
         await _store.AddAsync(Home, File("one"), "one", TestContext.Current.CancellationToken);
         await _store.AddAsync(Home, File("two"), "two", TestContext.Current.CancellationToken);
 
-        await _store.MoveAsync(Work, File("two"), 0, TestContext.Current.CancellationToken);
+        await _store.MoveAsync(Work, File("one"), 0, TestContext.Current.CancellationToken);
 
-        Assert.Equal(["two", "one"], Names(await _store.GetAsync(Work, TestContext.Current.CancellationToken)));
-        Assert.Equal(["one", "two"], Names(await _store.GetAsync(Home, TestContext.Current.CancellationToken)));
+        Assert.Equal(["one", "two"], Names(await _store.GetAsync(Work, TestContext.Current.CancellationToken)));
+        Assert.Equal(["two", "one"], Names(await _store.GetAsync(Home, TestContext.Current.CancellationToken)));
     }
 
     [Fact]
@@ -187,7 +205,7 @@ public sealed class RepositoryListStoreTests : IDisposable
 
         Assert.Empty(await _store.GetAsync(Work, TestContext.Current.CancellationToken));
         Assert.Equal(
-            ["home-repo", "work-repo"],
+            ["work-repo", "home-repo"],
             Names(await _store.GetAsync(Home, TestContext.Current.CancellationToken)));
     }
 
