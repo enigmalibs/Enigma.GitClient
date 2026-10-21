@@ -1,6 +1,6 @@
 # FEATURE-1DC2 — New repositories join at the top
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1DC2.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1dc2-new-repos-on-top`
 **Run:** feature/2026-10-21-ui-polish-release-650
