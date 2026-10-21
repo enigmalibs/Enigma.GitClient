@@ -30,15 +30,21 @@ namespace Enigma.GitClient.Desktop.Controls.Diff;
 /// tokenizes — on a background thread — costs this editor its colours and nothing else: the failure
 /// is logged and the highlighting taken off on the UI thread, rather than taking the process down.
 /// </para>
+/// <para>
+/// A file going plain gets a fresh installation rather than having its grammar taken away, which can
+/// deadlock the UI thread against the tokenizer (BUG-1E83).
+/// </para>
 /// </remarks>
 public sealed class DiffSyntaxHighlighting : IDisposable
 {
     /// <summary>The area the failures are logged under.</summary>
     public const string LogArea = "DiffSyntax";
 
+    private readonly TextEditor _editor;
     private readonly RegistryOptions _registry;
-    private readonly TextMateInstallation _installation;
+    private readonly ThemeName _registryTheme;
 
+    private TextMateInstallation _installation;
     private bool _disposed;
 
     /// <summary>
@@ -57,8 +63,10 @@ public sealed class DiffSyntaxHighlighting : IDisposable
         // applies the registry's default theme as it is built.
         Theme = ThemeNameFor(variant);
 
+        _editor = editor;
+        _registryTheme = Theme;
         _registry = new RegistryOptions(Theme);
-        _installation = editor.InstallTextMate(_registry, initCurrentDocument: true, OnFailure);
+        _installation = Install();
     }
 
     /// <summary>Gets the TextMate theme the tokens are coloured in.</summary>
@@ -106,6 +114,21 @@ public sealed class DiffSyntaxHighlighting : IDisposable
             return;
         }
 
+        if (scope is null)
+        {
+            // Never SetGrammar(null) on a live installation (BUG-1E83). It takes the transformer's
+            // lock, then stops the tokenizer, which tells its listeners under their own lock; the
+            // tokenizer, finishing a batch on the thread pool, takes the listeners' lock, then the
+            // transformer's. Should the two meet, each waits for the other, and the window freezes for
+            // good. Disposing takes the two locks one after the other, never nested, and a fresh
+            // installation with no grammar starts no tokenizer at all.
+            _installation.Dispose();
+            _installation = Install();
+            Scope = null;
+
+            return;
+        }
+
         Scope = scope;
         _installation.SetGrammar(scope);
     }
@@ -144,6 +167,24 @@ public sealed class DiffSyntaxHighlighting : IDisposable
         // Takes the colouring transformer back off the text view and stops the background
         // tokenizer; the editor goes back to its own foreground.
         _installation.Dispose();
+    }
+
+    /// <summary>
+    /// Installs TextMate on the editor, with no grammar, in the current theme.
+    /// </summary>
+    /// <returns>The installation.</returns>
+    private TextMateInstallation Install()
+    {
+        TextMateInstallation installation = _editor.InstallTextMate(_registry, initCurrentDocument: true, OnFailure);
+
+        // An installation comes up in the registry's default theme, which is the one the registry was
+        // built with, not the one the window may have switched to since.
+        if (Theme != _registryTheme)
+        {
+            installation.SetTheme(_registry.LoadTheme(Theme));
+        }
+
+        return installation;
     }
 
     /// <summary>
