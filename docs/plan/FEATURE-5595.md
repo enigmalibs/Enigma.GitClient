@@ -1,6 +1,6 @@
 # FEATURE-5595 — Branch tree open, expand/collapse all
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-5595.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-5595-branch-tree-expand`
 **Run:** feature/2026-10-21-ui-polish-release-650

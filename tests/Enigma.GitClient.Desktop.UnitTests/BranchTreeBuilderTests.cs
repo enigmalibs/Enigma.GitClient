@@ -140,20 +140,22 @@ public sealed class BranchTreeBuilderTests
     // ---------------------------------------------------------------- open and closed
 
     [Fact]
-    public void ATopLevelNodeStartsOpen_AndAFolderClosed()
+    public void EveryNodeStartsOpen_ATopLevelNodeAndAFolderAlike()
         => WithPage(page =>
         {
-            BranchGroupViewModel local = Build(page, local: ["feature/x", "main"], remote: [])[0];
+            BranchGroupViewModel local = Build(page, local: ["feature/deep/x", "feature/y", "main"], remote: [])[0];
+            BranchTreeNode feature = local.Children[0];
 
             Assert.True(local.IsExpanded);
-            Assert.False(local.Children[0].IsExpanded);
+            Assert.True(feature.IsExpanded);
+            Assert.True(Assert.Single(feature.Children, node => node.IsFolder).IsExpanded);
         });
 
     [Fact]
     public void WhatWasRemembered_OpensOrClosesANode()
         => WithPage(page =>
         {
-            Dictionary<string, bool> remembered = new() { ["local"] = false, ["local/feature"] = true };
+            Dictionary<string, bool> remembered = new() { ["local"] = false, ["local/feature"] = false };
 
             BranchGroupViewModel local = BranchTreeBuilder.Build(
                 Rows(page, ["feature/x", "main"]), [], RefSortKey.Name, SortDirection.Ascending,
@@ -162,7 +164,7 @@ public sealed class BranchTreeBuilderTests
                 expansionChanged: null)[0];
 
             Assert.False(local.IsExpanded);
-            Assert.True(local.Children[0].IsExpanded);
+            Assert.False(local.Children[0].IsExpanded);
         });
 
     [Fact]
@@ -193,10 +195,10 @@ public sealed class BranchTreeBuilderTests
 
             Assert.Empty(reported);
 
-            local.Children[0].IsExpanded = true;
+            local.Children[0].IsExpanded = false;
             local.IsExpanded = false;
 
-            Assert.Equal(["local/feature=True", "local=False"], reported);
+            Assert.Equal(["local/feature=False", "local=False"], reported);
         });
 
     // ---------------------------------------------------------------- plumbing

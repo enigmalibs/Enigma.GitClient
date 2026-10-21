@@ -439,6 +439,10 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         _settings = settings;
         _tools = tools;
 
+        // Every node at once, as a click on each would: the reader's choice, remembered like one.
+        ExpandAllCommand = new RelayCommand(() => SetAllExpanded(true), () => Groups.Count > 0);
+        CollapseAllCommand = new RelayCommand(() => SetAllExpanded(false), () => Groups.Count > 0);
+
         // The history is under the dialog: selecting a line there closes it.
         SelectInHistoryCommand = new RelayCommand<BranchRowViewModel>(
             row => _tools.RevealInHistory(row!.Branch.TargetSha),
@@ -686,6 +690,18 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that reverses the order.</summary>
     public RelayCommand ToggleSortDirectionCommand { get; }
+
+    /// <summary>
+    /// Gets the command that opens every node of the tree: the top-level ones and every folder, nested
+    /// ones included.
+    /// </summary>
+    public RelayCommand ExpandAllCommand { get; }
+
+    /// <summary>
+    /// Gets the command that closes every node of the tree, the top-level ones included. The selected
+    /// branches stay selected: a node never takes the selection.
+    /// </summary>
+    public RelayCommand CollapseAllCommand { get; }
 
     /// <summary>
     /// Gets the command that closes the dialog and selects a branch's commit in the history under it.
@@ -1018,6 +1034,9 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         RestoreSelection(current, selected);
         RebuildMergeChoices(refs);
 
+        ExpandAllCommand.NotifyCanExecuteChanged();
+        CollapseAllCommand.NotifyCanExecuteChanged();
+
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));
     }
@@ -1098,6 +1117,36 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         }
 
         SelectBranches(rows);
+    }
+
+    /// <summary>
+    /// Opens or closes every node of the tree, outermost first.
+    /// </summary>
+    private void SetAllExpanded(bool expanded)
+    {
+        foreach (BranchTreeNode node in Folders(Groups))
+        {
+            node.IsExpanded = expanded;
+        }
+    }
+
+    /// <summary>Every node that holds others — a top-level node or a folder — at any depth.</summary>
+    private static IEnumerable<BranchTreeNode> Folders(IEnumerable<BranchTreeNode> nodes)
+    {
+        foreach (BranchTreeNode node in nodes)
+        {
+            if (!node.IsFolder)
+            {
+                continue;
+            }
+
+            yield return node;
+
+            foreach (BranchTreeNode nested in Folders(node.Children))
+            {
+                yield return nested;
+            }
+        }
     }
 
     /// <summary>
