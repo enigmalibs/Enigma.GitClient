@@ -229,7 +229,8 @@
         </Grid>
       </Border>
 
-      <nav:NavigationView DockPanel.Dock="Left"
+      <nav:NavigationView x:Name="NavigationRail"
+                          DockPanel.Dock="Left"
                           Items="{Binding Navigation.Items}"
                           FooterItems="{Binding Navigation.FooterItems}"
                           SelectedItem="{Binding Navigation.SelectedItem, Mode=TwoWay}"
@@ -258,12 +259,16 @@
                                  DialogMaxWidth="1100" />
 
     <!-- The three overlay hosts must be the last children of the root panel. At most 640 high, as
-         Enigma.MarkdownEditor's: the About dialog's icon, build and credits fit without scrolling. -->
+         Enigma.MarkdownEditor's: the About dialog's icon, build and credits fit without scrolling.
+         The info bar sits in the bottom-left corner, right of the rail; its width and its offset are
+         set from the window in code-behind (InfoBarPlacement). -->
     <contentDialog:ContentDialog x:Name="HostDialog"
                                  DialogMinWidth="380"
                                  DialogMaxWidth="720"
                                  DialogMaxHeight="640" />
     <controls:Overlay x:Name="HostOverlay" />
-    <infoBar:InfoBar x:Name="HostInfoBar" />
+    <infoBar:InfoBar x:Name="HostInfoBar"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Bottom" />
   </Panel>
 </Window>
