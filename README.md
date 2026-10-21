@@ -10,13 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.5** — a repository you open, create or clone for the first time joins the top
-> of the list; the info bar sits in the bottom-left corner, a quarter of the window wide; the
-> branches dialog opens on every branch, with *Expand all* and *Collapse all* in its header; and a
-> branch's badges and a remote's URL are lighter and larger, readable in the dark theme. 6.4 before
-> it: remove a worktree, its branch too if you tick the box, from its branch's menu or the new
-> *Worktrees* dialog; a branch checked out in another worktree carries a tree and is refused up front
-> for delete and checkout; and the windows open on the screen you are working on.
+> **What's new in 6.6** — selecting a file with no syntax colours (a `.txt`, a `.slnx`, a file with
+> no extension) or deselecting a file no longer freezes the application now and then. 6.5 before it:
+> a repository you open, create or clone for the first time joins the top of the list; the info bar
+> sits in the bottom-left corner, a quarter of the window wide; the branches dialog opens on every
+> branch, with *Expand all* and *Collapse all* in its header; and a branch's badges and a remote's
+> URL are lighter and larger, readable in the dark theme.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was

@@ -1,6 +1,6 @@
 # FEATURE-DDBC — Release 6.6.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-DDBC.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-ddbc-release-6-6-0`
 **Run:** feature/2026-10-21-release-660

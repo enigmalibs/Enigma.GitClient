@@ -1,5 +1,37 @@
 # Release notes
 
+## 6.6.0 — 2026-10-21
+
+A minor release with one fix: selecting or deselecting a file no longer freezes the application.
+
+### Fixes
+
+- **The diff no longer freezes the application.**
+  - Selecting a file, in a commit's files or in the working tree's *Not staged* and *Staged* lists,
+    sometimes froze the whole window for good, and it had to be killed. It could happen when the diff
+    went from a file with syntax colours to one without them (a `.txt`, `.lock`, `.slnx`, `.config`
+    or `.resx`, an image, a file with no extension), or when a file with them was deselected.
+  - The syntax highlighting library could lock up against its own background colouring when it was
+    told the text had no grammar any more. The diff no longer tells it that: it starts the
+    highlighting afresh, with no grammar, which cannot lock up.
+  - Nothing else changes: colours, the Light and Dark themes, and plain text look as before.
+
+### Upgrading from 6.5
+
+- **Nothing you saved changes.** `settings.json` stays at version 7 and `repository-lists.json` at
+  version 1. Going back to 6.5 keeps everything.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.6.0** is a minor release under Semantic Versioning. It carries a fix only, which a patch
+  release (6.5.1) could also have carried. Nothing is removed, and the stored settings do not
+  change.
+
 ## 6.5.0 — 2026-10-21
 
 A minor release:
