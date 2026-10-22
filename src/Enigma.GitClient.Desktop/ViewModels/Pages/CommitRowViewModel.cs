@@ -163,7 +163,8 @@ public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent, 
 /// <remarks>
 /// Formatting happens once, when the row is created, rather than in a converter on every redraw: a
 /// virtualised list re-renders its rows constantly, and a relative timestamp computed per frame is
-/// pure waste.
+/// pure waste. The age is the one exception, measured again by <see cref="RefreshRelativeDate"/> when
+/// the history refreshes without redrawing — "just now" is only true for a minute.
 /// </remarks>
 public sealed class CommitRowViewModel : ViewModelBase
 {
@@ -547,7 +548,19 @@ public sealed class CommitRowViewModel : ViewModelBase
     public string ShortSha { get; }
 
     /// <summary>Gets the age of the commit, as a short phrase.</summary>
-    public string RelativeDate { get; }
+    public string RelativeDate
+    {
+        get;
+        private set
+        {
+            if (SetProperty(ref field, value))
+            {
+                // One of the two shows the age, whichever way the dates are displayed.
+                OnPropertyChanged(nameof(DateText));
+                OnPropertyChanged(nameof(DateTooltip));
+            }
+        }
+    } = string.Empty;
 
     /// <summary>Gets the exact timestamp, for the tooltip behind the relative one.</summary>
     public string AbsoluteDate { get; }
@@ -563,6 +576,22 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     /// <summary>Gets the date the row shows in its tooltip, which is the other one.</summary>
     public string DateTooltip => ShowsAbsoluteDate ? RelativeDate : AbsoluteDate;
+
+    /// <summary>
+    /// Measures the commit's age again, from a later moment than the row was built at.
+    /// </summary>
+    /// <param name="now">The moment to measure from.</param>
+    /// <remarks>
+    /// Notifies only when the phrase changed, which for a commit older than a day is almost never. The
+    /// uncommitted-changes row has no age and is left as it is.
+    /// </remarks>
+    public void RefreshRelativeDate(DateTimeOffset now)
+    {
+        if (Commit is { } commit)
+        {
+            RelativeDate = RelativeTime.Format(commit.Author.When, now);
+        }
+    }
 
     /// <summary>
     /// Gets the commit's full SHA, empty for the uncommitted-changes row.
