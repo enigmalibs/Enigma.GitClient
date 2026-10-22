@@ -1014,6 +1014,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// selected again, and the view keeps its scroll offset. While the diffs have the page, the redraw
     /// waits for them to close: replacing the rows would take away the commit they describe.
     /// </para>
+    /// <para>
+    /// Either way the rows' ages are measured again first (<see cref="RefreshRelativeDates"/>): a
+    /// refresh that redraws nothing must still turn "just now" into "2 minutes ago".
+    /// </para>
     /// </remarks>
     public async Task RefreshInPlaceAsync(bool referencesMoved, bool workingTreeRead = false)
     {
@@ -1023,6 +1027,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             return;
         }
+
+        RefreshRelativeDates(DateTimeOffset.Now);
 
         bool moved = referencesMoved || _drawnStamp != RepositoryStateStamp.Of(RepositoryContext);
 
@@ -1052,6 +1058,23 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         _uncommittedJustRead = dirty;
         await ReloadKeepingPlaceAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Measures every line's age again, without redrawing anything: the rows, the selection and the
+    /// scroll stay exactly as they are.
+    /// </summary>
+    /// <param name="now">The moment to measure from.</param>
+    /// <remarks>
+    /// The ages are measured when the rows are drawn, and most refreshes draw nothing; this is what
+    /// keeps "how long ago" true between redraws. In absolute mode it is the tooltip that moves.
+    /// </remarks>
+    public void RefreshRelativeDates(DateTimeOffset now)
+    {
+        foreach (CommitRowViewModel row in Rows)
+        {
+            row.RefreshRelativeDate(now);
+        }
     }
 
     /// <summary>

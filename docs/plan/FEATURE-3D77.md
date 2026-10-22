@@ -1,6 +1,6 @@
 # FEATURE-3D77 — History ages follow the auto refresh
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3D77.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-3d77-history-ages`
 **Run:** vibe/2026-10-22-history-ages-win-publish
