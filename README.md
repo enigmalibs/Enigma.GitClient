@@ -10,12 +10,11 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.6** — selecting a file with no syntax colours (a `.txt`, a `.slnx`, a file with
-> no extension) or deselecting a file no longer freezes the application now and then. 6.5 before it:
-> a repository you open, create or clone for the first time joins the top of the list; the info bar
-> sits in the bottom-left corner, a quarter of the window wide; the branches dialog opens on every
-> branch, with *Expand all* and *Collapse all* in its header; and a branch's badges and a remote's
-> URL are lighter and larger, readable in the dark theme.
+> **What's new in 6.7** — when the history shows *How long ago*, each line's age is measured again on
+> every automatic refresh, so "just now" becomes "2 minutes ago" without a click; and on Windows,
+> `packaging/windows/publish.ps1` runs the Windows publish from any directory. 6.6 before it:
+> selecting a file with no syntax colours (a `.txt`, a `.slnx`, a file with no extension) or
+> deselecting a file no longer freezes the application now and then.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
