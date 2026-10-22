@@ -552,6 +552,32 @@ public sealed class AutoRefreshTests
     }
 
     [Fact]
+    public void TheHistory_MeasuresItsAgesAgainWhenNothingMoved()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await InitAsync(services, "ageing");
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
+            await history.ReloadAsync();
+
+            // The rows as they read once they have been on screen for three hours.
+            history.RefreshRelativeDates(DateTimeOffset.Now.AddHours(3));
+
+            CommitRowViewModel[] before = [.. history.Rows];
+            CommitRowViewModel commit = Assert.Single(before, row => row.Commit is not null);
+            Assert.Equal("3 hours ago", commit.DateText);
+
+            await history.RefreshInPlaceAsync(referencesMoved: false);
+
+            Assert.Equal(before, history.Rows);
+            Assert.Equal("just now", commit.DateText);
+        });
+    }
+
+    [Fact]
     public void TheHistory_RedrawsWhenSomethingMovedAndKeepsTheSelectedCommit()
     {
         _fixture.RunAsync(async () =>

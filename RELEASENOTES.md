@@ -1,5 +1,51 @@
 # Release notes
 
+## 6.7.0 — 2026-10-22
+
+A minor release:
+
+- when the history shows *How long ago*, each line's age is **measured again on every automatic
+  refresh**: a line that said "just now" says "2 minutes ago" two minutes later, without a click;
+- on Windows, **`packaging/windows/publish.ps1`** runs the Windows publish from any directory.
+
+### The history's ages
+
+- **The ages move by themselves.** With *Dates* set to *How long ago*, every line's age is measured
+  again at each automatic refresh, at the interval set by *Fetch and refresh automatically* (60
+  seconds by default), and at each refresh, fetch, pull or push you ask for.
+- **Nothing else moves.** The lines are not redrawn: the selection and the scroll stay where they
+  are, and only a line whose age changed is updated.
+- **With *The date and time*,** the age in each line's tooltip moves the same way.
+- **With the automatic refresh off,** the ages move only when the history is drawn again, as before.
+  The uncommitted line has no age.
+
+### Publishing on Windows
+
+- **`packaging/windows/publish.ps1`** runs the publish for `win-x64`, compiled ReadyToRun, from any
+  directory. The result, in `src\Enigma.GitClient.Desktop\bin\Release\net10.0\win-x64\publish\`,
+  needs the .NET 10 Desktop Runtime on the machine that runs it.
+- Under Windows PowerShell's default execution policy, which refuses local scripts, run it with
+  `powershell -ExecutionPolicy Bypass -File packaging\windows\publish.ps1`. It ends with a non-zero
+  exit code when the publish fails. `Get-Help packaging\windows\publish.ps1` describes it.
+- Windows still has no installer: run `Enigma.GitClient.Desktop.exe` from the result.
+  `docs/RELEASE.md` names the script under *Publish the application*.
+
+### Upgrading from 6.6
+
+- **Nothing you saved changes.** `settings.json` stays at version 7 and `repository-lists.json` at
+  version 1. Going back to 6.6 keeps everything.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.7.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  history's ages follow the automatic refresh) and a new script, keeps every stored format, and
+  removes nothing.
+
 ## 6.6.0 — 2026-10-21
 
 A minor release with one fix: selecting or deselecting a file no longer freezes the application.
