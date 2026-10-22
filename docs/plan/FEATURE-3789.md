@@ -1,6 +1,6 @@
 # FEATURE-3789 — Release 6.7.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-3789.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-3789-release-6-7-0`
 **Run:** vibe/2026-10-22-release-6-7-0
