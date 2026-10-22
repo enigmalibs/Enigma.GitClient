@@ -1,6 +1,6 @@
 # FEATURE-18E2 — Windows publish script
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-18E2.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-18e2-windows-publish`
 **Run:** vibe/2026-10-22-history-ages-win-publish
