@@ -262,9 +262,9 @@
              window, down to 130 px, which its placeholder still fits in. The theme and About are on
              the Settings page, not here. The block's other parts take 180 px. -->
         <Grid Name="CommandBarEnd" ColumnDefinitions="*,Auto,Auto,Auto,Auto" MinWidth="310" MaxWidth="380" VerticalAlignment="Center">
-          <!-- Enter and Shift+Enter in the box go to the next and the previous match
-               (HistoryPageView.axaml.cs). What it searches is in its tip, as the box is too narrow
-               to say it all. -->
+          <!-- Enter and Shift+Enter in the box go to the next and the previous match, and Escape
+               clears it (HistoryPageView.axaml.cs). What it searches is in its tip, as the box is
+               too narrow to say it all. -->
           <TextBox Grid.Column="0"
                    Name="SearchBox"
                    Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -306,7 +306,7 @@
                   Name="ClearSearch"
                   Classes="toolbar"
                   Command="{Binding ClearSearchCommand}"
-                  ToolTip.Tip="Clear the search"
+                  ToolTip.Tip="Clear the search (Escape)"
                   AutomationProperties.Name="Clear the search">
             <ei:Icon Kind="X" Classes="toolbar" />
           </Button>

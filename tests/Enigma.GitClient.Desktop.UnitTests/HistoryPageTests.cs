@@ -731,6 +731,128 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void Escape_InTheSearchBox_ClearsTheSearch_AndKeepsTheFocusThere()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            TextBlock counter = view.FindControl<TextBlock>("MatchCounter")!;
+
+            box.Focus();
+            box.Text = "branch";
+            window.UpdateLayout();
+
+            Assert.Contains(model.Rows, row => row.IsSearchMatch);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // As the clear button does: no text, no match, no count.
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.True(string.IsNullOrEmpty(box.Text));
+            Assert.DoesNotContain(model.Rows, row => row.IsSearchMatch);
+            Assert.True(string.IsNullOrEmpty(counter.Text));
+            Assert.False(model.ClearSearchCommand.CanExecute(null));
+
+            // The next search is typed straight away.
+            Assert.True(box.IsKeyboardFocusWithin, "the focus left the search box");
+            Assert.Equal("Clear the search (Escape)", ToolTip.GetTip(view.FindControl<Button>("ClearSearch")!));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_InTheSearchBox_ClearsTheSearchBeforeItLeavesTheDiffs()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Commit is not null));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // The bar is not under the diffs: the box can be clicked into while they are open.
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            box.Focus();
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.True(model.IsDiffViewOpen, "the first Escape put the diffs away rather than clearing the search");
+
+            // Nothing left to clear: the next one is the diffs'.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(model.IsDiffViewOpen);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_InAnEmptySearchBox_ChangesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            CommitRowViewModel selected = model.Rows.First(row => row.Commit is not null);
+            model.SelectedRow = selected;
+            box.Focus();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.Same(selected, model.SelectedRow);
+            Assert.False(model.IsDiffViewOpen);
+            Assert.True(box.IsKeyboardFocusWithin);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_OnTheGraph_LeavesTheSearchAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+            view.FindControl<ListBox>("CommitList")!.Focus();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("branch", model.SearchText);
+            Assert.Contains(model.Rows, row => row.IsSearchMatch);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void Search_MarksThePageLoadedAfterIt()
     {
         _fixture.RunAsync(async () =>
