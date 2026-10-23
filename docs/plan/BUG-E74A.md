@@ -1,6 +1,6 @@
 # BUG-E74A — Stale Desktop tests red on develop
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-E74A.md`
 **Type:** BUG
 **Branch:** `bugfix/bug-e74a-stale-desktop-tests`
 **Run:** bugfix/2026-10-23-crash-net-token-reset

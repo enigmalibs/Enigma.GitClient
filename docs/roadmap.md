@@ -352,7 +352,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-3D77 | History ages follow the auto refresh     | DONE      | docs/plan/FEATURE-3D77.md |
 | FEATURE-18E2 | Windows publish script                   | DONE      | docs/plan/FEATURE-18E2.md |
 | FEATURE-3789 | Release 6.7.0                            | DONE      | docs/plan/FEATURE-3789.md |
-| BUG-E74A     | Stale Desktop tests red on develop       | TODO      | docs/plan/BUG-E74A.md     |
+| BUG-E74A     | Stale Desktop tests red on develop       | DONE      | docs/plan/BUG-E74A.md     |
 | BUG-9DE3     | The app crashes on unhandled errors      | TODO      | docs/plan/BUG-9DE3.md     |
 | - PHASE01    | The safety net                           | TODO      | (in BUG-9DE3.md)          |
 | - PHASE02    | Fire-and-forget work reaches it          | TODO      | (in BUG-9DE3.md)          |
