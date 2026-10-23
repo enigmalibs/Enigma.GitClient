@@ -362,6 +362,10 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Profiles band, browse and replace        | DONE      | (in BUG-3024.md)          |
 | - PHASE04    | Visible git sign-in fallback             | DONE      | (in BUG-3024.md)          |
 | FEATURE-687C | Release 6.8.0                            | DONE      | docs/plan/FEATURE-687C.md |
+| FEATURE-D977 | Repository strip and command bar         | TODO      | docs/plan/FEATURE-D977.md |
+| - PHASE01    | Bigger strip and head badge              | TODO      | (in FEATURE-D977.md)      |
+| - PHASE02    | Centring command bar panel               | TODO      | (in FEATURE-D977.md)      |
+| - PHASE03    | The History bar takes the commands       | TODO      | (in FEATURE-D977.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
