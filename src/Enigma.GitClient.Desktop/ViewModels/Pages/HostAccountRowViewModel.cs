@@ -8,6 +8,21 @@ using Enigma.Icons.Phosphor;
 namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 
 /// <summary>
+/// Whether an integration's token is there, and can be read.
+/// </summary>
+public enum HostAccountTokenState
+{
+    /// <summary>Stored, and it can be read.</summary>
+    Stored,
+
+    /// <summary>None stored — after the stored tokens were reset, for instance.</summary>
+    Missing,
+
+    /// <summary>Stored, but it cannot be read: damaged, or the whole store is unreadable.</summary>
+    Unreadable,
+}
+
+/// <summary>
 /// One connected account — an integration — as the profiles page lists it: under the profile it
 /// belongs to, or among the earlier integrations that belong to none.
 /// </summary>
@@ -25,11 +40,13 @@ public sealed class HostAccountRowViewModel : ViewModelBase
     /// The profiles an earlier integration can be given to; empty for an integration that already
     /// belongs to one.
     /// </param>
+    /// <param name="tokenState">Whether its token is there, and can be read.</param>
     public HostAccountRowViewModel(
         ProfilesPageViewModel owner,
         HostAccount account,
         IRepositoryHostProvider? provider,
-        IReadOnlyList<IdentityProfile>? moveTargets = null)
+        IReadOnlyList<IdentityProfile>? moveTargets = null,
+        HostAccountTokenState tokenState = HostAccountTokenState.Stored)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(account);
@@ -37,6 +54,7 @@ public sealed class HostAccountRowViewModel : ViewModelBase
         _owner = owner;
         Account = account;
         Provider = provider;
+        TokenState = tokenState;
 
         List<AccountMoveTargetViewModel> targets = [];
 
@@ -87,6 +105,24 @@ public sealed class HostAccountRowViewModel : ViewModelBase
 
     /// <summary>Gets a value indicating whether there is a profile to move it to.</summary>
     public bool HasMoveTargets => MoveTargets.Count > 0;
+
+    /// <summary>Gets whether its token is there, and can be read.</summary>
+    public HostAccountTokenState TokenState { get; }
+
+    /// <summary>Gets a value indicating whether the token is missing or cannot be read.</summary>
+    public bool HasTokenProblem => TokenState != HostAccountTokenState.Stored;
+
+    /// <summary>Gets what is wrong with the token, for the line under the account.</summary>
+    public string TokenProblem
+        => TokenState switch
+        {
+            HostAccountTokenState.Missing => "No token stored: replace its token to sign in with it again.",
+            HostAccountTokenState.Unreadable => "The stored token cannot be read: replace it, or disconnect the account.",
+            _ => string.Empty,
+        };
+
+    /// <summary>Gets the command that gives the account a new token.</summary>
+    public AsyncRelayCommand<HostAccountRowViewModel> ReplaceTokenCommand => _owner.ReplaceTokenCommand;
 
     /// <summary>Gets the command that disconnects the account.</summary>
     public AsyncRelayCommand<HostAccountRowViewModel> RemoveCommand => _owner.DisconnectAccountCommand;

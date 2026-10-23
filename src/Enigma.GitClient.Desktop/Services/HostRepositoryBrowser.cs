@@ -39,6 +39,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
     private readonly IHostAccountService _accounts;
     private readonly IHostProviderRegistry _registry;
     private readonly IHostLinkService _links;
+    private readonly ITokenRecovery _recovery;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly IServiceProvider _services;
@@ -51,6 +52,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
     /// <param name="accounts">Supplies the account's token.</param>
     /// <param name="registry">Finds the provider that speaks to the account's host.</param>
     /// <param name="links">Opens a repository's page in a browser.</param>
+    /// <param name="recovery">Offers the reset when the stored tokens cannot be read.</param>
     /// <param name="dialogs">Shows the dialog.</param>
     /// <param name="infoBar">Reports what went wrong.</param>
     /// <param name="services">Resolves the dialog's view.</param>
@@ -60,6 +62,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
         IHostAccountService accounts,
         IHostProviderRegistry registry,
         IHostLinkService links,
+        ITokenRecovery recovery,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
         IServiceProvider services,
@@ -69,6 +72,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(recovery);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(services);
@@ -78,6 +82,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
         _accounts = accounts;
         _registry = registry;
         _links = links;
+        _recovery = recovery;
         _dialogs = dialogs;
         _infoBar = infoBar;
         _services = services;
@@ -104,6 +109,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
             provider,
             _accounts,
             _links,
+            _recovery,
             _infoBar,
             _logger,
             _context.RepositoryLifetime);
@@ -133,6 +139,20 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
             });
 
             await model.LoadAsync().ConfigureAwait(true);
+
+            if (model.TokenFailure is { IsStoreWide: true })
+            {
+                // Nothing to list until the store is reset, and a question asked now would replace the
+                // dialog on the host they share: it closes first, then the reset is offered (BUG-3024).
+                // A single damaged entry stays said in the dialog; its line on the Profiles page offers
+                // the fix.
+                await _dialogs.HideAsync().ConfigureAwait(true);
+                await showing.ConfigureAwait(true);
+                await _recovery.ConfirmAndResetAsync().ConfigureAwait(true);
+
+                return null;
+            }
+
             await showing.ConfigureAwait(true);
         }
         finally

@@ -35,6 +35,12 @@ public sealed class AddHostAccountDialogViewModel : ViewModelBase
     public bool HasChoice => Providers.Count > 1;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the host and the instance can be changed: not when the
+    /// dialog replaces the token of an account already connected, whose instance is its own (BUG-3024).
+    /// </summary>
+    public bool CanChooseInstance { get; set => SetProperty(ref field, value); } = true;
+
+    /// <summary>
     /// Gets or sets the host to connect to.
     /// </summary>
     public IRepositoryHostProvider? SelectedProvider

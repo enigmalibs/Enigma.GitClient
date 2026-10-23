@@ -14,6 +14,7 @@
                  Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
       <ComboBox ItemsSource="{Binding Providers}"
                 SelectedItem="{Binding SelectedProvider, Mode=TwoWay}"
+                IsEnabled="{Binding CanChooseInstance}"
                 HorizontalAlignment="Stretch"
                 AutomationProperties.Name="Host">
         <ComboBox.ItemTemplate>
@@ -29,6 +30,7 @@
                  FontSize="12"
                  Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
       <TextBox Text="{Binding InstanceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               IsReadOnly="{Binding !CanChooseInstance}"
                PlaceholderText="https://github.com"
                AutomationProperties.Name="Instance URL" />
       <TextBlock Text="Change this for a self-hosted instance, such as https://github.example.com."

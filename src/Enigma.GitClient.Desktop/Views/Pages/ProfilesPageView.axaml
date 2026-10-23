@@ -23,7 +23,7 @@
     <!-- One integration: the account, where it is, and what can be done with it. An earlier one,
          which belongs to no profile yet, also offers the profiles it can be moved to. -->
     <DataTemplate x:Key="IntegrationRow" x:DataType="vm:HostAccountRowViewModel">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,2">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,2">
 
         <ei:Icon Grid.Column="0"
                  Kind="{Binding Icon}"
@@ -38,9 +38,26 @@
                      Text="{Binding Details}"
                      FontSize="11"
                      TextTrimming="CharacterEllipsis" />
+          <!-- No token, or one that cannot be read: git signs in on its own until it is replaced. -->
+          <TextBlock Text="{Binding TokenProblem}"
+                     IsVisible="{Binding HasTokenProblem}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource EnigmaWarningBrush}" />
         </StackPanel>
 
         <Button Grid.Column="2"
+                Classes="choice"
+                Command="{Binding ReplaceTokenCommand}"
+                CommandParameter="{Binding}"
+                IsVisible="{Binding HasTokenProblem}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Type a new personal access token for this account"
+                AutomationProperties.Name="Replace the token">
+          <TextBlock Text="Replace token" />
+        </Button>
+
+        <Button Grid.Column="3"
                 Classes="choice"
                 IsVisible="{Binding HasMoveTargets}"
                 VerticalAlignment="Center"
@@ -62,7 +79,7 @@
           </Button.Flyout>
         </Button>
 
-        <Button Grid.Column="3"
+        <Button Grid.Column="4"
                 Classes="choice"
                 Command="{Binding BrowseCommand}"
                 CommandParameter="{Binding}"
@@ -72,7 +89,7 @@
           <TextBlock Text="Browse repositories" />
         </Button>
 
-        <Button Grid.Column="4"
+        <Button Grid.Column="5"
                 Classes="toolbar rowaction"
                 Command="{Binding RemoveCommand}"
                 CommandParameter="{Binding}"
@@ -205,6 +222,34 @@
                    FontWeight="SemiBold"
                    Foreground="{DynamicResource EnigmaForegroundBrush}" />
       </StackPanel>
+    </Border>
+
+    <!-- Stored tokens this account can no longer read — what a Windows password reset leaves behind:
+         said before anything fails, with the way out, as the repository window's operation banner says
+         what is in progress (BUG-3024). -->
+    <Border Name="TokenStoreBand"
+            DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+            BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,8"
+            IsVisible="{Binding IsTokenStoreUnreadable}">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+        <ei:Icon Grid.Column="0" Kind="Warning" Classes="row" VerticalAlignment="Center"
+                 Foreground="{DynamicResource EnigmaWarningBrush}" />
+        <TextBlock Grid.Column="1"
+                   Text="{Binding TokenStoreProblem}"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        <Button Grid.Column="2"
+                Classes="toolbar"
+                Command="{Binding ResetStoredTokensCommand}"
+                ToolTip.Tip="Delete every stored token, so each integration can be given its token again"
+                AutomationProperties.Name="Reset stored tokens">
+          <TextBlock Text="Reset stored tokens" FontSize="12" />
+        </Button>
+      </Grid>
     </Border>
 
     <ScrollViewer>

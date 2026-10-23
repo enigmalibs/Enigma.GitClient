@@ -484,6 +484,10 @@ public sealed class RecordingTokenRecovery : ITokenRecovery
         => "Reset the stored tokens.";
 
     /// <inheritdoc />
+    public string Describe(Enigma.GitClient.Core.Security.TokenProtectionReason reason)
+        => "Reset the stored tokens.";
+
+    /// <inheritdoc />
     public Task<bool> ConfirmAndResetAsync()
     {
         Offered++;
