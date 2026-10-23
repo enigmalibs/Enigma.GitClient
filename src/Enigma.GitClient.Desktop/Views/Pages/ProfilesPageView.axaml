@@ -104,9 +104,10 @@
 
     <!-- One profile: a card of its own, with the accounts it is connected to inside it, so where one
          profile ends and the next begins is never a question. Its mark is a monogram of its label,
-         which tells two profiles apart where one picture for all of them could not. -->
+         which tells two profiles apart where one picture for all of them could not. The profile git
+         commits as is outlined in the accent and says so in words. -->
     <DataTemplate x:Key="ProfileRow" x:DataType="vm:ProfileRowViewModel">
-      <Border Classes="profilecard">
+      <Border Classes="profilecard" Classes.active="{Binding IsCurrent}">
         <StackPanel Spacing="12">
           <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
 
@@ -116,35 +117,54 @@
                                       Seed="{Binding Label}" />
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding Label}"
-                           VerticalAlignment="Center"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                <Border Classes="pill"
-                        Background="{DynamicResource EnigmaSelectionBrush}"
-                        IsVisible="{Binding IsCurrent}"
-                        ToolTip.Tip="Your global git configuration has this name and email">
-                  <TextBlock Text="Current" FontSize="11" Classes="dim" />
-                </Border>
-              </StackPanel>
+              <TextBlock Text="{Binding Label}"
+                         FontSize="15"
+                         FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
               <TextBlock Classes="dim"
                          Text="{Binding Summary}"
                          FontSize="13"
                          TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
+            <!-- Which profile git commits as, in words and not by the outline alone; and on every
+                 other profile that has a name and an email, the way to switch to it. The two share
+                 one place and never show together. A profile without a name and email has neither:
+                 switching to it would unset git's identity. -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        IsVisible="{Binding IsCurrent}"
+                        ToolTip.Tip="Git commits as this profile: your global configuration has its name and email"
+                        AutomationProperties.Name="Active profile">
+              <ei:Icon Kind="CheckCircle"
+                       Weight="Fill"
+                       Classes="toolbar"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ActionAccentBrush}" />
+              <TextBlock Text="Active"
+                         FontSize="13"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+            </StackPanel>
+
             <Button Grid.Column="2"
-                    Classes="choice"
+                    Classes="toolbar"
                     Command="{Binding UseCommand}"
                     CommandParameter="{Binding}"
                     IsVisible="{Binding CanUse}"
                     VerticalAlignment="Center"
-                    ToolTip.Tip="Make this name and email your global git identity"
-                    AutomationProperties.Name="Use this profile">
-              <TextBlock Text="Use" />
+                    ToolTip.Tip="Make this profile's name and email your global git identity, so new commits are made as this profile"
+                    AutomationProperties.Name="Make this profile active">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ei:Icon Kind="UserSwitch" Classes="toolbar" VerticalAlignment="Center" />
+                <TextBlock Text="Make active" VerticalAlignment="Center" />
+              </StackPanel>
             </Button>
 
             <Button Grid.Column="3"
@@ -335,7 +355,7 @@
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <TextBlock Grid.Column="0"
-                         Text="No profiles yet. Add one for each identity you commit as — work, personal — and switch between them with Use."
+                         Text="No profiles yet. Add one for each identity you commit as — work, personal — and switch between them with Make active."
                          IsVisible="{Binding !HasProfiles}"
                          VerticalAlignment="Center"
                          FontSize="11"
@@ -437,12 +457,12 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
               <Button Classes="toolbar"
                       Command="{Binding CopyFromCurrentProfileCommand}"
-                      ToolTip.Tip="Fill these fields with the name and email of the profile marked Current"
+                      ToolTip.Tip="Fill these fields with the name and email of the active profile"
                       ToolTip.ShowOnDisabled="True"
-                      AutomationProperties.Name="Copy from the current profile">
+                      AutomationProperties.Name="Copy from the active profile">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <ei:Icon Kind="Copy" Classes="toolbar" VerticalAlignment="Center" />
-                  <TextBlock Text="Copy from current profile" VerticalAlignment="Center" />
+                  <TextBlock Text="Copy from active profile" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
 

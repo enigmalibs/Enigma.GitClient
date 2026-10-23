@@ -7,7 +7,11 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -1244,7 +1248,7 @@ public sealed class ProfilesPageTests
     }
 
     [Fact]
-    public void TheViewMarksTheCurrentProfileAndOffersUseOnTheOthers()
+    public void TheViewMarksTheActiveProfileAndOffersMakeActiveOnTheOthers()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1253,6 +1257,7 @@ public sealed class ProfilesPageTests
             IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
+            await store.SaveAsync(new IdentityProfile("default", "Default", string.Empty, string.Empty));
 
             ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
@@ -1260,31 +1265,116 @@ public sealed class ProfilesPageTests
             ProfilesPageView view = services.Get<ProfilesPageView>();
             view.DataContext = page;
 
-            Window window = new() { Content = view, Width = 1000, Height = 900 };
+            Window window = new() { Content = view, Width = 1000, Height = 1100 };
             window.Show();
 
             try
             {
-                Button[] use = [.. All<Button>(view, "Use this profile")];
+                window.UpdateLayout();
 
-                Assert.Equal(2, use.Length);
-                Assert.False(use[0].IsVisible);
-                Assert.True(use[1].IsVisible);
+                // Work is git's identity: its card is outlined in the accent and says Active, in words.
+                AssertActive(view, window, active: 0);
 
-                TextBlock[] pills = [.. view.GetVisualDescendants().OfType<TextBlock>().Where(block => block.Text == "Current")];
-                Assert.Equal(2, pills.Length);
-                Assert.True(pills[0].IsEffectivelyVisible);
-                Assert.False(pills[1].IsEffectivelyVisible);
+                // Kept beside the test assembly, as the other page snapshots are, for a reader to look
+                // at — in both variants, as the accent has to read on each.
+                Snapshot(window, ThemeVariant.Dark, "profiles-active-dark.png");
+                Snapshot(window, ThemeVariant.Light, "profiles-active-light.png");
 
-                Assert.Equal(2, All<Button>(view, "Edit this profile").Count());
-                Assert.Equal(2, All<Button>(view, "Delete this profile").Count());
+                // Home can be switched to; Default, without a name and email, cannot — and says neither.
+                Button[] makeActive = [.. All<Button>(view, "Make this profile active")];
+                Assert.Equal([false, true, false], makeActive.Select(button => button.IsEffectivelyVisible));
+                Assert.Equal("Make active", makeActive[1].GetVisualDescendants().OfType<TextBlock>().Single().Text);
+                Assert.Same(page.UseProfileCommand, makeActive[1].Command);
+                Assert.Same(page.Profiles[1], makeActive[1].CommandParameter);
+                Assert.True(makeActive[1].Bounds.Height >= 28, $"Make active is {makeActive[1].Bounds.Height} px high");
+
+                // The old words are gone.
+                Assert.DoesNotContain(
+                    view.GetVisualDescendants().OfType<TextBlock>(),
+                    block => block.IsEffectivelyVisible && block.Text is "Current" or "Use");
+
+                Assert.Equal(3, All<Button>(view, "Edit this profile").Count());
+                Assert.Equal(3, All<Button>(view, "Delete this profile").Count());
                 Assert.True(Named<Button>(view, "Add a profile").IsEffectivelyEnabled);
+
+                // Switching moves the outline, the word and the button together.
+                await page.UseProfileCommand.ExecuteAsync(makeActive[1].CommandParameter);
+                window.UpdateLayout();
+
+                Assert.Equal(Home, services.Identity.Global);
+                AssertActive(view, window, active: 1);
+                Assert.Equal([true, false, false], All<Button>(view, "Make this profile active").Select(button => button.IsEffectivelyVisible));
             }
             finally
             {
                 window.Close();
             }
         });
+
+        static void Snapshot(Window window, ThemeVariant variant, string file)
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+
+            try
+            {
+                application.RequestedThemeVariant = variant;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+                Dispatcher.UIThread.RunJobs();
+
+                string directory = Path.Combine(AppContext.BaseDirectory, "snapshots");
+                Directory.CreateDirectory(directory);
+
+                using Bitmap frame = window.CaptureRenderedFrame()
+                    ?? throw new InvalidOperationException("The window produced no rendered frame.");
+                frame.Save(Path.Combine(directory, file), PngBitmapEncoderOptions.Default);
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        static void AssertActive(ProfilesPageView view, Window window, int active)
+        {
+            Border[] cards = [.. view.GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("profilecard"))];
+            Assert.Equal(3, cards.Length);
+
+            Assert.True(Application.Current!.TryFindResource("ActionAccentBrush", window.ActualThemeVariant, out object? accent));
+            Assert.True(Application.Current!.TryFindResource("EnigmaBorderSubtleBrush", window.ActualThemeVariant, out object? subtle));
+
+            for (int index = 0; index < cards.Length; index++)
+            {
+                bool isActive = index == active;
+                Color expected = ((ISolidColorBrush)(isActive ? accent : subtle)!).Color;
+
+                Assert.Equal(isActive, cards[index].Classes.Contains("active"));
+                Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(cards[index].BorderBrush).Color);
+
+                // Only the brush changes: the frame keeps its thickness, so nothing moves.
+                Assert.Equal(new Thickness(1), cards[index].BorderThickness);
+            }
+
+            Control[] markers = [.. All<Control>(view, "Active profile")];
+            Assert.Equal(cards.Length, markers.Length);
+
+            for (int index = 0; index < markers.Length; index++)
+            {
+                Assert.Equal(index == active, markers[index].IsEffectivelyVisible);
+            }
+
+            Control marker = markers[active];
+            Assert.Equal("Active", marker.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+            Assert.Equal(
+                Enigma.Icons.Phosphor.PhosphorIcon.CheckCircle,
+                marker.GetVisualDescendants().OfType<Enigma.Icons.Avalonia.Icon>().Single().Kind);
+            Assert.Equal(
+                "Git commits as this profile: your global configuration has its name and email",
+                ToolTip.GetTip(marker));
+        }
     }
 
     [Fact]
@@ -1383,7 +1473,7 @@ public sealed class ProfilesPageTests
                 Assert.Equal("Ada", name.Text);
                 Assert.Equal("ada@home.example", Named<TextBox>(view, "This repository's email").Text);
 
-                Button copy = Named<Button>(view, "Copy from the current profile");
+                Button copy = Named<Button>(view, "Copy from the active profile");
                 Button remove = Named<Button>(view, "Remove this repository's identity");
                 Button save = Named<Button>(view, "Save this repository's identity");
 

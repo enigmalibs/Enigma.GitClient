@@ -122,7 +122,7 @@ Two things matter more than everything else in this app:
   global name and email git records on every commit, and profiles — work, personal — that switch
   them in one click, each with the hosting accounts it is connected to — a profile pushes only to
   the hosts it is connected to, so one without any integration stays local; in a repository's
-  window, give that repository a name and email of its own (copied from the current profile in one
+  window, give that repository a name and email of its own (copied from the active profile in one
   click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
   font and context, the pull strategy, the path to git, how often the repository is fetched and
@@ -188,9 +188,9 @@ Everything the client remembers about you lives in one per-user directory —
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
-repository's), and only when you save or remove a name and email, use a profile on the Profiles
-page, pick one in the start window, or let a new clone or repository use your identity — and
-nothing is sent anywhere: the client talks to your git and to the hosts you connected, and to
+repository's), and only when you save or remove a name and email, make a profile active on the
+Profiles page, pick one in the start window, or let a new clone or repository use your identity —
+and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and to
 nothing else.
 
 ## Requirements

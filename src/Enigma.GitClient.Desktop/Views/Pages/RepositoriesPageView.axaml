@@ -167,7 +167,7 @@
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
           <!-- Whose list this is. Picking another profile shows its list and, when the profile has a
-               name and an email, makes them git's global identity, as the Profiles page's Use does. -->
+               name and an email, makes them git's global identity, as the Profiles page's Make active does. -->
           <ComboBox Name="ProfilePicker"
                     ItemsSource="{Binding Profiles}"
                     SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
