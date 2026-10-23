@@ -137,6 +137,7 @@ public sealed class ShellRenderTests
     /// </summary>
     private static readonly (string Role, double Size)[] Scale =
     [
+        ("title", 24),
         ("header", 20),
         ("toolbar", 18),
         ("row", 16),
@@ -189,6 +190,7 @@ public sealed class ShellRenderTests
                 return icon.Size;
             }
 
+            Assert.True(Size("title") > Size("header"));
             Assert.True(Size("header") > Size("toolbar"));
             Assert.True(Size("toolbar") > Size("row"));
             Assert.True(Size("row") > Size("pill"));

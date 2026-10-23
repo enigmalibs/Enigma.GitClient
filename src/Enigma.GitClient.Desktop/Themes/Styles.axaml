@@ -13,7 +13,8 @@
     application has one scale rather than a number per icon — and so making every toolbar a little
     easier to hit is one edit here instead of a hundred in the views.
 
-      header   a title's icon, beside the name of a page or of the open repository
+      title    the icon beside the open repository's name, in the window's strip
+      header   a title's icon, beside the name of a page
       toolbar  an icon-only button, or a segmented toggle, on a toolbar strip
       row      an icon on a line: a list row's leading glyph, its own actions, a banner
       pill     an icon inside a badge, a counter or a group heading
@@ -21,6 +22,10 @@
     An icon that belongs to a control template (RefBadge, EmptyState) is that control's business
     and keeps its own size.
   -->
+  <Style Selector="ei|Icon.title">
+    <Setter Property="Size" Value="24" />
+  </Style>
+
   <Style Selector="ei|Icon.header">
     <Setter Property="Size" Value="20" />
   </Style>
