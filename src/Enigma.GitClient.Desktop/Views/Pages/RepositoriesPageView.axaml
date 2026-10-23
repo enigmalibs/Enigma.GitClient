@@ -207,9 +207,8 @@
             </StackPanel>
           </Button>
 
-          <!-- The theme switch and About, at the end of the start window's one toolbar — where the
-               repository window's strip ends with them too — set apart from the actions on the
-               repositories. -->
+          <!-- The theme switch and About, at the end of the start window's one toolbar, set apart from
+               the actions on the repositories. -->
           <Border Width="1"
                   Margin="4,6"
                   Background="{DynamicResource EnigmaBorderSubtleBrush}" />

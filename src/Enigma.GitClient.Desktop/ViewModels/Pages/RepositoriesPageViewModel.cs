@@ -75,8 +75,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="opener">Opens a repository by path, the same way the command line does.</param>
     /// <param name="windows">Swaps this window for the repository window once a repository is open.</param>
     /// <param name="launcher">Starts another instance on a repository, for working on two at once.</param>
-    /// <param name="about">Shows the About dialog from the header, as the repository window's toolbar does.</param>
-    /// <param name="theme">The theme switch beside it, the repository window's own.</param>
+    /// <param name="about">Shows the About dialog from the header.</param>
+    /// <param name="theme">The theme switch beside it.</param>
     /// <param name="interop">Opens a listed repository's folder in the file manager, and a terminal in it.</param>
     /// <param name="services">Resolves the dialog views.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
@@ -275,8 +275,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     public AsyncRelayCommand OpenAboutCommand { get; }
 
     /// <summary>
-    /// Gets the command that switches between the dark and light themes and records the choice, as the
-    /// repository window's toolbar does.
+    /// Gets the command that switches between the dark and light themes and records the choice.
     /// </summary>
     public RelayCommand ToggleThemeCommand { get; }
 

@@ -13,8 +13,8 @@ using Enigma.GitClient.Desktop.ViewModels.Pages;
 namespace Enigma.GitClient.Desktop.ViewModels;
 
 /// <summary>
-/// The repository window: the navigation rail, the repository strip in the title bar, and the way
-/// back to the start window.
+/// The repository window: the navigation rail, the repository strip, and the repository's commands —
+/// the way back to the start window among them — which the History page's command bar shows.
 /// </summary>
 public sealed class MainWindowViewModel : ViewModelBase
 {
@@ -24,8 +24,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
     private readonly IAutoRefreshService _autoRefresh;
-    private readonly IThemeSwitcher _theme;
-    private readonly IAboutDialogService _about;
     private readonly ISystemInterop _interop;
     private bool _initialised;
 
@@ -37,17 +35,15 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="windows">Takes the reader back to the start window when the repository is closed.</param>
     /// <param name="infoBar">Says so when the folder or a terminal could not be opened.</param>
     /// <param name="history">
-    /// The graph page, which the toolbar's fetch, pull and push bring up to date.
+    /// The graph page, which the command bar's fetch, pull and push bring up to date.
     /// </param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
-    /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
+    /// <param name="sync">Backs the command bar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
     /// <param name="autoRefresh">
-    /// Fetches and refreshes the repository on its own, and when the toolbar's refresh button asks;
+    /// Fetches and refreshes the repository on its own, and when the command bar's refresh asks;
     /// the graph is told what each refresh found.
     /// </param>
-    /// <param name="theme">The toolbar's theme switch, shared with the start window.</param>
-    /// <param name="about">Shows the About dialog from the toolbar.</param>
     /// <param name="interop">Opens the repository's folder in the file manager, and a terminal in it.</param>
     /// <param name="signInNotice">
     /// Says when git signed in on its own because an integration's stored token could not be read.
@@ -62,8 +58,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         ISyncOperations sync,
         IMergeOperations merges,
         IAutoRefreshService autoRefresh,
-        IThemeSwitcher theme,
-        IAboutDialogService about,
         ISystemInterop interop,
         GitSignInNoticeViewModel signInNotice)
     {
@@ -76,8 +70,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(autoRefresh);
-        ArgumentNullException.ThrowIfNull(theme);
-        ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(signInNotice);
 
@@ -102,12 +94,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _sync = sync;
         _merges = merges;
         _autoRefresh = autoRefresh;
-        _theme = theme;
-        _about = about;
         _interop = interop;
-
-        ToggleThemeCommand = new RelayCommand(_theme.Toggle);
-        OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
 
         FetchCommand = new AsyncRelayCommand(RunSyncAsync(_sync.FetchAsync), () => CanSync);
         PullCommand = new AsyncRelayCommand(RunSyncAsync(_sync.PullAsync), () => CanSync);
@@ -194,6 +181,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsHeadDetached => RepositoryContext.Head?.IsDetached ?? false;
 
     /// <summary>
+    /// Gets a value indicating whether HEAD is on a branch — unborn included — which the strip draws
+    /// with the badge the history gives the checked-out branch.
+    /// </summary>
+    public bool IsOnBranch => RepositoryContext.IsRepositoryOpen && RepositoryContext.Head is { IsDetached: false };
+
+    /// <summary>
     /// Gets a value indicating whether a multi-step operation is in progress.
     /// </summary>
     public bool HasOperationInProgress => RepositoryContext.Head?.HasOperationInProgress ?? false;
@@ -214,19 +207,6 @@ public sealed class MainWindowViewModel : ViewModelBase
             RepositoryOperation.ApplyMailbox => "An 'am' session is in progress.",
             _ => string.Empty,
         };
-
-    /// <summary>
-    /// Gets the command that switches between the Dark and Light theme variants, and records the one
-    /// it switched to as the theme preference — so the next start opens on it, and the settings page
-    /// says so.
-    /// </summary>
-    public RelayCommand ToggleThemeCommand { get; }
-
-    /// <summary>
-    /// Gets the command that opens the About dialog: what the application is, which build is running
-    /// and what it is built with.
-    /// </summary>
-    public AsyncRelayCommand OpenAboutCommand { get; }
 
     /// <summary>
     /// Gets the command that refreshes everything: the application's one refresh button.
@@ -328,6 +308,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(RepositoryName));
                 OnPropertyChanged(nameof(RepositoryPath));
                 OnPropertyChanged(nameof(CanSync));
+                OnPropertyChanged(nameof(IsOnBranch));
                 RefreshCommand.NotifyCanExecuteChanged();
                 OpenFolderCommand.NotifyCanExecuteChanged();
                 OpenTerminalCommand.NotifyCanExecuteChanged();
@@ -354,6 +335,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             case nameof(IRepositoryContext.Head):
                 OnPropertyChanged(nameof(HeadDisplayName));
                 OnPropertyChanged(nameof(IsHeadDetached));
+                OnPropertyChanged(nameof(IsOnBranch));
                 OnPropertyChanged(nameof(HasOperationInProgress));
                 OnPropertyChanged(nameof(OperationDescription));
                 OnPropertyChanged(nameof(IsMergeInProgress));
@@ -369,7 +351,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Wraps a synchronise operation so the toolbar shows the result of it without each command
+    /// Wraps a synchronise operation so the command bar shows the result of it without each command
     /// repeating the same four lines.
     /// </summary>
     /// <remarks>

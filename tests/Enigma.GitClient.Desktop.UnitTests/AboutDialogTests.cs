@@ -18,7 +18,6 @@ using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Diagnostics;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
-using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views;
@@ -84,21 +83,6 @@ public sealed class AboutDialogTests
 
             AboutView view = Assert.IsType<AboutView>(dialog.Content);
             Assert.IsType<AboutViewModel>(view.DataContext);
-        });
-    }
-
-    [Fact]
-    public void TheRepositoryToolbar_OpensIt()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build();
-            MainWindowViewModel window = services.Get<MainWindowViewModel>();
-
-            Assert.True(window.OpenAboutCommand.CanExecute(null));
-            await window.OpenAboutCommand.ExecuteAsync(null);
-
-            Assert.IsType<AboutView>(Assert.Single(services.Dialogs.Shown).Content);
         });
     }
 

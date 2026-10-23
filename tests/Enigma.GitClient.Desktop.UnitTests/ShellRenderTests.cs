@@ -137,6 +137,8 @@ public sealed class ShellRenderTests
     /// </summary>
     private static readonly (string Role, double Size)[] Scale =
     [
+        ("title", 24),
+        ("command", 24),
         ("header", 20),
         ("toolbar", 18),
         ("row", 16),
@@ -189,6 +191,8 @@ public sealed class ShellRenderTests
                 return icon.Size;
             }
 
+            Assert.True(Size("title") > Size("header"));
+            Assert.True(Size("command") > Size("toolbar"));
             Assert.True(Size("header") > Size("toolbar"));
             Assert.True(Size("toolbar") > Size("row"));
             Assert.True(Size("row") > Size("pill"));
@@ -232,7 +236,6 @@ public sealed class ShellRenderTests
     }
 
     [Theory]
-    [InlineData(typeof(HistoryPageView))]
     [InlineData(typeof(BranchesPageView))]
     [InlineData(typeof(TagsPageView))]
     [InlineData(typeof(RemotesPageView))]
@@ -247,7 +250,8 @@ public sealed class ShellRenderTests
 
             Layout(window);
 
-            // The repository strip's refresh is the only one: it refreshes everything every page shows.
+            // The window's refresh is the only one: it refreshes everything every page shows. The
+            // History page's command bar shows it (below), and no other page has one.
             Assert.DoesNotContain(
                 page.GetVisualDescendants().OfType<Icon>(),
                 icon => icon.Kind == Enigma.Icons.Phosphor.PhosphorIcon.ArrowsClockwise);
@@ -255,22 +259,30 @@ public sealed class ShellRenderTests
     }
 
     [Fact]
-    public void TheRepositoryStrip_HasTheOneRefreshButton()
+    public void TheWindow_HasTheOneRefreshButton_OnTheHistorysCommandBar()
     {
-        _fixture.Run(() =>
+        _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
 
+            ViewModels.MainWindowViewModel viewModel = services.Get<ViewModels.MainWindowViewModel>();
             Views.MainWindow window = services.Get<Views.MainWindow>();
-            window.DataContext = services.Get<ViewModels.MainWindowViewModel>();
+            window.DataContext = viewModel;
+            await viewModel.InitialiseAsync();
 
+            window.Show();
             Layout(window);
 
             Button refresh = Assert.Single(
                 window.GetVisualDescendants().OfType<Button>(),
-                button => button.Content is Icon { Kind: Enigma.Icons.Phosphor.PhosphorIcon.ArrowsClockwise });
+                button => button.GetVisualDescendants().OfType<Icon>()
+                    .Any(icon => icon.Kind == Enigma.Icons.Phosphor.PhosphorIcon.ArrowsClockwise));
 
             Assert.Equal("Refresh everything", AutomationProperties.GetName(refresh));
+            Assert.Same(viewModel.RefreshCommand, refresh.Command);
+            Assert.NotNull(refresh.FindAncestorOfType<HistoryPageView>());
+
+            window.Close();
         });
     }
 
