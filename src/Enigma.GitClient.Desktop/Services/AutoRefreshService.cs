@@ -292,7 +292,7 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
         CancellationTokenSource loop = new();
         _loop = loop;
 
-        _ = RunAsync(_interval, loop);
+        RunAsync(_interval, loop).Forget();
     }
 
     private void Stop()

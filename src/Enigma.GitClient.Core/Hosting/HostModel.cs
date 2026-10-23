@@ -207,6 +207,25 @@ public sealed record HostAccount
         => ProfileId is not null && string.Equals(ProfileId, profileId, StringComparison.Ordinal);
 
     /// <summary>
+    /// Answers whether another account is this one connected again: the same login on the same
+    /// instance, for the same profile — whatever its identifier and the name it is shown by.
+    /// </summary>
+    /// <param name="other">The other account.</param>
+    /// <returns>
+    /// <see langword="true"/> when the kind, the instance (scheme, host, port and path, ignoring case and
+    /// a trailing <c>/</c>), the login (ignoring case, as the hosts do) and the profile are the same.
+    /// </returns>
+    public bool IsSameIdentityAs(HostAccount other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        return Kind == other.Kind
+            && string.Equals(InstanceOf(BaseUri), InstanceOf(other.BaseUri), StringComparison.OrdinalIgnoreCase)
+            && string.Equals(UserName, other.UserName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(ProfileId, other.ProfileId, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Returns this account given to another profile, everything else — its token included — kept.
     /// </summary>
     /// <param name="profileId">The profile, or <see langword="null"/> for none.</param>
@@ -237,6 +256,9 @@ public sealed record HostAccount
 
     /// <inheritdoc />
     public override string ToString() => $"{Kind} {DisplayName} ({Host})";
+
+    private static string InstanceOf(Uri uri)
+        => uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.Path, UriFormat.UriEscaped).TrimEnd('/');
 }
 
 /// <summary>

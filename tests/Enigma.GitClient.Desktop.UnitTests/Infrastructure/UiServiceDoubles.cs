@@ -320,7 +320,21 @@ public sealed class RecordingAppWindows : IAppWindows
     public AppWindowKind Current { get; private set; }
 
     /// <inheritdoc />
-    public Window? CurrentWindow => null;
+    public Window? CurrentWindow { get; private set; }
+
+    /// <inheritdoc />
+    public event EventHandler? CurrentWindowChanged;
+
+    /// <summary>
+    /// Puts a window on screen as the real coordinator would, its hosts registered, for a test that needs
+    /// one — the safety net's, which shows its dialog on the current window's host.
+    /// </summary>
+    /// <param name="window">The window, or <see langword="null"/> for none.</param>
+    public void SetCurrentWindow(Window? window)
+    {
+        CurrentWindow = window;
+        CurrentWindowChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <inheritdoc />
     public Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
@@ -423,4 +437,70 @@ public sealed class RecordingFolderDialogService : IFolderDialogService, IDispos
 
         return _window.StorageProvider;
     }
+}
+
+/// <summary>
+/// An <see cref="IUnhandledErrorReporter"/> that records what reached the safety net instead of logging
+/// and showing it — attached to <see cref="UnhandledExceptionHooks"/> by a test that checks what goes
+/// there, and detached again.
+/// </summary>
+public sealed class RecordingUnhandledErrorReporter : IUnhandledErrorReporter
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(Exception Exception, UnhandledErrorSource Source)> _reports = new();
+
+    /// <summary>Gets every report, oldest first.</summary>
+    public IReadOnlyList<(Exception Exception, UnhandledErrorSource Source)> Reports => [.. _reports];
+
+    /// <summary>Gets a value indicating whether shutdown was announced.</summary>
+    public bool IsShuttingDown { get; private set; }
+
+    /// <inheritdoc />
+    public void Report(Exception exception, UnhandledErrorSource source) => _reports.Enqueue((exception, source));
+
+    /// <inheritdoc />
+    public void ShutdownStarted() => IsShuttingDown = true;
+}
+
+/// <summary>
+/// An <see cref="ITokenRecovery"/> that records the resets asked for instead of asking and deleting —
+/// for a test about where the reset is offered, not about the reset itself.
+/// </summary>
+public sealed class RecordingTokenRecovery : ITokenRecovery
+{
+    /// <summary>Gets how many times the reset was offered.</summary>
+    public int Offered { get; private set; }
+
+    /// <summary>Gets or sets what the offer answers.</summary>
+    public bool Confirms { get; set; } = true;
+
+    /// <summary>Gets or sets the status <see cref="CheckAsync"/> answers with.</summary>
+    public Enigma.GitClient.Core.Security.TokenStoreStatus Status { get; set; } = Enigma.GitClient.Core.Security.TokenStoreStatus.Empty;
+
+    /// <inheritdoc />
+    public event EventHandler? TokensReset;
+
+    /// <inheritdoc />
+    public string Describe(Enigma.GitClient.Core.Security.TokenProtectionException exception)
+        => "Reset the stored tokens.";
+
+    /// <inheritdoc />
+    public string Describe(Enigma.GitClient.Core.Security.TokenProtectionReason reason)
+        => "Reset the stored tokens.";
+
+    /// <inheritdoc />
+    public Task<bool> ConfirmAndResetAsync()
+    {
+        Offered++;
+
+        if (Confirms)
+        {
+            TokensReset?.Invoke(this, EventArgs.Empty);
+        }
+
+        return Task.FromResult(Confirms);
+    }
+
+    /// <inheritdoc />
+    public Task<Enigma.GitClient.Core.Security.TokenStoreStatus> CheckAsync(System.Threading.CancellationToken cancellationToken = default)
+        => Task.FromResult(Status);
 }

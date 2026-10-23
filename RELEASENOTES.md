@@ -1,5 +1,101 @@
 # Release notes
 
+## 6.8.0 — 2026-10-23
+
+A minor release:
+
+- an error nothing expected **no longer closes the application**: a dialog says what went wrong and
+  that the application is still running, and you carry on;
+- stored tokens that **can no longer be read** (a Windows password reset does this) can be reset from
+  the application: connecting offers it, and the Profiles page says which tokens cannot be read, with
+  *Reset stored tokens* and *Replace token*;
+- when git falls back to **its own sign-in** because a token cannot be read, the repository window
+  says so;
+- connecting an account that is already listed **replaces its token** instead of adding a second line.
+
+### Errors no longer close the application
+
+- **The application keeps running.** An error nothing in the application expected, in a command,
+  while a window opens or in work running in the background, used to end the process without a word.
+  It is now logged in full (on Windows, in the Event Viewer's *Application* log too) and shown in a
+  *Something went wrong* dialog that says the application is still running: carry on, or close it and
+  start it again.
+- **What the dialog shows:** the error's message and a folded *Details* section with the full text,
+  selectable, and *Copy details* to put it on the clipboard for a report. A token in a URL or an
+  `Authorization` header is replaced with `***` in the details.
+- **One dialog at a time.** Errors that arrive together share one dialog ("2 more errors occurred"),
+  and the same error is not shown again within a minute; it is still logged. The dialog never opens
+  over a question you are answering: it waits until that question is closed.
+- **A cancellation is not an error.** Cancelling an operation, or closing the application while one
+  runs, shows nothing.
+- **At startup,** a repository given on the command line that fails to open in an unexpected way now
+  brings up the start window with the error, where the splash used to close and the application end.
+- A few failures .NET lets no application survive still end it. They are logged in full.
+
+### Tokens that can no longer be read
+
+The tokens are encrypted with a key Windows keeps for your account. After a Windows password reset,
+Windows can no longer open that key, and the tokens cannot be recovered. In 6.7, connecting an account
+then closed the application. Now:
+
+- **Connecting offers the reset.** *Reset stored tokens* asks first, in red: every stored token is
+  deleted, for every integration of every profile, and each connected account then needs its token
+  again. Nothing on the host is touched and the integrations stay listed. Confirmed, the token you just
+  typed is stored; cancelled, nothing is stored and the error says why.
+- **The Profiles page says so before you try.** While the stored tokens cannot be read, a warning band
+  under the page's header says why and offers *Reset stored tokens*. An integration whose token is
+  missing or cannot be read says so on its line, in the warning colour, with a **Replace token**
+  button.
+- **Replace token** opens the connect dialog filled in with the account's host, instance and name.
+  Once the host accepts the new token, the same integration keeps it.
+- **One damaged token** is not a reason to delete the others: its line offers *Replace token* and
+  *Disconnect*, and no reset is offered.
+- **Browse repositories** no longer fails on a token that cannot be read. When no stored token can be
+  read, it closes and offers the reset; when only its own cannot, it says so and points at the
+  integration's line.
+- **The error dialog** offers *Reset stored tokens* when the error it shows is this one.
+- **Never without asking.** A key file deleted by hand while tokens remain is now reported as
+  unreadable. It is no longer replaced by a new key, which made every remaining token unreadable for
+  good.
+
+### Git's own sign-in
+
+- **The repository window says why.** When a fetch, pull or push cannot read an integration's token,
+  git still runs with its own sign-in (Git Credential Manager's prompt on Windows), as before. A
+  warning band across the top of the window now says *The stored token for <host> could not be read,
+  so git is using its own sign-in*, with *Reset stored tokens* when no stored token can be read,
+  *Open Profiles* and a dismiss button.
+- **Once, not on every fetch.** The band is shown once per integration per session, and once dismissed
+  it stays away. It goes by itself when the tokens are reset, or when that integration's token is
+  written again.
+- **The other integrations keep their logins.** One unreadable token used to drop the logins of every
+  integration for the repository; now only its own host is left to git.
+
+### Connecting an account again
+
+- Connecting an account that is already listed (same host, instance, login and profile) gives that
+  integration the new token, "Token replaced for GitHub", and keeps its line. It used to add a second
+  line, leaving the old one beside it with a token that no longer worked. Another profile or another
+  login is still a new integration.
+
+### Upgrading from 6.7
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.7 keeps everything, except tokens you reset, which are gone in either
+  version.
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.8.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  error dialog, the reset of the stored tokens, the Profiles page's band and *Replace token*, the
+  sign-in notice), keeps every stored format, and removes nothing.
+
 ## 6.7.0 — 2026-10-22
 
 A minor release:

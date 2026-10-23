@@ -49,6 +49,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="theme">The toolbar's theme switch, shared with the start window.</param>
     /// <param name="about">Shows the About dialog from the toolbar.</param>
     /// <param name="interop">Opens the repository's folder in the file manager, and a terminal in it.</param>
+    /// <param name="signInNotice">
+    /// Says when git signed in on its own because an integration's stored token could not be read.
+    /// </param>
     public MainWindowViewModel(
         IShellNavigation shell,
         IRepositoryContext repositoryContext,
@@ -61,7 +64,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IAutoRefreshService autoRefresh,
         IThemeSwitcher theme,
         IAboutDialogService about,
-        ISystemInterop interop)
+        ISystemInterop interop,
+        GitSignInNoticeViewModel signInNotice)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
@@ -75,6 +79,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(interop);
+        ArgumentNullException.ThrowIfNull(signInNotice);
 
         // What follows the repository's state (branches, tags, the working tree, this strip) follows
         // the refresh on its own; the graph is told, because redrawing it is what costs the reader
@@ -82,12 +87,13 @@ public sealed class MainWindowViewModel : ViewModelBase
         // refresh, which is asking for exactly that. The references were read again, which set the
         // working-tree panel reading too. A file changed on disk moved no reference: only the working
         // tree is read again, and the uncommitted line follows it.
-        autoRefresh.Refreshed += (_, result) => _ = result.Changes == RepositoryChanges.WorkingTree
+        autoRefresh.Refreshed += (_, result) => (result.Changes == RepositoryChanges.WorkingTree
             ? history.RefreshWorkingTreeAsync()
-            : history.RefreshInPlaceAsync(result.Changed || result.Requested, workingTreeRead: true);
+            : history.RefreshInPlaceAsync(result.Changed || result.Requested, workingTreeRead: true)).Forget();
 
         Shell = shell;
         Conflicts = conflicts;
+        SignInNotice = signInNotice;
         RepositoryContext = repositoryContext;
         _windows = windows;
         _infoBar = infoBar;
@@ -121,6 +127,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Gets the shell navigation the rail and the content area bind to.
     /// </summary>
     public IShellNavigation Shell { get; }
+
+    /// <summary>
+    /// Gets the notice that git signed in on its own because an integration's stored token could not be
+    /// read, which the band under the operation banner shows.
+    /// </summary>
+    public GitSignInNoticeViewModel SignInNotice { get; }
 
     /// <summary>
     /// Gets the conflicts page, which the banner reads its progress and its commit button from.

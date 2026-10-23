@@ -70,6 +70,12 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IThemeSwitcher, ThemeSwitcher>();
             services.AddSingleton<ICommitDetailsDialogService, CommitDetailsDialogService>();
 
+            // The safety net every exception nothing else caught ends up in (BUG-9DE3).
+            services.AddSingleton<IUnhandledErrorReporter, UnhandledErrorReporter>();
+
+            // The way out of stored tokens this account can no longer read (BUG-3024).
+            services.AddSingleton<ITokenRecovery, TokenRecovery>();
+
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);
             services.AddSingleton<IAutoRefreshService, AutoRefreshService>();
@@ -98,6 +104,10 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<StartWindowViewModel>();
             services.AddTransient<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
+
+            // Built with the repository window's ViewModel, and kept for the session: what it has said
+            // stays said from one repository window to the next.
+            services.AddSingleton<GitSignInNoticeViewModel>();
 
             services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();

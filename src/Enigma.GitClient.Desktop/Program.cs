@@ -1,5 +1,6 @@
 using System;
 using Avalonia;
+using Enigma.GitClient.Desktop.Services;
 
 namespace Enigma.GitClient.Desktop;
 
@@ -12,9 +13,17 @@ internal static class Program
     /// Starts the Avalonia classic desktop lifetime.
     /// </summary>
     /// <param name="args">Command line arguments.</param>
+    /// <remarks>
+    /// The process-wide unhandled-exception hooks come first, so a failure anywhere in the start is
+    /// caught too (BUG-9DE3).
+    /// </remarks>
     [STAThread]
     public static void Main(string[] args)
-        => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    {
+        UnhandledExceptionHooks.Install();
+
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
     /// <summary>
     /// Builds the Avalonia application. Also used by the XAML previewer and by headless tests.
