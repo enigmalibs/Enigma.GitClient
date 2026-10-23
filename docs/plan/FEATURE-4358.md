@@ -1,6 +1,6 @@
 # FEATURE-4358 — Release 6.9.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-4358.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-4358-release-6-9-0`
 **Run:** feature/2026-10-23-release-6-9-0
