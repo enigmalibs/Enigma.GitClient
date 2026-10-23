@@ -6,6 +6,7 @@
         xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
         xmlns:infoBar="using:Enigma.Avalonia.Desktop.Controls.InfoBar"
         xmlns:nav="using:Enigma.Avalonia.Desktop.Controls.Navigation"
+        xmlns:gitcontrols="using:Enigma.GitClient.Desktop.Controls"
         x:Class="Enigma.GitClient.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding WindowTitle}"
@@ -33,12 +34,14 @@
               Padding="12,8">
         <Grid ColumnDefinitions="Auto,*,Auto">
 
-          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-            <ei:Icon Kind="Folder" Classes="header" VerticalAlignment="Center"
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+            <ei:Icon Name="RepositoryIcon" Kind="Folder" Classes="title" VerticalAlignment="Center"
                      Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-            <TextBlock Text="{Binding RepositoryName}"
+            <TextBlock Name="RepositoryTitle"
+                       Text="{Binding RepositoryName}"
                        ToolTip.Tip="{Binding RepositoryPath}"
                        VerticalAlignment="Center"
+                       FontSize="18"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
@@ -50,30 +53,28 @@
                     IsVisible="{Binding IsLinkedWorktree}"
                     ToolTip.Tip="{Binding LinkedWorktreeTip}"
                     AutomationProperties.Name="{Binding LinkedWorktreeTip}">
-              <ei:Icon Kind="Tree" Classes="header"
+              <ei:Icon Kind="Tree" Classes="title"
                        Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
             </Border>
 
-            <Border Classes="pill"
-                    Background="{DynamicResource EnigmaSelectionBrush}"
-                    IsVisible="{Binding RepositoryContext.IsRepositoryOpen}">
-              <StackPanel Orientation="Horizontal" Spacing="5">
-                <ei:Icon Kind="GitBranch" Classes="pill" VerticalAlignment="Center"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-                <TextBlock Text="{Binding HeadDisplayName}"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
-              </StackPanel>
-            </Border>
+            <!-- The checked-out branch, drawn by the badge the history draws it with: the same blue,
+                 the same white, the same size — one control, so the two cannot drift apart. -->
+            <gitcontrols:RefBadge Name="HeadBadge"
+                                  Kind="LocalBranch"
+                                  IsCurrent="True"
+                                  Text="{Binding HeadDisplayName}"
+                                  IsVisible="{Binding IsOnBranch}" />
 
-            <Border Classes="pill"
+            <!-- A detached HEAD is on no branch, so it gets no branch's badge: it says where it is, in
+                 the colour of something to sort out. -->
+            <Border Name="DetachedHeadPill"
+                    Classes="pill"
                     Background="{DynamicResource EnigmaWarningBackgroundBrush}"
                     BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
                     BorderThickness="1"
                     IsVisible="{Binding IsHeadDetached}">
-              <TextBlock Text="detached HEAD"
-                         FontSize="12"
+              <TextBlock Text="{Binding HeadDisplayName}"
+                         FontSize="13"
                          Foreground="{DynamicResource EnigmaForegroundBrush}" />
             </Border>
           </StackPanel>

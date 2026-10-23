@@ -1,6 +1,6 @@
 # FEATURE-D977 — Repository strip and command bar
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-23-strip-and-command-bar
@@ -49,7 +49,7 @@ The repository window's two top bars, reorganised:
 
 ## PHASE01 — Bigger strip and head badge
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-D977-PHASE01.md`
 **Branch:** `feature/feature-d977-phase01-repository-strip`
 
 ### Steps

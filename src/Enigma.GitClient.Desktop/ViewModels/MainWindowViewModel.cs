@@ -194,6 +194,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsHeadDetached => RepositoryContext.Head?.IsDetached ?? false;
 
     /// <summary>
+    /// Gets a value indicating whether HEAD is on a branch — unborn included — which the strip draws
+    /// with the badge the history gives the checked-out branch.
+    /// </summary>
+    public bool IsOnBranch => RepositoryContext.IsRepositoryOpen && RepositoryContext.Head is { IsDetached: false };
+
+    /// <summary>
     /// Gets a value indicating whether a multi-step operation is in progress.
     /// </summary>
     public bool HasOperationInProgress => RepositoryContext.Head?.HasOperationInProgress ?? false;
@@ -328,6 +334,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(RepositoryName));
                 OnPropertyChanged(nameof(RepositoryPath));
                 OnPropertyChanged(nameof(CanSync));
+                OnPropertyChanged(nameof(IsOnBranch));
                 RefreshCommand.NotifyCanExecuteChanged();
                 OpenFolderCommand.NotifyCanExecuteChanged();
                 OpenTerminalCommand.NotifyCanExecuteChanged();
@@ -354,6 +361,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             case nameof(IRepositoryContext.Head):
                 OnPropertyChanged(nameof(HeadDisplayName));
                 OnPropertyChanged(nameof(IsHeadDetached));
+                OnPropertyChanged(nameof(IsOnBranch));
                 OnPropertyChanged(nameof(HasOperationInProgress));
                 OnPropertyChanged(nameof(OperationDescription));
                 OnPropertyChanged(nameof(IsMergeInProgress));
