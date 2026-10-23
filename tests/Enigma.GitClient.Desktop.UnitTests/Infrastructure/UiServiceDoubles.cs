@@ -460,3 +460,43 @@ public sealed class RecordingUnhandledErrorReporter : IUnhandledErrorReporter
     /// <inheritdoc />
     public void ShutdownStarted() => IsShuttingDown = true;
 }
+
+/// <summary>
+/// An <see cref="ITokenRecovery"/> that records the resets asked for instead of asking and deleting —
+/// for a test about where the reset is offered, not about the reset itself.
+/// </summary>
+public sealed class RecordingTokenRecovery : ITokenRecovery
+{
+    /// <summary>Gets how many times the reset was offered.</summary>
+    public int Offered { get; private set; }
+
+    /// <summary>Gets or sets what the offer answers.</summary>
+    public bool Confirms { get; set; } = true;
+
+    /// <summary>Gets or sets the status <see cref="CheckAsync"/> answers with.</summary>
+    public Enigma.GitClient.Core.Security.TokenStoreStatus Status { get; set; } = Enigma.GitClient.Core.Security.TokenStoreStatus.Empty;
+
+    /// <inheritdoc />
+    public event EventHandler? TokensReset;
+
+    /// <inheritdoc />
+    public string Describe(Enigma.GitClient.Core.Security.TokenProtectionException exception)
+        => "Reset the stored tokens.";
+
+    /// <inheritdoc />
+    public Task<bool> ConfirmAndResetAsync()
+    {
+        Offered++;
+
+        if (Confirms)
+        {
+            TokensReset?.Invoke(this, EventArgs.Empty);
+        }
+
+        return Task.FromResult(Confirms);
+    }
+
+    /// <inheritdoc />
+    public Task<Enigma.GitClient.Core.Security.TokenStoreStatus> CheckAsync(System.Threading.CancellationToken cancellationToken = default)
+        => Task.FromResult(Status);
+}

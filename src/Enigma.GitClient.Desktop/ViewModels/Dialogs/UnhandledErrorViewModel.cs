@@ -24,13 +24,15 @@ public sealed class UnhandledErrorViewModel : ViewModelBase
     /// </summary>
     /// <param name="batch">The errors to show.</param>
     /// <param name="interop">Puts the details on the clipboard.</param>
-    public UnhandledErrorViewModel(UnhandledErrorBatch batch, ISystemInterop interop)
+    /// <param name="remedy">What fixes it, when the application knows, or <see langword="null"/>.</param>
+    public UnhandledErrorViewModel(UnhandledErrorBatch batch, ISystemInterop interop, string? remedy = null)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(interop);
 
         _batch = batch;
         _interop = interop;
+        Remedy = remedy ?? string.Empty;
 
         CopyDetailsCommand = new AsyncRelayCommand(OnCopyDetailsAsync);
 
@@ -44,6 +46,12 @@ public sealed class UnhandledErrorViewModel : ViewModelBase
 
     /// <summary>Gets what went wrong.</summary>
     public string Message => _batch.Message;
+
+    /// <summary>Gets what fixes it, when the application knows — the reset of unreadable stored tokens.</summary>
+    public string Remedy { get; }
+
+    /// <summary>Gets a value indicating whether there is a fix to offer.</summary>
+    public bool HasRemedy => Remedy.Length > 0;
 
     /// <summary>Gets a value indicating whether more errors came after the first.</summary>
     public bool HasMore => _batch.More > 0;

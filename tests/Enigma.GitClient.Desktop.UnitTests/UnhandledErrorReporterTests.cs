@@ -38,8 +38,10 @@ public sealed class UnhandledErrorReporterTests
 
         public RecordingLogger<UnhandledErrorReporter> Logger { get; } = new();
 
+        public RecordingTokenRecovery Recovery { get; } = new();
+
         public UnhandledErrorReporter Build(IContentDialogService? dialogs = null)
-            => new(Windows, dialogs ?? Dialogs, Interop, Clock, Logger);
+            => new(Windows, dialogs ?? Dialogs, Interop, Recovery, Clock, Logger);
     }
 
     private static Exception Thrown(string message)

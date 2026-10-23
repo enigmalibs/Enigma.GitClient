@@ -150,7 +150,8 @@ access to the code if you push with it:
 | Azure DevOps | **Code: Read** | **Code: Read & write** | `https://dev.azure.com/your-organisation`, `https://your-organisation.visualstudio.com`, or a Server collection such as `https://tfs.example.com/tfs/DefaultCollection` |
 
 When the host refuses the token — it expired, or cannot push — the error says so and names the scope
-a push needs; disconnect the account on the Profiles page and connect it again with a new token.
+a push needs; connect the account again on the Profiles page with a new token, and the integration
+already listed takes it.
 
 **A profile pushes only where one of its integrations leads.** When a repository's commits are made
 as a profile — its name and email, as git resolves them there — a push goes ahead only if that
