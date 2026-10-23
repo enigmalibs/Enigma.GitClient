@@ -1,6 +1,6 @@
 # FEATURE-715E — Escape clears the History search
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-715E.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-715e-search-escape`
 **Run:** feature/2026-10-23-search-escape-profile-cards
