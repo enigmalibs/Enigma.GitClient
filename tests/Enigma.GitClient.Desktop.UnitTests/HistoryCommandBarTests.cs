@@ -282,6 +282,50 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
+    public void WidenedAgain_TheCommandsTakeBackTheirNames_AtTheCentre()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services, width: 1280);
+
+            try
+            {
+                Border bar = Named<Border>(page, "CommandBar");
+                StackPanel commands = Named<StackPanel>(page, "Commands");
+                Controls.CommandBarPanel panel = bar.GetVisualDescendants().OfType<Controls.CommandBarPanel>().Single();
+                Assert.True(panel.IsCompact);
+
+                // A headless window is arranged at its new width once the platform's resize has been
+                // through the dispatcher.
+                window.Width = 1920;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Assert.False(panel.IsCompact);
+                Assert.Equal(bar.Bounds.Width / 2, BoundsIn(commands, bar).Center.X, 0.5);
+
+                foreach (Button button in commands.Children.OfType<Button>())
+                {
+                    TextBlock label = LabelOf(button);
+
+                    // Shown, laid out at its own width, under its icon.
+                    Assert.True(label.IsEffectivelyVisible, $"{label.Text}'s name is not shown");
+                    Assert.True(label.Bounds.Width > 0, $"{label.Text}'s name has no width");
+                    Assert.True(BoundsIn(label, button).Top >= BoundsIn(IconOf(button), button).Bottom);
+                    Assert.True(button.Bounds.Width >= 56, $"{label.Text} is narrower than a named command");
+                }
+
+                await LetTheHistoryFinishAsync(services);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void TheRepositoryStrip_HasNoButtonLeft()
     {
         _fixture.RunAsync(async () =>

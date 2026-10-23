@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Xunit;
@@ -186,7 +187,10 @@ public sealed class CommandBarPanelTests
                 window.UpdateLayout();
                 Assert.True(panel.IsCompact);
 
+                // A headless window measures at its new width at once, but is arranged at it only once
+                // the platform's resize has been through the dispatcher.
                 window.Width = 900;
+                Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
                 Assert.False(panel.IsCompact);

@@ -107,19 +107,8 @@ public sealed class CommandBarPanel : Panel
             IsCompact = compact;
             PseudoClasses.Set(":compact", compact);
 
-            // The styles have just shown or hidden things deep in the centre, inside controls whose
-            // measure is still marked valid — and a control shown again before it was ever measured
-            // hidden asks nobody to measure it. The centre is measured afresh, all the way down.
-            if (centre is not null)
-            {
-                foreach (Visual descendant in centre.GetVisualDescendants())
-                {
-                    (descendant as Layoutable)?.InvalidateMeasure();
-                }
-
-                centre.InvalidateMeasure();
-                centre.Measure(unbounded);
-            }
+            // The styles have redrawn the centre at the other size: it is measured again at it.
+            centre?.Measure(unbounded);
         }
 
         double centreWidth = centre?.DesiredSize.Width ?? 0;

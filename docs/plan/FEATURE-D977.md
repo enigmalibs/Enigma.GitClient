@@ -1,6 +1,6 @@
 # FEATURE-D977 — Repository strip and command bar
 
-**Status:** IN PROGRESS
+**Status:** DONE — see `docs/done/FEATURE-D977-PHASE01.md` … `docs/done/FEATURE-D977-PHASE03.md`
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-23-strip-and-command-bar
@@ -106,45 +106,15 @@ The repository window's two top bars, reorganised:
 
 ## PHASE03 — The History bar takes the commands
 
-**Status:** IN PROGRESS — quarantined by feature/2026-10-23-strip-and-command-bar: the compact command bar does not widen back within one layout pass (1 test red after 3 cycles)
+**Status:** DONE — see `docs/done/FEATURE-D977-PHASE03.md`
 **Branch:** `feature/feature-d977-phase03-history-command-bar`
 
-### Quarantine
+### Quarantine (resolved by `/build`)
 
-- **Failing (1 of 3452):** `CommandBarPanelTests.ABarTooNarrowForTheFullCentre_IsCompact_UntilItIsWideEnoughAgain`.
-  - The bar is first laid out at 760 (compact: the label is hidden and the centre is 200), then
-    widened to 900.
-  - `IsCompact` turns false and the label is visible again, but after one `UpdateLayout` the centre is
-    still arranged at its compact width (`Expected: 300`, `Actual: 200`).
-  - Build: 0 warnings. Every other test is green (3448 passed, 3 skipped).
-- **What the branch holds, complete and green apart from the above:**
-  - the command bar at the top of the History page, full width;
-  - the twelve labelled commands centred, with search, the theme and About on the right;
-  - the strip with no buttons;
-  - the `command` icon role, the `Button.toolbar.command`, `TextBlock.commandlabel` and
-    `Border.commandcount` styles;
-  - `HistoryCommandBarTests` (8 cases) and the pinned tests updated.
-- **How it got here:**
-  - **First run:** 5 red. My centre test was 1 px out, and as it failed it left a `MainWindow` open,
-    which broke three click tests run after it. `DiffView_CoversTheGraph…` asserted the old design
-    (the diff over the whole page).
-  - **Cycle 1:** a 1 px tolerance, windows closed in `finally`, the diff test moved to the new design.
-    Green, 3450.
-  - The rendered 1280 px frame then showed About pushed off the bar and the search box squeezed:
-    1280 px is too narrow for the labelled commands beside the search block's minimum. This was
-    out of scope in this plan; the evidence made it necessary.
-  - **Cycle 2:** a compact mode. `CommandBarPanel` sets `:compact` when the full centre, the start and
-    the end's minimum do not fit; styles hide the labels and drop the 56 px minimum; the centre is
-    measured again. The new panel test went red (the item above). `RepositoriesPageTests.OpeningA…`
-    failed once, passed alone and passed in the next full run: a flake.
-  - **Cycle 3:** after the toggle, every descendant of the centre is invalidated before it is measured
-    again. Still red, the same value.
-- **Leads for `/build FEATURE-D977`:**
-  - Check whether a second layout pass converges: the test does one `UpdateLayout`.
-  - Apply the pseudo-class outside the measure pass: decide in `MeasureOverride`, set it through
-    `Dispatcher.UIThread.Post`, then `InvalidateMeasure`.
-  - Or drive the labels' visibility from a bound `IsCompact` direct property rather than a style.
-  - Then look at the 1280 px snapshot again.
+The `/vibe` run quarantined this phase after 3 cycles. One test was red: the compact bar widened back
+"a layout pass late". `/build` found the panel was right. A headless window measures at its new width
+at once, but is arranged at it only once the platform's resize has been through the dispatcher, and
+the test asserted before that. The details are in `docs/done/FEATURE-D977-PHASE03.md`.
 
 ### Steps
 
@@ -168,7 +138,12 @@ The repository window's two top bars, reorganised:
 3. `MainWindow.axaml`: the strip keeps only its left part; the buttons and their separators go.
 4. Comments and XML docs that place these commands on "the repository strip" / "the toolbar" follow them
    (`MainWindowViewModel`, `ShellRenderTests`).
-5. Tests:
+5. **Compact mode** (scope amended at build time, the user's decision): a bar too narrow for the
+   named commands beside the start and the search block's minimum is `CommandBarPanel.IsCompact`
+   (`:compact`). The commands then keep their icons and tips, and give up their names and their minimum
+   width, so the search box and About stay on the bar. It switches back to the named commands as soon
+   as they fit again, within the same layout pass.
+6. Tests:
    - the bar's centre carries the twelve commands in order with their labels and the separators between
      the groups;
    - the window's commands are the window view model's, the history's the history's;
@@ -183,12 +158,14 @@ The repository window's two top bars, reorganised:
 - The History bar shows the commands in the asked order, with labels, centred, and search, theme and
   About on its right at today's size; the strip has no buttons.
 - The bar is never narrowed by the details panel nor covered by a diff.
+- On a window too narrow for the named commands (1280 px), the commands drop their names and nothing
+  leaves the bar. Widened again, they show their names at once.
 - Zero warnings; the whole suite is green.
 
 ## Out of scope
 
 - A window-level command bar on the Profiles, Settings and Conflicts pages (see the decisions).
-- Collapsing the labels on narrow windows; keyboard shortcuts for the commands; new commands.
+- Keyboard shortcuts for the commands; new commands.
 - Release notes: they are written by the release item.
 
 ## Decisions taken autonomously
