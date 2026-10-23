@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -718,6 +720,89 @@ public sealed class ProfileIntegrationsTests
             finally
             {
                 window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheViewDrawsAnAccountAndTheRowActionsAtTheCardsScale()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            FakeHostProvider provider = new();
+            using TestServices services = BuildServices(provider);
+            ProfilesPageViewModel page = await PageAsync(services, ("Work", Work));
+
+            await ConnectAsync(services, page, "Work", displayName: "Work GitHub");
+            await page.LoadIntegrationsAsync();
+
+            ProfilesPageView view = services.Get<ProfilesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 900 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+
+                Border card = view.GetVisualDescendants().OfType<Border>().Single(border => border.Classes.Contains("profilecard"));
+                HostAccountRowViewModel account = Profile(page, "Work").Integrations.Single();
+
+                // The host's logo — GitHub's cat — is drawn at the card's scale, still quiet.
+                Enigma.Icons.Avalonia.Icon logo = card.GetVisualDescendants()
+                    .OfType<Enigma.Icons.Avalonia.Icon>()
+                    .Single(icon => icon.Kind == Enigma.Icons.Phosphor.PhosphorIcon.GithubLogo);
+                Assert.Equal(24, logo.Size);
+                Assert.True(logo.Bounds.Height >= 24, $"the logo is {logo.Bounds.Height} px high");
+                Assert.Contains("dim", logo.Classes);
+
+                // The line under the account's name is a caption: larger, in the lighter secondary grey.
+                Assert.True(Application.Current!.TryFindResource("EnigmaForegroundSecondaryBrush", window.ActualThemeVariant, out object? secondary));
+                TextBlock details = card.GetVisualDescendants().OfType<TextBlock>().Single(block => block.Text == account.Details);
+                Assert.Equal(13, details.FontSize);
+                Assert.Equal(((ISolidColorBrush)secondary!).Color, Assert.IsAssignableFrom<ISolidColorBrush>(details.Foreground).Color);
+
+                // Browse repositories is a button of the page's size, as tall as Connect an account.
+                Button browse = All<Button>(card, "Browse repositories").Single();
+                Assert.Equal(14, browse.FontSize);
+                Assert.Equal(14, browse.GetVisualDescendants().OfType<TextBlock>().Single().FontSize);
+                Assert.True(browse.Bounds.Height >= 28, $"Browse repositories is {browse.Bounds.Height} px high");
+
+                // A profile's edit and delete, and an account's disconnect: one size, easy to aim at.
+                string[] actions = ["Edit this profile", "Delete this profile", "Disconnect this account"];
+
+                foreach (string name in actions)
+                {
+                    Button action = All<Button>(card, name).Single();
+                    Assert.Equal(20, action.GetVisualDescendants().OfType<Enigma.Icons.Avalonia.Icon>().Single().Size);
+                    Assert.True(
+                        action.Bounds.Width >= 36 && action.Bounds.Height >= 36,
+                        $"{name} is {action.Bounds.Width}×{action.Bounds.Height} px");
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            // Only this page changes: a choice chip and a list's row action elsewhere keep their size.
+            Button choice = new() { Content = "Ours", Classes = { "choice" } };
+            Enigma.Icons.Avalonia.Icon glyph = new() { Kind = Enigma.Icons.Phosphor.PhosphorIcon.Trash, Classes = { "row" } };
+            Button rowAction = new() { Content = glyph, Classes = { "toolbar", "rowaction" } };
+            Window elsewhere = new() { Content = new StackPanel { Children = { choice, rowAction } } };
+            elsewhere.Show();
+
+            try
+            {
+                elsewhere.UpdateLayout();
+
+                Assert.Equal(11, choice.FontSize);
+                Assert.Equal(16, glyph.Size);
+            }
+            finally
+            {
+                elsewhere.Close();
             }
         });
     }
