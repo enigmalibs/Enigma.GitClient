@@ -192,7 +192,7 @@ public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
         Session session = new(this, repository);
         _session = session;
 
-        _ = session.RunAsync();
+        session.RunAsync().Forget();
     }
 
     private void Stop()

@@ -117,7 +117,7 @@ public sealed class HostLinkService : IHostLinkService
         _infoBar = infoBar;
         _logger = logger;
 
-        _context.RepositoryChanged += (_, _) => _ = RefreshAsync();
+        _context.RepositoryChanged += (_, _) => RefreshAsync().Forget();
     }
 
     /// <inheritdoc />

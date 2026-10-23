@@ -352,6 +352,16 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-3D77 | History ages follow the auto refresh     | DONE      | docs/plan/FEATURE-3D77.md |
 | FEATURE-18E2 | Windows publish script                   | DONE      | docs/plan/FEATURE-18E2.md |
 | FEATURE-3789 | Release 6.7.0                            | DONE      | docs/plan/FEATURE-3789.md |
+| BUG-E74A     | Stale Desktop tests red on develop       | DONE      | docs/plan/BUG-E74A.md     |
+| BUG-9DE3     | The app crashes on unhandled errors      | DONE      | docs/plan/BUG-9DE3.md     |
+| - PHASE01    | The safety net                           | DONE      | (in BUG-9DE3.md)          |
+| - PHASE02    | Fire-and-forget work reaches it          | DONE      | (in BUG-9DE3.md)          |
+| BUG-3024     | Unreadable tokens cannot be reset        | DONE      | docs/plan/BUG-3024.md     |
+| - PHASE01    | Failure reasons and reset in Core        | DONE      | (in BUG-3024.md)          |
+| - PHASE02    | Reset on connect, no duplicates          | DONE      | (in BUG-3024.md)          |
+| - PHASE03    | Profiles band, browse and replace        | DONE      | (in BUG-3024.md)          |
+| - PHASE04    | Visible git sign-in fallback             | DONE      | (in BUG-3024.md)          |
+| FEATURE-687C | Release 6.8.0                            | DONE      | docs/plan/FEATURE-687C.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

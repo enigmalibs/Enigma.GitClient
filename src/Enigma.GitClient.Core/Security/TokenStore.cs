@@ -12,8 +12,34 @@ using Enigma.GitClient.Core.Configuration;
 namespace Enigma.GitClient.Core.Security;
 
 /// <summary>
+/// Why a stored secret could not be read.
+/// </summary>
+public enum TokenProtectionReason
+{
+    /// <summary>Not said: the exception was made by code other than the store.</summary>
+    Unspecified,
+
+    /// <summary>
+    /// The data key cannot be opened — sealed for another user or machine, or with a master key this
+    /// account no longer has (a Windows password reset) — or is missing or damaged while secrets
+    /// sealed with it remain. The whole store is unreadable for this account.
+    /// </summary>
+    KeyUnavailable,
+
+    /// <summary>One entry is damaged, was edited, or was sealed under another key.</summary>
+    EntryUnreadable,
+
+    /// <summary>The tokens file itself cannot be read.</summary>
+    FileUnreadable,
+}
+
+/// <summary>
 /// Something went wrong protecting or unprotecting a stored secret.
 /// </summary>
+/// <remarks>
+/// <see cref="Reason"/> tells the three failures apart: the whole store, which only a reset fixes,
+/// and one entry, which replacing or removing that one secret fixes.
+/// </remarks>
 public sealed class TokenProtectionException : Exception
 {
     /// <summary>
@@ -42,6 +68,125 @@ public sealed class TokenProtectionException : Exception
         : base("A stored secret could not be read.")
     {
     }
+
+    /// <summary>
+    /// Initialises a new instance that says why.
+    /// </summary>
+    /// <param name="reason">Why the secret could not be read.</param>
+    /// <param name="message">What went wrong.</param>
+    /// <param name="innerException">What caused it.</param>
+    /// <param name="key">The key of the entry, for <see cref="TokenProtectionReason.EntryUnreadable"/>.</param>
+    public TokenProtectionException(
+        TokenProtectionReason reason,
+        string message,
+        Exception? innerException = null,
+        string? key = null)
+        : base(message, innerException)
+    {
+        Reason = reason;
+        Key = key;
+    }
+
+    /// <summary>Gets why the secret could not be read.</summary>
+    public TokenProtectionReason Reason { get; }
+
+    /// <summary>
+    /// Gets the key of the entry that could not be read, or <see langword="null"/> when the failure is
+    /// not one entry's.
+    /// </summary>
+    public string? Key { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the failure is the whole store's rather than one entry's — what
+    /// only a reset of the store fixes.
+    /// </summary>
+    public bool IsStoreWide => Reason != TokenProtectionReason.EntryUnreadable;
+}
+
+/// <summary>
+/// What the token store holds, and whether it can be read.
+/// </summary>
+/// <param name="Failure">
+/// Why the whole store cannot be read, or <see langword="null"/> when it can.
+/// </param>
+/// <param name="Keys">The keys that hold a secret, as far as the file can be read.</param>
+/// <param name="UnreadableKeys">The keys whose secret cannot be read, while the store itself can be.</param>
+public sealed record TokenStoreStatus(
+    TokenProtectionReason? Failure,
+    IReadOnlyList<string> Keys,
+    IReadOnlyList<string> UnreadableKeys)
+{
+    /// <summary>Gets the status of a store that holds nothing.</summary>
+    public static TokenStoreStatus Empty { get; } = new(null, [], []);
+
+    /// <summary>Gets a value indicating whether the store as a whole can be read.</summary>
+    public bool IsReadable => Failure is null;
+
+    /// <summary>
+    /// Answers whether a key holds a secret that can be read.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    /// <returns><see langword="true"/> when there is one and it opens.</returns>
+    public bool CanRead(string key)
+        => IsReadable && Contains(Keys, key) && !Contains(UnreadableKeys, key);
+
+    /// <summary>
+    /// Answers whether a key holds a secret, readable or not.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    /// <returns><see langword="true"/> when the file has an entry under it.</returns>
+    public bool Holds(string key) => Contains(Keys, key);
+
+    private static bool Contains(IReadOnlyList<string> keys, string key)
+    {
+        foreach (string candidate in keys)
+        {
+            if (string.Equals(candidate, key, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+/// <summary>
+/// What changed in the token store.
+/// </summary>
+public enum TokenStoreChange
+{
+    /// <summary>A secret was stored.</summary>
+    Written,
+
+    /// <summary>A secret was deleted.</summary>
+    Deleted,
+
+    /// <summary>Every secret was deleted, with what sealed them.</summary>
+    Reset,
+}
+
+/// <summary>
+/// Says what changed in the token store.
+/// </summary>
+public sealed class TokenStoreChangedEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="change">What changed.</param>
+    /// <param name="key">The key written or deleted, or <see langword="null"/> for a reset.</param>
+    public TokenStoreChangedEventArgs(TokenStoreChange change, string? key)
+    {
+        Change = change;
+        Key = key;
+    }
+
+    /// <summary>Gets what changed.</summary>
+    public TokenStoreChange Change { get; }
+
+    /// <summary>Gets the key written or deleted, or <see langword="null"/> for a reset.</summary>
+    public string? Key { get; }
 }
 
 /// <summary>
@@ -53,6 +198,13 @@ public sealed class TokenProtectionException : Exception
 /// </remarks>
 public interface ITokenStore
 {
+    /// <summary>
+    /// Raised once a secret has been stored or deleted, or the store reset — what a warning that a token
+    /// could not be read waits for to go away.
+    /// </summary>
+    /// <remarks>Raised on whatever thread the change ran on, after the store is free again.</remarks>
+    event EventHandler<TokenStoreChangedEventArgs>? Changed;
+
     /// <summary>
     /// Stores a secret, replacing whatever was under that key.
     /// </summary>
@@ -84,6 +236,23 @@ public interface ITokenStore
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The keys, in no particular order.</returns>
     Task<IReadOnlyList<string>> ListKeysAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes every stored secret, and what they were sealed with: the way out of a store this
+    /// account can no longer read. The next secret stored starts a new store.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the store.</param>
+    /// <returns>A task that completes once the store is gone.</returns>
+    /// <remarks>Never called on the store's own initiative: only a person decides to lose every token.</remarks>
+    Task ResetAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Finds out whether the store can be read, and which secrets cannot — without handing any of them
+    /// out.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The status; a store that cannot be read is reported, not thrown.</returns>
+    Task<TokenStoreStatus> CheckAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -98,9 +267,15 @@ public interface ITokenStore
 /// <para>
 /// The data key itself is the part that cannot be encrypted by this file: on Windows it is
 /// protected with DPAPI for the current user, and on Linux it is a file created <c>0600</c> inside a
-/// directory created <c>0700</c>. Neither stops a process running as that same user — nothing at
-/// this layer can — but both stop another user, a backup, or a synchronised home directory from
-/// carrying the tokens away in the clear.
+/// directory created <c>0700</c> (<see cref="IDataKeyProtector"/>). Neither stops a process running as
+/// that same user — nothing at this layer can — but both stop another user, a backup, or a
+/// synchronised home directory from carrying the tokens away in the clear.
+/// </para>
+/// <para>
+/// A key that cannot be opened any more — a Windows password reset takes the DPAPI master key it was
+/// sealed with — makes every secret unreadable, and nothing can bring them back. The store says so
+/// (<see cref="TokenProtectionReason.KeyUnavailable"/>) rather than minting a new key over them, and
+/// <see cref="ResetAsync"/> is the way out, which a person chooses.
 /// </para>
 /// </remarks>
 public sealed class FileTokenStore : ITokenStore
@@ -125,17 +300,25 @@ public sealed class FileTokenStore : ITokenStore
     };
 
     private readonly IAppPaths _paths;
+    private readonly IDataKeyProtector _protector;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
     /// <param name="paths">Where the configuration directory is.</param>
-    public FileTokenStore(IAppPaths paths)
+    /// <param name="protector">Seals the data key for the disk, and opens it again.</param>
+    public FileTokenStore(IAppPaths paths, IDataKeyProtector protector)
     {
         ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(protector);
+
         _paths = paths;
+        _protector = protector;
     }
+
+    /// <inheritdoc />
+    public event EventHandler<TokenStoreChangedEventArgs>? Changed;
 
     /// <inheritdoc />
     public async Task SetAsync(string key, SecretString secret, CancellationToken cancellationToken = default)
@@ -148,13 +331,15 @@ public sealed class FileTokenStore : ITokenStore
         try
         {
             Dictionary<string, StoredEntry> entries = Read();
-            entries[key] = Protect(key, secret);
+            entries[key] = Protect(key, secret, DataKeyFor(entries, key));
             Write(entries);
         }
         finally
         {
             _gate.Release();
         }
+
+        Changed?.Invoke(this, new TokenStoreChangedEventArgs(TokenStoreChange.Written, key));
     }
 
     /// <inheritdoc />
@@ -166,7 +351,21 @@ public sealed class FileTokenStore : ITokenStore
 
         try
         {
-            return Read().TryGetValue(key, out StoredEntry? entry) ? Unprotect(key, entry) : null;
+            if (!Read().TryGetValue(key, out StoredEntry? entry))
+            {
+                return null;
+            }
+
+            byte[] dataKey = ReadDataKey() ?? throw MissingKey();
+
+            try
+            {
+                return Unprotect(key, entry, dataKey);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(dataKey);
+            }
         }
         finally
         {
@@ -191,12 +390,14 @@ public sealed class FileTokenStore : ITokenStore
             }
 
             Write(entries);
-            return true;
         }
         finally
         {
             _gate.Release();
         }
+
+        Changed?.Invoke(this, new TokenStoreChangedEventArgs(TokenStoreChange.Deleted, key));
+        return true;
     }
 
     /// <inheritdoc />
@@ -214,9 +415,92 @@ public sealed class FileTokenStore : ITokenStore
         }
     }
 
-    private StoredEntry Protect(string key, SecretString secret)
+    /// <inheritdoc />
+    public async Task ResetAsync(CancellationToken cancellationToken = default)
     {
-        byte[] dataKey = ReadOrCreateDataKey();
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            // The secrets first, then what sealed them: a reset stopped half-way leaves no secret behind
+            // a key, and the next reset finishes it.
+            File.Delete(_paths.GetConfigurationFile(FileName));
+            File.Delete(_paths.GetConfigurationFile(KeyFileName));
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        Changed?.Invoke(this, new TokenStoreChangedEventArgs(TokenStoreChange.Reset, null));
+    }
+
+    /// <inheritdoc />
+    public async Task<TokenStoreStatus> CheckAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            Dictionary<string, StoredEntry> entries;
+
+            try
+            {
+                entries = Read();
+            }
+            catch (TokenProtectionException exception)
+            {
+                return new TokenStoreStatus(exception.Reason, [], []);
+            }
+
+            List<string> keys = [.. entries.Keys];
+            byte[]? dataKey;
+
+            try
+            {
+                dataKey = ReadDataKey();
+            }
+            catch (TokenProtectionException exception)
+            {
+                return new TokenStoreStatus(exception.Reason, keys, []);
+            }
+
+            if (dataKey is null)
+            {
+                return keys.Count == 0 ? TokenStoreStatus.Empty : new TokenStoreStatus(TokenProtectionReason.KeyUnavailable, keys, []);
+            }
+
+            List<string> unreadable = [];
+
+            try
+            {
+                foreach ((string key, StoredEntry entry) in entries)
+                {
+                    try
+                    {
+                        CryptographicOperations.ZeroMemory(Open(key, entry, dataKey));
+                    }
+                    catch (TokenProtectionException)
+                    {
+                        unreadable.Add(key);
+                    }
+                }
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(dataKey);
+            }
+
+            return new TokenStoreStatus(null, keys, unreadable);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private static StoredEntry Protect(string key, SecretString secret, byte[] dataKey)
+    {
         byte[] plaintext = secret.RevealBytes();
         byte[] nonce = RandomNumberGenerator.GetBytes(NonceSize);
         byte[] cipher = new byte[plaintext.Length];
@@ -239,12 +523,34 @@ public sealed class FileTokenStore : ITokenStore
         }
     }
 
-    private SecretString Unprotect(string key, StoredEntry entry)
+    private static SecretString Unprotect(string key, StoredEntry? entry, byte[] dataKey)
     {
-        byte[] dataKey = ReadOrCreateDataKey();
+        byte[] plaintext = Open(key, entry, dataKey);
 
         try
         {
+            return new SecretString(Encoding.UTF8.GetString(plaintext));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plaintext);
+        }
+    }
+
+    /// <summary>
+    /// Authenticates and decrypts one entry.
+    /// </summary>
+    /// <returns>The plaintext, which the caller zeroes.</returns>
+    /// <exception cref="TokenProtectionException">The entry cannot be read under this key.</exception>
+    private static byte[] Open(string key, StoredEntry? entry, byte[] dataKey)
+    {
+        try
+        {
+            if (entry is null)
+            {
+                throw new FormatException("The entry is empty.");
+            }
+
             byte[] nonce = Convert.FromBase64String(entry.Nonce);
             byte[] cipher = Convert.FromBase64String(entry.Cipher);
             byte[] tag = Convert.FromBase64String(entry.Tag);
@@ -253,66 +559,96 @@ public sealed class FileTokenStore : ITokenStore
             using AesGcm aes = new(dataKey, TagSize);
             aes.Decrypt(nonce, cipher, tag, plaintext, Encoding.UTF8.GetBytes(key));
 
-            try
-            {
-                return new SecretString(Encoding.UTF8.GetString(plaintext));
-            }
-            finally
-            {
-                CryptographicOperations.ZeroMemory(plaintext);
-            }
+            return plaintext;
         }
         catch (Exception exception) when (exception is CryptographicException or FormatException or ArgumentException)
         {
             // Tampered, truncated, or sealed under a different key. Saying so is the only safe
             // answer: returning nothing would look like "no token" and hide a real problem.
             throw new TokenProtectionException(
+                TokenProtectionReason.EntryUnreadable,
                 $"The stored secret for '{key}' could not be read. It may have been edited, or copied from another machine.",
-                exception);
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(dataKey);
+                exception,
+                key);
         }
     }
 
-    private byte[] ReadOrCreateDataKey()
+    /// <summary>
+    /// The data key to seal a new secret with: the store's own, or — when there is none and no other
+    /// secret needs it — a new one.
+    /// </summary>
+    private byte[] DataKeyFor(Dictionary<string, StoredEntry> entries, string key)
     {
-        string file = _paths.GetConfigurationFile(KeyFileName);
-
-        if (File.Exists(file))
+        if (ReadDataKey() is { } existing)
         {
-            byte[] stored = File.ReadAllBytes(file);
+            return existing;
+        }
 
-            try
+        foreach (string other in entries.Keys)
+        {
+            if (!string.Equals(other, key, StringComparison.Ordinal))
             {
-                return Unwrap(stored);
-            }
-            catch (CryptographicException exception)
-            {
-                throw new TokenProtectionException(
-                    "The stored tokens belong to a different machine or user account and cannot be read here. "
-                    + "Remove them and sign in again.",
-                    exception);
+                // A new key would leave every other secret sealed under one that is gone, for good and
+                // without a word: that is the reset's to decide, not a write's.
+                throw MissingKey();
             }
         }
 
-        byte[] key = RandomNumberGenerator.GetBytes(KeySize);
+        byte[] created = RandomNumberGenerator.GetBytes(KeySize);
 
-        WriteKeyFile(file, Wrap(key));
+        WriteKeyFile(_paths.GetConfigurationFile(KeyFileName), _protector.Protect(created));
+
+        return created;
+    }
+
+    /// <summary>
+    /// Reads and opens the data key.
+    /// </summary>
+    /// <returns>The key, or <see langword="null"/> when there is no key file.</returns>
+    /// <exception cref="TokenProtectionException">The key cannot be opened, or is not a key.</exception>
+    private byte[]? ReadDataKey()
+    {
+        string file = _paths.GetConfigurationFile(KeyFileName);
+
+        if (!File.Exists(file))
+        {
+            return null;
+        }
+
+        byte[] stored = File.ReadAllBytes(file);
+        byte[] key;
+
+        try
+        {
+            key = _protector.Unprotect(stored);
+        }
+        catch (CryptographicException exception)
+        {
+            throw new TokenProtectionException(
+                TokenProtectionReason.KeyUnavailable,
+                "The stored tokens belong to a different machine or user account and cannot be read here. "
+                + "Remove them and sign in again.",
+                exception);
+        }
+
+        if (key.Length != KeySize)
+        {
+            CryptographicOperations.ZeroMemory(key);
+
+            throw new TokenProtectionException(
+                TokenProtectionReason.KeyUnavailable,
+                "The key the stored tokens were sealed with is damaged, so they cannot be read. "
+                + "Remove them and sign in again.");
+        }
 
         return key;
     }
 
-    private static byte[] Wrap(byte[] key)
-        => OperatingSystem.IsWindows()
-            ? System.Security.Cryptography.ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser)
-            : key;
-
-    private static byte[] Unwrap(byte[] stored)
-        => OperatingSystem.IsWindows()
-            ? System.Security.Cryptography.ProtectedData.Unprotect(stored, null, DataProtectionScope.CurrentUser)
-            : stored;
+    private static TokenProtectionException MissingKey()
+        => new(
+            TokenProtectionReason.KeyUnavailable,
+            "The key the stored tokens were sealed with is missing, so they cannot be read. "
+            + "Remove them and sign in again.");
 
     private static void WriteKeyFile(string path, byte[] contents)
     {
@@ -355,6 +691,7 @@ public sealed class FileTokenStore : ITokenStore
         catch (JsonException exception)
         {
             throw new TokenProtectionException(
+                TokenProtectionReason.FileUnreadable,
                 "The stored tokens file is not readable. Remove it and sign in again.",
                 exception);
         }

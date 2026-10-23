@@ -277,7 +277,7 @@ public partial class RepositoriesPageView : UserControl
 
         if (Page is { } page && RepositoryReorderGesture.Moves(dragging.Index, slot))
         {
-            _ = page.MoveAsync(dragging.Entry, RepositoryReorderGesture.TargetIndex(dragging.Index, slot));
+            page.MoveAsync(dragging.Entry, RepositoryReorderGesture.TargetIndex(dragging.Index, slot)).Forget();
         }
     }
 

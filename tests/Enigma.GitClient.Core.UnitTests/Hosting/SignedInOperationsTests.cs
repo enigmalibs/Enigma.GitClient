@@ -136,6 +136,12 @@ public sealed class SignedInOperationsTests
     /// <summary>Gives the same credentials every time, and remembers who asked.</summary>
     private sealed class FixedCredentials : IGitCredentialResolver
     {
+        public event EventHandler<TokenUnreadableEventArgs>? TokenUnreadable
+        {
+            add { }
+            remove { }
+        }
+
         public FixedCredentials(GitCredentials answer) => Answer = answer;
 
         public GitCredentials Answer { get; set; }

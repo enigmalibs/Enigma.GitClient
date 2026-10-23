@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 
 namespace Enigma.GitClient.Desktop.Views.Pages;
@@ -38,7 +39,7 @@ public partial class WorktreesPageView : UserControl
         if (row.OpenCommand.CanExecute(row))
         {
             e.Handled = true;
-            _ = row.OpenCommand.ExecuteAsync(row);
+            row.OpenCommand.ExecuteAsync(row).Forget();
         }
     }
 }

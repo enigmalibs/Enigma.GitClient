@@ -563,7 +563,9 @@ public sealed class BranchesPageTests
             await GitAsync(repository, "branch", "feature/tree", "main");
             BranchesPageViewModel page = await OpenAsync(services, repository);
 
-            page.SelectedItem = Row(page, "feature/tree");
+            // As the tree selects a line: its selected item, and its own selection, which is what
+            // SelectedBranches reads.
+            page.SelectBranches([Row(page, "feature/tree")]);
 
             page.CollapseAllCommand.Execute(null);
 

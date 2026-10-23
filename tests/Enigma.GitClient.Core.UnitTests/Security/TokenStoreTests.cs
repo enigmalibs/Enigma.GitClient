@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -25,7 +26,7 @@ public sealed class TokenStoreTests : IDisposable
     public TokenStoreTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "enigma-tokens-" + Guid.NewGuid().ToString("N"));
-        _store = new FileTokenStore(new AppPaths(_root));
+        _store = new FileTokenStore(new AppPaths(_root), new PlatformDataKeyProtector());
     }
 
     public void Dispose()
@@ -151,8 +152,13 @@ public sealed class TokenStoreTests : IDisposable
 
         File.WriteAllText(TokenFile, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
-        await Assert.ThrowsAsync<TokenProtectionException>(
+        TokenProtectionException failure = await Assert.ThrowsAsync<TokenProtectionException>(
             () => _store.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+
+        // One entry, not the store: replacing that secret fixes it.
+        Assert.Equal(TokenProtectionReason.EntryUnreadable, failure.Reason);
+        Assert.Equal("host:one", failure.Key);
+        Assert.False(failure.IsStoreWide);
     }
 
     [Fact]
@@ -168,8 +174,11 @@ public sealed class TokenStoreTests : IDisposable
         File.WriteAllText(TokenFile, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         // The key is the associated data, so the copy is not a valid entry under its new name.
-        await Assert.ThrowsAsync<TokenProtectionException>(
+        TokenProtectionException failure = await Assert.ThrowsAsync<TokenProtectionException>(
             () => _store.TryGetAsync("host:two", TestContext.Current.CancellationToken));
+
+        Assert.Equal(TokenProtectionReason.EntryUnreadable, failure.Reason);
+        Assert.Equal("host:two", failure.Key);
     }
 
     [Fact]
@@ -181,14 +190,17 @@ public sealed class TokenStoreTests : IDisposable
 
         try
         {
-            FileTokenStore elsewhere = new(new AppPaths(other));
+            FileTokenStore elsewhere = new(new AppPaths(other), new PlatformDataKeyProtector());
             await elsewhere.SetAsync("host:other", new SecretString("another"), TestContext.Current.CancellationToken);
 
             // The entries travel; the data key does not.
             File.Copy(TokenFile, Path.Combine(other, FileTokenStore.FileName), overwrite: true);
 
-            await Assert.ThrowsAsync<TokenProtectionException>(
+            TokenProtectionException failure = await Assert.ThrowsAsync<TokenProtectionException>(
                 () => elsewhere.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+
+            // That store's own key opens fine; it is this entry that was sealed under another.
+            Assert.Equal(TokenProtectionReason.EntryUnreadable, failure.Reason);
         }
         finally
         {
@@ -206,8 +218,12 @@ public sealed class TokenStoreTests : IDisposable
 
         File.WriteAllText(TokenFile, "{ this is not json");
 
-        await Assert.ThrowsAsync<TokenProtectionException>(
+        TokenProtectionException failure = await Assert.ThrowsAsync<TokenProtectionException>(
             () => _store.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+
+        Assert.Equal(TokenProtectionReason.FileUnreadable, failure.Reason);
+        Assert.True(failure.IsStoreWide);
+        Assert.Equal("The stored tokens file is not readable. Remove it and sign in again.", failure.Message);
     }
 
     [Fact]
@@ -242,7 +258,7 @@ public sealed class TokenStoreTests : IDisposable
         Assert.Equal(key, File.ReadAllBytes(KeyFile));
 
         // And a store built afresh over the same directory reads what the first one wrote.
-        FileTokenStore reopened = new(new AppPaths(_root));
+        FileTokenStore reopened = new(new AppPaths(_root), new PlatformDataKeyProtector());
 
         Assert.Equal("first", (await reopened.TryGetAsync("host:one", TestContext.Current.CancellationToken))!.Reveal());
     }
@@ -263,5 +279,268 @@ public sealed class TokenStoreTests : IDisposable
         Assert.NotEqual(
             document["entries"]!["host:one"]!["cipher"]!.GetValue<string>(),
             document["entries"]!["host:two"]!["cipher"]!.GetValue<string>());
+    }
+
+    // ---------------------------------------------------------------- an unreadable store (BUG-3024)
+
+    /// <summary>
+    /// A protector that cannot open any key — what DPAPI does once a Windows password reset has taken the
+    /// master key the data key was sealed with. Sealing still works, as it does for DPAPI.
+    /// </summary>
+    private sealed class RefusingProtector : IDataKeyProtector
+    {
+        public byte[] Protect(byte[] key) => key;
+
+        public byte[] Unprotect(byte[] stored) => throw new CryptographicException("Key not valid for use in specified state.");
+    }
+
+    private FileTokenStore Refusing() => new(new AppPaths(_root), new RefusingProtector());
+
+    [Fact]
+    public async Task AKeyThatCannotBeOpened_MakesTheWholeStoreUnreadable_OnReadAndOnWrite()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        FileTokenStore store = Refusing();
+
+        TokenProtectionException read = await Assert.ThrowsAsync<TokenProtectionException>(
+            () => store.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+        TokenProtectionException write = await Assert.ThrowsAsync<TokenProtectionException>(
+            () => store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken));
+
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, read.Reason);
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, write.Reason);
+        Assert.True(read.IsStoreWide);
+        Assert.Null(read.Key);
+        Assert.IsType<CryptographicException>(read.InnerException);
+
+        // The message the user was shown on 2026-10-23 is kept.
+        Assert.StartsWith("The stored tokens belong to a different machine or user account", read.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AKeyOfTheWrongSize_MakesTheWholeStoreUnreadable()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+
+        // On Linux the key file holds the key itself; seven bytes are no AES key. (On Windows DPAPI
+        // refuses them first, with the same outcome.)
+        File.WriteAllBytes(KeyFile, [1, 2, 3, 4, 5, 6, 7]);
+
+        TokenProtectionException failure = await Assert.ThrowsAsync<TokenProtectionException>(
+            () => _store.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, failure.Reason);
+    }
+
+    [Fact]
+    public async Task AKeyFileDeletedWithSecretsLeft_IsNotSilentlyReplaced()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        File.Delete(KeyFile);
+
+        TokenProtectionException read = await Assert.ThrowsAsync<TokenProtectionException>(
+            () => _store.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+        TokenProtectionException write = await Assert.ThrowsAsync<TokenProtectionException>(
+            () => _store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken));
+
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, read.Reason);
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, write.Reason);
+
+        // A new key would have turned "host:one" into a damaged entry for good, without a word.
+        Assert.False(File.Exists(KeyFile));
+    }
+
+    [Fact]
+    public async Task ReplacingTheOnlySecret_WhenItsKeyIsGone_StartsAFreshKey()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        File.Delete(KeyFile);
+
+        await _store.SetAsync("host:one", new SecretString("again"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("again", (await _store.TryGetAsync("host:one", TestContext.Current.CancellationToken))!.Reveal());
+    }
+
+    [Fact]
+    public void TheExceptionsOwnConstructors_SayNoReason()
+    {
+        Assert.Equal(TokenProtectionReason.Unspecified, new TokenProtectionException().Reason);
+        Assert.Equal(TokenProtectionReason.Unspecified, new TokenProtectionException("message").Reason);
+        Assert.Equal(TokenProtectionReason.Unspecified, new TokenProtectionException("message", null).Reason);
+        Assert.True(new TokenProtectionException().IsStoreWide);
+        Assert.Equal("A stored secret could not be read.", new TokenProtectionException().Message);
+    }
+
+    // ---------------------------------------------------------------- the reset
+
+    [Fact]
+    public async Task ResetDeletesTheSecretsAndTheKey()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+
+        await _store.ResetAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(TokenFile));
+        Assert.False(File.Exists(KeyFile));
+        Assert.Empty(await _store.ListKeysAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ResetOfAnEmptyStore_DoesNothing()
+    {
+        await _store.ResetAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(TokenFile));
+        Assert.False(File.Exists(KeyFile));
+    }
+
+    [Fact]
+    public async Task AfterTheResetOfAnUnreadableStore_SecretsAreStoredAndReadAgain()
+    {
+        await _store.SetAsync("host:one", new SecretString("lost"), TestContext.Current.CancellationToken);
+        byte[] oldKey = File.ReadAllBytes(KeyFile);
+        FileTokenStore refusing = Refusing();
+
+        await refusing.ResetAsync(TestContext.Current.CancellationToken);
+        await refusing.SetAsync("host:one", new SecretString("typed again"), TestContext.Current.CancellationToken);
+
+        // A fresh key: the one the refusing store could not open is gone.
+        Assert.NotEqual(oldKey, File.ReadAllBytes(KeyFile));
+        Assert.Equal("typed again", (await _store.TryGetAsync("host:one", TestContext.Current.CancellationToken))!.Reveal());
+    }
+
+    [Fact]
+    public async Task TheKeyAfterAReset_IsOnlyReadableByItsOwner()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.ResetAsync(TestContext.Current.CancellationToken);
+        await _store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken);
+
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows protects the data key with DPAPI; there is no mode to assert.");
+
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(KeyFile));
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(TokenFile));
+        }
+    }
+
+    // ---------------------------------------------------------------- the check
+
+    [Fact]
+    public async Task Check_OfAHealthyStore_ListsItsKeys_AllReadable()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken);
+
+        TokenStoreStatus status = await _store.CheckAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(status.IsReadable);
+        Assert.Equal(2, status.Keys.Count);
+        Assert.Empty(status.UnreadableKeys);
+        Assert.True(status.CanRead("host:one"));
+        Assert.False(status.CanRead("host:missing"));
+        Assert.False(status.Holds("host:missing"));
+    }
+
+    [Fact]
+    public async Task Check_OfAnEmptyStore_IsReadableAndEmpty()
+    {
+        TokenStoreStatus status = await _store.CheckAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(status.IsReadable);
+        Assert.Empty(status.Keys);
+    }
+
+    [Fact]
+    public async Task Check_OfAStoreWhoseKeyCannotBeOpened_SaysSo_WithoutThrowing()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+
+        TokenStoreStatus status = await Refusing().CheckAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, status.Failure);
+        Assert.False(status.IsReadable);
+        Assert.True(status.Holds("host:one"));
+        Assert.False(status.CanRead("host:one"));
+    }
+
+    [Fact]
+    public async Task Check_OfAStoreWhoseKeyIsGone_SaysSo()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        File.Delete(KeyFile);
+
+        TokenStoreStatus status = await _store.CheckAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, status.Failure);
+        Assert.False(File.Exists(KeyFile));
+    }
+
+    [Fact]
+    public async Task Check_OfAFileThatIsNotJson_SaysSo()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        File.WriteAllText(TokenFile, "{ this is not json");
+
+        TokenStoreStatus status = await _store.CheckAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(TokenProtectionReason.FileUnreadable, status.Failure);
+        Assert.Empty(status.Keys);
+    }
+
+    [Fact]
+    public async Task Check_NamesTheOneDamagedEntry_AmongGoodOnes()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken);
+
+        JsonNode document = JsonNode.Parse(File.ReadAllText(TokenFile))!;
+        JsonNode entry = document["entries"]!["host:two"]!;
+        byte[] tag = Convert.FromBase64String(entry["tag"]!.GetValue<string>());
+        tag[0] ^= 0xFF;
+        entry["tag"] = Convert.ToBase64String(tag);
+        File.WriteAllText(TokenFile, document.ToJsonString());
+
+        TokenStoreStatus status = await _store.CheckAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(status.IsReadable);
+        Assert.Equal(["host:two"], status.UnreadableKeys);
+        Assert.True(status.CanRead("host:one"));
+        Assert.False(status.CanRead("host:two"));
+        Assert.True(status.Holds("host:two"));
+    }
+
+    // ---------------------------------------------------------------- what changed
+
+    [Fact]
+    public async Task EveryChange_IsSaid_AfterItIsMade()
+    {
+        List<(TokenStoreChange Change, string? Key, bool KeyFileThere)> changes = [];
+        _store.Changed += (_, e) => changes.Add((e.Change, e.Key, File.Exists(KeyFile)));
+
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.DeleteAsync("host:one", TestContext.Current.CancellationToken);
+        await _store.DeleteAsync("host:one", TestContext.Current.CancellationToken);
+        await _store.ResetAsync(TestContext.Current.CancellationToken);
+
+        // Nothing for a delete that deleted nothing; the reset names no key, and comes once the files are gone.
+        Assert.Equal(
+            [(TokenStoreChange.Written, "host:one", true), (TokenStoreChange.Deleted, "host:one", true), (TokenStoreChange.Reset, null, false)],
+            changes);
+    }
+
+    [Fact]
+    public async Task AWriteThatFails_SaysNothing()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        FileTokenStore refusing = Refusing();
+        int changes = 0;
+        refusing.Changed += (_, _) => changes++;
+
+        await Assert.ThrowsAsync<TokenProtectionException>(
+            () => refusing.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, changes);
     }
 }
