@@ -73,6 +73,12 @@ public interface IAppWindows
     Window? CurrentWindow { get; }
 
     /// <summary>
+    /// Raised once another window is on screen, its overlay hosts registered — what the safety net
+    /// waits for before the first window, and follows from one window to the next.
+    /// </summary>
+    event EventHandler? CurrentWindowChanged;
+
+    /// <summary>
     /// Shows the first window: the repository window when <paramref name="path"/> opens as a
     /// repository, the start window otherwise.
     /// </summary>
@@ -183,6 +189,9 @@ public sealed class AppWindows : IAppWindows
     public Window? CurrentWindow { get; private set; }
 
     /// <inheritdoc />
+    public event EventHandler? CurrentWindowChanged;
+
+    /// <inheritdoc />
     public async Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
     {
         _startScreen = screen;
@@ -205,6 +214,13 @@ public sealed class AppWindows : IAppWindows
                 {
                     _logger.LogWarning(exception, "The repository at {Path} could not be opened", path);
                     failure = exception.Message;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+                {
+                    // None of the failures above: the safety net says what it was, once the start
+                    // window below gives it a host to say it in — rather than a start that ends with
+                    // no window at all (BUG-9DE3).
+                    UnhandledExceptionHooks.Report(exception, UnhandledErrorSource.Startup);
                 }
             }
 
@@ -311,6 +327,8 @@ public sealed class AppWindows : IAppWindows
             previous.Closing -= OnWindowClosing;
             previous.Close();
         }
+
+        CurrentWindowChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

@@ -54,11 +54,21 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // First: a command or a posted callback that throws from here on is caught and shown, not
+            // the end of the process (BUG-9DE3). The dispatcher is safe to touch now that the platform
+            // is set up; the headless tests never come this way.
+            UnhandledExceptionHooks.InstallDispatcher();
+
             IHost host = BuildHost();
             host.Start();
             _host = host;
 
             IServiceProvider services = host.Services;
+
+            // The safety net, as soon as it can be built: anything caught before it was is handed over.
+            IUnhandledErrorReporter errors = services.GetRequiredService<IUnhandledErrorReporter>();
+            UnhandledExceptionHooks.Attach(errors);
+            desktop.ShutdownRequested += (_, _) => errors.ShutdownStarted();
 
             // Before the window: the theme is a preference, and a window that paints dark and then
             // flips to light is a worse first impression than one that starts right.
@@ -180,6 +190,11 @@ public partial class App : Application
         }
 
         _host = null;
+
+        // Closing: no cancellation is worth a word now, and a late report must not log through the
+        // container disposed below.
+        host.Services.GetService<IUnhandledErrorReporter>()?.ShutdownStarted();
+        UnhandledExceptionHooks.Detach();
 
         // The process is tearing down and no message pump remains, so blocking here is correct.
         // The settings first: a change still inside its debounce window — the screen the last window

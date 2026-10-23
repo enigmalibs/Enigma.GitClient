@@ -1,6 +1,6 @@
 # BUG-9DE3 — The app crashes on unhandled errors
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-10-23-crash-net-token-reset
@@ -60,7 +60,7 @@ handling (BUG-3024), and nothing already handled is ever reported to the net.
 
 ## PHASE01 — The safety net
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-9DE3-PHASE01.md`
 **Branch:** `bugfix/bug-9de3-phase01-safety-net`
 
 ### Steps
