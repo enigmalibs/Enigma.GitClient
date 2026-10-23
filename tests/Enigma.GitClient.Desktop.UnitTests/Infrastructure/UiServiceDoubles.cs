@@ -320,7 +320,21 @@ public sealed class RecordingAppWindows : IAppWindows
     public AppWindowKind Current { get; private set; }
 
     /// <inheritdoc />
-    public Window? CurrentWindow => null;
+    public Window? CurrentWindow { get; private set; }
+
+    /// <inheritdoc />
+    public event EventHandler? CurrentWindowChanged;
+
+    /// <summary>
+    /// Puts a window on screen as the real coordinator would, its hosts registered, for a test that needs
+    /// one — the safety net's, which shows its dialog on the current window's host.
+    /// </summary>
+    /// <param name="window">The window, or <see langword="null"/> for none.</param>
+    public void SetCurrentWindow(Window? window)
+    {
+        CurrentWindow = window;
+        CurrentWindowChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <inheritdoc />
     public Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
@@ -423,4 +437,26 @@ public sealed class RecordingFolderDialogService : IFolderDialogService, IDispos
 
         return _window.StorageProvider;
     }
+}
+
+/// <summary>
+/// An <see cref="IUnhandledErrorReporter"/> that records what reached the safety net instead of logging
+/// and showing it — attached to <see cref="UnhandledExceptionHooks"/> by a test that checks what goes
+/// there, and detached again.
+/// </summary>
+public sealed class RecordingUnhandledErrorReporter : IUnhandledErrorReporter
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(Exception Exception, UnhandledErrorSource Source)> _reports = new();
+
+    /// <summary>Gets every report, oldest first.</summary>
+    public IReadOnlyList<(Exception Exception, UnhandledErrorSource Source)> Reports => [.. _reports];
+
+    /// <summary>Gets a value indicating whether shutdown was announced.</summary>
+    public bool IsShuttingDown { get; private set; }
+
+    /// <inheritdoc />
+    public void Report(Exception exception, UnhandledErrorSource source) => _reports.Enqueue((exception, source));
+
+    /// <inheritdoc />
+    public void ShutdownStarted() => IsShuttingDown = true;
 }

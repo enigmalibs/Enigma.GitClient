@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -393,6 +394,47 @@ public sealed class AppWindowsTests
                 CloseWindow(windows);
             }
         });
+    }
+
+    [Fact]
+    public void StartAsync_WhenOpeningFailsUnexpectedly_ReportsIt_AndStillOpensTheStartWindow()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(configure: collection =>
+            {
+                collection.RemoveAll<IAppWindows>();
+                collection.AddSingleton<IAppWindows, AppWindows>();
+                collection.RemoveAll<IRepositoryOpener>();
+                collection.AddSingleton<IRepositoryOpener, FailingOpener>();
+            });
+            IAppWindows windows = services.Get<IAppWindows>();
+            RecordingUnhandledErrorReporter errors = new();
+            UnhandledExceptionHooks.Attach(errors);
+
+            try
+            {
+                await windows.StartAsync("/some/repository");
+
+                // A start that ends with a window: the safety net has a host to say it in (BUG-9DE3).
+                Assert.Equal(AppWindowKind.Start, windows.Current);
+
+                (Exception exception, UnhandledErrorSource source) = Assert.Single(errors.Reports);
+                Assert.IsType<NotSupportedException>(exception);
+                Assert.Equal(UnhandledErrorSource.Startup, source);
+            }
+            finally
+            {
+                UnhandledExceptionHooks.Detach();
+                CloseWindow(windows);
+            }
+        });
+    }
+
+    private sealed class FailingOpener : IRepositoryOpener
+    {
+        public Task<RepositoryDiscoveryResult> OpenAsync(string path, CancellationToken cancellationToken = default)
+            => Task.FromException<RepositoryDiscoveryResult>(new NotSupportedException("nothing expected this"));
     }
 
     [Fact]
