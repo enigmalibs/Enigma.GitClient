@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ei="https://github.com/josueclement/Enigma.Icons"
         xmlns:contentDialog="using:Enigma.Avalonia.Desktop.Controls.ContentDialog"
+        xmlns:controls="using:Enigma.GitClient.Desktop.Controls"
         xmlns:diff="using:Enigma.GitClient.Desktop.Controls.Diff"
         xmlns:edit="using:AvaloniaEdit">
 
@@ -14,6 +15,7 @@
     easier to hit is one edit here instead of a hundred in the views.
 
       title    the icon beside the open repository's name, in the window's strip
+      command  a command button's icon, above its label, in the History bar's centre
       header   a title's icon, beside the name of a page
       toolbar  an icon-only button, or a segmented toggle, on a toolbar strip
       row      an icon on a line: a list row's leading glyph, its own actions, a banner
@@ -23,6 +25,10 @@
     and keeps its own size.
   -->
   <Style Selector="ei|Icon.title">
+    <Setter Property="Size" Value="24" />
+  </Style>
+
+  <Style Selector="ei|Icon.command">
     <Setter Property="Size" Value="24" />
   </Style>
 
@@ -99,6 +105,55 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!--
+    A command button: the History bar's labelled commands — fetch, pull, push and the rest. A toolbar
+    button, framed and greyed as every other, made larger: its icon on the command size, its name
+    under it. A minimum width lines the short names up with the long ones, so the row reads as a row
+    of equal keys rather than of words.
+  -->
+  <Style Selector="Button.toolbar.command">
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="MinWidth" Value="56" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.commandlabel">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+  </Style>
+
+  <!-- A window too narrow for the named commands beside the search box: the commands keep their
+       icons and their tips, and give up their names and the width the names needed, rather than the
+       search box or About being pushed off the bar's edge. After the command button's own style, so
+       this one wins. -->
+  <Style Selector="controls|CommandBarPanel:compact TextBlock.commandlabel">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="controls|CommandBarPanel:compact Button.toolbar.command">
+    <Setter Property="MinWidth" Value="0" />
+  </Style>
+
+  <!-- How many commits pull would bring or push would send, on the corner of the command's icon:
+       laid over it rather than beside it, so a count appearing never moves the centred row. -->
+  <Style Selector="Border.commandcount">
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Margin" Value="0,-5,-12,0" />
+    <Setter Property="MinWidth" Value="15" />
+    <Setter Property="Padding" Value="4,0" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Background" Value="{DynamicResource ActionAccentBrush}" />
+  </Style>
+
+  <Style Selector="Border.commandcount > TextBlock">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource ActionAccentForegroundBrush}" />
   </Style>
 
   <!--

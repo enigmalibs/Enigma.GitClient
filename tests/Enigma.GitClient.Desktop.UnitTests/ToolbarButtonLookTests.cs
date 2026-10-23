@@ -223,12 +223,13 @@ public sealed class ToolbarButtonLookTests
     }
 
     [Fact]
-    public void TheRepositoryStrip_FramesWhatCanBePressedAndGreysWhatCannot()
+    public void TheCommandBar_FramesWhatCanBePressedAndGreysWhatCannot()
     {
         _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
 
+            // Shown on its History page, whose command bar carries the window's commands.
             MainWindow window = services.Get<MainWindow>();
             window.DataContext = services.Get<MainWindowViewModel>();
             window.Show();

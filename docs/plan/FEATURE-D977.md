@@ -106,8 +106,45 @@ The repository window's two top bars, reorganised:
 
 ## PHASE03 — The History bar takes the commands
 
-**Status:** TODO
+**Status:** IN PROGRESS — quarantined by feature/2026-10-23-strip-and-command-bar: the compact command bar does not widen back within one layout pass (1 test red after 3 cycles)
 **Branch:** `feature/feature-d977-phase03-history-command-bar`
+
+### Quarantine
+
+- **Failing (1 of 3452):** `CommandBarPanelTests.ABarTooNarrowForTheFullCentre_IsCompact_UntilItIsWideEnoughAgain`.
+  - The bar is first laid out at 760 (compact: the label is hidden and the centre is 200), then
+    widened to 900.
+  - `IsCompact` turns false and the label is visible again, but after one `UpdateLayout` the centre is
+    still arranged at its compact width (`Expected: 300`, `Actual: 200`).
+  - Build: 0 warnings. Every other test is green (3448 passed, 3 skipped).
+- **What the branch holds, complete and green apart from the above:**
+  - the command bar at the top of the History page, full width;
+  - the twelve labelled commands centred, with search, the theme and About on the right;
+  - the strip with no buttons;
+  - the `command` icon role, the `Button.toolbar.command`, `TextBlock.commandlabel` and
+    `Border.commandcount` styles;
+  - `HistoryCommandBarTests` (8 cases) and the pinned tests updated.
+- **How it got here:**
+  - **First run:** 5 red. My centre test was 1 px out, and as it failed it left a `MainWindow` open,
+    which broke three click tests run after it. `DiffView_CoversTheGraph…` asserted the old design
+    (the diff over the whole page).
+  - **Cycle 1:** a 1 px tolerance, windows closed in `finally`, the diff test moved to the new design.
+    Green, 3450.
+  - The rendered 1280 px frame then showed About pushed off the bar and the search box squeezed:
+    1280 px is too narrow for the labelled commands beside the search block's minimum. This was
+    out of scope in this plan; the evidence made it necessary.
+  - **Cycle 2:** a compact mode. `CommandBarPanel` sets `:compact` when the full centre, the start and
+    the end's minimum do not fit; styles hide the labels and drop the 56 px minimum; the centre is
+    measured again. The new panel test went red (the item above). `RepositoriesPageTests.OpeningA…`
+    failed once, passed alone and passed in the next full run: a flake.
+  - **Cycle 3:** after the toggle, every descendant of the centre is invalidated before it is measured
+    again. Still red, the same value.
+- **Leads for `/build FEATURE-D977`:**
+  - Check whether a second layout pass converges: the test does one `UpdateLayout`.
+  - Apply the pseudo-class outside the measure pass: decide in `MeasureOverride`, set it through
+    `Dispatcher.UIThread.Post`, then `InvalidateMeasure`.
+  - Or drive the labels' visibility from a bound `IsCompact` direct property rather than a style.
+  - Then look at the 1280 px snapshot again.
 
 ### Steps
 

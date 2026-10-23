@@ -148,6 +148,59 @@ public sealed class CommandBarPanelTests
     }
 
     [Fact]
+    public void ABarTooNarrowForTheFullCentre_IsCompact_UntilItIsWideEnoughAgain()
+    {
+        _fixture.Run(() =>
+        {
+            // A centre that loses 100 when compact, as the commands lose their names.
+            TextBlock name = new() { Classes = { "commandlabel" }, Width = 100 };
+            StackPanel centre = new()
+            {
+                Orientation = Orientation.Horizontal,
+                Children = { new Border { Width = 200, Height = 54 }, name },
+            };
+            CommandBarPanel panel = new()
+            {
+                Children =
+                {
+                    new Border { Width = 100, Height = 20 },
+                    centre,
+                    new Border { MinWidth = 400, MaxWidth = 600, Height = 30 },
+                },
+            };
+            Window window = new() { Content = panel, Width = 760, Height = 100 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+
+                // 100 + 300 + 400 and the two gaps is 820: compact, and the name goes.
+                Assert.True(panel.IsCompact);
+                Assert.Contains(":compact", panel.Classes);
+                Assert.False(name.IsVisible);
+                Assert.Equal(200, centre.Bounds.Width);
+
+                // At 200 the centre would fit, and it stays compact all the same: the decision is the
+                // full centre's, so it does not undo itself.
+                window.UpdateLayout();
+                Assert.True(panel.IsCompact);
+
+                window.Width = 900;
+                window.UpdateLayout();
+
+                Assert.False(panel.IsCompact);
+                Assert.True(name.IsVisible);
+                Assert.Equal(300, centre.Bounds.Width);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void AnEndThatIsNotShown_TakesNoRoomFromTheCentre()
     {
         _fixture.Run(() =>

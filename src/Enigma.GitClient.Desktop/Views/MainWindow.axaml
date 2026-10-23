@@ -26,153 +26,58 @@
   <Panel>
     <DockPanel>
 
-      <!-- Repository strip: which repository is open, where HEAD is, and what is in progress. -->
+      <!-- Repository strip: which repository is open, and where HEAD is. Its commands are on the
+           History page's command bar, under it. -->
       <Border DockPanel.Dock="Top"
+              Name="RepositoryStrip"
               Background="{DynamicResource EnigmaSurfaceBrush}"
               BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
               BorderThickness="0,0,0,1"
               Padding="12,8">
-        <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <ei:Icon Name="RepositoryIcon" Kind="Folder" Classes="title" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Name="RepositoryTitle"
+                     Text="{Binding RepositoryName}"
+                     ToolTip.Tip="{Binding RepositoryPath}"
+                     VerticalAlignment="Center"
+                     FontSize="18"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
-          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-            <ei:Icon Name="RepositoryIcon" Kind="Folder" Classes="title" VerticalAlignment="Center"
+          <!-- A linked worktree says whose it is. The border catches the pointer for the tip: an
+               icon alone is hit only where it has ink. -->
+          <Border Name="LinkedWorktreeMark"
+                  Background="Transparent"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding IsLinkedWorktree}"
+                  ToolTip.Tip="{Binding LinkedWorktreeTip}"
+                  AutomationProperties.Name="{Binding LinkedWorktreeTip}">
+            <ei:Icon Kind="Tree" Classes="title"
                      Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-            <TextBlock Name="RepositoryTitle"
-                       Text="{Binding RepositoryName}"
-                       ToolTip.Tip="{Binding RepositoryPath}"
-                       VerticalAlignment="Center"
-                       FontSize="18"
-                       FontWeight="SemiBold"
+          </Border>
+
+          <!-- The checked-out branch, drawn by the badge the history draws it with: the same blue,
+               the same white, the same size — one control, so the two cannot drift apart. -->
+          <gitcontrols:RefBadge Name="HeadBadge"
+                                Kind="LocalBranch"
+                                IsCurrent="True"
+                                Text="{Binding HeadDisplayName}"
+                                IsVisible="{Binding IsOnBranch}" />
+
+          <!-- A detached HEAD is on no branch, so it gets no branch's badge: it says where it is, in
+               the colour of something to sort out. -->
+          <Border Name="DetachedHeadPill"
+                  Classes="pill"
+                  Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+                  BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
+                  BorderThickness="1"
+                  IsVisible="{Binding IsHeadDetached}">
+            <TextBlock Text="{Binding HeadDisplayName}"
+                       FontSize="13"
                        Foreground="{DynamicResource EnigmaForegroundBrush}" />
-
-            <!-- A linked worktree says whose it is. The border catches the pointer for the tip: an
-                 icon alone is hit only where it has ink. -->
-            <Border Name="LinkedWorktreeMark"
-                    Background="Transparent"
-                    VerticalAlignment="Center"
-                    IsVisible="{Binding IsLinkedWorktree}"
-                    ToolTip.Tip="{Binding LinkedWorktreeTip}"
-                    AutomationProperties.Name="{Binding LinkedWorktreeTip}">
-              <ei:Icon Kind="Tree" Classes="title"
-                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-            </Border>
-
-            <!-- The checked-out branch, drawn by the badge the history draws it with: the same blue,
-                 the same white, the same size — one control, so the two cannot drift apart. -->
-            <gitcontrols:RefBadge Name="HeadBadge"
-                                  Kind="LocalBranch"
-                                  IsCurrent="True"
-                                  Text="{Binding HeadDisplayName}"
-                                  IsVisible="{Binding IsOnBranch}" />
-
-            <!-- A detached HEAD is on no branch, so it gets no branch's badge: it says where it is, in
-                 the colour of something to sort out. -->
-            <Border Name="DetachedHeadPill"
-                    Classes="pill"
-                    Background="{DynamicResource EnigmaWarningBackgroundBrush}"
-                    BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
-                    BorderThickness="1"
-                    IsVisible="{Binding IsHeadDetached}">
-              <TextBlock Text="{Binding HeadDisplayName}"
-                         FontSize="13"
-                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
-            </Border>
-          </StackPanel>
-
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-
-            <!-- Fetch, pull and push, with the counters that say whether either is worth doing. -->
-            <Button Classes="toolbar"
-                    IsVisible="{Binding CanSync}"
-                    Command="{Binding FetchCommand}"
-                    ToolTip.Tip="Fetch from every remote"
-                    AutomationProperties.Name="Fetch from every remote">
-              <ei:Icon Kind="ArrowsDownUp" Classes="toolbar" />
-            </Button>
-
-            <Button Classes="toolbar"
-                    IsVisible="{Binding CanSync}"
-                    Command="{Binding PullCommand}"
-                    ToolTip.Tip="Pull into the current branch"
-                    AutomationProperties.Name="Pull into the current branch">
-              <StackPanel Orientation="Horizontal" Spacing="5">
-                <ei:Icon Kind="ArrowDown" Classes="toolbar" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Behind}"
-                           IsVisible="{Binding IsBehind}"
-                           VerticalAlignment="Center"
-                           FontSize="12" />
-              </StackPanel>
-            </Button>
-
-            <Button Classes="toolbar"
-                    IsVisible="{Binding CanSync}"
-                    Command="{Binding PushCommand}"
-                    ToolTip.Tip="Push the current branch"
-                    AutomationProperties.Name="Push the current branch">
-              <StackPanel Orientation="Horizontal" Spacing="5">
-                <ei:Icon Kind="ArrowUp" Classes="toolbar" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Ahead}"
-                           IsVisible="{Binding IsAhead}"
-                           VerticalAlignment="Center"
-                           FontSize="12" />
-              </StackPanel>
-            </Button>
-
-            <Border Width="1"
-                    Margin="4,6"
-                    IsVisible="{Binding CanSync}"
-                    Background="{DynamicResource EnigmaBorderSubtleBrush}" />
-
-            <!-- The repository's folder, outside the client: in the file manager, and in a terminal. -->
-            <Button Name="OpenFolder"
-                    Classes="toolbar"
-                    IsVisible="{Binding CanSync}"
-                    Command="{Binding OpenFolderCommand}"
-                    ToolTip.Tip="Open the repository's folder in the file manager"
-                    AutomationProperties.Name="Open the repository's folder">
-              <ei:Icon Kind="FolderOpen" Classes="toolbar" />
-            </Button>
-            <Button Name="OpenTerminal"
-                    Classes="toolbar"
-                    IsVisible="{Binding CanSync}"
-                    Command="{Binding OpenTerminalCommand}"
-                    ToolTip.Tip="Open a terminal in the repository's folder"
-                    AutomationProperties.Name="Open a terminal in the repository's folder">
-              <ei:Icon Kind="TerminalWindow" Classes="toolbar" />
-            </Button>
-
-            <Border Width="1"
-                    Margin="4,6"
-                    IsVisible="{Binding CanSync}"
-                    Background="{DynamicResource EnigmaBorderSubtleBrush}" />
-
-            <Button Classes="toolbar"
-                    Command="{Binding CloseRepositoryCommand}"
-                    ToolTip.Tip="Close this repository and go back to the start window"
-                    AutomationProperties.Name="Close the repository">
-              <ei:Icon Kind="SignOut" Classes="toolbar" />
-            </Button>
-            <Button Classes="toolbar"
-                    Command="{Binding RefreshCommand}"
-                    ToolTip.Tip="Refresh everything: fetch from every remote, then read the repository again"
-                    AutomationProperties.Name="Refresh everything">
-              <ei:Icon Kind="ArrowsClockwise" Classes="toolbar" />
-            </Button>
-            <Button Classes="toolbar"
-                    Command="{Binding ToggleThemeCommand}"
-                    ToolTip.Tip="Switch between the dark and light themes"
-                    AutomationProperties.Name="Switch between the dark and light themes">
-              <ei:Icon Kind="Palette" Classes="toolbar" />
-            </Button>
-            <Button Name="OpenAbout"
-                    Classes="toolbar"
-                    Command="{Binding OpenAboutCommand}"
-                    ToolTip.Tip="About"
-                    AutomationProperties.Name="About Enigma Git Client">
-              <ei:Icon Kind="Info" Classes="toolbar" />
-            </Button>
-          </StackPanel>
-        </Grid>
+          </Border>
+        </StackPanel>
       </Border>
 
       <!-- Operation banner: shown only while the repository is mid-merge, mid-revert and so on. -->

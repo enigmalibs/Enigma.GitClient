@@ -1,6 +1,8 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.VisualTree;
 
 namespace Enigma.GitClient.Desktop.Controls;
 
@@ -34,6 +36,12 @@ namespace Enigma.GitClient.Desktop.Controls;
 /// minimum, it runs past the right edge rather than over the commands.
 /// </item>
 /// <item>Every slot is as tall as the bar; its own vertical alignment places it in that height.</item>
+/// <item>
+/// A bar too narrow for the centre at its full width — beside the start and the end's minimum — is
+/// <see cref="IsCompact"/>, the <c>:compact</c> pseudo-class, which styles answer by drawing the centre
+/// smaller (the commands without their names). It is decided on the full width the centre last had, so
+/// a centre made smaller by it does not undo it.
+/// </item>
 /// </list>
 /// </remarks>
 public sealed class CommandBarPanel : Panel
@@ -45,6 +53,7 @@ public sealed class CommandBarPanel : Panel
         AvaloniaProperty.Register<CommandBarPanel, double>(nameof(Spacing), 10);
 
     private double _endNaturalWidth;
+    private double _centreFullWidth;
 
     static CommandBarPanel() => AffectsMeasure<CommandBarPanel>(SpacingProperty);
 
@@ -56,6 +65,12 @@ public sealed class CommandBarPanel : Panel
         get => GetValue(SpacingProperty);
         set => SetValue(SpacingProperty, value);
     }
+
+    /// <summary>
+    /// Gets a value indicating whether the bar is too narrow for the centre at its full width, which
+    /// styles see as the <c>:compact</c> pseudo-class.
+    /// </summary>
+    public bool IsCompact { get; private set; }
 
     /// <inheritdoc />
     protected override Size MeasureOverride(Size availableSize)
@@ -77,6 +92,36 @@ public sealed class CommandBarPanel : Panel
         }
 
         double startWidth = start?.DesiredSize.Width ?? 0;
+
+        if (!IsCompact)
+        {
+            _centreFullWidth = centre?.DesiredSize.Width ?? 0;
+        }
+
+        bool compact = !double.IsInfinity(availableSize.Width)
+            && startWidth + GapAfter(startWidth) + _centreFullWidth + GapBefore(end)
+                + Math.Min(MinWidthOf(end), MaxWidthOf(end)) > availableSize.Width;
+
+        if (compact != IsCompact)
+        {
+            IsCompact = compact;
+            PseudoClasses.Set(":compact", compact);
+
+            // The styles have just shown or hidden things deep in the centre, inside controls whose
+            // measure is still marked valid — and a control shown again before it was ever measured
+            // hidden asks nobody to measure it. The centre is measured afresh, all the way down.
+            if (centre is not null)
+            {
+                foreach (Visual descendant in centre.GetVisualDescendants())
+                {
+                    (descendant as Layoutable)?.InvalidateMeasure();
+                }
+
+                centre.InvalidateMeasure();
+                centre.Measure(unbounded);
+            }
+        }
+
         double centreWidth = centre?.DesiredSize.Width ?? 0;
         double endWidth = _endNaturalWidth;
 

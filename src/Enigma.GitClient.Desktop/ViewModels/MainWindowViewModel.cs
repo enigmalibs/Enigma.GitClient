@@ -13,8 +13,8 @@ using Enigma.GitClient.Desktop.ViewModels.Pages;
 namespace Enigma.GitClient.Desktop.ViewModels;
 
 /// <summary>
-/// The repository window: the navigation rail, the repository strip in the title bar, and the way
-/// back to the start window.
+/// The repository window: the navigation rail, the repository strip, and the repository's commands —
+/// the way back to the start window among them — which the History page's command bar shows.
 /// </summary>
 public sealed class MainWindowViewModel : ViewModelBase
 {
@@ -37,17 +37,17 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <param name="windows">Takes the reader back to the start window when the repository is closed.</param>
     /// <param name="infoBar">Says so when the folder or a terminal could not be opened.</param>
     /// <param name="history">
-    /// The graph page, which the toolbar's fetch, pull and push bring up to date.
+    /// The graph page, which the command bar's fetch, pull and push bring up to date.
     /// </param>
     /// <param name="conflicts">The conflicts page, whose progress the banner shows.</param>
-    /// <param name="sync">Backs the toolbar's fetch, pull and push.</param>
+    /// <param name="sync">Backs the command bar's fetch, pull and push.</param>
     /// <param name="merges">Backs the banner's way out of a merge.</param>
     /// <param name="autoRefresh">
-    /// Fetches and refreshes the repository on its own, and when the toolbar's refresh button asks;
+    /// Fetches and refreshes the repository on its own, and when the command bar's refresh asks;
     /// the graph is told what each refresh found.
     /// </param>
-    /// <param name="theme">The toolbar's theme switch, shared with the start window.</param>
-    /// <param name="about">Shows the About dialog from the toolbar.</param>
+    /// <param name="theme">The command bar's theme switch, shared with the start window.</param>
+    /// <param name="about">Shows the About dialog from the command bar.</param>
     /// <param name="interop">Opens the repository's folder in the file manager, and a terminal in it.</param>
     /// <param name="signInNotice">
     /// Says when git signed in on its own because an integration's stored token could not be read.
@@ -377,7 +377,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Wraps a synchronise operation so the toolbar shows the result of it without each command
+    /// Wraps a synchronise operation so the command bar shows the result of it without each command
     /// repeating the same four lines.
     /// </summary>
     /// <remarks>

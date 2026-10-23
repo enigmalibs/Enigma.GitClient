@@ -2751,11 +2751,13 @@ public sealed class HistoryPageTests
             window.UpdateLayout();
 
             Border panel = view.FindControl<Border>("DetailsPanel")!;
+            Border bar = view.FindControl<Border>("CommandBar")!;
 
+            // Both under the command bar, which stays over the whole page (FEATURE-D977).
             Assert.True(panel.IsVisible);
             Assert.Equal(view.Bounds.Width - panel.Bounds.Width, diffPage.Bounds.Width, 3);
-            Assert.Equal(view.Bounds.Height, diffPage.Bounds.Height, 3);
-            Assert.Equal(view.Bounds.Height, panel.Bounds.Height, 3);
+            Assert.Equal(view.Bounds.Height - bar.Bounds.Height, diffPage.Bounds.Height, 3);
+            Assert.Equal(view.Bounds.Height - bar.Bounds.Height, panel.Bounds.Height, 3);
 
             // Side by side, not on top of each other.
             double diffRight = diffPage.TranslatePoint(new Point(diffPage.Bounds.Width, 0), view)?.X ?? double.NaN;

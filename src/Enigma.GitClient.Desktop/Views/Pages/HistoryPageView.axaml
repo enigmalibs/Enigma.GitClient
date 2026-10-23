@@ -5,17 +5,332 @@
              xmlns:panels="using:Enigma.GitClient.Desktop.Views.Panels"
              xmlns:graph="using:Enigma.GitClient.Desktop.Controls.Graph"
              xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Pages"
+             xmlns:shell="using:Enigma.GitClient.Desktop.ViewModels"
              x:Class="Enigma.GitClient.Desktop.Views.Pages.HistoryPageView"
              x:DataType="vm:HistoryPageViewModel">
 
   <!--
-    The page is the graph, with the details panel beside it while a line is selected, and a file's
-    diff drawn over the graph when one of the panel's files is picked.
+    The page is the graph under the command bar, with the details panel beside it while a line is
+    selected, and a file's diff drawn over the graph when one of the panel's files is picked.
   -->
   <DockPanel Name="PageRoot">
 
     <!--
-      The details panel: what the selected line changed, over the page's whole height. Docked, so
+      The command bar, over the whole page: above the details panel and above a diff, so neither
+      narrows it nor covers it. On its left, what the graph shows; in its middle, the commands,
+      labelled — at the bar's true centre whenever both sides fit beside them (CommandBarPanel); on its
+      right, finding something in the graph, the theme and About.
+
+      The commands that act on the repository rather than on its graph — fetch, pull, push, its folder,
+      a terminal, refresh, close, the theme, About — are the window's (MainWindowViewModel): they are
+      reached through the window the page is shown in, as a row reaches the page.
+    -->
+    <Border DockPanel.Dock="Top"
+            Name="CommandBar"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="12,6">
+      <controls:CommandBarPanel Spacing="10">
+
+        <StackPanel Name="CommandBarStart" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+            <TextBlock Text="History"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource EnigmaForegroundBrush}" />
+          </StackPanel>
+
+          <!-- The merge source, while there is one: a choice that outlives the menu it was made in has
+               to be visible, and has to have a way out. -->
+          <Border Name="MergeSourceChip"
+                  Classes="pill"
+                  Background="{DynamicResource EnigmaSelectionBrush}"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="1"
+                  Padding="8,0,2,0"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding HasMergeSource}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ei:Icon Kind="GitMerge" Classes="pill" VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Text="{Binding MergeSourceSummary}"
+                         VerticalAlignment="Center"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Button Classes="toolbar"
+                      Command="{Binding ClearMergeSourceCommand}"
+                      ToolTip.Tip="Clear the merge source"
+                      AutomationProperties.Name="Clear the merge source">
+                <ei:Icon Kind="X" Classes="pill" />
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <!-- The branches hidden from the branches dialog, while there are any: a graph that leaves
+               something out says so, and says how to put it back. -->
+          <Border Name="HiddenBranchesChip"
+                  Classes="pill"
+                  Background="{DynamicResource EnigmaSelectionBrush}"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="1"
+                  Padding="8,0,2,0"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding HasHiddenBranches}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ei:Icon Kind="EyeSlash" Classes="pill" VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Text="{Binding HiddenBranchesSummary}"
+                         VerticalAlignment="Center"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Button Classes="toolbar"
+                      Command="{Binding ShowHiddenBranchesCommand}"
+                      ToolTip.Tip="Show every hidden branch again"
+                      AutomationProperties.Name="Show every hidden branch again">
+                <ei:Icon Kind="X" Classes="pill" />
+              </Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!--
+          The commands, in four groups: bringing the branch up to date with its remotes, and putting
+          the work aside; the repository's folder outside the client, in the file manager and in a
+          terminal; the dialogs the graph's work is done with; and the whole window — read everything
+          again, or close the repository.
+        -->
+        <StackPanel Name="Commands" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+
+          <!-- Pull and push carry the counts that say whether either is worth doing. -->
+          <Button Name="Fetch"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).FetchCommand}"
+                  ToolTip.Tip="Fetch from every remote"
+                  AutomationProperties.Name="Fetch from every remote">
+            <StackPanel>
+              <ei:Icon Kind="ArrowsDownUp" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Fetch" />
+            </StackPanel>
+          </Button>
+          <Button Name="Pull"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).PullCommand}"
+                  ToolTip.Tip="Pull into the current branch"
+                  AutomationProperties.Name="Pull into the current branch">
+            <StackPanel>
+              <Panel HorizontalAlignment="Center">
+                <ei:Icon Kind="ArrowDown" Classes="command" />
+                <Border Name="BehindCount"
+                        Classes="commandcount"
+                        IsVisible="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).IsBehind, FallbackValue=False}">
+                  <TextBlock Text="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).Behind}" />
+                </Border>
+              </Panel>
+              <TextBlock Classes="commandlabel" Text="Pull" />
+            </StackPanel>
+          </Button>
+          <Button Name="Push"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).PushCommand}"
+                  ToolTip.Tip="Push the current branch"
+                  AutomationProperties.Name="Push the current branch">
+            <StackPanel>
+              <Panel HorizontalAlignment="Center">
+                <ei:Icon Kind="ArrowUp" Classes="command" />
+                <Border Name="AheadCount"
+                        Classes="commandcount"
+                        IsVisible="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).IsAhead, FallbackValue=False}">
+                  <TextBlock Text="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).Ahead}" />
+                </Border>
+              </Panel>
+              <TextBlock Classes="commandlabel" Text="Push" />
+            </StackPanel>
+          </Button>
+
+          <!-- The uncommitted work, put aside: the stash then appears in the graph as a line of its
+               own, which is where it is applied, popped or deleted. -->
+          <Button Name="StashChanges"
+                  Classes="toolbar command"
+                  Command="{Binding StashCommand}"
+                  ToolTip.Tip="Stash all changes"
+                  ToolTip.ShowOnDisabled="True"
+                  AutomationProperties.Name="Stash all changes">
+            <StackPanel>
+              <ei:Icon Kind="Archive" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Stash" />
+            </StackPanel>
+          </Button>
+
+          <Border Width="1" Margin="6,8" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <Button Name="OpenFolder"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).OpenFolderCommand}"
+                  ToolTip.Tip="Open the repository's folder in the file manager"
+                  AutomationProperties.Name="Open the repository's folder">
+            <StackPanel>
+              <ei:Icon Kind="FolderOpen" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Folder" />
+            </StackPanel>
+          </Button>
+          <Button Name="OpenTerminal"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).OpenTerminalCommand}"
+                  ToolTip.Tip="Open a terminal in the repository's folder"
+                  AutomationProperties.Name="Open a terminal in the repository's folder">
+            <StackPanel>
+              <ei:Icon Kind="TerminalWindow" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Terminal" />
+            </StackPanel>
+          </Button>
+
+          <Border Width="1" Margin="6,8" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <Button Name="OpenBranches"
+                  Classes="toolbar command"
+                  Command="{Binding OpenBranchesCommand}"
+                  ToolTip.Tip="Branches"
+                  AutomationProperties.Name="Open the branches">
+            <StackPanel>
+              <ei:Icon Kind="GitBranch" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Branches" />
+            </StackPanel>
+          </Button>
+          <Button Name="OpenWorktrees"
+                  Classes="toolbar command"
+                  Command="{Binding OpenWorktreesCommand}"
+                  ToolTip.Tip="Worktrees"
+                  AutomationProperties.Name="Open the worktrees">
+            <StackPanel>
+              <ei:Icon Kind="Tree" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Worktrees" />
+            </StackPanel>
+          </Button>
+          <Button Name="OpenTags"
+                  Classes="toolbar command"
+                  Command="{Binding OpenTagsCommand}"
+                  ToolTip.Tip="Tags"
+                  AutomationProperties.Name="Open the tags">
+            <StackPanel>
+              <ei:Icon Kind="Tag" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Tags" />
+            </StackPanel>
+          </Button>
+          <Button Name="OpenRemotes"
+                  Classes="toolbar command"
+                  Command="{Binding OpenRemotesCommand}"
+                  ToolTip.Tip="Remotes and stashes"
+                  AutomationProperties.Name="Open the remotes">
+            <StackPanel>
+              <ei:Icon Kind="CloudArrowUp" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Remotes" />
+            </StackPanel>
+          </Button>
+
+          <Border Width="1" Margin="6,8" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+
+          <!-- The application's one refresh: no page has a refresh of its own. -->
+          <Button Name="RefreshEverything"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).RefreshCommand}"
+                  ToolTip.Tip="Refresh everything: fetch from every remote, then read the repository again"
+                  AutomationProperties.Name="Refresh everything">
+            <StackPanel>
+              <ei:Icon Kind="ArrowsClockwise" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Refresh" />
+            </StackPanel>
+          </Button>
+          <Button Name="CloseRepository"
+                  Classes="toolbar command"
+                  Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).CloseRepositoryCommand}"
+                  ToolTip.Tip="Close this repository and go back to the start window"
+                  AutomationProperties.Name="Close the repository">
+            <StackPanel>
+              <ei:Icon Kind="SignOut" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Close" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <!-- Finding something in the graph, then the theme and About, at a toolbar's size. The search
+             box takes what the commands leave it, up to the width it always had, and is the first to
+             give way on a narrow window. -->
+        <Grid Name="CommandBarEnd" ColumnDefinitions="*,Auto" MinWidth="360" MaxWidth="600" VerticalAlignment="Center">
+          <Grid Grid.Column="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+            <!-- Enter and Shift+Enter in the box go to the next and the previous match
+                 (HistoryPageView.axaml.cs). -->
+            <TextBox Grid.Column="0"
+                     Name="SearchBox"
+                     Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Search messages, SHAs and authors"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="Search the commits by message, SHA or author" />
+
+            <!-- What the search found, and which of them is selected, because nothing is hidden:
+                 without a count, a search that matched nothing and one that matched everything look
+                 exactly alike. Its slot and the arrows are always there, so the box does not move
+                 when the first letter is typed. -->
+            <TextBlock Grid.Column="1"
+                       Name="MatchCounter"
+                       Text="{Binding MatchSummary}"
+                       MinWidth="72"
+                       TextAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="8,0,4,0"
+                       FontSize="11"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            <Button Grid.Column="2"
+                    Name="PreviousMatch"
+                    Classes="toolbar"
+                    Command="{Binding PreviousMatchCommand}"
+                    ToolTip.Tip="Previous match (Shift+Enter)"
+                    AutomationProperties.Name="Go to the previous match">
+              <ei:Icon Kind="ArrowUp" Classes="toolbar" />
+            </Button>
+            <Button Grid.Column="3"
+                    Name="NextMatch"
+                    Classes="toolbar"
+                    Command="{Binding NextMatchCommand}"
+                    ToolTip.Tip="Next match (Enter)"
+                    AutomationProperties.Name="Go to the next match">
+              <ei:Icon Kind="ArrowDown" Classes="toolbar" />
+            </Button>
+            <Button Grid.Column="4"
+                    Classes="toolbar"
+                    Command="{Binding ClearSearchCommand}"
+                    ToolTip.Tip="Clear the search"
+                    AutomationProperties.Name="Clear the search">
+              <ei:Icon Kind="X" Classes="toolbar" />
+            </Button>
+          </Grid>
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Border Width="1" Margin="6,6" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+            <Button Name="SwitchTheme"
+                    Classes="toolbar"
+                    Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).ToggleThemeCommand}"
+                    ToolTip.Tip="Switch between the dark and light themes"
+                    AutomationProperties.Name="Switch between the dark and light themes">
+              <ei:Icon Kind="Palette" Classes="toolbar" />
+            </Button>
+            <Button Name="OpenAbout"
+                    Classes="toolbar"
+                    Command="{Binding $parent[Window].((shell:MainWindowViewModel)DataContext).OpenAboutCommand}"
+                    ToolTip.Tip="About"
+                    AutomationProperties.Name="About Enigma Git Client">
+              <ei:Icon Kind="Info" Classes="toolbar" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </controls:CommandBarPanel>
+    </Border>
+
+    <!--
+      The details panel: what the selected line changed, over the page's height under the bar. Docked, so
       the graph gives up the width it takes — and in the graph the message column, the one whose
       width is whatever the other columns leave. The grip on its left edge makes it wider or
       narrower; a line clicked a second time, or the close button, puts it away.
@@ -89,172 +404,6 @@
 
     <Panel Name="HistoryArea">
       <DockPanel>
-
-        <!-- Toolbar: what the graph shows, and how to find something in it. -->
-        <Border DockPanel.Dock="Top"
-                Background="{DynamicResource EnigmaSurfaceBrush}"
-                BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="12,8">
-          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
-
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-              <ei:Icon Kind="GitCommit" Classes="header" VerticalAlignment="Center"
-                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-              <TextBlock Text="History"
-                         VerticalAlignment="Center"
-                         FontSize="14"
-                         FontWeight="SemiBold"
-                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
-            </StackPanel>
-
-            <!-- The merge source, while there is one: a choice that outlives the menu it was made in has
-                 to be visible, and has to have a way out. -->
-            <Border Grid.Column="1"
-                    Name="MergeSourceChip"
-                    Classes="pill"
-                    Background="{DynamicResource EnigmaSelectionBrush}"
-                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                    BorderThickness="1"
-                    Padding="8,0,2,0"
-                    VerticalAlignment="Center"
-                    IsVisible="{Binding HasMergeSource}">
-              <StackPanel Orientation="Horizontal" Spacing="4">
-                <ei:Icon Kind="GitMerge" Classes="pill" VerticalAlignment="Center"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-                <TextBlock Text="{Binding MergeSourceSummary}"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                <Button Classes="toolbar"
-                        Command="{Binding ClearMergeSourceCommand}"
-                        ToolTip.Tip="Clear the merge source"
-                        AutomationProperties.Name="Clear the merge source">
-                  <ei:Icon Kind="X" Classes="pill" />
-                </Button>
-              </StackPanel>
-            </Border>
-
-            <!-- The branches hidden from the branches dialog, while there are any: a graph that leaves
-                 something out says so, and says how to put it back. -->
-            <Border Grid.Column="2"
-                    Name="HiddenBranchesChip"
-                    Classes="pill"
-                    Background="{DynamicResource EnigmaSelectionBrush}"
-                    BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
-                    BorderThickness="1"
-                    Padding="8,0,2,0"
-                    VerticalAlignment="Center"
-                    IsVisible="{Binding HasHiddenBranches}">
-              <StackPanel Orientation="Horizontal" Spacing="4">
-                <ei:Icon Kind="EyeSlash" Classes="pill" VerticalAlignment="Center"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-                <TextBlock Text="{Binding HiddenBranchesSummary}"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
-                <Button Classes="toolbar"
-                        Command="{Binding ShowHiddenBranchesCommand}"
-                        ToolTip.Tip="Show every hidden branch again"
-                        AutomationProperties.Name="Show every hidden branch again">
-                  <ei:Icon Kind="X" Classes="pill" />
-                </Button>
-              </StackPanel>
-            </Border>
-
-            <Grid Grid.Column="3" ColumnDefinitions="*,Auto,Auto,Auto,Auto" MaxWidth="520" HorizontalAlignment="Right">
-              <!-- Enter and Shift+Enter in the box go to the next and the previous match
-                   (HistoryPageView.axaml.cs). -->
-              <TextBox Grid.Column="0"
-                       Name="SearchBox"
-                       Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       PlaceholderText="Search messages, SHAs and authors"
-                       VerticalAlignment="Center"
-                       AutomationProperties.Name="Search the commits by message, SHA or author" />
-
-              <!-- What the search found, and which of them is selected, because nothing is hidden:
-                   without a count, a search that matched nothing and one that matched everything look
-                   exactly alike. Its slot and the arrows are always there, so the box does not move
-                   when the first letter is typed. -->
-              <TextBlock Grid.Column="1"
-                         Name="MatchCounter"
-                         Text="{Binding MatchSummary}"
-                         MinWidth="72"
-                         TextAlignment="Center"
-                         VerticalAlignment="Center"
-                         Margin="8,0,4,0"
-                         FontSize="11"
-                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-              <Button Grid.Column="2"
-                      Name="PreviousMatch"
-                      Classes="toolbar"
-                      Command="{Binding PreviousMatchCommand}"
-                      ToolTip.Tip="Previous match (Shift+Enter)"
-                      AutomationProperties.Name="Go to the previous match">
-                <ei:Icon Kind="ArrowUp" Classes="toolbar" />
-              </Button>
-              <Button Grid.Column="3"
-                      Name="NextMatch"
-                      Classes="toolbar"
-                      Command="{Binding NextMatchCommand}"
-                      ToolTip.Tip="Next match (Enter)"
-                      AutomationProperties.Name="Go to the next match">
-                <ei:Icon Kind="ArrowDown" Classes="toolbar" />
-              </Button>
-              <Button Grid.Column="4"
-                      Classes="toolbar"
-                      Command="{Binding ClearSearchCommand}"
-                      ToolTip.Tip="Clear the search"
-                      AutomationProperties.Name="Clear the search">
-                <ei:Icon Kind="X" Classes="toolbar" />
-              </Button>
-            </Grid>
-
-            <!-- The secondary pages, over the history: the graph is where the work is done, and these
-                 are what it is done with. -->
-            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-              <!-- The uncommitted work, put aside: the stash then appears in the graph as a line of
-                   its own, which is where it is applied, popped or deleted. -->
-              <Button Name="StashChanges"
-                      Classes="toolbar"
-                      Margin="0,0,8,0"
-                      Command="{Binding StashCommand}"
-                      ToolTip.Tip="Stash all changes"
-                      ToolTip.ShowOnDisabled="True"
-                      AutomationProperties.Name="Stash all changes">
-                <ei:Icon Kind="Archive" Classes="toolbar" />
-              </Button>
-              <Button Name="OpenBranches"
-                      Classes="toolbar"
-                      Command="{Binding OpenBranchesCommand}"
-                      ToolTip.Tip="Branches"
-                      AutomationProperties.Name="Open the branches">
-                <ei:Icon Kind="GitBranch" Classes="toolbar" />
-              </Button>
-              <Button Name="OpenWorktrees"
-                      Classes="toolbar"
-                      Command="{Binding OpenWorktreesCommand}"
-                      ToolTip.Tip="Worktrees"
-                      AutomationProperties.Name="Open the worktrees">
-                <ei:Icon Kind="Tree" Classes="toolbar" />
-              </Button>
-              <Button Name="OpenTags"
-                      Classes="toolbar"
-                      Command="{Binding OpenTagsCommand}"
-                      ToolTip.Tip="Tags"
-                      AutomationProperties.Name="Open the tags">
-                <ei:Icon Kind="Tag" Classes="toolbar" />
-              </Button>
-              <Button Name="OpenRemotes"
-                      Classes="toolbar"
-                      Command="{Binding OpenRemotesCommand}"
-                      ToolTip.Tip="Remotes and stashes"
-                      AutomationProperties.Name="Open the remotes">
-                <ei:Icon Kind="CloudArrowUp" Classes="toolbar" />
-              </Button>
-            </StackPanel>
-          </Grid>
-        </Border>
 
         <!--
           The column header. It carries the same six columns as every row, at the same widths and the
