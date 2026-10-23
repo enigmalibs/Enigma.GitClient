@@ -145,6 +145,12 @@ public sealed class SyncProgressDeliveryTests
     /// </summary>
     private sealed class NoCredentials : IGitCredentialResolver
     {
+        public event EventHandler<TokenUnreadableEventArgs>? TokenUnreadable
+        {
+            add { }
+            remove { }
+        }
+
         public Task<GitCredentials> ForRepositoryAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
             => Task.FromResult(GitCredentials.None);
 

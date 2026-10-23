@@ -510,4 +510,37 @@ public sealed class TokenStoreTests : IDisposable
         Assert.False(status.CanRead("host:two"));
         Assert.True(status.Holds("host:two"));
     }
+
+    // ---------------------------------------------------------------- what changed
+
+    [Fact]
+    public async Task EveryChange_IsSaid_AfterItIsMade()
+    {
+        List<(TokenStoreChange Change, string? Key, bool KeyFileThere)> changes = [];
+        _store.Changed += (_, e) => changes.Add((e.Change, e.Key, File.Exists(KeyFile)));
+
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.DeleteAsync("host:one", TestContext.Current.CancellationToken);
+        await _store.DeleteAsync("host:one", TestContext.Current.CancellationToken);
+        await _store.ResetAsync(TestContext.Current.CancellationToken);
+
+        // Nothing for a delete that deleted nothing; the reset names no key, and comes once the files are gone.
+        Assert.Equal(
+            [(TokenStoreChange.Written, "host:one", true), (TokenStoreChange.Deleted, "host:one", true), (TokenStoreChange.Reset, null, false)],
+            changes);
+    }
+
+    [Fact]
+    public async Task AWriteThatFails_SaysNothing()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        FileTokenStore refusing = Refusing();
+        int changes = 0;
+        refusing.Changed += (_, _) => changes++;
+
+        await Assert.ThrowsAsync<TokenProtectionException>(
+            () => refusing.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, changes);
+    }
 }

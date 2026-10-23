@@ -152,6 +152,44 @@ public sealed record TokenStoreStatus(
 }
 
 /// <summary>
+/// What changed in the token store.
+/// </summary>
+public enum TokenStoreChange
+{
+    /// <summary>A secret was stored.</summary>
+    Written,
+
+    /// <summary>A secret was deleted.</summary>
+    Deleted,
+
+    /// <summary>Every secret was deleted, with what sealed them.</summary>
+    Reset,
+}
+
+/// <summary>
+/// Says what changed in the token store.
+/// </summary>
+public sealed class TokenStoreChangedEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="change">What changed.</param>
+    /// <param name="key">The key written or deleted, or <see langword="null"/> for a reset.</param>
+    public TokenStoreChangedEventArgs(TokenStoreChange change, string? key)
+    {
+        Change = change;
+        Key = key;
+    }
+
+    /// <summary>Gets what changed.</summary>
+    public TokenStoreChange Change { get; }
+
+    /// <summary>Gets the key written or deleted, or <see langword="null"/> for a reset.</summary>
+    public string? Key { get; }
+}
+
+/// <summary>
 /// Where access tokens are kept.
 /// </summary>
 /// <remarks>
@@ -160,6 +198,13 @@ public sealed record TokenStoreStatus(
 /// </remarks>
 public interface ITokenStore
 {
+    /// <summary>
+    /// Raised once a secret has been stored or deleted, or the store reset — what a warning that a token
+    /// could not be read waits for to go away.
+    /// </summary>
+    /// <remarks>Raised on whatever thread the change ran on, after the store is free again.</remarks>
+    event EventHandler<TokenStoreChangedEventArgs>? Changed;
+
     /// <summary>
     /// Stores a secret, replacing whatever was under that key.
     /// </summary>
@@ -273,6 +318,9 @@ public sealed class FileTokenStore : ITokenStore
     }
 
     /// <inheritdoc />
+    public event EventHandler<TokenStoreChangedEventArgs>? Changed;
+
+    /// <inheritdoc />
     public async Task SetAsync(string key, SecretString secret, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -290,6 +338,8 @@ public sealed class FileTokenStore : ITokenStore
         {
             _gate.Release();
         }
+
+        Changed?.Invoke(this, new TokenStoreChangedEventArgs(TokenStoreChange.Written, key));
     }
 
     /// <inheritdoc />
@@ -340,12 +390,14 @@ public sealed class FileTokenStore : ITokenStore
             }
 
             Write(entries);
-            return true;
         }
         finally
         {
             _gate.Release();
         }
+
+        Changed?.Invoke(this, new TokenStoreChangedEventArgs(TokenStoreChange.Deleted, key));
+        return true;
     }
 
     /// <inheritdoc />
@@ -379,6 +431,8 @@ public sealed class FileTokenStore : ITokenStore
         {
             _gate.Release();
         }
+
+        Changed?.Invoke(this, new TokenStoreChangedEventArgs(TokenStoreChange.Reset, null));
     }
 
     /// <inheritdoc />

@@ -229,6 +229,48 @@
         </Grid>
       </Border>
 
+      <!-- git signed in on its own because an integration's stored token could not be read: said once,
+           with the way out, rather than leaving git's own prompt unexplained (BUG-3024). -->
+      <Border Name="SignInNoticeBand"
+              DockPanel.Dock="Top"
+              Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+              BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="12,8"
+              IsVisible="{Binding SignInNotice.IsVisible}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ei:Icon Grid.Column="0" Kind="Key" Classes="row" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaWarningBrush}" />
+          <TextBlock Grid.Column="1"
+                     Text="{Binding SignInNotice.Message}"
+                     VerticalAlignment="Center"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <Button Classes="toolbar"
+                    Command="{Binding SignInNotice.ResetCommand}"
+                    IsVisible="{Binding SignInNotice.OffersReset}"
+                    ToolTip.Tip="Delete every stored token, so each integration can be given its token again"
+                    AutomationProperties.Name="Reset stored tokens">
+              <TextBlock Text="Reset stored tokens" FontSize="12" />
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding SignInNotice.OpenProfilesCommand}"
+                    ToolTip.Tip="Open the Profiles page, where an integration's token is replaced"
+                    AutomationProperties.Name="Open the Profiles page">
+              <TextBlock Text="Open Profiles" FontSize="12" />
+            </Button>
+            <Button Classes="toolbar"
+                    Command="{Binding SignInNotice.DismissCommand}"
+                    ToolTip.Tip="Put this notice away for the rest of the session"
+                    AutomationProperties.Name="Dismiss the notice">
+              <ei:Icon Kind="X" Classes="toolbar" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
       <nav:NavigationView x:Name="NavigationRail"
                           DockPanel.Dock="Left"
                           Items="{Binding Navigation.Items}"
