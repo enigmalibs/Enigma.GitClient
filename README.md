@@ -10,12 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.8** — an error nothing expected no longer closes the application: a dialog says
-> what went wrong, and you carry on. Stored tokens that can no longer be read (a Windows password
-> reset does this) can be reset: connecting an account offers it, the Profiles page says which tokens
-> cannot be read and offers *Replace token*, and when git falls back to its own sign-in the repository
-> window says why. 6.7 before it: the history's *How long ago* ages move on every automatic refresh,
-> and on Windows `packaging/windows/publish.ps1` runs the Windows publish from any directory.
+> **What's new in 6.9** — the repository window's commands are on one command bar across the top of
+> the History page, named and grouped at its centre, with icons only on a narrow window; the theme
+> switch and About are on the Settings page. The strip above it draws the repository larger, with the
+> history's badge for the checked-out branch. Escape clears the History search. On the Profiles page
+> each profile is a card, the active one says *Active*, and the others offer *Make active*. 6.8
+> before it: an error nothing expected no longer closes the application, and stored tokens that can
+> no longer be read (a Windows password reset does this) can be reset from the application.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
