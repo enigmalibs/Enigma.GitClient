@@ -4,8 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -13,6 +19,7 @@ using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.Navigation;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -1241,7 +1248,7 @@ public sealed class ProfilesPageTests
     }
 
     [Fact]
-    public void TheViewMarksTheCurrentProfileAndOffersUseOnTheOthers()
+    public void TheViewMarksTheActiveProfileAndOffersMakeActiveOnTheOthers()
     {
         _fixture.RunAsync(async () =>
         {
@@ -1250,6 +1257,136 @@ public sealed class ProfilesPageTests
             IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
             await store.SaveAsync(IdentityProfile.Create("Work", Work));
             await store.SaveAsync(IdentityProfile.Create("Home", Home));
+            await store.SaveAsync(new IdentityProfile("default", "Default", string.Empty, string.Empty));
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            ProfilesPageView view = services.Get<ProfilesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 1100 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+
+                // Work is git's identity: its card is outlined in the accent and says Active, in words.
+                AssertActive(view, window, active: 0);
+
+                // Kept beside the test assembly, as the other page snapshots are, for a reader to look
+                // at — in both variants, as the accent has to read on each.
+                Snapshot(window, ThemeVariant.Dark, "profiles-active-dark.png");
+                Snapshot(window, ThemeVariant.Light, "profiles-active-light.png");
+
+                // Home can be switched to; Default, without a name and email, cannot — and says neither.
+                Button[] makeActive = [.. All<Button>(view, "Make this profile active")];
+                Assert.Equal([false, true, false], makeActive.Select(button => button.IsEffectivelyVisible));
+                Assert.Equal("Make active", makeActive[1].GetVisualDescendants().OfType<TextBlock>().Single().Text);
+                Assert.Same(page.UseProfileCommand, makeActive[1].Command);
+                Assert.Same(page.Profiles[1], makeActive[1].CommandParameter);
+                Assert.True(makeActive[1].Bounds.Height >= 28, $"Make active is {makeActive[1].Bounds.Height} px high");
+
+                // The old words are gone.
+                Assert.DoesNotContain(
+                    view.GetVisualDescendants().OfType<TextBlock>(),
+                    block => block.IsEffectivelyVisible && block.Text is "Current" or "Use");
+
+                Assert.Equal(3, All<Button>(view, "Edit this profile").Count());
+                Assert.Equal(3, All<Button>(view, "Delete this profile").Count());
+                Assert.True(Named<Button>(view, "Add a profile").IsEffectivelyEnabled);
+
+                // Switching moves the outline, the word and the button together.
+                await page.UseProfileCommand.ExecuteAsync(makeActive[1].CommandParameter);
+                window.UpdateLayout();
+
+                Assert.Equal(Home, services.Identity.Global);
+                AssertActive(view, window, active: 1);
+                Assert.Equal([true, false, false], All<Button>(view, "Make this profile active").Select(button => button.IsEffectivelyVisible));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+        static void Snapshot(Window window, ThemeVariant variant, string file)
+        {
+            Application application = Application.Current!;
+            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
+
+            try
+            {
+                application.RequestedThemeVariant = variant;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
+                Dispatcher.UIThread.RunJobs();
+
+                string directory = Path.Combine(AppContext.BaseDirectory, "snapshots");
+                Directory.CreateDirectory(directory);
+
+                using Bitmap frame = window.CaptureRenderedFrame()
+                    ?? throw new InvalidOperationException("The window produced no rendered frame.");
+                frame.Save(Path.Combine(directory, file), PngBitmapEncoderOptions.Default);
+            }
+            finally
+            {
+                application.RequestedThemeVariant = original;
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        static void AssertActive(ProfilesPageView view, Window window, int active)
+        {
+            Border[] cards = [.. view.GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("profilecard"))];
+            Assert.Equal(3, cards.Length);
+
+            Assert.True(Application.Current!.TryFindResource("ActionAccentBrush", window.ActualThemeVariant, out object? accent));
+            Assert.True(Application.Current!.TryFindResource("EnigmaBorderSubtleBrush", window.ActualThemeVariant, out object? subtle));
+
+            for (int index = 0; index < cards.Length; index++)
+            {
+                bool isActive = index == active;
+                Color expected = ((ISolidColorBrush)(isActive ? accent : subtle)!).Color;
+
+                Assert.Equal(isActive, cards[index].Classes.Contains("active"));
+                Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(cards[index].BorderBrush).Color);
+
+                // Only the brush changes: the frame keeps its thickness, so nothing moves.
+                Assert.Equal(new Thickness(1), cards[index].BorderThickness);
+            }
+
+            Control[] markers = [.. All<Control>(view, "Active profile")];
+            Assert.Equal(cards.Length, markers.Length);
+
+            for (int index = 0; index < markers.Length; index++)
+            {
+                Assert.Equal(index == active, markers[index].IsEffectivelyVisible);
+            }
+
+            Control marker = markers[active];
+            Assert.Equal("Active", marker.GetVisualDescendants().OfType<TextBlock>().Single().Text);
+            Assert.Equal(
+                Enigma.Icons.Phosphor.PhosphorIcon.CheckCircle,
+                marker.GetVisualDescendants().OfType<Enigma.Icons.Avalonia.Icon>().Single().Kind);
+            Assert.Equal(
+                "Git commits as this profile: your global configuration has its name and email",
+                ToolTip.GetTip(marker));
+        }
+    }
+
+    [Fact]
+    public void TheViewPutsEachProfileOnACardOfItsOwn_InLargerType()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Open source", Home));
 
             ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
@@ -1262,26 +1399,45 @@ public sealed class ProfilesPageTests
 
             try
             {
-                Button[] use = [.. All<Button>(view, "Use this profile")];
+                window.UpdateLayout();
 
-                Assert.Equal(2, use.Length);
-                Assert.False(use[0].IsVisible);
-                Assert.True(use[1].IsVisible);
+                Border[] cards = [.. view.GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("profilecard"))];
+                Assert.Equal(2, cards.Length);
 
-                TextBlock[] pills = [.. view.GetVisualDescendants().OfType<TextBlock>().Where(block => block.Text == "Current")];
-                Assert.Equal(2, pills.Length);
-                Assert.True(pills[0].IsEffectivelyVisible);
-                Assert.False(pills[1].IsEffectivelyVisible);
+                // Framed, and apart: a frame touching the next one would read as one box.
+                Assert.All(cards, card => Assert.Equal(new Thickness(1), card.BorderThickness));
+                double firstEnds = cards[0].TranslatePoint(new Point(0, cards[0].Bounds.Height), view)!.Value.Y;
+                double secondStarts = cards[1].TranslatePoint(new Point(0, 0), view)!.Value.Y;
+                Assert.True(secondStarts - firstEnds >= 8, $"the cards are {secondStarts - firstEnds} px apart");
 
-                Assert.Equal(2, All<Button>(view, "Edit this profile").Count());
-                Assert.Equal(2, All<Button>(view, "Delete this profile").Count());
-                Assert.True(Named<Button>(view, "Add a profile").IsEffectivelyEnabled);
+                // The label is the card's title, and the identity under it is read, not squinted at.
+                TextBlock label = Text(cards[1], "Open source");
+                TextBlock identity = Text(cards[1], "Ada <ada@home.example>");
+                Assert.Equal(15, label.FontSize);
+                Assert.Equal(FontWeight.SemiBold, label.FontWeight);
+                Assert.Equal(13, identity.FontSize);
+                Assert.True(Application.Current!.TryFindResource("EnigmaForegroundSecondaryBrush", window.ActualThemeVariant, out object? secondary));
+                Assert.Equal(((ISolidColorBrush)secondary!).Color, Assert.IsAssignableFrom<ISolidColorBrush>(identity.Foreground).Color);
+
+                // The mark is a monogram of the label, which tells two profiles of one person apart.
+                AuthorAvatar[] marks = [.. cards.Select(card => card.GetVisualDescendants().OfType<AuthorAvatar>().Single())];
+                Assert.Equal(["W", "OS"], marks.Select(mark => mark.Initials));
+                Assert.All(marks, mark => Assert.Equal(new Size(36, 36), mark.Bounds.Size));
+
+                // A profile's accounts are inside its own card.
+                Assert.All(cards, card => Assert.Single(
+                    card.GetVisualDescendants().OfType<Button>(),
+                    button => AutomationProperties.GetName(button) == "Connect an account to this profile"));
+                Assert.All(cards, card => Assert.True(Text(card, "Local only — no integration, so this profile never pushes.").IsEffectivelyVisible));
             }
             finally
             {
                 window.Close();
             }
         });
+
+        static TextBlock Text(Control root, string text)
+            => root.GetVisualDescendants().OfType<TextBlock>().Single(block => block.Text == text);
     }
 
     [Fact]
@@ -1317,7 +1473,7 @@ public sealed class ProfilesPageTests
                 Assert.Equal("Ada", name.Text);
                 Assert.Equal("ada@home.example", Named<TextBox>(view, "This repository's email").Text);
 
-                Button copy = Named<Button>(view, "Copy from the current profile");
+                Button copy = Named<Button>(view, "Copy from the active profile");
                 Button remove = Named<Button>(view, "Remove this repository's identity");
                 Button save = Named<Button>(view, "Save this repository's identity");
 
