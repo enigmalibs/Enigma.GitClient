@@ -127,8 +127,8 @@
 
   <!-- A window too narrow for the named commands beside the search box: the commands keep their
        icons and their tips, and give up their names and the width the names needed, rather than the
-       search box or About being pushed off the bar's edge. After the command button's own style, so
-       this one wins. -->
+       search block being pushed off the bar's edge. After the command button's own style, so this one
+       wins. -->
   <Style Selector="controls|CommandBarPanel:compact TextBlock.commandlabel">
     <Setter Property="IsVisible" Value="False" />
   </Style>

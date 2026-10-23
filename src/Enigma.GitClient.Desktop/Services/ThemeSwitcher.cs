@@ -6,7 +6,7 @@ using Enigma.GitClient.Core.Configuration;
 namespace Enigma.GitClient.Desktop.Services;
 
 /// <summary>
-/// The toolbar's theme switch, which both windows carry.
+/// The theme switch on the start window's toolbar.
 /// </summary>
 public interface IThemeSwitcher
 {

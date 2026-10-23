@@ -24,8 +24,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly ISyncOperations _sync;
     private readonly IMergeOperations _merges;
     private readonly IAutoRefreshService _autoRefresh;
-    private readonly IThemeSwitcher _theme;
-    private readonly IAboutDialogService _about;
     private readonly ISystemInterop _interop;
     private bool _initialised;
 
@@ -46,8 +44,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Fetches and refreshes the repository on its own, and when the command bar's refresh asks;
     /// the graph is told what each refresh found.
     /// </param>
-    /// <param name="theme">The command bar's theme switch, shared with the start window.</param>
-    /// <param name="about">Shows the About dialog from the command bar.</param>
     /// <param name="interop">Opens the repository's folder in the file manager, and a terminal in it.</param>
     /// <param name="signInNotice">
     /// Says when git signed in on its own because an integration's stored token could not be read.
@@ -62,8 +58,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         ISyncOperations sync,
         IMergeOperations merges,
         IAutoRefreshService autoRefresh,
-        IThemeSwitcher theme,
-        IAboutDialogService about,
         ISystemInterop interop,
         GitSignInNoticeViewModel signInNotice)
     {
@@ -76,8 +70,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(merges);
         ArgumentNullException.ThrowIfNull(autoRefresh);
-        ArgumentNullException.ThrowIfNull(theme);
-        ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(signInNotice);
 
@@ -102,12 +94,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _sync = sync;
         _merges = merges;
         _autoRefresh = autoRefresh;
-        _theme = theme;
-        _about = about;
         _interop = interop;
-
-        ToggleThemeCommand = new RelayCommand(_theme.Toggle);
-        OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
 
         FetchCommand = new AsyncRelayCommand(RunSyncAsync(_sync.FetchAsync), () => CanSync);
         PullCommand = new AsyncRelayCommand(RunSyncAsync(_sync.PullAsync), () => CanSync);
@@ -220,19 +207,6 @@ public sealed class MainWindowViewModel : ViewModelBase
             RepositoryOperation.ApplyMailbox => "An 'am' session is in progress.",
             _ => string.Empty,
         };
-
-    /// <summary>
-    /// Gets the command that switches between the Dark and Light theme variants, and records the one
-    /// it switched to as the theme preference — so the next start opens on it, and the settings page
-    /// says so.
-    /// </summary>
-    public RelayCommand ToggleThemeCommand { get; }
-
-    /// <summary>
-    /// Gets the command that opens the About dialog: what the application is, which build is running
-    /// and what it is built with.
-    /// </summary>
-    public AsyncRelayCommand OpenAboutCommand { get; }
 
     /// <summary>
     /// Gets the command that refreshes everything: the application's one refresh button.

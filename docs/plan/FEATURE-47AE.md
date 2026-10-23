@@ -1,6 +1,6 @@
 # FEATURE-47AE — A lighter History command bar
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-23-history-bar-polish
@@ -45,7 +45,7 @@ The History page's command bar (FEATURE-D977), made lighter:
 
 ## PHASE01 — No theme switch nor About on the bar
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-47AE-PHASE01.md`
 **Branch:** `feature/feature-47ae-phase01-no-theme-about`
 
 ### Steps

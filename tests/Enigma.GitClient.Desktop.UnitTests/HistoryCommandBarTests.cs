@@ -18,14 +18,16 @@ using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views;
 using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
+using Enigma.Icons.Phosphor;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The History page's command bar, which took the repository strip's buttons (FEATURE-D977): the
-/// commands in the middle, labelled, in the order asked for; search, the theme and About on its right;
-/// over the whole page, so neither the details panel nor a diff takes it away.
+/// commands in the middle, labelled, in the order asked for; search on its right, and nothing else — the
+/// theme and About are on the Settings page (FEATURE-47AE); over the whole page, so neither the details
+/// panel nor a diff takes it away.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class HistoryCommandBarTests
@@ -144,8 +146,6 @@ public sealed class HistoryCommandBarTests
                     ("OpenRemotes", history.OpenRemotesCommand),
                     ("RefreshEverything", shell.RefreshCommand),
                     ("CloseRepository", shell.CloseRepositoryCommand),
-                    ("SwitchTheme", shell.ToggleThemeCommand),
-                    ("OpenAbout", shell.OpenAboutCommand),
                 ];
 
                 foreach ((string name, ICommand command) in expected)
@@ -167,7 +167,7 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
-    public void TheCommands_AreAtTheBarsCentre_WithSearchThemeAndAboutOnItsRight()
+    public void TheCommands_AreAtTheBarsCentre_WithSearchOnItsRight()
     {
         _fixture.RunAsync(async () =>
         {
@@ -179,22 +179,44 @@ public sealed class HistoryCommandBarTests
                 Border bar = Named<Border>(page, "CommandBar");
                 Rect commands = BoundsIn(Named<StackPanel>(page, "Commands"), bar);
                 Rect search = BoundsIn(Named<TextBox>(page, "SearchBox"), bar);
-                Button theme = Named<Button>(page, "SwitchTheme");
-                Button about = Named<Button>(page, "OpenAbout");
-                Rect themeAt = BoundsIn(theme, bar);
-                Rect aboutAt = BoundsIn(about, bar);
+                Button clear = Named<Button>(page, "ClearSearch");
+                Rect clearAt = BoundsIn(clear, bar);
 
                 Assert.Equal(bar.Bounds.Width / 2, commands.Center.X, 0.5);
 
+                // The search block ends the bar: clearing the search is its last button.
                 Assert.True(search.Left > commands.Right, "the search box is not right of the commands");
-                Assert.True(themeAt.Left > search.Right, "the theme switch is not right of the search box");
-                Assert.True(aboutAt.Left > themeAt.Right, "About is not right of the theme switch");
-                Assert.Equal(bar.Bounds.Width - bar.Padding.Right, aboutAt.Right, 1.0);
+                Assert.True(clearAt.Left > search.Right, "clearing the search is not right of the box");
+                Assert.Equal(bar.Bounds.Width - bar.Padding.Right, clearAt.Right, 1.0);
 
-                // At the size they always had: toolbar buttons, not commands.
-                Assert.Equal(18, IconOf(theme).Size);
-                Assert.Equal(18, IconOf(about).Size);
-                Assert.DoesNotContain("command", theme.Classes);
+                // At the size it always had: a toolbar button, not a command.
+                Assert.Equal(18, IconOf(clear).Size);
+                Assert.DoesNotContain("command", clear.Classes);
+
+                await LetTheHistoryFinishAsync(services);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheBar_HasNeitherTheThemeSwitchNorAbout()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services);
+
+            try
+            {
+                Border bar = Named<Border>(page, "CommandBar");
+
+                // Both are on the Settings page: the theme preference, and its About button.
+                Assert.DoesNotContain(bar.GetVisualDescendants().OfType<Button>(), button => button.Name is "SwitchTheme" or "OpenAbout");
+                Assert.DoesNotContain(bar.GetVisualDescendants().OfType<Icon>(), icon => icon.Kind is PhosphorIcon.Palette or PhosphorIcon.Info);
 
                 await LetTheHistoryFinishAsync(services);
             }
@@ -246,7 +268,7 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
-    public void OnANarrowWindow_TheCommandsGiveUpTheirNames_AndSearchAndAboutStayOnTheBar()
+    public void OnANarrowWindow_TheCommandsGiveUpTheirNames_AndTheSearchStaysOnTheBar()
     {
         _fixture.RunAsync(async () =>
         {
@@ -258,7 +280,7 @@ public sealed class HistoryCommandBarTests
             try
             {
                 Border bar = Named<Border>(page, "CommandBar");
-                Button about = Named<Button>(page, "OpenAbout");
+                Button clear = Named<Button>(page, "ClearSearch");
                 Button[] buttons = [.. Named<StackPanel>(page, "Commands").Children.OfType<Button>()];
 
                 Assert.True(bar.GetVisualDescendants().OfType<Controls.CommandBarPanel>().Single().IsCompact);
@@ -269,7 +291,7 @@ public sealed class HistoryCommandBarTests
                 Assert.All(buttons, button => Assert.False(string.IsNullOrEmpty(ToolTip.GetTip(button) as string)));
 
                 // And nothing is pushed off the bar.
-                Assert.True(BoundsIn(about, bar).Right <= bar.Bounds.Width - bar.Padding.Right + 1, "About is off the bar");
+                Assert.True(BoundsIn(clear, bar).Right <= bar.Bounds.Width - bar.Padding.Right + 1, "the search block is off the bar");
                 Assert.True(Named<TextBox>(page, "SearchBox").Bounds.Width >= 90, "the search box is squeezed");
 
                 await LetTheHistoryFinishAsync(services);
