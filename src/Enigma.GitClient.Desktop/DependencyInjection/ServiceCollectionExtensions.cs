@@ -105,6 +105,10 @@ public static class ServiceCollectionExtensions
             services.AddTransient<MainWindow>();
             services.AddSingleton<MainWindowViewModel>();
 
+            // Built with the repository window's ViewModel, and kept for the session: what it has said
+            // stays said from one repository window to the next.
+            services.AddSingleton<GitSignInNoticeViewModel>();
+
             services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();
             services.AddTransient<BranchesPageView>();

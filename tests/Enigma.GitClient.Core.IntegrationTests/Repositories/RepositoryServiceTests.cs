@@ -433,6 +433,12 @@ public sealed class RepositoryServiceTests : IAsyncLifetime
     /// <summary>Signs every clone in to github.com, and remembers what it was asked.</summary>
     private sealed class RecordingCredentials : IGitCredentialResolver
     {
+        public event EventHandler<TokenUnreadableEventArgs>? TokenUnreadable
+        {
+            add { }
+            remove { }
+        }
+
         public const string Token = "ghp_0123456789abcdefghijklmnopqrstuvwxyz";
 
         public List<(string Url, HostAccount? Account)> Clones { get; } = [];

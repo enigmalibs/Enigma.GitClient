@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Git;
@@ -124,6 +126,70 @@ public sealed class GitCredentialResolverTests : IAsyncLifetime
             Path.Combine(_workspace.RootPath, "config", FileTokenStore.FileName), "{ not json", Cancellation);
 
         Assert.Same(GitCredentials.None, await Resolver.ForRepositoryAsync(_handle, Cancellation));
+    }
+
+    // ---------------------------------------------------------------- a token that cannot be read (BUG-3024)
+
+    private string ConfigFile(string name) => Path.Combine(_workspace.RootPath, "config", name);
+
+    [Fact]
+    public async Task OneTokenThatCannotBeRead_LeavesGitItsOwnSignInThereOnly_AndSaysSo()
+    {
+        IdentityProfile work = await AddProfileAsync(Ada);
+        HostAccount github = await ConnectAsync(work, HostKind.GitHub, "https://github.com");
+        await ConnectAsync(work, HostKind.GitLab, "https://gitlab.example.com", "glpat-another-token-value");
+        await _repository.GitAsync("remote", "set-url", "--push", "origin", "https://gitlab.example.com/ada/engine.git");
+
+        // GitHub's entry damaged: authentication fails, the entry is unreadable.
+        JsonNode document = JsonNode.Parse(await File.ReadAllTextAsync(ConfigFile(FileTokenStore.FileName), Cancellation))!;
+        JsonNode entry = document["entries"]![github.TokenKey]!;
+        byte[] tag = Convert.FromBase64String(entry["tag"]!.GetValue<string>());
+        tag[0] ^= 0xFF;
+        entry["tag"] = Convert.ToBase64String(tag);
+        await File.WriteAllTextAsync(ConfigFile(FileTokenStore.FileName), document.ToJsonString(), Cancellation);
+
+        List<TokenUnreadableEventArgs> unreadable = [];
+        Resolver.TokenUnreadable += (_, e) => unreadable.Add(e);
+
+        GitCredentials credentials = await Resolver.ForRepositoryAsync(_handle, Cancellation);
+
+        // GitLab still signs in; GitHub is git's own again, and the event says why.
+        Assert.Equal("https://gitlab.example.com", Assert.Single(credentials.Credentials).Origin);
+
+        TokenUnreadableEventArgs said = Assert.Single(unreadable);
+        Assert.Equal(github.Id, said.Account.Id);
+        Assert.Equal("https://github.com", said.Origin);
+        Assert.Equal(TokenProtectionReason.EntryUnreadable, said.Reason);
+    }
+
+    [Fact]
+    public async Task AKeyThatCannotBeOpened_SaysSo_ForTheIntegrationGitWouldHaveUsed()
+    {
+        IdentityProfile work = await AddProfileAsync(Ada);
+        await ConnectAsync(work, HostKind.GitHub, "https://github.com");
+
+        // What a Windows password reset leaves behind: a data key this account cannot open.
+        await File.WriteAllBytesAsync(ConfigFile(FileTokenStore.KeyFileName), [1, 2, 3], Cancellation);
+
+        List<TokenUnreadableEventArgs> unreadable = [];
+        Resolver.TokenUnreadable += (_, e) => unreadable.Add(e);
+
+        Assert.Same(GitCredentials.None, await Resolver.ForRepositoryAsync(_handle, Cancellation));
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, Assert.Single(unreadable).Reason);
+    }
+
+    [Fact]
+    public async Task AClone_WhoseTokenCannotBeRead_SaysSoToo()
+    {
+        IdentityProfile work = await AddProfileAsync(Ada);
+        HostAccount picked = await ConnectAsync(work, HostKind.GitHub, "https://github.com");
+        await File.WriteAllBytesAsync(ConfigFile(FileTokenStore.KeyFileName), [1, 2, 3], Cancellation);
+
+        List<TokenUnreadableEventArgs> unreadable = [];
+        Resolver.TokenUnreadable += (_, e) => unreadable.Add(e);
+
+        Assert.Same(GitCredentials.None, await Resolver.ForCloneAsync("https://github.com/ada/engine.git", picked, Cancellation));
+        Assert.Equal(picked.Id, Assert.Single(unreadable).Account.Id);
     }
 
     // ---------------------------------------------------------------- clone

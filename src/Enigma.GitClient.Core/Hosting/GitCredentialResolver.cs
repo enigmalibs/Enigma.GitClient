@@ -13,10 +13,49 @@ using Microsoft.Extensions.Logging;
 namespace Enigma.GitClient.Core.Hosting;
 
 /// <summary>
+/// An integration's stored token could not be read, so git signs in on its own where it would have
+/// used it.
+/// </summary>
+public sealed class TokenUnreadableEventArgs : EventArgs
+{
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="account">The integration whose token could not be read.</param>
+    /// <param name="origin">The origin git would have signed in to with it, such as <c>https://github.com</c>.</param>
+    /// <param name="reason">Why the token could not be read.</param>
+    public TokenUnreadableEventArgs(HostAccount account, string origin, TokenProtectionReason reason)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        ArgumentException.ThrowIfNullOrWhiteSpace(origin);
+
+        Account = account;
+        Origin = origin;
+        Reason = reason;
+    }
+
+    /// <summary>Gets the integration whose token could not be read.</summary>
+    public HostAccount Account { get; }
+
+    /// <summary>Gets the origin git would have signed in to with it.</summary>
+    public string Origin { get; }
+
+    /// <summary>Gets why the token could not be read.</summary>
+    public TokenProtectionReason Reason { get; }
+}
+
+/// <summary>
 /// Works out the logins a git invocation signs in with, from the profile it runs under.
 /// </summary>
 public interface IGitCredentialResolver
 {
+    /// <summary>
+    /// Raised when an integration's stored token could not be read and git falls back to its own
+    /// sign-in for its origin — what the user is told, since git's own prompt says nothing of why.
+    /// </summary>
+    /// <remarks>Raised on whatever thread the resolution runs on.</remarks>
+    event EventHandler<TokenUnreadableEventArgs>? TokenUnreadable;
+
     /// <summary>
     /// Works out the logins for a network operation in a repository.
     /// </summary>
@@ -54,6 +93,11 @@ public interface IGitCredentialResolver
 /// It fails open, unlike the push guard: this is a login, not a permission. When what decides cannot be
 /// read, git keeps its own credential helper or SSH key, and a warning says why the token was not used.
 /// Without any profile nothing is read beyond the profiles file.
+/// </para>
+/// <para>
+/// Each integration's token is read on its own: one that cannot be read leaves git its own sign-in for
+/// that origin only, and <see cref="TokenUnreadable"/> says so — the other integrations still sign in
+/// (BUG-3024).
 /// </para>
 /// </remarks>
 public sealed class GitCredentialResolver : IGitCredentialResolver
@@ -96,6 +140,9 @@ public sealed class GitCredentialResolver : IGitCredentialResolver
         _providers = providers;
         _logger = logger;
     }
+
+    /// <inheritdoc />
+    public event EventHandler<TokenUnreadableEventArgs>? TokenUnreadable;
 
     /// <inheritdoc />
     public async Task<GitCredentials> ForRepositoryAsync(
@@ -203,7 +250,28 @@ public sealed class GitCredentialResolver : IGitCredentialResolver
 
         foreach (HostSignIn signIn in signIns)
         {
-            SecretString? token = await _accounts.GetTokenAsync(signIn.Account, cancellationToken).ConfigureAwait(false);
+            SecretString? token;
+
+            try
+            {
+                token = await _accounts.GetTokenAsync(signIn.Account, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TokenProtectionException exception)
+            {
+                // Git signs in on its own here, as it would with no integration; the user is told why
+                // rather than meeting git's own prompt with no explanation.
+                _logger.LogWarning(
+                    exception,
+                    "The token of integration {Account} could not be read ({Reason}); git signs in to {Origin} on its own",
+                    signIn.Account.Id,
+                    exception.Reason,
+                    signIn.Origin);
+
+                TokenUnreadable?.Invoke(this, new TokenUnreadableEventArgs(signIn.Account, signIn.Origin, exception.Reason));
+
+                continue;
+            }
+
             IRepositoryHostProvider? provider = _providers.Find(signIn.Account.Kind);
 
             if (token is null || token.IsEmpty || provider is null)
