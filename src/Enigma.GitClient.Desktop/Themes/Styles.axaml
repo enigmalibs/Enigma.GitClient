@@ -125,6 +125,15 @@
     <Setter Property="Margin" Value="0,2,0,0" />
   </Style>
 
+  <!-- The line between two groups of commands, with room on either side: commands of a group sit
+       close together, and the gap around the line is what sets the groups apart. The same on a
+       compact bar, where the groups need telling apart no less. -->
+  <Style Selector="Border.commandseparator">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Margin" Value="16,8" />
+    <Setter Property="Background" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+  </Style>
+
   <!-- A window too narrow for the named commands beside the search box: the commands keep their
        icons and their tips, and give up their names and the width the names needed, rather than the
        search block being pushed off the bar's edge. After the command button's own style, so this one

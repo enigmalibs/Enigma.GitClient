@@ -87,6 +87,18 @@ public sealed class HistoryCommandBarTests
 
     private static Icon IconOf(Button button) => button.GetVisualDescendants().OfType<Icon>().First();
 
+    /// <summary>
+    /// Asserts the search box's placeholder reads in full: it is as wide as the room inside the box's
+    /// padding and border, or narrower.
+    /// </summary>
+    private static void AssertThePlaceholderFits(TextBox box)
+    {
+        TextBlock placeholder = box.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "PART_Placeholder");
+        double room = box.Bounds.Width - box.Padding.Left - box.Padding.Right - box.BorderThickness.Left - box.BorderThickness.Right;
+
+        Assert.True(placeholder.DesiredSize.Width <= room + 0.5, $"the placeholder needs {placeholder.DesiredSize.Width}, the box has {room}");
+    }
+
     private static Rect BoundsIn(Visual control, Visual ancestor)
     {
         Point origin = control.TranslatePoint(default, ancestor)
@@ -203,6 +215,79 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
+    public void TheSearchBox_IsNarrow_AndItsPlaceholderReadsInFull()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services);
+
+            try
+            {
+                TextBox box = Named<TextBox>(page, "SearchBox");
+
+                // Room for a SHA or a few words, however wide the window: it was about 250 px on this
+                // window, and up to 340 on a wider one.
+                Assert.Equal(200, box.Bounds.Width, 0.5);
+                AssertThePlaceholderFits(box);
+
+                // What the short placeholder leaves out is in the box's tip.
+                Assert.Equal("Search the commits by message, SHA or author", ToolTip.GetTip(box));
+
+                await LetTheHistoryFinishAsync(services);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheGroups_AreSetApart_ByTheRoomAroundTheirSeparators()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services);
+
+            try
+            {
+                StackPanel commands = Named<StackPanel>(page, "Commands");
+                Control[] children = [.. commands.Children];
+
+                for (int index = 1; index < children.Length; index++)
+                {
+                    Control before = children[index - 1];
+                    Control after = children[index];
+                    double gap = after.Bounds.Left - before.Bounds.Right;
+
+                    if (after is Border separator)
+                    {
+                        Assert.Contains("commandseparator", separator.Classes);
+                        Assert.Equal(1, separator.Bounds.Width);
+
+                        // 16 px either side of the line, besides the row's own spacing.
+                        Assert.Equal(16 + commands.Spacing, gap, 0.5);
+                        Assert.Equal(16 + commands.Spacing, children[index + 1].Bounds.Left - separator.Bounds.Right, 0.5);
+                    }
+                    else if (before is Button)
+                    {
+                        // Two commands of a group: only the row's spacing between them.
+                        Assert.Equal(commands.Spacing, gap, 0.5);
+                    }
+                }
+
+                await LetTheHistoryFinishAsync(services);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void TheBar_HasNeitherTheThemeSwitchNorAbout()
     {
         _fixture.RunAsync(async () =>
@@ -292,7 +377,12 @@ public sealed class HistoryCommandBarTests
 
                 // And nothing is pushed off the bar.
                 Assert.True(BoundsIn(clear, bar).Right <= bar.Bounds.Width - bar.Padding.Right + 1, "the search block is off the bar");
-                Assert.True(Named<TextBox>(page, "SearchBox").Bounds.Width >= 90, "the search box is squeezed");
+                AssertThePlaceholderFits(Named<TextBox>(page, "SearchBox"));
+
+                // The groups are as far apart as on a wide bar.
+                Assert.All(
+                    Named<StackPanel>(page, "Commands").Children.OfType<Border>(),
+                    separator => Assert.Equal(new Thickness(16, 8), separator.Margin));
 
                 await LetTheHistoryFinishAsync(services);
             }
