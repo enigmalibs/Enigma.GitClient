@@ -1,6 +1,6 @@
 # FEATURE-47AE — A lighter History command bar
 
-**Status:** IN PROGRESS
+**Status:** DONE — see `docs/done/FEATURE-47AE-PHASE01.md`, `docs/done/FEATURE-47AE-PHASE02.md`
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-23-history-bar-polish
@@ -82,8 +82,13 @@ The History page's command bar (FEATURE-D977), made lighter:
 
 ## PHASE02 — Narrower search, clearer group gaps
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-47AE-PHASE02.md`
 **Branch:** `feature/feature-47ae-phase02-search-and-separators`
+
+> Amended at build time. The box was measured at about 250 px on a 1920 px window (about 345 only on wider
+> ones), and the old placeholder needs 257 px, so a box "as wide as its placeholder" would not have been
+> narrower there. The box is 200 px at most and 130 px at least. Its placeholder became *Search commits*, and
+> the detail moved to its tip. See the completion doc.
 
 ### Steps
 

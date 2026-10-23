@@ -101,7 +101,8 @@
           The commands, in four groups: bringing the branch up to date with its remotes, and putting
           the work aside; the repository's folder outside the client, in the file manager and in a
           terminal; the dialogs the graph's work is done with; and the whole window — read everything
-          again, or close the repository.
+          again, or close the repository. The separators between the groups have room on either side
+          (Border.commandseparator), so the groups read as groups.
         -->
         <StackPanel Name="Commands" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
 
@@ -165,7 +166,7 @@
             </StackPanel>
           </Button>
 
-          <Border Width="1" Margin="6,8" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+          <Border Classes="commandseparator" />
 
           <Button Name="OpenFolder"
                   Classes="toolbar command"
@@ -188,7 +189,7 @@
             </StackPanel>
           </Button>
 
-          <Border Width="1" Margin="6,8" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+          <Border Classes="commandseparator" />
 
           <Button Name="OpenBranches"
                   Classes="toolbar command"
@@ -231,7 +232,7 @@
             </StackPanel>
           </Button>
 
-          <Border Width="1" Margin="6,8" Background="{DynamicResource EnigmaBorderSubtleBrush}" />
+          <Border Classes="commandseparator" />
 
           <!-- The application's one refresh: no page has a refresh of its own. -->
           <Button Name="RefreshEverything"
@@ -256,17 +257,20 @@
           </Button>
         </StackPanel>
 
-        <!-- Finding something in the graph. The search box takes what the commands leave it, up to the
-             width it always had, and is the first to give way on a narrow window. The theme and About
-             are on the Settings page, not here. -->
-        <Grid Name="CommandBarEnd" ColumnDefinitions="*,Auto,Auto,Auto,Auto" MinWidth="360" MaxWidth="600" VerticalAlignment="Center">
+        <!-- Finding something in the graph. The search box takes what the commands leave it, up to
+             200 px — a SHA or a few words, not a sentence — and is the first to give way on a narrow
+             window, down to 130 px, which its placeholder still fits in. The theme and About are on
+             the Settings page, not here. The block's other parts take 180 px. -->
+        <Grid Name="CommandBarEnd" ColumnDefinitions="*,Auto,Auto,Auto,Auto" MinWidth="310" MaxWidth="380" VerticalAlignment="Center">
           <!-- Enter and Shift+Enter in the box go to the next and the previous match
-               (HistoryPageView.axaml.cs). -->
+               (HistoryPageView.axaml.cs). What it searches is in its tip, as the box is too narrow
+               to say it all. -->
           <TextBox Grid.Column="0"
                    Name="SearchBox"
                    Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   PlaceholderText="Search messages, SHAs and authors"
+                   PlaceholderText="Search commits"
                    VerticalAlignment="Center"
+                   ToolTip.Tip="Search the commits by message, SHA or author"
                    AutomationProperties.Name="Search the commits by message, SHA or author" />
 
           <!-- What the search found, and which of them is selected, because nothing is hidden:
