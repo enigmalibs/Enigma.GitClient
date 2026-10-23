@@ -80,7 +80,7 @@ The repository window's two top bars, reorganised:
 
 ## PHASE02 — Centring command bar panel
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-D977-PHASE02.md`
 **Branch:** `feature/feature-d977-phase02-command-bar-panel`
 
 ### Steps
