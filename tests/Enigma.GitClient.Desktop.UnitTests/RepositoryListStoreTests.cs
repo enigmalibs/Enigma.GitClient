@@ -407,7 +407,8 @@ public sealed class RepositoryListStoreTests : IDisposable
         await other.AddAsync(Work, File("two"), "two", TestContext.Current.CancellationToken);
         await other.AddAsync(Home, File("three"), "three", TestContext.Current.CancellationToken);
 
-        Assert.Equal(["one", "two"], Names(await _store.GetAsync(Work, TestContext.Current.CancellationToken)));
+        // The other store's addition joined at the top (FEATURE-1DC2), over this store's.
+        Assert.Equal(["two", "one"], Names(await _store.GetAsync(Work, TestContext.Current.CancellationToken)));
         Assert.Equal(["three"], Names(await _store.GetAsync(Home, TestContext.Current.CancellationToken)));
     }
 
