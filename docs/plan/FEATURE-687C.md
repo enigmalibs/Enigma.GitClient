@@ -1,6 +1,6 @@
 # FEATURE-687C — Release 6.8.0
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-687C.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-687c-release-6-8-0`
 **Run:** feature/2026-10-23-release-6-8-0

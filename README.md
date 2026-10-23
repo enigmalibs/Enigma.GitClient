@@ -10,11 +10,12 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.7** — when the history shows *How long ago*, each line's age is measured again on
-> every automatic refresh, so "just now" becomes "2 minutes ago" without a click; and on Windows,
-> `packaging/windows/publish.ps1` runs the Windows publish from any directory. 6.6 before it:
-> selecting a file with no syntax colours (a `.txt`, a `.slnx`, a file with no extension) or
-> deselecting a file no longer freezes the application now and then.
+> **What's new in 6.8** — an error nothing expected no longer closes the application: a dialog says
+> what went wrong, and you carry on. Stored tokens that can no longer be read (a Windows password
+> reset does this) can be reset: connecting an account offers it, the Profiles page says which tokens
+> cannot be read and offers *Replace token*, and when git falls back to its own sign-in the repository
+> window says why. 6.7 before it: the history's *How long ago* ages move on every automatic refresh,
+> and on Windows `packaging/windows/publish.ps1` runs the Windows publish from any directory.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
