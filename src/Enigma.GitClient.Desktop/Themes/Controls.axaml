@@ -195,20 +195,23 @@
     <Setter Property="ViewportBorderBrush" Value="{DynamicResource DiffMinimapViewportBorderBrush}" />
   </ControlTheme>
 
+  <!-- The disc is as large as the control, round by its corner radius, and its letters are the
+       control's font size: the history's author column draws it at 18 px, and a role class
+       (AuthorAvatar.profile, in Styles.axaml) draws it larger without a template of its own. -->
   <ControlTheme x:Key="{x:Type controls:AuthorAvatar}" TargetType="controls:AuthorAvatar">
     <Setter Property="Width" Value="18" />
     <Setter Property="Height" Value="18" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="FontSize" Value="9" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Tint}"
-                CornerRadius="9"
-                Width="18"
-                Height="18">
+                CornerRadius="{TemplateBinding CornerRadius}">
           <TextBlock Text="{TemplateBinding Initials}"
                      HorizontalAlignment="Center"
                      VerticalAlignment="Center"
-                     FontSize="9"
+                     FontSize="{TemplateBinding FontSize}"
                      FontWeight="SemiBold"
                      Foreground="#12151A" />
         </Border>

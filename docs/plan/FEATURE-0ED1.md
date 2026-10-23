@@ -1,6 +1,6 @@
 # FEATURE-0ED1 — Profiles as cards, a clear active one
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-23-search-escape-profile-cards
@@ -58,7 +58,7 @@ A modern, legible presentation of the profiles in the Profiles page's *Profiles*
 
 ## PHASE01 — One card per profile, larger type
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-0ED1-PHASE01.md`
 **Branch:** `feature/feature-0ed1-phase01-profile-cards`
 
 ### Steps

@@ -4,8 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -13,6 +15,7 @@ using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.Navigation;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -1282,6 +1285,69 @@ public sealed class ProfilesPageTests
                 window.Close();
             }
         });
+    }
+
+    [Fact]
+    public void TheViewPutsEachProfileOnACardOfItsOwn_InLargerType()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = Work;
+            IIdentityProfileStore store = services.Get<IIdentityProfileStore>();
+            await store.SaveAsync(IdentityProfile.Create("Work", Work));
+            await store.SaveAsync(IdentityProfile.Create("Open source", Home));
+
+            ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            ProfilesPageView view = services.Get<ProfilesPageView>();
+            view.DataContext = page;
+
+            Window window = new() { Content = view, Width = 1000, Height = 900 };
+            window.Show();
+
+            try
+            {
+                window.UpdateLayout();
+
+                Border[] cards = [.. view.GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("profilecard"))];
+                Assert.Equal(2, cards.Length);
+
+                // Framed, and apart: a frame touching the next one would read as one box.
+                Assert.All(cards, card => Assert.Equal(new Thickness(1), card.BorderThickness));
+                double firstEnds = cards[0].TranslatePoint(new Point(0, cards[0].Bounds.Height), view)!.Value.Y;
+                double secondStarts = cards[1].TranslatePoint(new Point(0, 0), view)!.Value.Y;
+                Assert.True(secondStarts - firstEnds >= 8, $"the cards are {secondStarts - firstEnds} px apart");
+
+                // The label is the card's title, and the identity under it is read, not squinted at.
+                TextBlock label = Text(cards[1], "Open source");
+                TextBlock identity = Text(cards[1], "Ada <ada@home.example>");
+                Assert.Equal(15, label.FontSize);
+                Assert.Equal(FontWeight.SemiBold, label.FontWeight);
+                Assert.Equal(13, identity.FontSize);
+                Assert.True(Application.Current!.TryFindResource("EnigmaForegroundSecondaryBrush", window.ActualThemeVariant, out object? secondary));
+                Assert.Equal(((ISolidColorBrush)secondary!).Color, Assert.IsAssignableFrom<ISolidColorBrush>(identity.Foreground).Color);
+
+                // The mark is a monogram of the label, which tells two profiles of one person apart.
+                AuthorAvatar[] marks = [.. cards.Select(card => card.GetVisualDescendants().OfType<AuthorAvatar>().Single())];
+                Assert.Equal(["W", "OS"], marks.Select(mark => mark.Initials));
+                Assert.All(marks, mark => Assert.Equal(new Size(36, 36), mark.Bounds.Size));
+
+                // A profile's accounts are inside its own card.
+                Assert.All(cards, card => Assert.Single(
+                    card.GetVisualDescendants().OfType<Button>(),
+                    button => AutomationProperties.GetName(button) == "Connect an account to this profile"));
+                Assert.All(cards, card => Assert.True(Text(card, "Local only — no integration, so this profile never pushes.").IsEffectivelyVisible));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+        static TextBlock Text(Control root, string text)
+            => root.GetVisualDescendants().OfType<TextBlock>().Single(block => block.Text == text);
     }
 
     [Fact]

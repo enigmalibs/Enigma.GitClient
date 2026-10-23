@@ -1386,6 +1386,39 @@ public sealed class HistoryPageTests
         Assert.NotEqual(first, Controls.AuthorAvatar.IndexFor("Grace Hopper"));
     }
 
+    [Theory]
+    [InlineData(null, 18, 9, 9)]
+    [InlineData("profile", 36, 18, 14)]
+    public void AuthorAvatar_IsDrawnAtItsRolesSize(string? role, double size, double radius, double letters)
+    {
+        _fixture.Run(() =>
+        {
+            Controls.AuthorAvatar avatar = new() { Initials = "AL", Seed = "Ada Lovelace" };
+
+            if (role is not null)
+            {
+                avatar.Classes.Add(role);
+            }
+
+            Window window = new() { Content = new StackPanel { Children = { avatar } }, Width = 100, Height = 100 };
+            window.Show();
+            window.UpdateLayout();
+
+            // The disc fills the control, round, and its letters scale with it: the history's column
+            // keeps its 18 px avatar, and a profile's card draws the same control at twice that.
+            Border disc = avatar.GetVisualDescendants().OfType<Border>().Single();
+            TextBlock text = disc.GetVisualDescendants().OfType<TextBlock>().Single();
+
+            Assert.Equal(new Size(size, size), avatar.Bounds.Size);
+            Assert.Equal(new Size(size, size), disc.Bounds.Size);
+            Assert.Equal(new CornerRadius(radius), disc.CornerRadius);
+            Assert.Equal(letters, text.FontSize);
+            Assert.Equal("AL", text.Text);
+
+            window.Close();
+        });
+    }
+
     // ---------------------------------------------------------------- rendering
 
     [Fact]

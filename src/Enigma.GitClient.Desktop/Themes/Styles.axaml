@@ -336,6 +336,32 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!--
+    A profile on the Profiles page: a card of its own on the section's lower surface, framed so that
+    where one profile ends and the next begins is never a question. The rule inside it parts the
+    profile from the accounts it is connected to.
+  -->
+  <Style Selector="Border.profilecard">
+    <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="16,14" />
+  </Style>
+
+  <Style Selector="Border.profilerule">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
+  </Style>
+
+  <!-- A profile's monogram, the card's mark: the history's author disc, drawn at a card's scale. -->
+  <Style Selector="controls|AuthorAvatar.profile">
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+
   <!-- Short hashes and file content read as code, so they get the monospace stack. -->
   <Style Selector="TextBlock.monospace">
     <Setter Property="FontFamily" Value="{DynamicResource MonospaceFontFamily}" />

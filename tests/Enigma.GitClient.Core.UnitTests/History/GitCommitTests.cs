@@ -75,6 +75,16 @@ public sealed class GitCommitTests
     public void Initials_AreDerivedFromTheNameThenTheEmail(string name, string email, string expected)
         => Assert.Equal(expected, new GitSignature(name, email, DateTimeOffset.UnixEpoch).Initials);
 
+    [Theory]
+    [InlineData("Work", "W")]
+    [InlineData("open source", "OS")]
+    [InlineData("Client - Acme Corp", "CC")]
+    [InlineData("   ", "?")]
+    [InlineData("", "?")]
+    [InlineData(null, "?")]
+    public void InitialsOf_AnyText_FollowsTheAuthorsRule(string? text, string expected)
+        => Assert.Equal(expected, GitSignature.InitialsOf(text));
+
     [Fact]
     public void SignatureToString_RendersNameAndEmail()
         => Assert.Equal("Ada Lovelace <ada@example.com>", Ada.ToString());

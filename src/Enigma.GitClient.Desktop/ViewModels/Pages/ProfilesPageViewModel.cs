@@ -9,6 +9,7 @@ using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Identity;
 using Enigma.GitClient.Core.Repositories;
@@ -46,6 +47,16 @@ public sealed class ProfileRowViewModel : ViewModelBase
 
     /// <summary>Gets what the profile is called.</summary>
     public string Label => Profile.Label;
+
+    /// <summary>
+    /// Gets the letters of the profile's monogram: its label's, by the rule a commit author's avatar
+    /// follows.
+    /// </summary>
+    /// <remarks>
+    /// The label's rather than the identity's: two profiles of one person — work and personal — carry
+    /// the same name, and would wear the same letters.
+    /// </remarks>
+    public string Initials => GitSignature.InitialsOf(Label);
 
     /// <summary>
     /// Gets the identity the profile sets, written the way a commit writes it — or, for a profile that
