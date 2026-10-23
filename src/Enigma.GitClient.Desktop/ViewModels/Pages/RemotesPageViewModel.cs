@@ -293,11 +293,11 @@ public sealed class RemotesPageViewModel : PageViewModelBase
 
         AddCommand.NotifyCanExecuteChanged();
 
-        _ = RefreshAsync();
+        RefreshAsync().Forget();
     }
 
     /// <inheritdoc />
-    protected override void OnRepositoryStateRefreshed() => _ = RefreshAsync();
+    protected override void OnRepositoryStateRefreshed() => RefreshAsync().Forget();
 
     private int CountBranches(string remote)
     {

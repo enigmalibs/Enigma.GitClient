@@ -506,7 +506,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
                 KeepOursCommand.NotifyCanExecuteChanged();
                 KeepTheirsCommand.NotifyCanExecuteChanged();
 
-                _ = LoadDocumentAsync();
+                LoadDocumentAsync().Forget();
             }
         }
     }
@@ -818,7 +818,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         RefreshCommand.NotifyCanExecuteChanged();
 
-        _ = RefreshAsync();
+        RefreshAsync().Forget();
     }
 
     /// <inheritdoc />
@@ -828,7 +828,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         // for a status read this page has no use for.
         if (IsMergeInProgress || Files.Count > 0)
         {
-            _ = RefreshAsync();
+            RefreshAsync().Forget();
         }
     }
 

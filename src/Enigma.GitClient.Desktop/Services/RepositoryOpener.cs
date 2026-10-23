@@ -91,7 +91,7 @@ public sealed class RepositoryOpener : IRepositoryOpener
             // What the remotes have now, not at the next tick — whatever the interval, even none. Quiet,
             // as the automatic refresh is, and not waited for: the history is drawn at once, and again
             // when the fetch has moved something.
-            _ = _refresh.RefreshNowAsync(CancellationToken.None);
+            _refresh.RefreshNowAsync(CancellationToken.None).Forget();
         }
 
         return discovery;

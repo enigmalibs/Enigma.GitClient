@@ -410,17 +410,17 @@ public sealed class AppWindows : IAppWindows
     }
 
     /// <summary>
-    /// The one place an <c>async void</c> is allowed: a UI event handler that immediately delegates
-    /// to a Task-returning method.
+    /// A UI event handler that hands straight over to a Task-returning method; a failure goes to the
+    /// safety net rather than through an <c>async void</c> (BUG-9DE3).
     /// </summary>
-    private async void OnFirstWindowOpened(object? sender, EventArgs e)
+    private void OnFirstWindowOpened(object? sender, EventArgs e)
     {
         if (sender is Window window)
         {
             window.Opened -= OnFirstWindowOpened;
         }
 
-        await CheckGitAsync();
+        CheckGitAsync().Forget();
     }
 
     /// <summary>

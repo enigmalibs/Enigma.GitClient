@@ -38,10 +38,10 @@ public partial class StartWindow : Window, IHostWindow
     InfoBar IHostWindow.InfoBarHost => HostInfoBar;
 
     /// <summary>
-    /// The one place an <c>async void</c> is allowed: a UI event handler that immediately delegates
-    /// to a Task-returning method.
+    /// A UI event handler that hands straight over to a Task-returning method; a failure goes to the
+    /// safety net rather than through an <c>async void</c> (BUG-9DE3).
     /// </summary>
-    private async void OnOpened(object? sender, EventArgs e) => await InitialiseAsync();
+    private void OnOpened(object? sender, EventArgs e) => InitialiseAsync().Forget();
 
     private async Task InitialiseAsync()
     {

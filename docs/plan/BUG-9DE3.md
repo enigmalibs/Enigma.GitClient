@@ -1,6 +1,6 @@
 # BUG-9DE3 — The app crashes on unhandled errors
 
-**Status:** IN PROGRESS
+**Status:** DONE — see `docs/done/BUG-9DE3-PHASE01.md`, `docs/done/BUG-9DE3-PHASE02.md`
 **Type:** BUG
 **Branch:** one per phase, see below
 **Run:** bugfix/2026-10-23-crash-net-token-reset
@@ -148,7 +148,7 @@ handling (BUG-3024), and nothing already handled is ever reported to the net.
 
 ## PHASE02 — Fire-and-forget work reaches it
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/BUG-9DE3-PHASE02.md`
 **Branch:** `bugfix/bug-9de3-phase02-forget-safely`
 
 ### Steps

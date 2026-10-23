@@ -289,6 +289,13 @@ public sealed class SettingsService : ISettingsService, IDisposable
         {
             _logger.LogWarning(exception, "The settings could not be saved");
         }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            // Nothing awaits a scheduled write, and Core cannot reach the application's safety net: a
+            // failure nobody expected is logged here, as an error, rather than left in a task nobody
+            // looks at (BUG-9DE3).
+            _logger.LogError(exception, "The settings could not be saved");
+        }
         finally
         {
             _gate.Release();

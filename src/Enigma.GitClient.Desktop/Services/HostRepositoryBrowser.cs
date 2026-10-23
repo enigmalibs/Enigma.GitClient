@@ -114,7 +114,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
 
         view.DataContext = model;
 
-        void OnCloneRequested(object? sender, EventArgs e) => _ = _dialogs.HideAsync();
+        void OnCloneRequested(object? sender, EventArgs e) => _dialogs.HideAsync().Forget();
 
         model.CloneRequested += OnCloneRequested;
 

@@ -549,7 +549,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         ShowLocal(GitIdentity.Empty);
         CopyFromCurrentProfileCommand.NotifyCanExecuteChanged();
 
-        _ = LoadLocalAsync();
+        LoadLocalAsync().Forget();
     }
 
     private async Task LoadGlobalAsync()

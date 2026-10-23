@@ -398,7 +398,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
                 ExpandContextCommand.NotifyCanExecuteChanged();
                 ExpandAllContextCommand.NotifyCanExecuteChanged();
 
-                _ = ReloadAsync();
+                ReloadAsync().Forget();
             }
         }
     } = DiffViewMode.Unified;
@@ -462,7 +462,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
         {
             if (SetProperty(ref field, value))
             {
-                _ = ReloadAsync();
+                ReloadAsync().Forget();
             }
         }
     }
@@ -478,7 +478,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
         {
             if (SetProperty(ref field, value))
             {
-                _ = ReloadAsync();
+                ReloadAsync().Forget();
             }
         }
     }
@@ -1027,7 +1027,7 @@ public sealed class DiffViewerViewModel : ViewModelBase
         else if (reload && HasPatch)
         {
             // The context is a question for git rather than for the renderer.
-            _ = ReloadAsync();
+            ReloadAsync().Forget();
         }
     }
 }

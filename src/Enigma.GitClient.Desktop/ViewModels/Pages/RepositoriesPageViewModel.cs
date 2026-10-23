@@ -174,7 +174,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             if (SetProperty(ref field, value) && value is not null && !_showingProfiles)
             {
                 _selection.Select(value.Id);
-                _ = ShowListOfAsync(value.Id);
+                ShowListOfAsync(value.Id).Forget();
                 _identityWrites = UseIdentityAfterAsync(_identityWrites, value);
             }
         }
