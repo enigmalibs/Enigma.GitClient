@@ -105,6 +105,7 @@ public static class ServiceCollectionExtensions
         /// <returns>The same collection, so calls can be chained.</returns>
         public IServiceCollection AddRepositoryHosting()
         {
+            services.AddSingleton<IDataKeyProtector, PlatformDataKeyProtector>();
             services.AddSingleton<ITokenStore, FileTokenStore>();
             services.AddSingleton<IRepositoryHostProvider, GitHubProvider>();
             services.AddSingleton<IRepositoryHostProvider, GitLabProvider>();

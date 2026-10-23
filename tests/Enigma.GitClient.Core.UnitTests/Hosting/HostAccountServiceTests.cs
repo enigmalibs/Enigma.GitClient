@@ -24,7 +24,7 @@ public sealed class HostAccountServiceTests : IDisposable
         _root = Path.Combine(Path.GetTempPath(), "enigma-accounts-" + Guid.NewGuid().ToString("N"));
 
         AppPaths paths = new(_root);
-        _tokens = new FileTokenStore(paths);
+        _tokens = new FileTokenStore(paths, new PlatformDataKeyProtector());
         _accounts = new HostAccountService(paths, _tokens);
     }
 
@@ -80,7 +80,7 @@ public sealed class HostAccountServiceTests : IDisposable
             TestContext.Current.CancellationToken);
 
         AppPaths paths = new(_root);
-        HostAccountService reopened = new(paths, new FileTokenStore(paths));
+        HostAccountService reopened = new(paths, new FileTokenStore(paths, new PlatformDataKeyProtector()));
 
         IReadOnlyList<HostAccount> stored = await reopened.GetAllAsync(TestContext.Current.CancellationToken);
 
@@ -170,7 +170,7 @@ public sealed class HostAccountServiceTests : IDisposable
         await _accounts.AddAsync(account, new SecretString("one"), TestContext.Current.CancellationToken);
 
         AppPaths paths = new(_root);
-        HostAccount stored = Assert.Single(await new HostAccountService(paths, new FileTokenStore(paths))
+        HostAccount stored = Assert.Single(await new HostAccountService(paths, new FileTokenStore(paths, new PlatformDataKeyProtector()))
             .GetAllAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal("work-profile", stored.ProfileId);
@@ -285,5 +285,34 @@ public sealed class HostAccountServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_root, HostAccountService.FileName), "{ not json");
 
         Assert.Empty(await _accounts.GetAllAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task AfterTheResetOfAnUnreadableStore_ConnectingWorks()
+    {
+        HostAccount account = Account();
+        await _accounts.AddAsync(account, new SecretString("ghp_lost"), TestContext.Current.CancellationToken);
+
+        // The data key can no longer be opened — what a Windows password reset leaves behind.
+        File.WriteAllBytes(Path.Combine(_root, FileTokenStore.KeyFileName), [1, 2, 3]);
+
+        TokenProtectionException failure = await Assert.ThrowsAsync<TokenProtectionException>(
+            () => _accounts.AddAsync(Account(), new SecretString("ghp_new"), TestContext.Current.CancellationToken));
+        Assert.Equal(TokenProtectionReason.KeyUnavailable, failure.Reason);
+
+        await _tokens.ResetAsync(TestContext.Current.CancellationToken);
+        HostAccount again = await _accounts.UpdateAsync(account, new SecretString("ghp_new"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("ghp_new", (await _accounts.GetTokenAsync(again, TestContext.Current.CancellationToken))!.Reveal());
+        Assert.Single(await _accounts.GetAllAsync(TestContext.Current.CancellationToken));
+
+        // And a new account connects as it would in a store that never failed.
+        HostAccount other = await _accounts.AddAsync(
+            Account(HostKind.GitLab, "https://gitlab.com"),
+            new SecretString("glpat-other"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("glpat-other", (await _accounts.GetTokenAsync(other, TestContext.Current.CancellationToken))!.Reveal());
+        Assert.Equal(2, (await _accounts.GetAllAsync(TestContext.Current.CancellationToken)).Count);
     }
 }
