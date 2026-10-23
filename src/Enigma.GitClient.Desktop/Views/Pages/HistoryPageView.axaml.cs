@@ -257,14 +257,19 @@ public partial class HistoryPageView : UserControl
         });
 
     /// <summary>
-    /// Leaves the diffs on Escape.
+    /// Clears the search on Escape while the search box has the focus, and leaves the diffs on Escape
+    /// otherwise.
     /// </summary>
     /// <param name="sender">The page.</param>
     /// <param name="e">The key.</param>
     /// <remarks>
-    /// Handled here so that nothing below can claim the key first, and only while the diffs are on
-    /// screen: Escape on the graph itself belongs to whatever the reader is using — a context menu,
-    /// a tooltip, the shell.
+    /// Handled here so that nothing below can claim the key first — the search box's own handler
+    /// included, which would see it only after the diffs had gone. The search comes first: the bar is
+    /// not under the diffs, and with the focus in the box the reader is in the box, so the next Escape
+    /// is the one that leaves them. An empty box has nothing to clear and lets the key through.
+    ///
+    /// The diffs are left only while they are on screen: Escape on the graph itself belongs to
+    /// whatever the reader is using — a context menu, a tooltip, the shell.
     /// </remarks>
     private void OnPageKeyDown(object? sender, KeyEventArgs e)
     {
@@ -277,6 +282,14 @@ public partial class HistoryPageView : UserControl
         if (_dragging is not null)
         {
             StopDragging();
+            e.Handled = true;
+            return;
+        }
+
+        // As the clear button does. The focus stays in the box, so the next search is typed at once.
+        if (SearchBox.IsKeyboardFocusWithin && _page?.ClearSearchCommand is { } clear && clear.CanExecute(null))
+        {
+            clear.Execute(null);
             e.Handled = true;
             return;
         }

@@ -1,5 +1,105 @@
 # Release notes
 
+## 6.9.0 — 2026-10-23
+
+A minor release:
+
+- the **repository strip** draws the open repository larger, with the history's own badge for the
+  checked-out branch;
+- the repository window's commands are on **one command bar across the top of the History page**:
+  twelve named commands in four groups at the bar's centre, the search on its right, and icons only
+  when the window is too narrow for the names;
+- **Escape clears the History search** while the search box has the focus;
+- on the **Profiles page** each profile is a card: the active one is outlined and says *Active*, the
+  others offer **Make active**, and the accounts and the buttons on a profile or an account are
+  larger.
+
+### The repository strip
+
+- **The open repository reads as the window's title.** Its name is larger (18 px, semibold), and so
+  are its icon and the tree a linked worktree adds after it.
+- **The checked-out branch** is shown by the badge the history gives it, with the same blue, the same
+  check, the same size and the same tooltip. It was a grey pill.
+- **A detached HEAD** shows no branch badge. Its warning pill says where HEAD is (`detached at
+  abcdef1`), where the strip showed two pills, the commit and `detached HEAD`.
+- **The strip has no buttons left.** They are on the History command bar.
+
+### The History command bar
+
+- **One bar for the repository's commands.** The strip's buttons (fetch, pull, push, folder,
+  terminal, refresh, close) and the History page's toolbar (stash, branches, worktrees, tags,
+  remotes, the search) are now one command bar across the top of the History page. It spans the
+  whole page, above the details panel and above a diff, and neither narrows nor covers it.
+- **Named commands, in four groups.** The groups are Fetch · Pull · Push · Stash, then Folder ·
+  Terminal, then Branches · Worktrees · Tags · Remotes, then Refresh · Close. Each command is an
+  icon over its name, the row sits at the bar's centre, and a line with room on either side sets the
+  groups apart. Every command keeps its tooltip and its accessible name.
+- **The pull and push counts** are a small pill on the icon's corner, so a count appearing never
+  moves the row.
+- **A narrow window gets a compact bar.** The names need a window about 1350 px wide or more. Below
+  that (1280 px, or 1920 px at 150 % scaling), the commands keep their icons and tooltips and drop
+  their names, and nothing leaves the bar. When the window is widened again, the names come back.
+- **The search** is on the bar's right, 200 px wide at most, and is the first thing to give way on a
+  narrow window. Its placeholder is *Search commits*, and its tooltip says what it searches: the
+  message, the SHA and the author.
+- **The theme switch and About are no longer on the bar.** In a repository's window, the theme is
+  the *Theme* setting on the Settings page, and *About Enigma Git Client* is under *About* on the
+  same page. The start window keeps its own theme switch and About.
+- **The commands are on the History page only.** The Profiles, Settings and Resolve conflicts pages
+  no longer carry fetch, pull, push, folder, terminal, refresh and close. History is one click away
+  on the rail, and the banner of a merge in progress keeps its own actions.
+
+### The History search
+
+- **Escape clears the search** while the search box has the focus, as the × button does. The text,
+  the highlights and the counter go, and the focus stays in the box for the next search. The ×
+  button's tooltip names the key: *Clear the search (Escape)*.
+- **With a diff open,** the first Escape clears the search and the second leaves the diff. In an
+  empty box, or anywhere else on the page, Escape does what it did before.
+
+### Profiles as cards
+
+- **One card per profile, in larger type.** The label is 15 px semibold, the name and email 13 px.
+  The profile's mark is a monogram of its label in a colour of its own (*W* for Work), where every
+  profile had the same grey icon. The profile's accounts, its *Local only* line and *Connect an
+  account* are inside its card.
+- **The active profile is unmistakable.** Its card is outlined in the accent colour and says
+  **Active**, with a check; the tooltip says that git commits as this profile. It replaces the
+  *Current* pill.
+- **Make active** switches to another profile. It is a full-size button with an icon, in place of
+  the small *Use*, on every other profile that has a name and an email. A profile without them has
+  no button, because switching to it would unset git's identity. The note after a switch still
+  reads *Using <label>*.
+- **A long label** now ends in an ellipsis instead of running under the buttons.
+- **Accounts are easier to read and to hit.**
+  - An account's logo is 24 px, and the line under its name (`github.com · octocat`) is 13 px in a
+    lighter grey.
+  - *Browse repositories*, *Replace token* and *Move to…* use the page's normal type size.
+  - Edit and delete on a profile, and disconnect on an account, have larger icons in 36 px targets.
+  - The *Earlier integrations* lines look the same.
+- **The words follow.** The repository section's button is *Copy from active profile*, and the empty
+  page ends "… switch between them with Make active."
+
+### Upgrading from 6.8
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.8 keeps everything.
+- **Looking for the theme switch or About in a repository's window?** Both are on the Settings page
+  (see *The History command bar*).
+
+### Dependencies
+
+- No package had an update outside the Avalonia set. The set is still held back at **12.1.1** with
+  Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is out; the set moves as a whole).
+
+### Version
+
+- **6.9.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  command bar and its compact mode, Escape in the search, *Make active*) and one public Core helper
+  (`GitSignature.InitialsOf`). It keeps every stored format and removes nothing: the theme switch and
+  About moved to the Settings page.
+
 ## 6.8.0 — 2026-10-23
 
 A minor release:

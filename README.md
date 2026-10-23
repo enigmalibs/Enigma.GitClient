@@ -10,12 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.8** — an error nothing expected no longer closes the application: a dialog says
-> what went wrong, and you carry on. Stored tokens that can no longer be read (a Windows password
-> reset does this) can be reset: connecting an account offers it, the Profiles page says which tokens
-> cannot be read and offers *Replace token*, and when git falls back to its own sign-in the repository
-> window says why. 6.7 before it: the history's *How long ago* ages move on every automatic refresh,
-> and on Windows `packaging/windows/publish.ps1` runs the Windows publish from any directory.
+> **What's new in 6.9** — the repository window's commands are on one command bar across the top of
+> the History page, named and grouped at its centre, with icons only on a narrow window; the theme
+> switch and About are on the Settings page. The strip above it draws the repository larger, with the
+> history's badge for the checked-out branch. Escape clears the History search. On the Profiles page
+> each profile is a card, the active one says *Active*, and the others offer *Make active*. 6.8
+> before it: an error nothing expected no longer closes the application, and stored tokens that can
+> no longer be read (a Windows password reset does this) can be reset from the application.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -122,7 +123,7 @@ Two things matter more than everything else in this app:
   global name and email git records on every commit, and profiles — work, personal — that switch
   them in one click, each with the hosting accounts it is connected to — a profile pushes only to
   the hosts it is connected to, so one without any integration stays local; in a repository's
-  window, give that repository a name and email of its own (copied from the current profile in one
+  window, give that repository a name and email of its own (copied from the active profile in one
   click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
   font and context, the pull strategy, the path to git, how often the repository is fetched and
@@ -188,9 +189,9 @@ Everything the client remembers about you lives in one per-user directory —
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
-repository's), and only when you save or remove a name and email, use a profile on the Profiles
-page, pick one in the start window, or let a new clone or repository use your identity — and
-nothing is sent anywhere: the client talks to your git and to the hosts you connected, and to
+repository's), and only when you save or remove a name and email, make a profile active on the
+Profiles page, pick one in the start window, or let a new clone or repository use your identity —
+and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and to
 nothing else.
 
 ## Requirements

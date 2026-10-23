@@ -167,7 +167,7 @@
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
           <!-- Whose list this is. Picking another profile shows its list and, when the profile has a
-               name and an email, makes them git's global identity, as the Profiles page's Use does. -->
+               name and an email, makes them git's global identity, as the Profiles page's Make active does. -->
           <ComboBox Name="ProfilePicker"
                     ItemsSource="{Binding Profiles}"
                     SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
@@ -207,9 +207,8 @@
             </StackPanel>
           </Button>
 
-          <!-- The theme switch and About, at the end of the start window's one toolbar — where the
-               repository window's strip ends with them too — set apart from the actions on the
-               repositories. -->
+          <!-- The theme switch and About, at the end of the start window's one toolbar, set apart from
+               the actions on the repositories. -->
           <Border Width="1"
                   Margin="4,6"
                   Background="{DynamicResource EnigmaBorderSubtleBrush}" />

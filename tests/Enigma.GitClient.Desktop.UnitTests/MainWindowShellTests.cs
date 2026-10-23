@@ -6,19 +6,16 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Enigma.Avalonia.Desktop.Controls.Navigation;
 using Enigma.Avalonia.Desktop.Services;
-using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Desktop.Navigation;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels;
-using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Enigma.GitClient.Desktop.UnitTests;
@@ -249,104 +246,6 @@ public sealed class MainWindowShellTests
 
             Assert.True(viewModel.HasOperationInProgress);
             Assert.Contains("never rebases", viewModel.OperationDescription, StringComparison.Ordinal);
-        });
-    }
-
-    [Fact]
-    public void ToggleThemeCommand_SwitchesTheVariantForTheWholeApplication()
-    {
-        _fixture.Run(() =>
-        {
-            // Over a throwaway configuration directory: the switch now writes the preference, and a
-            // test must never write the developer's own.
-            using TestServices services = TestServices.Build();
-            MainWindowViewModel viewModel = services.Get<MainWindowViewModel>();
-
-            Application application = Application.Current!;
-            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
-
-            try
-            {
-                application.RequestedThemeVariant = ThemeVariant.Dark;
-                viewModel.ToggleThemeCommand.Execute(null);
-                Assert.Equal(ThemeVariant.Light, application.RequestedThemeVariant);
-
-                viewModel.ToggleThemeCommand.Execute(null);
-                Assert.Equal(ThemeVariant.Dark, application.RequestedThemeVariant);
-            }
-            finally
-            {
-                application.RequestedThemeVariant = original;
-            }
-        });
-    }
-
-    [Fact]
-    public void ToggleThemeCommand_RecordsTheThemeItSwitchedToAsThePreference()
-    {
-        _fixture.Run(() =>
-        {
-            using TestServices services = TestServices.Build();
-            MainWindowViewModel viewModel = services.Get<MainWindowViewModel>();
-            ISettingsService settings = services.Get<ISettingsService>();
-
-            Application application = Application.Current!;
-            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
-
-            try
-            {
-                Assert.Equal(ThemePreference.System, settings.Current.Theme);
-
-                application.RequestedThemeVariant = ThemeVariant.Dark;
-                viewModel.ToggleThemeCommand.Execute(null);
-
-                Assert.Equal(ThemePreference.Light, settings.Current.Theme);
-
-                // The settings page reads the same store, so it says so too.
-                Assert.Equal(ThemePreference.Light, services.Get<SettingsPageViewModel>().Theme);
-
-                viewModel.ToggleThemeCommand.Execute(null);
-
-                Assert.Equal(ThemePreference.Dark, settings.Current.Theme);
-            }
-            finally
-            {
-                application.RequestedThemeVariant = original;
-            }
-        });
-    }
-
-    [Fact]
-    public void ToggleThemeCommand_IsStillTheThemeAfterARestart()
-    {
-        _fixture.RunAsync(async () =>
-        {
-            using TestServices services = TestServices.Build();
-            MainWindowViewModel viewModel = services.Get<MainWindowViewModel>();
-
-            Application application = Application.Current!;
-            ThemeVariant original = application.RequestedThemeVariant ?? ThemeVariant.Default;
-
-            try
-            {
-                application.RequestedThemeVariant = ThemeVariant.Dark;
-                viewModel.ToggleThemeCommand.Execute(null);
-
-                await services.Get<ISettingsService>().FlushAsync(TestContext.Current.CancellationToken);
-            }
-            finally
-            {
-                application.RequestedThemeVariant = original;
-            }
-
-            // The next start reads the same file afresh.
-            using SettingsService restarted = new(
-                services.Get<IAppPaths>(),
-                NullLogger<SettingsService>.Instance);
-
-            AppSettings read = await restarted.LoadAsync(TestContext.Current.CancellationToken);
-
-            Assert.Equal(ThemePreference.Light, read.Theme);
         });
     }
 

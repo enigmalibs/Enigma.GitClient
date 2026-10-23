@@ -731,6 +731,128 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void Escape_InTheSearchBox_ClearsTheSearch_AndKeepsTheFocusThere()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            TextBlock counter = view.FindControl<TextBlock>("MatchCounter")!;
+
+            box.Focus();
+            box.Text = "branch";
+            window.UpdateLayout();
+
+            Assert.Contains(model.Rows, row => row.IsSearchMatch);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            // As the clear button does: no text, no match, no count.
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.True(string.IsNullOrEmpty(box.Text));
+            Assert.DoesNotContain(model.Rows, row => row.IsSearchMatch);
+            Assert.True(string.IsNullOrEmpty(counter.Text));
+            Assert.False(model.ClearSearchCommand.CanExecute(null));
+
+            // The next search is typed straight away.
+            Assert.True(box.IsKeyboardFocusWithin, "the focus left the search box");
+            Assert.Equal("Clear the search (Escape)", ToolTip.GetTip(view.FindControl<Button>("ClearSearch")!));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_InTheSearchBox_ClearsTheSearchBeforeItLeavesTheDiffs()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Commit is not null));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            // The bar is not under the diffs: the box can be clicked into while they are open.
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            box.Focus();
+            model.SearchText = "branch";
+            window.UpdateLayout();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.True(model.IsDiffViewOpen, "the first Escape put the diffs away rather than clearing the search");
+
+            // Nothing left to clear: the next one is the diffs'.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(model.IsDiffViewOpen);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_InAnEmptySearchBox_ChangesNothing()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            CommitRowViewModel selected = model.Rows.First(row => row.Commit is not null);
+            model.SelectedRow = selected;
+            box.Focus();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.Same(selected, model.SelectedRow);
+            Assert.False(model.IsDiffViewOpen);
+            Assert.True(box.IsKeyboardFocusWithin);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Escape_OnTheGraph_LeavesTheSearchAlone()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.SearchText = "branch";
+            window.UpdateLayout();
+            view.FindControl<ListBox>("CommitList")!.Focus();
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("branch", model.SearchText);
+            Assert.Contains(model.Rows, row => row.IsSearchMatch);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
     public void Search_MarksThePageLoadedAfterIt()
     {
         _fixture.RunAsync(async () =>
@@ -1262,6 +1384,39 @@ public sealed class HistoryPageTests
 
         Assert.Equal(first, second);
         Assert.NotEqual(first, Controls.AuthorAvatar.IndexFor("Grace Hopper"));
+    }
+
+    [Theory]
+    [InlineData(null, 18, 9, 9)]
+    [InlineData("profile", 36, 18, 14)]
+    public void AuthorAvatar_IsDrawnAtItsRolesSize(string? role, double size, double radius, double letters)
+    {
+        _fixture.Run(() =>
+        {
+            Controls.AuthorAvatar avatar = new() { Initials = "AL", Seed = "Ada Lovelace" };
+
+            if (role is not null)
+            {
+                avatar.Classes.Add(role);
+            }
+
+            Window window = new() { Content = new StackPanel { Children = { avatar } }, Width = 100, Height = 100 };
+            window.Show();
+            window.UpdateLayout();
+
+            // The disc fills the control, round, and its letters scale with it: the history's column
+            // keeps its 18 px avatar, and a profile's card draws the same control at twice that.
+            Border disc = avatar.GetVisualDescendants().OfType<Border>().Single();
+            TextBlock text = disc.GetVisualDescendants().OfType<TextBlock>().Single();
+
+            Assert.Equal(new Size(size, size), avatar.Bounds.Size);
+            Assert.Equal(new Size(size, size), disc.Bounds.Size);
+            Assert.Equal(new CornerRadius(radius), disc.CornerRadius);
+            Assert.Equal(letters, text.FontSize);
+            Assert.Equal("AL", text.Text);
+
+            window.Close();
+        });
     }
 
     // ---------------------------------------------------------------- rendering
@@ -2751,11 +2906,13 @@ public sealed class HistoryPageTests
             window.UpdateLayout();
 
             Border panel = view.FindControl<Border>("DetailsPanel")!;
+            Border bar = view.FindControl<Border>("CommandBar")!;
 
+            // Both under the command bar, which stays over the whole page (FEATURE-D977).
             Assert.True(panel.IsVisible);
             Assert.Equal(view.Bounds.Width - panel.Bounds.Width, diffPage.Bounds.Width, 3);
-            Assert.Equal(view.Bounds.Height, diffPage.Bounds.Height, 3);
-            Assert.Equal(view.Bounds.Height, panel.Bounds.Height, 3);
+            Assert.Equal(view.Bounds.Height - bar.Bounds.Height, diffPage.Bounds.Height, 3);
+            Assert.Equal(view.Bounds.Height - bar.Bounds.Height, panel.Bounds.Height, 3);
 
             // Side by side, not on top of each other.
             double diffRight = diffPage.TranslatePoint(new Point(diffPage.Bounds.Width, 0), view)?.X ?? double.NaN;

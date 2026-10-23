@@ -223,12 +223,13 @@ public sealed class ToolbarButtonLookTests
     }
 
     [Fact]
-    public void TheRepositoryStrip_FramesWhatCanBePressedAndGreysWhatCannot()
+    public void TheCommandBar_FramesWhatCanBePressedAndGreysWhatCannot()
     {
         _fixture.Run(() =>
         {
             using TestServices services = TestServices.Build();
 
+            // Shown on its History page, whose command bar carries the window's commands.
             MainWindow window = services.Get<MainWindow>();
             window.DataContext = services.Get<MainWindowViewModel>();
             window.Show();
@@ -240,15 +241,15 @@ public sealed class ToolbarButtonLookTests
 
             Icon GlyphOf(Button button) => button.GetVisualDescendants().OfType<Icon>().First();
 
-            // No repository is open: there is nothing to refresh, but a theme to switch.
+            // No repository is open: there is nothing to refresh, but the way back to the start window.
             Button refresh = Named("Refresh everything");
-            Button theme = Named("Switch between the dark and light themes");
+            Button close = Named("Close the repository");
 
             Assert.False(refresh.IsEffectivelyEnabled);
             AssertDisabledLook(refresh, GlyphOf(refresh));
 
-            Assert.True(theme.IsEffectivelyEnabled);
-            AssertEnabledLook(theme, GlyphOf(theme));
+            Assert.True(close.IsEffectivelyEnabled);
+            AssertEnabledLook(close, GlyphOf(close));
 
             window.Close();
         });

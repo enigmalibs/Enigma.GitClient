@@ -2,41 +2,62 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ei="https://github.com/josueclement/Enigma.Icons"
              xmlns:controls="using:Enigma.Avalonia.Desktop.Controls"
+             xmlns:gitcontrols="using:Enigma.GitClient.Desktop.Controls"
              xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Pages"
              x:Class="Enigma.GitClient.Desktop.Views.Pages.ProfilesPageView"
              x:DataType="vm:ProfilesPageViewModel">
 
   <UserControl.Styles>
-    <!-- A profile's actions are a row's own actions, framed no more than a list row's are. -->
+    <!-- A profile's actions are a row's own actions, framed no more than a list row's are. On a card
+         they are drawn at its scale: a 20 px glyph in a 36 px square, the monogram's height and an
+         account row's, where a list's 16 px one in 28 was too small to aim at. -->
     <Style Selector="ItemsControl.profiles Button.toolbar.rowaction">
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="7,6" />
+      <Setter Property="Padding" Value="8" />
     </Style>
     <Style Selector="ItemsControl.integrations Button.toolbar.rowaction">
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="7,6" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="ItemsControl.profiles Button.toolbar.rowaction ei|Icon.row">
+      <Setter Property="Size" Value="20" />
+    </Style>
+    <Style Selector="ItemsControl.integrations Button.toolbar.rowaction ei|Icon.row">
+      <Setter Property="Size" Value="20" />
+    </Style>
+
+    <!-- An account's labelled buttons — Browse repositories, Replace token, Move to… — at the page's
+         normal type and the height of Make active and Connect an account on the same card: the
+         app's small choice chip was a button nobody saw. All three alike, so one row never mixes
+         two sizes. -->
+    <Style Selector="ItemsControl.integrations Button.choice">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Padding" Value="10,5" />
     </Style>
   </UserControl.Styles>
 
   <UserControl.Resources>
 
     <!-- One integration: the account, where it is, and what can be done with it. An earlier one,
-         which belongs to no profile yet, also offers the profiles it can be moved to. -->
+         which belongs to no profile yet, also offers the profiles it can be moved to. Its host's
+         logo is drawn at the card's scale, about the height of the two lines beside it and below the
+         profile's monogram; the line under its name is a caption, as the profile's identity is. -->
     <DataTemplate x:Key="IntegrationRow" x:DataType="vm:HostAccountRowViewModel">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,2">
 
         <ei:Icon Grid.Column="0"
                  Kind="{Binding Icon}"
-                 Classes="row dim"
+                 Classes="dim"
+                 Size="24"
                  VerticalAlignment="Center" />
 
         <StackPanel Grid.Column="1" VerticalAlignment="Center">
           <TextBlock Text="{Binding DisplayName}"
                      TextTrimming="CharacterEllipsis"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
-          <TextBlock Classes="faint"
+          <TextBlock Classes="dim"
                      Text="{Binding Details}"
-                     FontSize="11"
+                     FontSize="13"
                      TextTrimming="CharacterEllipsis" />
           <!-- No token, or one that cannot be read: git signs in on its own until it is replaced. -->
           <TextBlock Text="{Binding TokenProblem}"
@@ -101,101 +122,130 @@
       </Grid>
     </DataTemplate>
 
+    <!-- One profile: a card of its own, with the accounts it is connected to inside it, so where one
+         profile ends and the next begins is never a question. Its mark is a monogram of its label,
+         which tells two profiles apart where one picture for all of them could not. The profile git
+         commits as is outlined in the accent and says so in words. -->
     <DataTemplate x:Key="ProfileRow" x:DataType="vm:ProfileRowViewModel">
-      <StackPanel Spacing="6" Margin="0,4">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+      <Border Classes="profilecard" Classes.active="{Binding IsCurrent}">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
 
-          <ei:Icon Grid.Column="0"
-                   Kind="UserCircle"
-                   Classes="row dim"
-                   VerticalAlignment="Center" />
+            <gitcontrols:AuthorAvatar Grid.Column="0"
+                                      Classes="profile"
+                                      Initials="{Binding Initials}"
+                                      Seed="{Binding Label}" />
 
-          <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
               <TextBlock Text="{Binding Label}"
-                         VerticalAlignment="Center"
+                         FontSize="15"
                          FontWeight="SemiBold"
                          TextTrimming="CharacterEllipsis"
                          Foreground="{DynamicResource EnigmaForegroundBrush}" />
-              <Border Classes="pill"
-                      Background="{DynamicResource EnigmaSelectionBrush}"
-                      IsVisible="{Binding IsCurrent}"
-                      ToolTip.Tip="Your global git configuration has this name and email">
-                <TextBlock Text="Current" FontSize="11" Classes="dim" />
-              </Border>
+              <TextBlock Classes="dim"
+                         Text="{Binding Summary}"
+                         FontSize="13"
+                         TextTrimming="CharacterEllipsis" />
             </StackPanel>
-            <TextBlock Classes="faint"
-                       Text="{Binding Summary}"
-                       FontSize="11"
-                       TextTrimming="CharacterEllipsis" />
-          </StackPanel>
 
-          <Button Grid.Column="2"
-                  Classes="choice"
-                  Command="{Binding UseCommand}"
-                  CommandParameter="{Binding}"
-                  IsVisible="{Binding CanUse}"
-                  VerticalAlignment="Center"
-                  ToolTip.Tip="Make this name and email your global git identity"
-                  AutomationProperties.Name="Use this profile">
-            <TextBlock Text="Use" />
-          </Button>
-
-          <Button Grid.Column="3"
-                  Classes="toolbar rowaction"
-                  Command="{Binding EditCommand}"
-                  CommandParameter="{Binding}"
-                  VerticalAlignment="Center"
-                  ToolTip.Tip="Edit this profile"
-                  AutomationProperties.Name="Edit this profile">
-            <ei:Icon Kind="PencilSimple" Classes="row" />
-          </Button>
-
-          <Button Grid.Column="4"
-                  Classes="toolbar rowaction"
-                  Command="{Binding RemoveCommand}"
-                  CommandParameter="{Binding}"
-                  VerticalAlignment="Center"
-                  ToolTip.Tip="Delete this profile; your git configuration is not changed"
-                  AutomationProperties.Name="Delete this profile">
-            <ei:Icon Kind="Trash" Classes="row" />
-          </Button>
-        </Grid>
-
-        <!-- The accounts this profile is connected to, indented under its name. -->
-        <StackPanel Margin="34,0,0,0" Spacing="4">
-          <ItemsControl Classes="integrations"
-                        ItemsSource="{Binding Integrations}"
-                        ItemTemplate="{StaticResource IntegrationRow}"
-                        IsVisible="{Binding HasIntegrations}"
-                        AutomationProperties.Name="Integrations of this profile" />
-
-          <!-- A profile without integrations pushes nowhere: the push check refuses it. -->
-          <StackPanel Orientation="Horizontal"
-                      Spacing="6"
-                      IsVisible="{Binding !HasIntegrations}"
-                      ToolTip.Tip="Commits made as this profile stay on this machine until it is connected to the host they go to">
-            <ei:Icon Kind="LockSimple" Size="12" VerticalAlignment="Center"
-                     Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-            <TextBlock Text="Local only — no integration, so this profile never pushes."
-                       FontSize="11"
+            <!-- Which profile git commits as, in words and not by the outline alone; and on every
+                 other profile that has a name and an email, the way to switch to it. The two share
+                 one place and never show together. A profile without a name and email has neither:
+                 switching to it would unset git's identity. -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        IsVisible="{Binding IsCurrent}"
+                        ToolTip.Tip="Git commits as this profile: your global configuration has its name and email"
+                        AutomationProperties.Name="Active profile">
+              <ei:Icon Kind="CheckCircle"
+                       Weight="Fill"
+                       Classes="toolbar"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
-          </StackPanel>
-
-          <Button Classes="toolbar"
-                  HorizontalAlignment="Left"
-                  Command="{Binding ConnectCommand}"
-                  CommandParameter="{Binding}"
-                  ToolTip.Tip="Connect a GitHub, GitLab or Azure DevOps account to this profile with a personal access token"
-                  AutomationProperties.Name="Connect an account to this profile">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
-              <TextBlock Text="Connect an account" VerticalAlignment="Center" />
+                       Foreground="{DynamicResource ActionAccentBrush}" />
+              <TextBlock Text="Active"
+                         FontSize="13"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
             </StackPanel>
-          </Button>
+
+            <Button Grid.Column="2"
+                    Classes="toolbar"
+                    Command="{Binding UseCommand}"
+                    CommandParameter="{Binding}"
+                    IsVisible="{Binding CanUse}"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="Make this profile's name and email your global git identity, so new commits are made as this profile"
+                    AutomationProperties.Name="Make this profile active">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ei:Icon Kind="UserSwitch" Classes="toolbar" VerticalAlignment="Center" />
+                <TextBlock Text="Make active" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+
+            <Button Grid.Column="3"
+                    Classes="toolbar rowaction"
+                    Command="{Binding EditCommand}"
+                    CommandParameter="{Binding}"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="Edit this profile"
+                    AutomationProperties.Name="Edit this profile">
+              <ei:Icon Kind="PencilSimple" Classes="row" />
+            </Button>
+
+            <Button Grid.Column="4"
+                    Classes="toolbar rowaction"
+                    Command="{Binding RemoveCommand}"
+                    CommandParameter="{Binding}"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="Delete this profile; your git configuration is not changed"
+                    AutomationProperties.Name="Delete this profile">
+              <ei:Icon Kind="Trash" Classes="row" />
+            </Button>
+          </Grid>
+
+          <Border Classes="profilerule" />
+
+          <!-- The accounts this profile is connected to, lined up with its name: past the monogram
+               (36 px) and the header's column spacing (12). -->
+          <StackPanel Margin="48,0,0,0" Spacing="4">
+            <ItemsControl Classes="integrations"
+                          ItemsSource="{Binding Integrations}"
+                          ItemTemplate="{StaticResource IntegrationRow}"
+                          IsVisible="{Binding HasIntegrations}"
+                          AutomationProperties.Name="Integrations of this profile" />
+
+            <!-- A profile without integrations pushes nowhere: the push check refuses it. -->
+            <StackPanel Orientation="Horizontal"
+                        Spacing="6"
+                        IsVisible="{Binding !HasIntegrations}"
+                        ToolTip.Tip="Commits made as this profile stay on this machine until it is connected to the host they go to">
+              <ei:Icon Kind="LockSimple" Size="12" VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              <TextBlock Text="Local only — no integration, so this profile never pushes."
+                         FontSize="11"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+            </StackPanel>
+
+            <Button Classes="toolbar"
+                    HorizontalAlignment="Left"
+                    Command="{Binding ConnectCommand}"
+                    CommandParameter="{Binding}"
+                    ToolTip.Tip="Connect a GitHub, GitLab or Azure DevOps account to this profile with a personal access token"
+                    AutomationProperties.Name="Connect an account to this profile">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ei:Icon Kind="Plus" Classes="toolbar" VerticalAlignment="Center" />
+                <TextBlock Text="Connect an account" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
         </StackPanel>
-      </StackPanel>
+      </Border>
     </DataTemplate>
 
   </UserControl.Resources>
@@ -325,7 +375,7 @@
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <TextBlock Grid.Column="0"
-                         Text="No profiles yet. Add one for each identity you commit as — work, personal — and switch between them with Use."
+                         Text="No profiles yet. Add one for each identity you commit as — work, personal — and switch between them with Make active."
                          IsVisible="{Binding !HasProfiles}"
                          VerticalAlignment="Center"
                          FontSize="11"
@@ -344,11 +394,19 @@
               </Button>
             </Grid>
 
+            <!-- One card per profile, with room between two cards: a frame touching the next reads
+                 as one box. -->
             <ItemsControl Classes="profiles"
                           ItemsSource="{Binding Profiles}"
                           ItemTemplate="{StaticResource ProfileRow}"
                           IsVisible="{Binding HasProfiles}"
-                          AutomationProperties.Name="Identity profiles" />
+                          AutomationProperties.Name="Identity profiles">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="10" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
           </StackPanel>
         </controls:SettingsCardExpander>
 
@@ -419,12 +477,12 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
               <Button Classes="toolbar"
                       Command="{Binding CopyFromCurrentProfileCommand}"
-                      ToolTip.Tip="Fill these fields with the name and email of the profile marked Current"
+                      ToolTip.Tip="Fill these fields with the name and email of the active profile"
                       ToolTip.ShowOnDisabled="True"
-                      AutomationProperties.Name="Copy from the current profile">
+                      AutomationProperties.Name="Copy from the active profile">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <ei:Icon Kind="Copy" Classes="toolbar" VerticalAlignment="Center" />
-                  <TextBlock Text="Copy from current profile" VerticalAlignment="Center" />
+                  <TextBlock Text="Copy from active profile" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
 

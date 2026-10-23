@@ -26,7 +26,7 @@ namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The two ways out to the desktop — the repository's folder in the file manager, and a terminal in
-/// it — from the repository window's toolbar and from every row of the home list (FEATURE-630E). The
+/// it — from the History page's command bar and from every row of the home list (FEATURE-630E). The
 /// desktop itself is the recording double: nothing is launched.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
@@ -124,7 +124,7 @@ public sealed class RepositoryFolderTests
     }
 
     [Fact]
-    public void TheRepositoryStrip_CarriesBothButtons_WithTheirIconsAndNames()
+    public void TheCommandBar_CarriesBothButtons_WithTheirIconsAndNames()
     {
         _fixture.RunAsync(async () =>
         {
@@ -139,13 +139,13 @@ public sealed class RepositoryFolderTests
             window.Arrange(new Rect(0, 0, 1400, 900));
             window.UpdateLayout();
 
-            (string Name, string Automation, PhosphorIcon Icon, object Command)[] expected =
+            (string Name, string Automation, PhosphorIcon Icon, string Label, object Command)[] expected =
             [
-                ("OpenFolder", "Open the repository's folder", PhosphorIcon.FolderOpen, viewModel.OpenFolderCommand),
-                ("OpenTerminal", "Open a terminal in the repository's folder", PhosphorIcon.TerminalWindow, viewModel.OpenTerminalCommand),
+                ("OpenFolder", "Open the repository's folder", PhosphorIcon.FolderOpen, "Folder", viewModel.OpenFolderCommand),
+                ("OpenTerminal", "Open a terminal in the repository's folder", PhosphorIcon.TerminalWindow, "Terminal", viewModel.OpenTerminalCommand),
             ];
 
-            foreach ((string name, string automation, PhosphorIcon icon, object command) in expected)
+            foreach ((string name, string automation, PhosphorIcon icon, string label, object command) in expected)
             {
                 Button button = window.GetVisualDescendants().OfType<Button>().Single(candidate => candidate.Name == name);
 
@@ -153,7 +153,8 @@ public sealed class RepositoryFolderTests
                 Assert.Same(command, button.Command);
                 Assert.Equal(automation, AutomationProperties.GetName(button));
                 Assert.False(string.IsNullOrEmpty(ToolTip.GetTip(button) as string));
-                Assert.Equal(icon, Assert.IsType<Icon>(button.Content).Kind);
+                Assert.Equal(icon, button.GetVisualDescendants().OfType<Icon>().First().Kind);
+                Assert.Contains(button.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == label);
             }
 
             await LetTheHistoryFinishAsync(services);
