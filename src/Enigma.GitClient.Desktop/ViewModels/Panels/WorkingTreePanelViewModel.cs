@@ -378,7 +378,7 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
 
         if (IsActive)
         {
-            _ = RefreshAsync();
+            RefreshAsync().Forget();
         }
     }
 
@@ -386,7 +386,7 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
     {
         if (IsActive)
         {
-            _ = RefreshAsync();
+            RefreshAsync().Forget();
         }
     }
 

@@ -479,7 +479,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 }
 
                 DetailsRow = value;
-                _ = LoadChangedFilesAsync();
+                LoadChangedFilesAsync().Forget();
             }
         }
     }
@@ -511,7 +511,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
                 if (value is { IsUncommitted: true } row)
                 {
-                    _ = ShowWorkingTreeAsync(row);
+                    ShowWorkingTreeAsync(row).Forget();
                 }
                 else
                 {
@@ -642,7 +642,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 // What the automatic refresh found while the diffs had the page, drawn now that the
                 // graph is back.
                 _refreshPending = false;
-                _ = ReloadKeepingPlaceAsync();
+                ReloadKeepingPlaceAsync().Forget();
             }
         }
     }
@@ -1204,7 +1204,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         if (SelectedRow is null && DetailsRow is not null)
         {
             DetailsRow = null;
-            _ = LoadChangedFilesAsync();
+            LoadChangedFilesAsync().Forget();
         }
 
         RowsReplaced?.Invoke(this, EventArgs.Empty);
@@ -1287,7 +1287,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             if (drawnWithout || (walkedWithout && ExcludedRefs().Count > 0))
             {
-                _ = ReloadAsync();
+                ReloadAsync().Forget();
             }
 
             return;
@@ -1304,7 +1304,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
-        _ = ReloadKeepingPlaceAsync();
+        ReloadKeepingPlaceAsync().Forget();
     }
 
     /// <inheritdoc />
@@ -1313,7 +1313,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         // A branch of the repository that was open is nothing to merge in this one.
         MergeSource = null;
 
-        _ = _links.RefreshAsync();
+        _links.RefreshAsync().Forget();
 
         base.OnRepositoryChanged();
 
@@ -1323,7 +1323,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         OpenRemotesCommand.NotifyCanExecuteChanged();
         NotifyHiddenBranches();
         OnPropertyChanged(nameof(IsLoading));
-        _ = ReloadAsync();
+        ReloadAsync().Forget();
     }
 
     /// <summary>
@@ -1847,7 +1847,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
-        _ = ReloadKeepingPlaceAsync();
+        ReloadKeepingPlaceAsync().Forget();
     }
 
     private void NotifyHiddenBranches()
@@ -2060,7 +2060,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             return;
         }
 
-        _ = ShowSelectedFileAsync();
+        ShowSelectedFileAsync().Forget();
 
         if (Files.SelectedFile is not null)
         {
@@ -2134,7 +2134,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         // The panel has just read the tree, which is what it raised this after.
-        _ = RefreshInPlaceAsync(referencesMoved: e.Committed, workingTreeRead: true);
+        RefreshInPlaceAsync(referencesMoved: e.Committed, workingTreeRead: true).Forget();
     }
 
     /// <summary>
@@ -2559,7 +2559,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         if (rebuild && Rows.Count > 0)
         {
-            _ = ReloadAsync();
+            ReloadAsync().Forget();
         }
     }
 }

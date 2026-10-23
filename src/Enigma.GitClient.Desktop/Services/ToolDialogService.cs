@@ -245,7 +245,7 @@ public sealed class ToolDialogService : IToolDialogService
         _reveal = sha;
 
         // Closing is what ends ShowAsync, which hands the commit to the history.
-        _ = host.HideAsync();
+        host.HideAsync().Forget();
     }
 
     /// <summary>

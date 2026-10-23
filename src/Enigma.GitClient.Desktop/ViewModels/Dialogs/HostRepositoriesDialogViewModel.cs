@@ -200,7 +200,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsPublicOnly));
                 OnPropertyChanged(nameof(IsPrivateOnly));
 
-                _ = LoadAsync();
+                LoadAsync().Forget();
             }
         }
     } = HostVisibility.All;

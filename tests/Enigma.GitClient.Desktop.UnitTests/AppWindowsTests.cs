@@ -419,9 +419,13 @@ public sealed class AppWindowsTests
                 // A start that ends with a window: the safety net has a host to say it in (BUG-9DE3).
                 Assert.Equal(AppWindowKind.Start, windows.Current);
 
-                (Exception exception, UnhandledErrorSource source) = Assert.Single(errors.Reports);
+                // Only this start's report: what earlier tests' fire-and-forget work reported before a
+                // reporter was attached is handed over too.
+                (Exception exception, UnhandledErrorSource source) = Assert.Single(
+                    errors.Reports,
+                    report => report.Source == UnhandledErrorSource.Startup);
                 Assert.IsType<NotSupportedException>(exception);
-                Assert.Equal(UnhandledErrorSource.Startup, source);
+                Assert.Equal("nothing expected this", exception.Message);
             }
             finally
             {

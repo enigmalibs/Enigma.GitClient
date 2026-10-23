@@ -113,7 +113,7 @@ public partial class App : Application
             // Normal, so a start posted at the default would take its turn before the splash had drawn
             // a single frame.
             Dispatcher.UIThread.Post(
-                () => _ = windows.StartAsync(startup.RepositoryPath, handOver, startup.Screen),
+                () => windows.StartAsync(startup.RepositoryPath, handOver, startup.Screen).Forget(),
                 DispatcherPriority.Background);
         }
 
