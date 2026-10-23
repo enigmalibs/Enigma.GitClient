@@ -8,36 +8,56 @@
              x:DataType="vm:ProfilesPageViewModel">
 
   <UserControl.Styles>
-    <!-- A profile's actions are a row's own actions, framed no more than a list row's are. -->
+    <!-- A profile's actions are a row's own actions, framed no more than a list row's are. On a card
+         they are drawn at its scale: a 20 px glyph in a 36 px square, the monogram's height and an
+         account row's, where a list's 16 px one in 28 was too small to aim at. -->
     <Style Selector="ItemsControl.profiles Button.toolbar.rowaction">
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="7,6" />
+      <Setter Property="Padding" Value="8" />
     </Style>
     <Style Selector="ItemsControl.integrations Button.toolbar.rowaction">
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="7,6" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="ItemsControl.profiles Button.toolbar.rowaction ei|Icon.row">
+      <Setter Property="Size" Value="20" />
+    </Style>
+    <Style Selector="ItemsControl.integrations Button.toolbar.rowaction ei|Icon.row">
+      <Setter Property="Size" Value="20" />
+    </Style>
+
+    <!-- An account's labelled buttons — Browse repositories, Replace token, Move to… — at the page's
+         normal type and the height of Make active and Connect an account on the same card: the
+         app's small choice chip was a button nobody saw. All three alike, so one row never mixes
+         two sizes. -->
+    <Style Selector="ItemsControl.integrations Button.choice">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Padding" Value="10,5" />
     </Style>
   </UserControl.Styles>
 
   <UserControl.Resources>
 
     <!-- One integration: the account, where it is, and what can be done with it. An earlier one,
-         which belongs to no profile yet, also offers the profiles it can be moved to. -->
+         which belongs to no profile yet, also offers the profiles it can be moved to. Its host's
+         logo is drawn at the card's scale, about the height of the two lines beside it and below the
+         profile's monogram; the line under its name is a caption, as the profile's identity is. -->
     <DataTemplate x:Key="IntegrationRow" x:DataType="vm:HostAccountRowViewModel">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" Margin="0,2">
 
         <ei:Icon Grid.Column="0"
                  Kind="{Binding Icon}"
-                 Classes="row dim"
+                 Classes="dim"
+                 Size="24"
                  VerticalAlignment="Center" />
 
         <StackPanel Grid.Column="1" VerticalAlignment="Center">
           <TextBlock Text="{Binding DisplayName}"
                      TextTrimming="CharacterEllipsis"
                      Foreground="{DynamicResource EnigmaForegroundBrush}" />
-          <TextBlock Classes="faint"
+          <TextBlock Classes="dim"
                      Text="{Binding Details}"
-                     FontSize="11"
+                     FontSize="13"
                      TextTrimming="CharacterEllipsis" />
           <!-- No token, or one that cannot be read: git signs in on its own until it is replaced. -->
           <TextBlock Text="{Binding TokenProblem}"

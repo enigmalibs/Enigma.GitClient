@@ -1,6 +1,6 @@
 # FEATURE-1540 — Larger account rows and row actions
 
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-1540.md`
 **Type:** FEATURE
 **Branch:** `feature/feature-1540-larger-profile-controls`
 **Run:** feature/2026-10-23-larger-profile-controls
