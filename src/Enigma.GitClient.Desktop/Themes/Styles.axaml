@@ -349,6 +349,12 @@
     <Setter Property="Padding" Value="16,14" />
   </Style>
 
+  <!-- The profile git commits as: outlined in the accent. Only the brush changes, never the frame's
+       thickness, so nothing on the page moves when another profile is made active. -->
+  <Style Selector="Border.profilecard.active">
+    <Setter Property="BorderBrush" Value="{DynamicResource ActionAccentBrush}" />
+  </Style>
+
   <Style Selector="Border.profilerule">
     <Setter Property="Height" Value="1" />
     <Setter Property="Background" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
