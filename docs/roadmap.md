@@ -366,6 +366,9 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Bigger strip and head badge              | DONE      | (in FEATURE-D977.md)      |
 | - PHASE02    | Centring command bar panel               | DONE      | (in FEATURE-D977.md)      |
 | - PHASE03    | The History bar takes the commands       | DONE      | (in FEATURE-D977.md)      |
+| FEATURE-47AE | A lighter History command bar            | TODO      | docs/plan/FEATURE-47AE.md |
+| - PHASE01    | No theme switch nor About on the bar     | TODO      | (in FEATURE-47AE.md)      |
+| - PHASE02    | Narrower search, clearer group gaps      | TODO      | (in FEATURE-47AE.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
