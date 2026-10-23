@@ -369,6 +369,10 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-47AE | A lighter History command bar            | DONE      | docs/plan/FEATURE-47AE.md |
 | - PHASE01    | No theme switch nor About on the bar     | DONE      | (in FEATURE-47AE.md)      |
 | - PHASE02    | Narrower search, clearer group gaps      | DONE      | (in FEATURE-47AE.md)      |
+| FEATURE-715E | Escape clears the History search         | TODO      | docs/plan/FEATURE-715E.md |
+| FEATURE-0ED1 | Profiles as cards, a clear active one    | TODO      | docs/plan/FEATURE-0ED1.md |
+| - PHASE01    | One card per profile, larger type        | TODO      | (in FEATURE-0ED1.md)      |
+| - PHASE02    | The active profile and Make active       | TODO      | (in FEATURE-0ED1.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
