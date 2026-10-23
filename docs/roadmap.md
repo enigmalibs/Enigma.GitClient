@@ -359,7 +359,7 @@ completion records live in `docs/done/<ID>.md`.
 | BUG-3024     | Unreadable tokens cannot be reset        | IN PROGRESS | docs/plan/BUG-3024.md     |
 | - PHASE01    | Failure reasons and reset in Core        | DONE        | (in BUG-3024.md)          |
 | - PHASE02    | Reset on connect, no duplicates          | DONE        | (in BUG-3024.md)          |
-| - PHASE03    | Profiles band, browse and replace        | TODO        | (in BUG-3024.md)          |
+| - PHASE03    | Profiles band, browse and replace        | DONE        | (in BUG-3024.md)          |
 | - PHASE04    | Visible git sign-in fallback             | TODO        | (in BUG-3024.md)          |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in

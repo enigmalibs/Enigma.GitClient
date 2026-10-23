@@ -33,6 +33,13 @@ public interface ITokenRecovery
     string Describe(TokenProtectionException exception);
 
     /// <summary>
+    /// Says what went wrong, and what fixes it, from the reason alone — what a check of the store finds.
+    /// </summary>
+    /// <param name="reason">Why the tokens cannot be read.</param>
+    /// <returns>The sentence.</returns>
+    string Describe(TokenProtectionReason reason);
+
+    /// <summary>
     /// Asks whether to delete every stored token and, on yes, deletes them.
     /// </summary>
     /// <returns>A task that completes with <see langword="true"/> once the store has been reset.</returns>
@@ -116,7 +123,12 @@ public sealed class TokenRecovery : ITokenRecovery
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        return exception.Reason switch
+        return Describe(exception.Reason);
+    }
+
+    /// <inheritdoc />
+    public string Describe(TokenProtectionReason reason)
+        => reason switch
         {
             TokenProtectionReason.EntryUnreadable
                 => "The stored token of this integration cannot be read. Replace its token, or disconnect it.",
@@ -126,7 +138,6 @@ public sealed class TokenRecovery : ITokenRecovery
             _ => "The stored tokens can no longer be read on this computer or by this account — a Windows "
                 + "password reset does this. Reset the stored tokens, then give each integration its token again.",
         };
-    }
 
     /// <inheritdoc />
     public async Task<bool> ConfirmAndResetAsync()

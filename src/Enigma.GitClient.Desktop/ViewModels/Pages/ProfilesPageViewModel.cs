@@ -254,6 +254,12 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         DisconnectAccountCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnDisconnectAccountAsync);
         BrowseRepositoriesCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnBrowseRepositoriesAsync);
         MoveAccountCommand = new AsyncRelayCommand<AccountMoveTargetViewModel>(OnMoveAccountAsync);
+        ReplaceTokenCommand = new AsyncRelayCommand<HostAccountRowViewModel>(OnReplaceTokenAsync);
+        ResetStoredTokensCommand = new AsyncRelayCommand(OnResetStoredTokensAsync);
+
+        // A reset made anywhere — the safety net's dialog, a browse, a connect — leaves every line here
+        // without its token: they say so at once.
+        _recovery.TokensReset += (_, _) => LoadIntegrationsAsync().Forget();
     }
 
     /// <summary>Gets the page's title, shown in its header.</summary>
@@ -402,6 +408,21 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that gives an earlier integration to a profile.</summary>
     public AsyncRelayCommand<AccountMoveTargetViewModel> MoveAccountCommand { get; }
+
+    /// <summary>Gets the command that gives an integration a new token.</summary>
+    public AsyncRelayCommand<HostAccountRowViewModel> ReplaceTokenCommand { get; }
+
+    /// <summary>Gets the command that offers to delete every stored token, the way out of a store that cannot be read.</summary>
+    public AsyncRelayCommand ResetStoredTokensCommand { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the stored tokens cannot be read at all — what a Windows
+    /// password reset leaves behind — which the band at the top of the page says, with the reset.
+    /// </summary>
+    public bool IsTokenStoreUnreadable { get; private set => SetProperty(ref field, value); }
+
+    /// <summary>Gets what the band says: why the stored tokens cannot be read, and what fixes it.</summary>
+    public string TokenStoreProblem { get; private set => SetProperty(ref field, value); } = string.Empty;
 
     // ---------------------------------------------------------------- the repository's own identity
 
@@ -635,10 +656,12 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     public async Task LoadIntegrationsAsync()
     {
         IReadOnlyList<HostAccount> accounts;
+        TokenStoreStatus? tokens;
 
         try
         {
             accounts = await _accounts.GetAllAsync(RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+            tokens = await ReadTokenStatusAsync().ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -652,6 +675,11 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
             return;
         }
+
+        // Before the reader hits a failure: a store this account can no longer read says so at the top of
+        // the page, with the way out (BUG-3024).
+        IsTokenStoreUnreadable = tokens?.Failure is not null;
+        TokenStoreProblem = tokens?.Failure is { } failure ? _recovery.Describe(failure) : string.Empty;
 
         List<IdentityProfile> profiles = [];
 
@@ -670,7 +698,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             {
                 if (account.BelongsTo(profile.Profile.Id))
                 {
-                    own.Add(new HostAccountRowViewModel(this, account, _registry.Find(account.Kind)));
+                    own.Add(new HostAccountRowViewModel(this, account, _registry.Find(account.Kind), tokenState: TokenStateOf(tokens, account)));
                 }
             }
 
@@ -681,7 +709,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         {
             if (!profiles.Exists(profile => account.BelongsTo(profile.Id)))
             {
-                earlier.Add(new HostAccountRowViewModel(this, account, _registry.Find(account.Kind), profiles));
+                earlier.Add(new HostAccountRowViewModel(this, account, _registry.Find(account.Kind), profiles, TokenStateOf(tokens, account)));
             }
         }
 
@@ -693,6 +721,44 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         }
 
         OnPropertyChanged(nameof(HasEarlierIntegrations));
+    }
+
+    /// <summary>
+    /// Reads whether the stored tokens can be read, without handing any of them out.
+    /// </summary>
+    /// <returns>The status, or <see langword="null"/> when the store could not be looked at.</returns>
+    private async Task<TokenStoreStatus?> ReadTokenStatusAsync()
+    {
+        try
+        {
+            return await _recovery.CheckAsync(RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Not knowing is not a problem to show: the lines claim nothing either way.
+            _logger.LogWarning(exception, "Reading whether the stored tokens can be read failed");
+            return null;
+        }
+    }
+
+    private static HostAccountTokenState TokenStateOf(TokenStoreStatus? tokens, HostAccount account)
+    {
+        if (tokens is null)
+        {
+            return HostAccountTokenState.Stored;
+        }
+
+        if (!tokens.IsReadable)
+        {
+            return HostAccountTokenState.Unreadable;
+        }
+
+        if (!tokens.Holds(account.TokenKey))
+        {
+            return HostAccountTokenState.Missing;
+        }
+
+        return tokens.CanRead(account.TokenKey) ? HostAccountTokenState.Stored : HostAccountTokenState.Unreadable;
     }
 
     private async Task LoadLocalAsync()
@@ -1036,6 +1102,51 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
 
         AddHostAccountDialogViewModel model = new(_registry.Providers);
 
+        if (await AskForTokenAsync(model, $"Connect an account to {row.Label}", "Connect").ConfigureAwait(true))
+        {
+            await ConnectAsync(row, model).ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnReplaceTokenAsync(HostAccountRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        if (row.Provider is not { } provider)
+        {
+            Report(
+                "Nothing speaks to this host",
+                $"This build cannot sign in to {row.DisplayName}.",
+                InfoBarSeverity.Warning);
+
+            return;
+        }
+
+        // The account's own host and instance, which a replaced token does not change.
+        AddHostAccountDialogViewModel model = new(_registry.Providers)
+        {
+            SelectedProvider = provider,
+            CanChooseInstance = false,
+        };
+
+        model.InstanceUrl = row.Account.BaseUri.ToString().TrimEnd('/');
+        model.DisplayName = row.DisplayName;
+
+        if (await AskForTokenAsync(model, $"Replace the token of {row.DisplayName}", "Replace").ConfigureAwait(true))
+        {
+            await ReplaceTokenAsync(row, model).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Shows the dialog a token is typed in.
+    /// </summary>
+    /// <returns><see langword="true"/> when it was filled in and confirmed.</returns>
+    private async Task<bool> AskForTokenAsync(AddHostAccountDialogViewModel model, string title, string primary)
+    {
         AddHostAccountDialogView view =
             _services.GetService(typeof(AddHostAccountDialogView)) as AddHostAccountDialogView
             ?? new AddHostAccountDialogView();
@@ -1059,25 +1170,28 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             DialogResult result = await _dialogs.ShowAsync(dialog =>
             {
                 shown = dialog;
-                dialog.Title = $"Connect an account to {row.Label}";
+                dialog.Title = title;
                 dialog.Content = view;
-                dialog.PrimaryButtonText = "Connect";
+                dialog.PrimaryButtonText = primary;
                 dialog.CloseButtonText = "Cancel";
                 dialog.DefaultButton = DefaultButton.Primary;
                 dialog.IsPrimaryButtonEnabled = model.IsValid;
             }).ConfigureAwait(true);
 
-            if (result != DialogResult.Primary || !model.IsValid)
-            {
-                return;
-            }
+            return result == DialogResult.Primary && model.IsValid;
         }
         finally
         {
             model.ValidationChanged -= OnValidationChanged;
         }
+    }
 
-        await ConnectAsync(row, model).ConfigureAwait(true);
+    private async Task OnResetStoredTokensAsync()
+    {
+        if (await _recovery.ConfirmAndResetAsync().ConfigureAwait(true))
+        {
+            await LoadIntegrationsAsync().ConfigureAwait(true);
+        }
     }
 
     /// <summary>
@@ -1093,17 +1207,45 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// with the reset offered; once it is confirmed, the token just typed — which the host has already
     /// accepted — is stored without asking for it again.
     /// </remarks>
-    public async Task ConnectAsync(ProfileRowViewModel profile, AddHostAccountDialogViewModel model)
+    public Task ConnectAsync(ProfileRowViewModel profile, AddHostAccountDialogViewModel model)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(model);
 
+        return SignInAsync(model, profile.Profile.Id, profile.Label, replacing: null);
+    }
+
+    /// <summary>
+    /// Validates a new token for an integration already listed against its host and, when the host
+    /// accepts it, stores it in place of the one it had — missing after a reset, or unreadable.
+    /// </summary>
+    /// <param name="row">The integration.</param>
+    /// <param name="model">The filled-in dialog.</param>
+    /// <returns>A task that completes once the token is replaced, or the failure reported.</returns>
+    public Task ReplaceTokenAsync(HostAccountRowViewModel row, AddHostAccountDialogViewModel model)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(model);
+
+        return SignInAsync(model, row.Account.ProfileId, row.DisplayName, replacing: row.Account);
+    }
+
+    /// <summary>
+    /// Asks the host who a token belongs to and, when it accepts it, stores it: for an account already
+    /// listed when <paramref name="replacing"/> names one, as a connection otherwise.
+    /// </summary>
+    private async Task SignInAsync(
+        AddHostAccountDialogViewModel model,
+        string? profileId,
+        string label,
+        HostAccount? replacing)
+    {
         if (model.SelectedProvider is not { } provider)
         {
             return;
         }
 
-        HostAccount account = model.ToAccount();
+        HostAccount account = replacing ?? model.ToAccount();
         SecretString token = model.ToToken();
 
         IsBusy = true;
@@ -1124,16 +1266,16 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
                 account.BaseUri,
                 identity.UserName,
                 typedName.Length > 0 ? typedName : identity.DisplayName,
-                profile.Profile.Id);
+                profileId);
 
-            if (await StoreAsync(named, token, renamed: typedName.Length > 0).ConfigureAwait(true) is not { } replaced)
+            if (await StoreAsync(named, token, renamed: typedName.Length > 0, replacing).ConfigureAwait(true) is not { } replaced)
             {
                 return;
             }
 
             Report(
                 replaced ? $"Token replaced for {provider.DisplayName}" : $"Connected to {provider.DisplayName}",
-                $"{profile.Label} signs in as {identity.UserName}.",
+                $"{label} signs in as {identity.UserName}.",
                 InfoBarSeverity.Success);
 
             await LoadIntegrationsAsync().ConfigureAwait(true);
@@ -1183,11 +1325,12 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="account">The account, named after what the host said.</param>
     /// <param name="token">The token.</param>
     /// <param name="renamed">Whether the reader typed a name, which then replaces the listed account's.</param>
+    /// <param name="replacing">The account whose token is replaced, or <see langword="null"/> to look for it.</param>
     /// <returns>
     /// <see langword="true"/> when a listed account's token was replaced, <see langword="false"/> when a
     /// new account was added, or <see langword="null"/> when nothing was stored — said on the bar.
     /// </returns>
-    private async Task<bool?> StoreAsync(HostAccount account, SecretString token, bool renamed)
+    private async Task<bool?> StoreAsync(HostAccount account, SecretString token, bool renamed, HostAccount? replacing)
     {
         CancellationToken lifetime = RepositoryContext.RepositoryLifetime;
 
@@ -1195,6 +1338,21 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         {
             try
             {
+                if (replacing is not null)
+                {
+                    // That line's token, whoever the host says it belongs to now.
+                    HostAccount kept = new(
+                        replacing.Id,
+                        replacing.Kind,
+                        replacing.BaseUri,
+                        account.UserName,
+                        renamed ? account.DisplayName : replacing.DisplayName,
+                        replacing.ProfileId);
+
+                    await _accounts.UpdateAsync(kept, token, lifetime).ConfigureAwait(true);
+                    return true;
+                }
+
                 IReadOnlyList<HostAccount> listed = await _accounts.GetAllAsync(lifetime).ConfigureAwait(true);
 
                 foreach (HostAccount existing in listed)

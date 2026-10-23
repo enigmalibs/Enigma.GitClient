@@ -104,6 +104,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
     private readonly IRepositoryHostProvider _provider;
     private readonly IHostAccountService _accounts;
     private readonly IHostLinkService _links;
+    private readonly ITokenRecovery _recovery;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger _logger;
     private readonly CancellationToken _lifetime;
@@ -117,6 +118,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
     /// <param name="provider">The provider that speaks to its host.</param>
     /// <param name="accounts">Supplies the account's token.</param>
     /// <param name="links">Opens a repository's page in a browser.</param>
+    /// <param name="recovery">Says what fixes a stored token that cannot be read.</param>
     /// <param name="infoBar">Reports what went wrong.</param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
     /// <param name="lifetime">Cancels a listing when the application or the repository goes away.</param>
@@ -125,6 +127,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
         IRepositoryHostProvider provider,
         IHostAccountService accounts,
         IHostLinkService links,
+        ITokenRecovery recovery,
         IInfoBarService infoBar,
         ILogger logger,
         CancellationToken lifetime = default)
@@ -133,6 +136,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(recovery);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -140,6 +144,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
         _provider = provider;
         _accounts = accounts;
         _links = links;
+        _recovery = recovery;
         _infoBar = infoBar;
         _logger = logger;
         _lifetime = lifetime;
@@ -169,6 +174,12 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
 
     /// <summary>Gets the repository picked to clone, or <see langword="null"/> while none is.</summary>
     public HostRepository? Picked { get; private set; }
+
+    /// <summary>
+    /// Gets why the account's stored token could not be read at the last listing, or
+    /// <see langword="null"/> when it could.
+    /// </summary>
+    public TokenProtectionException? TokenFailure { get; private set; }
 
     /// <summary>
     /// Gets or sets the text the list is filtered by.
@@ -255,6 +266,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
         _all.Clear();
         Repositories.Clear();
         Summary = string.Empty;
+        TokenFailure = null;
         OnPropertyChanged(nameof(HasRepositories));
 
         IsBusy = true;
@@ -307,6 +319,15 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
                 : Count(loaded.Count);
 
             ApplyFilter();
+        }
+        catch (TokenProtectionException exception)
+        {
+            // An error, never "no token" (BUG-3024): said here and on the bar with what fixes it. The
+            // reset a whole unreadable store needs is offered once the dialog is gone.
+            _logger.LogWarning(exception, "The stored token of integration {Account} could not be read", Account.Id);
+
+            TokenFailure = exception;
+            Fail("The stored token cannot be read", _recovery.Describe(exception), InfoBarSeverity.Error);
         }
         catch (HostRateLimitException exception)
         {

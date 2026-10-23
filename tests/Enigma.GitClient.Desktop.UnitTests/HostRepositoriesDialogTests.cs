@@ -93,6 +93,7 @@ public sealed class HostRepositoriesDialogTests
             provider,
             services.Get<IHostAccountService>(),
             services.Get<IHostLinkService>(),
+            services.Get<ITokenRecovery>(),
             services.InfoBar,
             NullLogger.Instance);
 
