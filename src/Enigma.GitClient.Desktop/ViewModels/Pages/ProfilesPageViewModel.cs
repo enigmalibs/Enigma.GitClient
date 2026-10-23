@@ -164,6 +164,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     private readonly IHostProviderRegistry _registry;
     private readonly IHostLinkService _links;
     private readonly IHostRepositoryBrowser _browser;
+    private readonly ITokenRecovery _recovery;
     private readonly RepositoriesPageViewModel _repositories;
     private readonly IContentDialogService _dialogs;
     private readonly IFolderDialogService _folderDialogs;
@@ -183,6 +184,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="registry">Finds the provider for an account.</param>
     /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
     /// <param name="browser">Lists an account's repositories in a dialog.</param>
+    /// <param name="recovery">Offers the reset when the stored tokens cannot be read.</param>
     /// <param name="repositories">Runs a clone, with its progress and its cancel.</param>
     /// <param name="dialogs">Raises the profile and account dialogs and the confirmations.</param>
     /// <param name="folderDialogs">Raises the folder picker the profile dialog chooses a base directory in.</param>
@@ -199,6 +201,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IHostProviderRegistry registry,
         IHostLinkService links,
         IHostRepositoryBrowser browser,
+        ITokenRecovery recovery,
         RepositoriesPageViewModel repositories,
         IContentDialogService dialogs,
         IFolderDialogService folderDialogs,
@@ -215,6 +218,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(browser);
+        ArgumentNullException.ThrowIfNull(recovery);
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(folderDialogs);
@@ -230,6 +234,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         _registry = registry;
         _links = links;
         _browser = browser;
+        _recovery = recovery;
         _repositories = repositories;
         _dialogs = dialogs;
         _folderDialogs = folderDialogs;
@@ -1082,6 +1087,12 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="profile">The profile the account is for.</param>
     /// <param name="model">The filled-in dialog.</param>
     /// <returns>A task that completes once the account is connected, or the failure reported.</returns>
+    /// <remarks>
+    /// An account already listed with the same login, instance and profile gets the new token rather than
+    /// a second line beside it (BUG-3024). Stored tokens this account can no longer read are said so,
+    /// with the reset offered; once it is confirmed, the token just typed — which the host has already
+    /// accepted — is stored without asking for it again.
+    /// </remarks>
     public async Task ConnectAsync(ProfileRowViewModel profile, AddHostAccountDialogViewModel model)
     {
         ArgumentNullException.ThrowIfNull(profile);
@@ -1105,18 +1116,23 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
                 .ValidateCredentialAsync(account, token, RepositoryContext.RepositoryLifetime)
                 .ConfigureAwait(true);
 
+            string typedName = model.DisplayName.Trim();
+
             HostAccount named = new(
                 account.Id,
                 account.Kind,
                 account.BaseUri,
                 identity.UserName,
-                model.DisplayName.Trim().Length > 0 ? model.DisplayName.Trim() : identity.DisplayName,
+                typedName.Length > 0 ? typedName : identity.DisplayName,
                 profile.Profile.Id);
 
-            await _accounts.AddAsync(named, token, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+            if (await StoreAsync(named, token, renamed: typedName.Length > 0).ConfigureAwait(true) is not { } replaced)
+            {
+                return;
+            }
 
             Report(
-                $"Connected to {provider.DisplayName}",
+                replaced ? $"Token replaced for {provider.DisplayName}" : $"Connected to {provider.DisplayName}",
                 $"{profile.Label} signs in as {identity.UserName}.",
                 InfoBarSeverity.Success);
 
@@ -1148,9 +1164,74 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
                 "Check the instance URL and the network connection.",
                 InfoBarSeverity.Error);
         }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(exception, "Storing a connected account failed");
+
+            Report("Could not store the account", exception.Message, InfoBarSeverity.Error);
+        }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Stores an account the host has accepted, with its token: in place of the same account when it is
+    /// already listed, as a new one otherwise.
+    /// </summary>
+    /// <param name="account">The account, named after what the host said.</param>
+    /// <param name="token">The token.</param>
+    /// <param name="renamed">Whether the reader typed a name, which then replaces the listed account's.</param>
+    /// <returns>
+    /// <see langword="true"/> when a listed account's token was replaced, <see langword="false"/> when a
+    /// new account was added, or <see langword="null"/> when nothing was stored — said on the bar.
+    /// </returns>
+    private async Task<bool?> StoreAsync(HostAccount account, SecretString token, bool renamed)
+    {
+        CancellationToken lifetime = RepositoryContext.RepositoryLifetime;
+
+        for (bool offered = false; ; offered = true)
+        {
+            try
+            {
+                IReadOnlyList<HostAccount> listed = await _accounts.GetAllAsync(lifetime).ConfigureAwait(true);
+
+                foreach (HostAccount existing in listed)
+                {
+                    if (existing.IsSameIdentityAs(account))
+                    {
+                        HostAccount kept = renamed
+                            ? new HostAccount(existing.Id, existing.Kind, existing.BaseUri, existing.UserName, account.DisplayName, existing.ProfileId)
+                            : existing;
+
+                        await _accounts.UpdateAsync(kept, token, lifetime).ConfigureAwait(true);
+                        return true;
+                    }
+                }
+
+                await _accounts.AddAsync(account, token, lifetime).ConfigureAwait(true);
+                return false;
+            }
+            catch (TokenProtectionException exception) when (exception.IsStoreWide && !offered)
+            {
+                // A store this account can no longer read takes no new token either. The reset is the
+                // way out, and only the reader decides to lose every other token for it.
+                _logger.LogWarning(exception, "The stored tokens cannot be read; the reset is offered");
+
+                if (!await _recovery.ConfirmAndResetAsync().ConfigureAwait(true))
+                {
+                    Report("The token was not stored", _recovery.Describe(exception), InfoBarSeverity.Error);
+                    return null;
+                }
+            }
+            catch (TokenProtectionException exception)
+            {
+                _logger.LogWarning(exception, "The token could not be stored");
+
+                Report("The token was not stored", _recovery.Describe(exception), InfoBarSeverity.Error);
+                return null;
+            }
         }
     }
 

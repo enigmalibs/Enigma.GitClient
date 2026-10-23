@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Security;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.Views.Dialogs;
 using Enigma.Icons.Avalonia;
@@ -50,12 +51,17 @@ public interface IUnhandledErrorReporter
 /// dialog itself fails, it is logged and no dialog is tried again in this session: the net must not
 /// loop on itself.
 /// </para>
+/// <para>
+/// Stored tokens that cannot be read are said where it happens, with the reset offered. Should one such
+/// failure still get this far, the dialog offers the reset too (BUG-3024).
+/// </para>
 /// </remarks>
 public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
 {
     private readonly IAppWindows _windows;
     private readonly IContentDialogService _dialogs;
     private readonly ISystemInterop _interop;
+    private readonly ITokenRecovery _recovery;
     private readonly ILogger<UnhandledErrorReporter> _logger;
     private readonly UnhandledErrorPolicy _policy;
 
@@ -76,24 +82,28 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
     /// <param name="windows">Says which window is on screen, and when another one is.</param>
     /// <param name="dialogs">Shows the dialog on that window.</param>
     /// <param name="interop">Copies the details to the clipboard.</param>
+    /// <param name="recovery">Offers the reset when the error is stored tokens that cannot be read.</param>
     /// <param name="time">Measures how long ago an error was seen.</param>
     /// <param name="logger">Receives every exception, in full.</param>
     public UnhandledErrorReporter(
         IAppWindows windows,
         IContentDialogService dialogs,
         ISystemInterop interop,
+        ITokenRecovery recovery,
         TimeProvider time,
         ILogger<UnhandledErrorReporter> logger)
     {
         ArgumentNullException.ThrowIfNull(windows);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(interop);
+        ArgumentNullException.ThrowIfNull(recovery);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(logger);
 
         _windows = windows;
         _dialogs = dialogs;
         _interop = interop;
+        _recovery = recovery;
         _logger = logger;
         _policy = new UnhandledErrorPolicy(time);
 
@@ -165,14 +175,22 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
         int showing = ++_showing;
         _presentedOn = host;
 
+        // Stored tokens that cannot be read: the way out is the reset, so it is offered right here.
+        TokenProtectionException? tokens = TokenRecovery.FindIn(batch.First) is { IsStoreWide: true } failure ? failure : null;
+        DialogResult answer = DialogResult.None;
+
         try
         {
-            UnhandledErrorView view = new() { DataContext = new UnhandledErrorViewModel(batch, _interop) };
+            UnhandledErrorView view = new()
+            {
+                DataContext = new UnhandledErrorViewModel(batch, _interop, tokens is null ? null : _recovery.Describe(tokens)),
+            };
 
-            await _dialogs.ShowAsync(dialog =>
+            answer = await _dialogs.ShowAsync(dialog =>
             {
                 dialog.Title = "Something went wrong";
                 dialog.Content = view;
+                dialog.PrimaryButtonText = tokens is null ? null : TokenRecovery.ResetLabel;
                 dialog.CloseButtonText = "Close";
                 dialog.DefaultButton = DefaultButton.Close;
                 dialog.IconData = PhosphorIconSet.Instance
@@ -197,6 +215,12 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
 
         _presentedOn = null;
         _policy.EndShow();
+
+        if (tokens is not null && answer == DialogResult.Primary)
+        {
+            // On the host the dialog has just given back; its own question waits for nothing else.
+            await _recovery.ConfirmAndResetAsync().ConfigureAwait(true);
+        }
 
         if (_policy.Pending is not null)
         {

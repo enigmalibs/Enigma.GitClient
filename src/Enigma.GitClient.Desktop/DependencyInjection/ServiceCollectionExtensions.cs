@@ -73,6 +73,9 @@ public static class ServiceCollectionExtensions
             // The safety net every exception nothing else caught ends up in (BUG-9DE3).
             services.AddSingleton<IUnhandledErrorReporter, UnhandledErrorReporter>();
 
+            // The way out of stored tokens this account can no longer read (BUG-3024).
+            services.AddSingleton<ITokenRecovery, TokenRecovery>();
+
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);
             services.AddSingleton<IAutoRefreshService, AutoRefreshService>();

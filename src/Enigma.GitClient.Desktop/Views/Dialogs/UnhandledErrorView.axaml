@@ -21,6 +21,15 @@
                FontWeight="SemiBold"
                Foreground="{DynamicResource EnigmaForegroundBrush}" />
 
+    <!-- What fixes it, when the application knows: the button that does it is the dialog's own. -->
+    <TextBlock Name="RemedyText"
+               Text="{Binding Remedy}"
+               IsVisible="{Binding HasRemedy}"
+               TextWrapping="Wrap"
+               MaxWidth="560"
+               HorizontalAlignment="Left"
+               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
     <TextBlock Name="MoreText"
                Text="{Binding MoreText}"
                IsVisible="{Binding HasMore}"
