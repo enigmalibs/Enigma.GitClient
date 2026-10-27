@@ -85,6 +85,10 @@ Two things matter more than everything else in this app:
 - Revert any commit from its line menu: after one question, a new commit on the branch you are on
   undoes what it changed (a merge against the branch it went into); a revert that would conflict is
   abandoned on the spot, naming the files, and leaves everything as it was
+- Squash a range of commits onto a new branch: set a line as the squash base, then from a line above
+  it on its first-parent line squash everything since the base into one commit with that line's files,
+  on a new branch you name; nothing that exists is rewritten or moved — no rebase, no cherry-pick — so
+  the original branch keeps every commit until you delete it yourself
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
   into any other local branch the same way — or drag one branch badge onto another, and pick the
   merge or the fast-forward

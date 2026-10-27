@@ -1,6 +1,6 @@
 # FEATURE-9A00 — Squash a range of commits onto a new branch
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-27-feature-9a00
@@ -162,7 +162,7 @@ every merge bringing in a phase commit from inside the range. Wanted: `5c6eb02`,
 ## PHASE02 — Squash base, menu and dialog
 
 **Branch:** `feature/feature-9a00-phase02-squash-menu-dialog`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-9A00-PHASE02.md`
 
 ### Steps
 

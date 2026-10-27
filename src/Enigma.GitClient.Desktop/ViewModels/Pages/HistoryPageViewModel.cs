@@ -16,6 +16,7 @@ using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Reset;
+using Enigma.GitClient.Core.Squash;
 using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
 using Enigma.GitClient.Desktop.Controls;
@@ -47,6 +48,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IResetOperations _resetOperations;
     private readonly IRevertOperations _revertOperations;
+    private readonly ISquashOperations _squashOperations;
     private readonly IBranchDropOperations _dropOperations;
     private readonly ISyncOperations _syncOperations;
     private readonly IHostLinkService _links;
@@ -116,6 +118,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="worktreeOperations">Creates a worktree on a new branch from a line or a branch, dialog and all.</param>
     /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
     /// <param name="revertOperations">Records a commit undoing a line's commit on the branch that is checked out.</param>
+    /// <param name="squashOperations">Squashes the commits since the squash base onto a new branch.</param>
     /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
     /// <param name="syncOperations">Pulls and pushes a branch from its badge, and pushes a tag from its own.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
@@ -136,6 +139,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ICheckoutOperations checkoutOperations,
         IResetOperations resetOperations,
         IRevertOperations revertOperations,
+        ISquashOperations squashOperations,
         IBranchDropOperations dropOperations,
         ISyncOperations syncOperations,
         IHostLinkService links,
@@ -162,6 +166,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(resetOperations);
         ArgumentNullException.ThrowIfNull(revertOperations);
+        ArgumentNullException.ThrowIfNull(squashOperations);
         ArgumentNullException.ThrowIfNull(dropOperations);
         ArgumentNullException.ThrowIfNull(syncOperations);
         ArgumentNullException.ThrowIfNull(links);
@@ -188,6 +193,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _checkoutOperations = checkoutOperations;
         _resetOperations = resetOperations;
         _revertOperations = revertOperations;
+        _squashOperations = squashOperations;
         _dropOperations = dropOperations;
         _syncOperations = syncOperations;
         _links = links;
@@ -256,6 +262,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                     OnRemoveWorktreeAsync,
                     branch => branch?.CanRemoveWorktree == true)));
 
+        ClearSquashBaseCommand = new RelayCommand(() => SquashBase = null, () => SquashBase is not null);
+
+        // A stash is not a commit anyone builds on, so it is no base; the squash itself is offered only
+        // where the base is on the line's first-parent line, which the loaded lines answer at once.
+        SquashCommands = new HistorySquashCommands(
+            new RelayCommand<CommitRowViewModel>(OnSetSquashBase, row => row is { Commit: not null, IsStash: false }),
+            ClearSquashBaseCommand,
+            new AsyncRelayCommand<HistorySquashRequest>(
+                OnSquashAsync,
+                request => request is { Row: { Commit: not null, IsStash: false } row } && MeasureSquash(row, request.Base) is not null),
+            () => SquashBase,
+            row => SquashBase is { } squashBase ? MeasureSquash(row, squashBase) : null);
+
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
@@ -288,7 +307,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
             DeleteTag: new AsyncRelayCommand<string>(OnDeleteTagAsync, tag => !string.IsNullOrEmpty(tag)),
             DeleteRemoteTag: new AsyncRelayCommand<string>(OnDeleteRemoteTagAsync, tag => !string.IsNullOrEmpty(tag)),
             Revert: new AsyncRelayCommand<CommitRowViewModel>(OnRevertAsync, HasCommit),
-            CreateWorktreeHere: new AsyncRelayCommand<CommitRowViewModel>(OnCreateWorktreeHereAsync, HasCommit));
+            CreateWorktreeHere: new AsyncRelayCommand<CommitRowViewModel>(OnCreateWorktreeHereAsync, HasCommit),
+            Squash: SquashCommands);
 
         StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
 
@@ -704,6 +724,50 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
     /// <summary>Gets the command that forgets the merge source.</summary>
     public RelayCommand ClearMergeSourceCommand { get; }
+
+    /// <summary>
+    /// Gets the squash's commands, which every line's menu offers.
+    /// </summary>
+    public HistorySquashCommands SquashCommands { get; }
+
+    /// <summary>
+    /// Gets or sets the commit the next squash starts after, or <see langword="null"/> when none has
+    /// been chosen.
+    /// </summary>
+    /// <remarks>
+    /// Like the merge source, a choice that outlives the menu it was made in: the toolbar shows it and
+    /// its line carries a flag. It serves one squash — a squash that created something forgets it —
+    /// and is forgotten too when another repository opens or a reload no longer lists its commit. A
+    /// refresh, a fetch or a branch switch keeps it: a commit does not stop existing when HEAD moves.
+    /// </remarks>
+    public SquashBase? SquashBase
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value))
+            {
+                OnPropertyChanged(nameof(HasSquashBase));
+                OnPropertyChanged(nameof(SquashBaseSummary));
+                ClearSquashBaseCommand.NotifyCanExecuteChanged();
+                SquashCommands.Squash.NotifyCanExecuteChanged();
+
+                foreach (CommitRowViewModel row in Rows)
+                {
+                    row.NotifySquashBaseChanged();
+                }
+            }
+        }
+    }
+
+    /// <summary>Gets a value indicating whether a squash base is chosen.</summary>
+    public bool HasSquashBase => SquashBase is not null;
+
+    /// <summary>Gets what the toolbar says about the squash base.</summary>
+    public string SquashBaseSummary => SquashBase is { } squashBase ? $"Squash base: {squashBase.ShortSha}" : string.Empty;
+
+    /// <summary>Gets the command that forgets the squash base.</summary>
+    public RelayCommand ClearSquashBaseCommand { get; }
 
     /// <summary>Gets the selected commit's subject, or the pseudo-row's label.</summary>
     public string SelectedSubject => SelectedRow?.Subject ?? string.Empty;
@@ -1239,6 +1303,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         await LoadPageAsync(includeUncommittedRow: true).ConfigureAwait(true);
+
+        ForgetASquashBaseThatIsGone();
     }
 
     /// <inheritdoc />
@@ -1310,8 +1376,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <inheritdoc />
     protected override void OnRepositoryChanged()
     {
-        // A branch of the repository that was open is nothing to merge in this one.
+        // A branch of the repository that was open is nothing to merge in this one, and its commits
+        // are nothing to squash.
         MergeSource = null;
+        SquashBase = null;
 
         _links.RefreshAsync().Forget();
 
@@ -2463,6 +2531,117 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         {
             await ReloadAsync().ConfigureAwait(true);
         }
+    }
+
+    private void OnSetSquashBase(CommitRowViewModel? row)
+    {
+        if (row is { Commit: not null, IsStash: false })
+        {
+            SquashBase = new SquashBase(row.Sha, row.ShortSha, row.Subject);
+        }
+    }
+
+    /// <summary>
+    /// Squashes everything since the base up to a line onto a new branch, then shows the result: the
+    /// history is read again and the squash commit selected. The base has served its squash and is
+    /// forgotten.
+    /// </summary>
+    private async Task OnSquashAsync(HistorySquashRequest? request)
+    {
+        if (request is not { Row: { Commit: not null } row, Base: { } squashBase })
+        {
+            return;
+        }
+
+        SquashCandidate candidate = new(
+            new SquashEnd(squashBase.Sha, squashBase.ShortSha, squashBase.Subject),
+            new SquashEnd(row.Sha, row.ShortSha, row.Subject),
+            LocalBranchesAt(row),
+            row.IsHead);
+
+        if (await _squashOperations.SquashAsync(candidate).ConfigureAwait(true) is not { } commit)
+        {
+            return;
+        }
+
+        SquashBase = null;
+
+        await ReloadAsync().ConfigureAwait(true);
+        await RevealAsync(commit).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Measures the range from a base to a line among the loaded lines, as the menu counts it.
+    /// </summary>
+    private SquashRangeMeasure? MeasureSquash(CommitRowViewModel row, SquashBase squashBase)
+    {
+        if (row.Commit is null)
+        {
+            return null;
+        }
+
+        List<GitCommit> loaded = new(Rows.Count);
+
+        foreach (CommitRowViewModel line in Rows)
+        {
+            if (line.Commit is { } commit)
+            {
+                loaded.Add(commit);
+            }
+        }
+
+        return SquashRange.Measure(loaded, squashBase.Sha, row.Sha);
+    }
+
+    /// <summary>
+    /// The local branches that end at a line, the checked-out one first: the squash dialog names the
+    /// new branch after the first, and says it keeps its commits.
+    /// </summary>
+    private static List<string> LocalBranchesAt(CommitRowViewModel row)
+    {
+        List<string> names = [];
+
+        foreach (HistoryBranchViewModel branch in row.Branches)
+        {
+            if (branch.IsRemote)
+            {
+                continue;
+            }
+
+            if (branch.IsCurrent)
+            {
+                names.Insert(0, branch.Name);
+            }
+            else
+            {
+                names.Add(branch.Name);
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// Forgets the squash base once a finished reload no longer lists its commit — its branch deleted
+    /// or hidden, or the history read again from the top past where it was.
+    /// </summary>
+    private void ForgetASquashBaseThatIsGone()
+    {
+        // A load still running, or one that read nothing, is no evidence that the commit is gone.
+        if (SquashBase is not { } squashBase || IsBusy || !IsRepositoryOpen || Rows.Count == 0)
+        {
+            return;
+        }
+
+        foreach (CommitRowViewModel row in Rows)
+        {
+            if (string.Equals(row.Sha, squashBase.Sha, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        SquashBase = null;
     }
 
     private async Task OnCreateTagHereAsync(CommitRowViewModel? row)
