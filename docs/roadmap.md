@@ -378,6 +378,9 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-9A00 | Squash a range onto a new branch         | DONE      | docs/plan/FEATURE-9A00.md |
 | - PHASE01    | The squash engine                        | DONE      | (in FEATURE-9A00.md)      |
 | - PHASE02    | Squash base, menu and dialog             | DONE      | (in FEATURE-9A00.md)      |
+| FEATURE-D9C1 | Profile identity in every repository     | TODO      | docs/plan/FEATURE-D9C1.md |
+| - PHASE01    | Bulk local identity in Core              | TODO      | (in FEATURE-D9C1.md)      |
+| - PHASE02    | The button on the home page              | TODO      | (in FEATURE-D9C1.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
