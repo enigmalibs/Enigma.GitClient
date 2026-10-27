@@ -183,6 +183,19 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
+
+          <!-- The picked profile's name and email, written into every repository on its list as the
+               repository's own, after one question. Disabled for a profile without them, or without
+               repositories; its tooltip still says what it does. -->
+          <Button Name="UseProfileIdentityEverywhere"
+                  Classes="toolbar"
+                  VerticalAlignment="Center"
+                  Command="{Binding UseProfileIdentityEverywhereCommand}"
+                  ToolTip.Tip="Use this profile's name and email in every repository on its list"
+                  ToolTip.ShowOnDisabled="True"
+                  AutomationProperties.Name="Use the profile's identity in every repository">
+            <ei:Icon Kind="UserCheck" Classes="toolbar" />
+          </Button>
         </StackPanel>
 
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">

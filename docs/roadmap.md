@@ -375,9 +375,13 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The active profile and Make active       | DONE      | (in FEATURE-0ED1.md)      |
 | FEATURE-1540 | Larger account rows and row actions      | DONE      | docs/plan/FEATURE-1540.md |
 | FEATURE-4358 | Release 6.9.0                            | DONE      | docs/plan/FEATURE-4358.md |
-| FEATURE-9A00 | Squash a range onto a new branch         | TODO      | docs/plan/FEATURE-9A00.md |
-| - PHASE01    | The squash engine                        | TODO      | (in FEATURE-9A00.md)      |
-| - PHASE02    | Squash base, menu and dialog             | TODO      | (in FEATURE-9A00.md)      |
+| FEATURE-9A00 | Squash a range onto a new branch         | DONE      | docs/plan/FEATURE-9A00.md |
+| - PHASE01    | The squash engine                        | DONE      | (in FEATURE-9A00.md)      |
+| - PHASE02    | Squash base, menu and dialog             | DONE      | (in FEATURE-9A00.md)      |
+| FEATURE-D9C1 | Profile identity in every repository     | DONE      | docs/plan/FEATURE-D9C1.md |
+| - PHASE01    | Bulk local identity in Core              | DONE      | (in FEATURE-D9C1.md)      |
+| - PHASE02    | The button on the home page              | DONE      | (in FEATURE-D9C1.md)      |
+| FEATURE-839A | Release 6.10.0                           | DONE      | docs/plan/FEATURE-839A.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

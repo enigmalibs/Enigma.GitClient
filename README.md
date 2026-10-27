@@ -10,13 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.9** — the repository window's commands are on one command bar across the top of
-> the History page, named and grouped at its centre, with icons only on a narrow window; the theme
-> switch and About are on the Settings page. The strip above it draws the repository larger, with the
-> history's badge for the checked-out branch. Escape clears the History search. On the Profiles page
-> each profile is a card, the active one says *Active*, and the others offer *Make active*. 6.8
-> before it: an error nothing expected no longer closes the application, and stored tokens that can
-> no longer be read (a Windows password reset does this) can be reset from the application.
+> **What's new in 6.10** — squash a range of commits onto a new branch from the History page: set a
+> line as the squash base, then squash everything since it into one commit on a branch you name,
+> without rewriting or moving anything that exists. On the start window, one button gives the picked
+> profile's name and email to every repository on its list. 6.9 before it: the repository window's
+> commands are on one command bar across the top of the History page, and the theme switch and About
+> are on the Settings page; Escape clears the History search; on the Profiles page each profile is a
+> card, the active one says *Active*, and the others offer *Make active*.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -85,6 +85,10 @@ Two things matter more than everything else in this app:
 - Revert any commit from its line menu: after one question, a new commit on the branch you are on
   undoes what it changed (a merge against the branch it went into); a revert that would conflict is
   abandoned on the spot, naming the files, and leaves everything as it was
+- Squash a range of commits onto a new branch: set a line as the squash base, then from a line above
+  it on its first-parent line squash everything since the base into one commit with that line's files,
+  on a new branch you name; nothing that exists is rewritten or moved — no rebase, no cherry-pick — so
+  the original branch keeps every commit until you delete it yourself
 - Merging from the graph: set a branch as the merge source from its badge or its line, then merge it
   into any other local branch the same way — or drag one branch badge onto another, and pick the
   merge or the fast-forward
@@ -96,7 +100,9 @@ Two things matter more than everything else in this app:
   pointer, a dashed tile shows where it lands), and a "Default" profile is made when there is none;
   a filter box above the list keeps the repositories whose name or path holds the text, and the ×
   at its right edge, or Escape, clears it; a profile can name a base directory, where Open, Clone and Create start
-  while it is picked (a clone from one of its integrations goes there too); the repository you pick
+  while it is picked (a clone from one of its integrations goes there too); the button beside the
+  profile writes its name and email into every repository on its list, after one question, so each
+  of them keeps committing as that profile whatever the global identity becomes; the repository you pick
   opens in a window of its own, and `Enigma.GitClient.Desktop <path>` opens one straight away
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
@@ -190,7 +196,8 @@ Everything the client remembers about you lives in one per-user directory —
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email, make a profile active on the
-Profiles page, pick one in the start window, or let a new clone or repository use your identity —
+Profiles page, pick one in the start window, give a profile's identity to every repository on its
+list, or let a new clone or repository use your identity —
 and nothing is sent anywhere: the client talks to your git and to the hosts you connected, and to
 nothing else.
 

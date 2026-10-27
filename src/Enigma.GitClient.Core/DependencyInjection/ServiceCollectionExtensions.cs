@@ -14,6 +14,7 @@ using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Reset;
 using Enigma.GitClient.Core.Revert;
 using Enigma.GitClient.Core.Security;
+using Enigma.GitClient.Core.Squash;
 using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
@@ -85,7 +86,9 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ICheckoutService, CheckoutService>();
             services.AddSingleton<IResetService, ResetService>();
             services.AddSingleton<IRevertService, RevertService>();
+            services.AddSingleton<ISquashService, SquashService>();
             services.AddSingleton<IGitIdentityService, GitIdentityService>();
+            services.AddSingleton<IBulkLocalIdentityService, BulkLocalIdentityService>();
             services.AddSingleton<IIdentityProfileStore, IdentityProfileStore>();
             services.AddSingleton<IGitCredentialResolver, GitCredentialResolver>();
 
