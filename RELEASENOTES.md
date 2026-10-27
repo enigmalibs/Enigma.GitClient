@@ -1,5 +1,51 @@
 # Release notes
 
+## 6.11.0 — 2026-10-27
+
+A minor release:
+
+- a local branch's **badge in the history renames the branch**: `Rename "<name>"…` in its menu asks
+  for the new name in the dialog the branches dialog already uses, and the history is drawn again
+  under it;
+- that dialog now opens with the caret in the name box and the current name selected, so the new
+  name can be typed straight away, wherever it is opened from.
+
+### Rename a branch from its badge
+
+- **In the badge's menu.** `Rename "<name>"…` sits right before `Delete "<name>"…`, with a pencil.
+  It is offered on every local branch, the checked-out one included, and on a badge that draws a
+  branch with its upstream. A remote branch's own badge does not offer it: git renames a
+  remote-tracking branch only by pushing it again under another name.
+- **One dialog, wherever the rename starts.** *Rename branch* says `Renaming <name>` and asks for the
+  *New name*. *Rename* stays disabled, with the reason shown, while the name is not a valid branch
+  name, is the one the branch already has, or belongs to another branch (*A branch called "x"
+  already exists.*). *Cancel* changes nothing.
+- **What a rename changes.** Only the branch's name: its commits, its upstream and the remote branch
+  stay as they were, and a renamed checked-out branch stays checked out. The history reloads and the
+  badge carries the new name. When git refuses, the bar says `Could not rename "<name>"` with git's
+  reason.
+- **The merge source.** A branch set as the merge source is no longer one once renamed; set it again
+  under its new name.
+- **Finishing a squash** (6.10) can now be done from the graph alone: delete the original branch from
+  its badge, then rename the squashed one from its own.
+
+### Upgrading from 6.10
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.10 keeps everything.
+
+### Dependencies
+
+- No package moved.
+- The Avalonia set is still held back at **12.1.1** with Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is
+  out; the set moves as a whole).
+
+### Version
+
+- **6.11.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  badge's rename) and changes no public Core API. It keeps every stored format and removes nothing.
+
 ## 6.10.0 — 2026-10-27
 
 A minor release:
