@@ -473,6 +473,11 @@
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
+  <!-- The squash base's subject, moved clear of the flag drawn at the start of its cell. -->
+  <Style Selector="Grid.commitrow TextBlock.squashbase">
+    <Setter Property="Padding" Value="20,0,0,0" />
+  </Style>
+
   <!--
     The checked-out line, which already carries the current branch's blue badge and the ringed node,
     washed in a light blue across its whole width so it can be found in a long list without reading

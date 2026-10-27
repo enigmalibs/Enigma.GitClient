@@ -23,8 +23,9 @@ using Microsoft.Extensions.Logging;
 namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 
 /// <summary>
-/// The landing page: the selected profile's list of repositories, in the user's order, and the three
-/// ways to get a new one — open, clone, create.
+/// The landing page: the selected profile's list of repositories, in the user's order, the three
+/// ways to get a new one — open, clone, create — and the profile's name and email given to every
+/// repository on the list as its own.
 /// </summary>
 public sealed class RepositoriesPageViewModel : PageViewModelBase
 {
@@ -32,6 +33,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IRepositoryListStore _lists;
     private readonly IProfileSelection _selection;
     private readonly IGitIdentityService _identity;
+    private readonly IBulkLocalIdentityService _bulkIdentity;
     private readonly ISettingsService _settings;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IContentDialogService _dialogs;
@@ -67,6 +69,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// Sets git's global identity to the profile picked, and offers it to a new clone or repository as
     /// its own.
     /// </param>
+    /// <param name="bulkIdentity">Gives the profile's identity to every repository on its list.</param>
     /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
@@ -86,6 +89,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IRepositoryListStore lists,
         IProfileSelection selection,
         IGitIdentityService identity,
+        IBulkLocalIdentityService bulkIdentity,
         ISettingsService settings,
         IFolderDialogService folderDialogs,
         IContentDialogService dialogs,
@@ -105,6 +109,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(lists);
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(identity);
+        ArgumentNullException.ThrowIfNull(bulkIdentity);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(dialogs);
@@ -123,6 +128,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _lists = lists;
         _selection = selection;
         _identity = identity;
+        _bulkIdentity = bulkIdentity;
         _settings = settings;
         _folderDialogs = folderDialogs;
         _dialogs = dialogs;
@@ -145,6 +151,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ForgetCommand = new AsyncRelayCommand<ListedRepository>(OnForgetAsync);
         OpenFolderCommand = new AsyncRelayCommand<ListedRepository>(OnOpenFolderAsync);
         OpenTerminalCommand = new AsyncRelayCommand<ListedRepository>(OnOpenTerminalAsync);
+        UseProfileIdentityEverywhereCommand = new AsyncRelayCommand(
+            OnUseProfileIdentityEverywhereAsync,
+            () => IsNotBusy && SelectedProfile is { HasIdentity: true } && HasRepositories);
         CancelCloneCommand = new RelayCommand(OnCancelClone);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
@@ -169,9 +178,16 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         get;
         set
         {
+            if (!SetProperty(ref field, value))
+            {
+                return;
+            }
+
+            UseProfileIdentityEverywhereCommand.NotifyCanExecuteChanged();
+
             // The picker pushes a null of its own while its items are being replaced; that, and the
             // page putting back the profile it has just read, are not the user choosing anything.
-            if (SetProperty(ref field, value) && value is not null && !_showingProfiles)
+            if (value is not null && !_showingProfiles)
             {
                 _selection.Select(value.Id);
                 ShowListOfAsync(value.Id).Forget();
@@ -269,6 +285,17 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     public AsyncRelayCommand<ListedRepository> OpenTerminalCommand { get; }
 
     /// <summary>
+    /// Gets the command that writes the selected profile's name and email into the own configuration
+    /// of every repository on its list — the filtered-out ones too — after one question, so each of
+    /// them keeps committing as the profile whatever git's global identity becomes.
+    /// </summary>
+    /// <remarks>
+    /// Enabled while the profile has a name and email and its list is not empty. git's global identity
+    /// is left as it is: picking the profile is what sets that.
+    /// </remarks>
+    public AsyncRelayCommand UseProfileIdentityEverywhereCommand { get; }
+
+    /// <summary>
     /// Gets the command that shows the About dialog. The start window has no toolbar of its own, and
     /// this page's header is where it keeps its actions.
     /// </summary>
@@ -360,6 +387,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         CloneCommand.NotifyCanExecuteChanged();
         CreateCommand.NotifyCanExecuteChanged();
         OpenListedCommand.NotifyCanExecuteChanged();
+        UseProfileIdentityEverywhereCommand.NotifyCanExecuteChanged();
     }
 
     private async Task OnOpenAsync()
@@ -766,6 +794,174 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         }
     }
 
+    /// <summary>
+    /// Asks, then writes the selected profile's name and email into every repository on its list, and
+    /// says in one info bar what became of them.
+    /// </summary>
+    /// <remarks>
+    /// The profile and its list are read as they are stored now: the button may be a step behind an
+    /// edit made on the Profiles page or in another window. Names and emails are never logged.
+    /// </remarks>
+    private Task OnUseProfileIdentityEverywhereAsync()
+        => RunBusyAsync(async () =>
+        {
+            IdentityProfile profile = await SelectedProfileNowAsync().ConfigureAwait(true);
+            IReadOnlyList<ListedRepository> listed = await _lists.GetAsync(profile.Id).ConfigureAwait(true);
+
+            if (!profile.HasIdentity || listed.Count == 0)
+            {
+                return false;
+            }
+
+            GitIdentity identity = profile.Identity.Normalised();
+
+            DialogResult answer = await _dialogs.ShowAsync(dialog =>
+            {
+                dialog.Title = $"Use {profile.Label} in every repository";
+                dialog.Content =
+                    $"Make {identity} the name and email of {TheRepositories(listed.Count)} on {profile.Label}'s list?\n\n"
+                    + "They are written to each repository's own configuration, so its commits are made as "
+                    + "them whatever the global identity becomes later. A repository that has a name and "
+                    + "email of its own gets these instead.";
+                dialog.PrimaryButtonText = "Use it";
+                dialog.CloseButtonText = "Cancel";
+                dialog.DefaultButton = DefaultButton.Close;
+            }).ConfigureAwait(true);
+
+            if (answer != DialogResult.Primary)
+            {
+                return false;
+            }
+
+            IReadOnlyList<BulkLocalIdentityOutcome> outcomes;
+
+            try
+            {
+                outcomes = await _bulkIdentity
+                    .SetLocalAsync([.. listed.Select(entry => entry.Path)], identity)
+                    .ConfigureAwait(true);
+            }
+            catch (Exception exception) when (exception is GitNotFoundException or ArgumentException)
+            {
+                _logger.LogWarning(
+                    "Writing a profile's git identity into its repositories failed ({Kind})",
+                    exception.GetType().Name);
+
+                Report("Could not change the repositories' identity", ProfilesPageViewModel.Describe(exception), InfoBarSeverity.Error);
+                return false;
+            }
+
+            ReportIdentityEverywhere(profile, identity, listed, outcomes);
+            return true;
+        });
+
+    /// <summary>
+    /// Says in one info bar what became of each repository the profile's identity was given to.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <param name="identity">Its identity, as written.</param>
+    /// <param name="listed">The repositories, in the order they were given.</param>
+    /// <param name="outcomes">One outcome per repository, in the same order.</param>
+    private void ReportIdentityEverywhere(
+        IdentityProfile profile,
+        GitIdentity identity,
+        IReadOnlyList<ListedRepository> listed,
+        IReadOnlyList<BulkLocalIdentityOutcome> outcomes)
+    {
+        int written = 0;
+        int already = 0;
+        List<string> notFound = [];
+        List<string> failed = [];
+        Exception? firstFailure = null;
+
+        foreach ((ListedRepository entry, BulkLocalIdentityOutcome outcome) in listed.Zip(outcomes))
+        {
+            switch (outcome.Result)
+            {
+                case BulkLocalIdentityResult.Written:
+                    written++;
+                    break;
+
+                case BulkLocalIdentityResult.AlreadySet:
+                    already++;
+                    break;
+
+                case BulkLocalIdentityResult.NotARepository:
+                    notFound.Add(entry.Name);
+                    break;
+
+                default:
+                    failed.Add(entry.Name);
+                    firstFailure ??= outcome.Failure;
+
+                    // By path and kind only: a name and an email identify a person.
+                    _logger.LogWarning(
+                        "Writing the git identity into {Path} failed ({Kind})",
+                        entry.Path,
+                        outcome.Failure?.GetType().Name);
+                    break;
+            }
+        }
+
+        _logger.LogInformation(
+            "Gave a profile's git identity to its repositories: {Written} written, {Already} already set, {NotFound} not found, {Failed} failed",
+            written,
+            already,
+            notFound.Count,
+            failed.Count);
+
+        if (notFound.Count == 0 && failed.Count == 0)
+        {
+            if (written == 0)
+            {
+                Report(
+                    "Nothing to change",
+                    $"Every repository on the list already commits as {identity}.",
+                    InfoBarSeverity.Info);
+            }
+            else
+            {
+                Report(
+                    $"Using {profile.Label} in every repository",
+                    $"{NowCommit(written)} as {identity}." + (already > 0 ? $" {already} already did." : string.Empty),
+                    InfoBarSeverity.Success);
+            }
+
+            return;
+        }
+
+        List<string> parts = [];
+
+        if (written > 0)
+        {
+            parts.Add($"{NowCommit(written)} as {identity}.");
+        }
+
+        if (already > 0)
+        {
+            parts.Add($"{already} already did.");
+        }
+
+        if (notFound.Count > 0)
+        {
+            parts.Add($"Not found: {string.Join(", ", notFound)}.");
+        }
+
+        if (failed.Count > 0)
+        {
+            string reason = firstFailure is null ? string.Empty : $": {ProfilesPageViewModel.Describe(firstFailure).TrimEnd('.')}";
+            parts.Add($"Could not change {string.Join(", ", failed)}{reason}.");
+        }
+
+        Report("Some repositories were left as they were", string.Join(" ", parts), InfoBarSeverity.Warning);
+    }
+
+    private static string TheRepositories(int count)
+        => count == 1 ? "the repository" : $"the {count} repositories";
+
+    private static string NowCommit(int count)
+        => count == 1 ? "1 repository now commits" : $"{count} repositories now commit";
+
     private void OnCancelClone() => _cloneCancellation?.Cancel();
 
     /// <summary>
@@ -967,6 +1163,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         ApplyFilter();
         OnPropertyChanged(nameof(HasRepositories));
+        UseProfileIdentityEverywhereCommand.NotifyCanExecuteChanged();
     }
 
     private void ApplyFilter()

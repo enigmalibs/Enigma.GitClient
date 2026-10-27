@@ -1042,6 +1042,235 @@ public sealed class RepositoriesPageTests
         });
     }
 
+    // ---------------------------------------------------------------- the profile's identity in every repository
+
+    /// <summary>
+    /// Saves a Work profile with <see cref="WorkIdentity"/>, selects it, and lists a real repository for
+    /// each name.
+    /// </summary>
+    /// <returns>The profile and its repositories.</returns>
+    private static async Task<(IdentityProfile Profile, RepositoryHandle[] Repositories)> WorkProfileListingAsync(
+        TestServices services,
+        params string[] names)
+    {
+        IdentityProfile work = await services.Get<IIdentityProfileStore>().SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+        services.Get<IProfileSelection>().Select(work.Id);
+
+        string root = Path.Combine(services.ConfigurationRoot, "workspace");
+        Directory.CreateDirectory(root);
+
+        IRepositoryService repositories = services.Get<IRepositoryService>();
+        IRepositoryListStore store = services.Get<IRepositoryListStore>();
+        RepositoryHandle[] created = new RepositoryHandle[names.Length];
+
+        for (int index = 0; index < names.Length; index++)
+        {
+            created[index] = await repositories.InitAsync(Path.Combine(root, names[index]), "main");
+            await store.AddAsync(work.Id, created[index].WorkTreePath, created[index].Name);
+        }
+
+        return (work, created);
+    }
+
+    [Fact]
+    public void TheIdentityButtonSitsJustAfterTheProfilePicker()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await WorkProfileListingAsync(services, "alpha");
+
+            RepositoriesPageViewModel model = services.Get<RepositoriesPageViewModel>();
+            await model.OnAppearingAsync();
+
+            RepositoriesPageView page = services.Get<RepositoriesPageView>();
+            page.DataContext = model;
+
+            Window window = new() { Content = page, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            ComboBox picker = page.GetVisualDescendants().OfType<ComboBox>().Single(box => box.Name == "ProfilePicker");
+            Button button = page.GetVisualDescendants().OfType<Button>().Single(candidate => candidate.Name == "UseProfileIdentityEverywhere");
+
+            Assert.Same(model.UseProfileIdentityEverywhereCommand, button.Command);
+            Assert.Equal("Use the profile's identity in every repository", AutomationProperties.GetName(button));
+            Assert.True(button.IsEffectivelyEnabled);
+
+            StackPanel group = Assert.IsType<StackPanel>(picker.Parent);
+            Assert.Equal(group.Children.IndexOf(picker) + 1, group.Children.IndexOf(button));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheIdentityButton_WantsANameAndEmailAndAList()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            IIdentityProfileStore profiles = services.Get<IIdentityProfileStore>();
+            IdentityProfile nobody = await profiles.SaveAsync(IdentityProfile.Create("Nobody", GitIdentity.Empty));
+            IdentityProfile work = await profiles.SaveAsync(IdentityProfile.Create("Work", WorkIdentity));
+            IdentityProfile home = await profiles.SaveAsync(IdentityProfile.Create("Home", HomeIdentity));
+
+            string path = Path.Combine(services.ConfigurationRoot, "listed");
+            Directory.CreateDirectory(path);
+            IRepositoryListStore store = services.Get<IRepositoryListStore>();
+            await store.AddAsync(nobody.Id, path, "listed");
+            await store.AddAsync(work.Id, path, "listed");
+            services.Get<IProfileSelection>().Select(nobody.Id);
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            // A list, but no name and email to write.
+            Assert.True(page.HasRepositories);
+            Assert.False(page.UseProfileIdentityEverywhereCommand.CanExecute(null));
+
+            // A name and email, and a list.
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == work.Id);
+            await page.PendingIdentityWrite;
+            await WaitUntilAsync(() => page.UseProfileIdentityEverywhereCommand.CanExecute(null));
+
+            // A name and email, but nothing listed.
+            page.SelectedProfile = page.Profiles.Single(profile => profile.Id == home.Id);
+            await page.PendingIdentityWrite;
+            await WaitUntilAsync(() => !page.HasRepositories);
+            Assert.False(page.UseProfileIdentityEverywhereCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void UseIt_WritesTheProfilesIdentityIntoEveryListedRepository()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            services.Identity.Global = HomeIdentity;
+            (_, RepositoryHandle[] repositories) = await WorkProfileListingAsync(services, "alpha", "beta", "gamma");
+            services.Identity.SetLocalDirectly(repositories[1].WorkTreePath, new GitIdentity("Someone Else", "someone@else.example"));
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+
+            // The filter is a view, not a selection: what it hides is changed too.
+            page.SearchText = "alpha";
+
+            bool openWhileAsking = true;
+            services.Dialogs.OnShown = _ => openWhileAsking = page.OpenCommand.CanExecute(null);
+            services.Dialogs.Script(DialogResult.Primary);
+
+            await page.UseProfileIdentityEverywhereCommand.ExecuteAsync(null);
+
+            ContentDialog question = Assert.Single(services.Dialogs.Shown);
+            Assert.Equal("Use Work in every repository", question.Title);
+            Assert.Contains(
+                "Make Ada Lovelace <ada@work.example> the name and email of the 3 repositories on Work's list?",
+                question.Content as string,
+                StringComparison.Ordinal);
+            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.False(openWhileAsking);
+
+            foreach (RepositoryHandle repository in repositories)
+            {
+                Assert.Equal(WorkIdentity, services.Identity.LocalOf(repository.WorkTreePath));
+            }
+
+            // git's global identity is the picker's business.
+            Assert.Equal(HomeIdentity, services.Identity.Global);
+            Assert.Equal(0, services.Identity.GlobalWrites);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Using Work in every repository", note.Title);
+            Assert.Equal("3 repositories now commit as Ada Lovelace <ada@work.example>.", note.Message);
+            Assert.Equal(InfoBarSeverity.Success, note.Severity);
+            Assert.True(page.OpenCommand.CanExecute(null));
+        });
+    }
+
+    [Fact]
+    public void Cancel_LeavesEveryRepositoryAsItWas()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            await WorkProfileListingAsync(services, "alpha", "beta");
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            services.Dialogs.Script(DialogResult.None);
+
+            await page.UseProfileIdentityEverywhereCommand.ExecuteAsync(null);
+
+            Assert.Single(services.Dialogs.Shown);
+            Assert.Empty(services.Identity.LocalWrites);
+            Assert.Empty(services.InfoBar.Shown);
+        });
+    }
+
+    [Fact]
+    public void RepositoriesThatAlreadyHaveIt_AreNotWrittenAgain()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (_, RepositoryHandle[] repositories) = await WorkProfileListingAsync(services, "alpha", "beta");
+
+            foreach (RepositoryHandle repository in repositories)
+            {
+                services.Identity.SetLocalDirectly(repository.WorkTreePath, WorkIdentity);
+            }
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            services.Dialogs.Script(DialogResult.Primary);
+
+            await page.UseProfileIdentityEverywhereCommand.ExecuteAsync(null);
+
+            Assert.Empty(services.Identity.LocalWrites);
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Nothing to change", note.Title);
+            Assert.Equal("Every repository on the list already commits as Ada Lovelace <ada@work.example>.", note.Message);
+            Assert.Equal(InfoBarSeverity.Info, note.Severity);
+        });
+    }
+
+    [Fact]
+    public void AMissingRepositoryAndAFailedWrite_AreNamedInOneWarning_AndTheOthersWritten()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (IdentityProfile work, RepositoryHandle[] repositories) = await WorkProfileListingAsync(services, "alpha", "beta", "gamma");
+            await services.Get<IRepositoryListStore>().AddAsync(
+                work.Id,
+                Path.Combine(services.ConfigurationRoot, "workspace", "gone"),
+                "gone");
+            services.Identity.LocalWriteFailures[repositories[1].WorkTreePath] = FakeGitIdentityService.LockFailure();
+
+            RepositoriesPageViewModel page = services.Get<RepositoriesPageViewModel>();
+            await page.OnAppearingAsync();
+            services.Dialogs.Script(DialogResult.Primary);
+
+            await page.UseProfileIdentityEverywhereCommand.ExecuteAsync(null);
+
+            Assert.Equal(WorkIdentity, services.Identity.LocalOf(repositories[0].WorkTreePath));
+            Assert.Equal(GitIdentity.Empty, services.Identity.LocalOf(repositories[1].WorkTreePath));
+            Assert.Equal(WorkIdentity, services.Identity.LocalOf(repositories[2].WorkTreePath));
+
+            RecordedNotification note = Assert.Single(services.InfoBar.Shown);
+            Assert.Equal("Some repositories were left as they were", note.Title);
+            Assert.Equal(InfoBarSeverity.Warning, note.Severity);
+            Assert.Equal(
+                "2 repositories now commit as Ada Lovelace <ada@work.example>. Not found: gone. "
+                + "Could not change beta: error: could not lock config file /home/user/.gitconfig: File exists.",
+                note.Message);
+        });
+    }
+
     [Fact]
     public void ACloneThatFailed_LeavesTheSuggestionWhereItWas()
     {
