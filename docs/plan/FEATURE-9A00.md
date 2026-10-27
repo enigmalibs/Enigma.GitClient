@@ -1,6 +1,6 @@
 # FEATURE-9A00 — Squash a range of commits onto a new branch
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-27-feature-9a00
@@ -87,7 +87,7 @@ every merge bringing in a phase commit from inside the range. Wanted: `5c6eb02`,
 ## PHASE01 — The squash engine
 
 **Branch:** `feature/feature-9a00-phase01-squash-engine`
-**Status:** TODO
+**Status:** DONE — see `docs/done/FEATURE-9A00-PHASE01.md`
 
 ### Steps
 
