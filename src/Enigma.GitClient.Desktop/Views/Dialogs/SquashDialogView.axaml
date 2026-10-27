@@ -1,0 +1,115 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Dialogs"
+             x:Class="Enigma.GitClient.Desktop.Views.Dialogs.SquashDialogView"
+             x:DataType="vm:SquashDialogViewModel"
+             MinWidth="560"
+             MaxWidth="720">
+  <StackPanel Spacing="12">
+
+    <!-- What is squashed: read-only, so the reader confirms against the commits, not the menu. -->
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4">
+      <TextBlock Grid.Row="0" Grid.Column="0"
+                 Text="Base"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBlock Grid.Row="0" Grid.Column="1"
+                 Name="BaseLine"
+                 Text="{Binding BaseText}"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip.Tip="{Binding BaseText}" />
+
+      <TextBlock Grid.Row="1" Grid.Column="0"
+                 Text="Tip"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+        <TextBlock Name="TipLine"
+                   Text="{Binding TipText}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding TipText}" />
+        <TextBlock Text="{Binding TipBranchesText}"
+                   IsVisible="{Binding HasTipBranches}"
+                   FontSize="11"
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+      </StackPanel>
+
+      <TextBlock Grid.Row="2" Grid.Column="0"
+                 Text="Replaces"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBlock Grid.Row="2" Grid.Column="1"
+                 Name="RangeLine"
+                 Text="{Binding RangeText}"
+                 TextWrapping="Wrap" />
+    </Grid>
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="New branch"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Text="{Binding BranchName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               AutomationProperties.Name="New branch" />
+    </StackPanel>
+
+    <CheckBox IsChecked="{Binding SwitchToNewBranch, Mode=TwoWay}"
+              Content="Switch to the new branch"
+              AutomationProperties.Name="Switch to the new branch" />
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="Message — the first line is the title"
+                 FontSize="12"
+                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+      <TextBox Name="MessageEditor"
+               Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               MinHeight="120"
+               MaxHeight="260"
+               AutomationProperties.Name="Message" />
+    </StackPanel>
+
+    <!-- What to know before confirming: links lost to merges from outside, an empty commit, a tip
+         no branch ends at. -->
+    <ItemsControl Name="Warnings"
+                  ItemsSource="{Binding Warnings}"
+                  IsVisible="{Binding HasWarnings}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="6" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+                     Foreground="{DynamicResource EnigmaWarningBrush}" />
+            <TextBlock Text="{Binding}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       MaxWidth="660" />
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Name="Untouched"
+               Text="{Binding UntouchedText}"
+               FontSize="12"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="6"
+                IsVisible="{Binding HasValidationMessage}">
+      <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
+               Foreground="{DynamicResource EnigmaErrorBrush}" />
+      <TextBlock Text="{Binding ValidationMessage}"
+                 FontSize="12"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

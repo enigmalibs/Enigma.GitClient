@@ -70,6 +70,32 @@
             </StackPanel>
           </Border>
 
+          <!-- The squash base, while there is one, for the same reason as the merge source: the line it
+               flags may be scrolled far away, and the next squash counts from it. -->
+          <Border Name="SquashBaseChip"
+                  Classes="pill"
+                  Background="{DynamicResource EnigmaSelectionBrush}"
+                  BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+                  BorderThickness="1"
+                  Padding="8,0,2,0"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding HasSquashBase}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ei:Icon Kind="FlagBanner" Classes="pill" VerticalAlignment="Center"
+                       Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+              <TextBlock Text="{Binding SquashBaseSummary}"
+                         VerticalAlignment="Center"
+                         FontSize="12"
+                         Foreground="{DynamicResource EnigmaForegroundBrush}" />
+              <Button Classes="toolbar"
+                      Command="{Binding ClearSquashBaseCommand}"
+                      ToolTip.Tip="Clear the squash base"
+                      AutomationProperties.Name="Clear the squash base">
+                <ei:Icon Kind="X" Classes="pill" />
+              </Button>
+            </StackPanel>
+          </Border>
+
           <!-- The branches hidden from the branches dialog, while there are any: a graph that leaves
                something out says so, and says how to put it back. -->
           <Border Name="HiddenBranchesChip"
@@ -833,8 +859,22 @@
                     </ItemsControl.DataTemplates>
                   </ItemsControl>
 
+                  <!-- The squash base's flag shares the subject's cell, the subject padded clear of it
+                       while it shows: the subject stays the cell's own text block. -->
+                  <ei:Icon Grid.Column="2"
+                           Name="SquashBaseFlag"
+                           Kind="FlagBanner"
+                           Classes="pill"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding IsSquashBase}"
+                           ToolTip.Tip="Squash base"
+                           AutomationProperties.Name="Squash base"
+                           Foreground="{DynamicResource ActionAccentBrush}" />
+
                   <TextBlock Grid.Column="2"
                              Text="{Binding Subject}"
+                             Classes.squashbase="{Binding IsSquashBase}"
                              VerticalAlignment="Center"
                              TextTrimming="CharacterEllipsis"
                              ToolTip.Tip="{Binding Subject}"

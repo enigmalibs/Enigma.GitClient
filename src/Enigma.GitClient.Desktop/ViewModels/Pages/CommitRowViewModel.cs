@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Reset;
+using Enigma.GitClient.Core.Squash;
 using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Desktop.Formatting;
 using Enigma.Icons.Phosphor;
@@ -68,6 +70,10 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// Creates a worktree — a working directory of its own, next to the repository — on a new branch
 /// starting at the row's commit; offered beside "create branch here", under the same condition.
 /// </param>
+/// <param name="Squash">
+/// The squash's two steps: mark a line as the base, then squash everything since it, up to another
+/// line, into one commit on a new branch.
+/// </param>
 public sealed record HistoryRowCommands(
     AsyncRelayCommand<CommitRowViewModel> CreateBranchHere,
     AsyncRelayCommand<CommitRowViewModel> CheckoutCommit,
@@ -87,7 +93,45 @@ public sealed record HistoryRowCommands(
     AsyncRelayCommand<string>? DeleteTag = null,
     AsyncRelayCommand<string>? DeleteRemoteTag = null,
     AsyncRelayCommand<CommitRowViewModel>? Revert = null,
-    AsyncRelayCommand<CommitRowViewModel>? CreateWorktreeHere = null);
+    AsyncRelayCommand<CommitRowViewModel>? CreateWorktreeHere = null,
+    HistorySquashCommands? Squash = null);
+
+/// <summary>
+/// The commit a squash starts after, as the page holds it between the two steps.
+/// </summary>
+/// <param name="Sha">Its full sha.</param>
+/// <param name="ShortSha">What the menu, the chip and the dialog call it.</param>
+/// <param name="Subject">Its subject, which the dialog quotes.</param>
+public sealed record SquashBase(string Sha, string ShortSha, string Subject);
+
+/// <summary>
+/// What the squash item of a history line's menu asks for: the line, which is the tip, and the base
+/// the item was named after.
+/// </summary>
+/// <param name="Row">The tip: the squash commit takes its files.</param>
+/// <param name="Base">
+/// The base the menu showed. Carried rather than read again when the item is clicked, so what is
+/// squashed is what the reader saw named.
+/// </param>
+public sealed record HistorySquashRequest(CommitRowViewModel Row, SquashBase Base);
+
+/// <summary>
+/// The squash's commands, as the history's lines offer them.
+/// </summary>
+/// <param name="SetBase">Makes a line the squash base.</param>
+/// <param name="ClearBase">Forgets the squash base.</param>
+/// <param name="Squash">Squashes everything since the base, up to a line, onto a new branch.</param>
+/// <param name="CurrentBase">Reads the squash base at the moment it is asked for.</param>
+/// <param name="Measure">
+/// Measures the range from the base to a line among the loaded lines, or <see langword="null"/> when
+/// the base is not on that line's first-parent line.
+/// </param>
+public sealed record HistorySquashCommands(
+    RelayCommand<CommitRowViewModel> SetBase,
+    RelayCommand ClearBase,
+    AsyncRelayCommand<HistorySquashRequest> Squash,
+    Func<SquashBase?> CurrentBase,
+    Func<CommitRowViewModel, SquashRangeMeasure?> Measure);
 
 /// <summary>
 /// The stash's commands, as the history's lines offer them.
@@ -306,6 +350,40 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// </summary>
     public const string RevertHeader = "Revert this commit…";
 
+    /// <summary>What the item that makes a line the squash base says.</summary>
+    public const string SetSquashBaseHeader = "Set as squash base";
+
+    /// <summary>What the item that forgets the squash base says.</summary>
+    public const string ClearSquashBaseHeader = "Clear the squash base";
+
+    /// <summary>
+    /// What the squash item says once the range is measured.
+    /// </summary>
+    /// <param name="commits">How many commits the squash replaces.</param>
+    /// <param name="baseShortSha">The base's short sha.</param>
+    /// <returns>The item's header.</returns>
+    public static string SquashHeader(int commits, string baseShortSha)
+        => commits == 1
+            ? $"Squash 1 commit since {baseShortSha} into a new branch…"
+            : $"Squash {commits.ToString(CultureInfo.CurrentCulture)} commits since {baseShortSha} into a new branch…";
+
+    /// <summary>
+    /// What the squash item says, greyed out, on a line the base is not below on its first-parent line.
+    /// </summary>
+    /// <param name="baseShortSha">The base's short sha.</param>
+    /// <returns>The item's header.</returns>
+    public static string UnmeasuredSquashHeader(string baseShortSha)
+        => $"Squash since {baseShortSha} into a new branch…";
+
+    /// <summary>
+    /// Gets a value indicating whether this line is the squash base, which a flag before its subject
+    /// shows.
+    /// </summary>
+    public bool IsSquashBase
+        => Commit is not null
+            && Commands?.Squash?.CurrentBase() is { } squashBase
+            && string.Equals(squashBase.Sha, Commit.Sha, StringComparison.Ordinal);
+
     /// <summary>
     /// Gets the branches pointing at this commit, each with what it offers, in badge order.
     /// </summary>
@@ -340,8 +418,9 @@ public sealed class CommitRowViewModel : ViewModelBase
 
     /// <summary>
     /// Gets the line's menu, built as it is asked for: the commit's own actions, resetting the
-    /// branch HEAD is on to the commit and reverting it, then — for every branch on the line — "set it
-    /// as the merge source" and, when there is a source, "merge it into this one".
+    /// branch HEAD is on to the commit and reverting it, the squash's two steps, then — for every
+    /// branch on the line — "set it as the merge source" and, when there is a source, "merge it into
+    /// this one".
     /// </summary>
     /// <remarks>
     /// Data rather than markup because how many items there are depends on how many branches the line
@@ -435,6 +514,11 @@ public sealed class CommitRowViewModel : ViewModelBase
                 }
             }
 
+            if (commands.Squash is { } squash)
+            {
+                AddSquashEntries(entries, squash);
+            }
+
             if (Branches.Count > 0 && commands.Branches is { } branchCommands)
             {
                 entries.Add(HistoryMenuEntry.Separator);
@@ -469,6 +553,39 @@ public sealed class CommitRowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// The squash's two steps. With no base, every line offers to become it; the base's own line
+    /// offers to forget it; any other line offers to replace it, to squash everything since it up to
+    /// this line — counted from the loaded lines, and greyed out when the base is not on this line's
+    /// first-parent line — and to forget it. It moves no branch, so unlike the reset group it does not
+    /// depend on where HEAD is.
+    /// </summary>
+    private void AddSquashEntries(List<HistoryMenuEntry> entries, HistorySquashCommands squash)
+    {
+        entries.Add(HistoryMenuEntry.Separator);
+
+        if (squash.CurrentBase() is not { } squashBase)
+        {
+            entries.Add(new HistoryMenuEntry(SetSquashBaseHeader, squash.SetBase, this, PhosphorIcon.FlagBanner));
+            return;
+        }
+
+        if (IsSquashBase)
+        {
+            entries.Add(new HistoryMenuEntry(ClearSquashBaseHeader, squash.ClearBase, null, PhosphorIcon.X));
+            return;
+        }
+
+        SquashRangeMeasure? measure = Commit is null ? null : squash.Measure(this);
+        string header = measure is null
+            ? UnmeasuredSquashHeader(squashBase.ShortSha)
+            : SquashHeader(measure.CommitCount, squashBase.ShortSha);
+
+        entries.Add(new HistoryMenuEntry(SetSquashBaseHeader, squash.SetBase, this, PhosphorIcon.FlagBanner));
+        entries.Add(new HistoryMenuEntry(header, squash.Squash, new HistorySquashRequest(this, squashBase), PhosphorIcon.ArrowsInLineVertical));
+        entries.Add(new HistoryMenuEntry(ClearSquashBaseHeader, squash.ClearBase, null, PhosphorIcon.X));
+    }
+
+    /// <summary>
     /// The line's hash, short or whole, to the clipboard — for a commit, not for the uncommitted line,
     /// which has none.
     /// </summary>
@@ -494,6 +611,15 @@ public sealed class CommitRowViewModel : ViewModelBase
             branch.NotifyMergeSourceChanged();
         }
 
+        OnPropertyChanged(nameof(MenuEntries));
+    }
+
+    /// <summary>
+    /// Re-announces everything the page's squash base decides: the line's flag and its menu.
+    /// </summary>
+    public void NotifySquashBaseChanged()
+    {
+        OnPropertyChanged(nameof(IsSquashBase));
         OnPropertyChanged(nameof(MenuEntries));
     }
 
