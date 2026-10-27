@@ -1,6 +1,6 @@
 # FEATURE-D9C1 — The profile's identity in every repository
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-10-27-repositories-local-identity
@@ -121,7 +121,7 @@ local git identity of the repositories to the global identity of the profile."*
 ## PHASE02 — The button on the home page
 
 **Branch:** `feature/feature-d9c1-phase02-home-identity-button`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 
