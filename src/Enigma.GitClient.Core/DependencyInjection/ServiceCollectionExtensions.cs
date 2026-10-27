@@ -88,6 +88,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IRevertService, RevertService>();
             services.AddSingleton<ISquashService, SquashService>();
             services.AddSingleton<IGitIdentityService, GitIdentityService>();
+            services.AddSingleton<IBulkLocalIdentityService, BulkLocalIdentityService>();
             services.AddSingleton<IIdentityProfileStore, IdentityProfileStore>();
             services.AddSingleton<IGitCredentialResolver, GitCredentialResolver>();
 
