@@ -1,5 +1,100 @@
 # Release notes
 
+## 6.10.0 — 2026-10-27
+
+A minor release:
+
+- **squash a range of commits onto a new branch** from the History page: mark a base, then squash
+  everything since it, up to any line above it, into one commit on a branch you name. Nothing that
+  exists is rewritten or moved, so the original branch keeps every commit until you delete it;
+- on the start window's Repositories page, **one button gives the picked profile's name and email to
+  every repository on its list**, so each of them keeps committing as that profile whatever git's
+  global identity becomes.
+
+### Squash a range onto a new branch
+
+- **Two steps, as a merge from the graph.** *Set as squash base* in a commit's line menu flags that
+  line (a flag before its subject, the tooltip *Squash base*). A `Squash base: <short sha>` chip
+  appears beside the merge source's, and its × clears the base.
+- **Then squash from a line above it.** On any commit line above the base on its line of first
+  parents, the menu offers *Squash N commits since <short sha> into a new branch…*. N counts the
+  commits that lead from the base to that line, the merges and the line itself included; commits a
+  merge brought in from outside the range are counted apart, in the dialog. The item is greyed out,
+  as *Squash since <short sha> into a new branch…*, on a line the base does not lead to through first
+  parents: a base that came in through a merge is no base for that line. The group sits right after
+  the reset and revert items. It is greyed out on the uncommitted line and absent from stash lines.
+- **The dialog says what will happen before anything does.**
+  - *Base* and *Tip*, with the branches on the tip, and *Replaces*: `N commits (M merges)`, plus what
+    the merges brought in from outside the range.
+  - *New branch*: the tip's branch with `-squashed` added, or `squash/<short sha>` when no local
+    branch ends at the tip. `-2`, `-3`… are added while the name is taken.
+  - *Switch to the new branch*: ticked when HEAD is at the tip, where switching changes no file.
+  - *Message — the first line is the title*: an empty title line, the caret on it, then the subjects
+    of the range's commits as a list, oldest first, the merges left out. *Squash* stays disabled, with
+    the reason shown, until the title is written and the name is valid and free.
+  - Warnings when they apply: a merge that brings in a branch from outside the range (the new branch
+    keeps its files but loses the link to it, so merging that branch again later may conflict
+    again); a range that changes no file in total (the commit is empty); and no local branch at the
+    tip (nothing above the tip is on the new branch).
+- **What a squash makes.** One new commit, whose parent is the base and whose files are exactly the
+  tip's, on a new branch. It is made with your name and email, now, and commit hooks do not run on
+  it. No rebase and no cherry-pick: the original branch, its commits, its tags and its upstream stay
+  exactly as they were. The history reloads and selects the squash commit, and the bar says which
+  commits the squash commit replaces and that the original branch "is untouched and still holds
+  them; deleting it later warns about unmerged commits — that is expected." To finish, delete the
+  original branch and rename the new one, as any branch.
+- **Nothing half-done.** The squash is refused, and nothing is written, during a merge, a revert, a
+  cherry-pick or another operation in progress, or while conflicts wait to be resolved. When
+  uncommitted changes are in the way of switching to the new branch, no branch is created and the bar
+  names the files.
+- **The base lasts until it is used.** A refresh, a fetch or a branch switch keeps it. A squash, the
+  chip's ×, *Clear the squash base* in the menu, opening another repository, or a reload that no
+  longer lists the commit clears it.
+
+### The profile's identity in every repository
+
+- **A button after the profile picker** on the start window's Repositories page (the tooltip reads
+  *Use this profile's name and email in every repository on its list*).
+- **One question first.** *Use <label> in every repository* asks to make the profile's name and email
+  those of the repositories on its list. They are written to each repository's own configuration, so
+  its commits are made as them whatever the global identity becomes later. A repository that has a
+  name and email of its own gets these instead. *Use it* goes ahead; *Cancel*, the default, changes
+  nothing.
+- **Every repository on the list,** those the filter box hides included.
+- **Only what needs it changes.**
+  - A repository that already commits as the profile is not rewritten.
+  - A listed folder that is gone or is no longer a repository is skipped. A folder inside another
+    repository is skipped too, so the repository around it is never written.
+  - A repository that cannot be changed does not stop the others.
+  - git's global identity is left alone: picking the profile already set it.
+- **One bar says how it went.**
+  - *Using <label> in every repository*: how many repositories now commit as the profile.
+  - *Nothing to change*: every repository already did.
+  - *Some repositories were left as they were*: names those not found and those that could not be
+    changed, with git's reason.
+- **Disabled when there is nothing to do:** for a profile without a name and email, for an empty
+  list, and while the page is busy.
+- Names and emails are never logged.
+
+### Upgrading from 6.9
+
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.9 keeps everything.
+
+### Dependencies
+
+- Microsoft.Extensions.Hosting, Microsoft.Extensions.Http and
+  System.Security.Cryptography.ProtectedData 10.0.13 → 10.0.14.
+- The Avalonia set is still held back at **12.1.1** with Enigma.Avalonia.Desktop 1.2.0 (12.1.4 is
+  out; the set moves as a whole).
+
+### Version
+
+- **6.10.0** is a minor release under Semantic Versioning. It adds backward-compatible behaviour (the
+  squash, the identity button) and public Core services (`ISquashService` with `SquashRange`, and
+  `IBulkLocalIdentityService`). It keeps every stored format and removes nothing.
+
 ## 6.9.0 — 2026-10-23
 
 A minor release:

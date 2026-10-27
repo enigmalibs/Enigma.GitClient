@@ -1,6 +1,6 @@
 # FEATURE-839A — Release 6.10.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-839a-release-6-10-0`
 **Run:** feature/2026-10-27-release-6-10-0
