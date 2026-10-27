@@ -1,6 +1,6 @@
 # FEATURE-7CBA — Release 6.11.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-7cba-release-6-11-0`
 **Run:** feature/2026-10-27-rename-branch-badge
