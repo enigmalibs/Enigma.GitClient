@@ -382,6 +382,8 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Bulk local identity in Core              | DONE      | (in FEATURE-D9C1.md)      |
 | - PHASE02    | The button on the home page              | DONE      | (in FEATURE-D9C1.md)      |
 | FEATURE-839A | Release 6.10.0                           | DONE      | docs/plan/FEATURE-839A.md |
+| FEATURE-075D | Rename a branch from its badge           | TODO      | docs/plan/FEATURE-075D.md |
+| FEATURE-7CBA | Release 6.11.0                           | TODO      | docs/plan/FEATURE-7CBA.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
