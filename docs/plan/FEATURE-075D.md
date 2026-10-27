@@ -1,6 +1,6 @@
 # FEATURE-075D — Rename a branch from its badge
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-075d-rename-from-badge`
 **Run:** feature/2026-10-27-rename-branch-badge
