@@ -28,6 +28,12 @@ public sealed class FakeGitIdentityService : IGitIdentityService
     /// </summary>
     public Exception? Failure { get; set; }
 
+    /// <summary>
+    /// Gets the failures a write into one repository throws, by work tree, for a test where only some
+    /// repositories refuse.
+    /// </summary>
+    public Dictionary<string, Exception> LocalWriteFailures { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Gets how many times the global identity has been written.</summary>
     public int GlobalWrites { get; private set; }
 
@@ -102,6 +108,11 @@ public sealed class FakeGitIdentityService : IGitIdentityService
         ArgumentNullException.ThrowIfNull(identity);
         ThrowIfFailing();
         Validate(identity);
+
+        if (LocalWriteFailures.TryGetValue(repository.WorkTreePath, out Exception? failure))
+        {
+            throw failure;
+        }
 
         _local[repository.WorkTreePath] = identity.Normalised();
         LocalWrites.Add(repository.WorkTreePath);
