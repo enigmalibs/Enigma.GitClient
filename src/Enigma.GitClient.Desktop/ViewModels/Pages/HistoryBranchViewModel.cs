@@ -35,6 +35,7 @@ public sealed record MergeSource(string Name, bool IsRemote);
 /// <param name="Worktrees">
 /// What the menu offers for a branch another working tree has checked out; nothing without it.
 /// </param>
+/// <param name="Rename">Renames a local branch, after asking for the new name; not offered without it.</param>
 public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Checkout,
     RelayCommand<HistoryBranchViewModel> SetAsMergeSource,
@@ -49,7 +50,8 @@ public sealed record HistoryBranchCommands(
     Func<string?> CurrentBranch,
     AsyncRelayCommand<string>? Copy = null,
     AsyncRelayCommand<HistoryBranchViewModel>? CreateWorktree = null,
-    HistoryWorktreeCommands? Worktrees = null);
+    HistoryWorktreeCommands? Worktrees = null,
+    AsyncRelayCommand<HistoryBranchViewModel>? Rename = null);
 
 /// <summary>
 /// What a branch badge's menu offers for a branch another working tree has checked out — the branches
@@ -230,6 +232,15 @@ public sealed class HistoryBranchViewModel : ViewModelBase
     /// nothing local to pull into, or push from, on a remote-tracking branch.
     /// </summary>
     public bool CanSynchronise => IsLocal;
+
+    /// <summary>
+    /// Gets a value indicating whether the branch can be renamed: only a local one — git renames a
+    /// remote-tracking branch only by pushing it again under another name.
+    /// </summary>
+    public bool CanRename => IsLocal && Commands.Rename is not null;
+
+    /// <summary>Gets what the rename item says.</summary>
+    public string RenameHeader => $"Rename \"{Name}\"…";
 
     /// <summary>Gets what the delete item says.</summary>
     public string DeleteHeader => $"Delete \"{Name}\"…";
