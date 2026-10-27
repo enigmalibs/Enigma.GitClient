@@ -375,6 +375,9 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The active profile and Make active       | DONE      | (in FEATURE-0ED1.md)      |
 | FEATURE-1540 | Larger account rows and row actions      | DONE      | docs/plan/FEATURE-1540.md |
 | FEATURE-4358 | Release 6.9.0                            | DONE      | docs/plan/FEATURE-4358.md |
+| FEATURE-9A00 | Squash a range onto a new branch         | TODO      | docs/plan/FEATURE-9A00.md |
+| - PHASE01    | The squash engine                        | TODO      | (in FEATURE-9A00.md)      |
+| - PHASE02    | Squash base, menu and dialog             | TODO      | (in FEATURE-9A00.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
