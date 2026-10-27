@@ -260,7 +260,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                     branch => branch?.Worktree is { IsMissing: false }),
                 new AsyncRelayCommand<HistoryBranchViewModel>(
                     OnRemoveWorktreeAsync,
-                    branch => branch?.CanRemoveWorktree == true)));
+                    branch => branch?.CanRemoveWorktree == true)),
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnRenameBranchAsync, branch => branch?.CanRename == true));
 
         ClearSquashBaseCommand = new RelayCommand(() => SquashBase = null, () => SquashBase is not null);
 
@@ -2291,6 +2292,19 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
 
         if (await _branchOperations.CheckoutAsync(branch.Name, branch.IsRemote).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async Task OnRenameBranchAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch is not { CanRename: true })
+        {
+            return;
+        }
+
+        if (await _branchOperations.RenameAsync(branch.Name).ConfigureAwait(true))
         {
             await ReloadAsync().ConfigureAwait(true);
         }

@@ -16,7 +16,8 @@
       <TextBlock Text="New name"
                  FontSize="12"
                  Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
-      <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+      <TextBox x:Name="NameBox"
+               Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                AutomationProperties.Name="New branch name" />
     </StackPanel>
 

@@ -774,6 +774,14 @@
                                 </MenuItem.Icon>
                               </MenuItem>
                               <Separator />
+                              <MenuItem Header="{Binding RenameHeader}"
+                                        IsVisible="{Binding CanRename}"
+                                        Command="{Binding Commands.Rename}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="PencilSimple" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
                               <MenuItem Header="{Binding DeleteHeader}"
                                         Command="{Binding Commands.Delete}"
                                         CommandParameter="{Binding}">
