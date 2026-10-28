@@ -1971,11 +1971,11 @@ public sealed class HistoryPageTests
     /// </summary>
     private static void AssertColumnsLineUp(Grid header, Panel workspace)
     {
-        List<double> headerEdges = [.. header.Children.Select(cell => cell.Bounds.Right)];
+        List<double> headerEdges = ColumnEdges(header);
 
         foreach (Grid row in RowGrids(workspace))
         {
-            List<double> rowEdges = [.. row.Children.Select(cell => cell.Bounds.Right)];
+            List<double> rowEdges = ColumnEdges(row);
 
             Assert.Equal(headerEdges.Count, rowEdges.Count);
 
@@ -1987,6 +1987,17 @@ public sealed class HistoryPageTests
             }
         }
     }
+
+    /// <summary>
+    /// Where each of a grid's columns ends, in column order. A column can hold more than one cell — a
+    /// row's subject shares its column with the squash base's flag, which starts at the column's left —
+    /// so the column ends where the furthest of them does.
+    /// </summary>
+    private static List<double> ColumnEdges(Grid grid)
+        => [.. grid.Children
+            .GroupBy(Grid.GetColumn)
+            .OrderBy(column => column.Key)
+            .Select(column => column.Max(cell => cell.Bounds.Right))];
 
     // ---------------------------------------------------------------- the badge column
 

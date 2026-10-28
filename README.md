@@ -232,7 +232,7 @@ application launcher:
 | The application | `~/.local/share/enigma-git-client` |
 | A launcher command, `enigma-git-client [repository]` | `~/.local/bin/enigma-git-client` |
 | The desktop entry | `~/.local/share/applications/enigma-git-client.desktop` |
-| The icon, in six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
+| The icon, in eight sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
 
 By default the .NET runtime is bundled with the application (about 116 MB), so it runs whatever is
 installed on the machine. `--framework-dependent` builds against an installed .NET 10 runtime instead

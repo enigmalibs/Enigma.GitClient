@@ -104,7 +104,7 @@ It writes only under `$HOME`:
 | the application | `~/.local/share/enigma-git-client` |
 | the launcher symlink | `~/.local/bin/enigma-git-client` |
 | the desktop entry, "Enigma Git Client" | `~/.local/share/applications/enigma-git-client.desktop` |
-| the icon, six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
+| the icon, eight sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
 
 `packaging/linux/uninstall.sh` removes exactly those and leaves `~/.config/Enigma.GitClient` — the
 settings, the repositories list, the accounts and their tokens — alone.
