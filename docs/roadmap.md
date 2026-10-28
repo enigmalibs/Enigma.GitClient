@@ -385,7 +385,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-075D | Rename a branch from its badge           | DONE      | docs/plan/FEATURE-075D.md |
 | FEATURE-7CBA | Release 6.11.0                           | DONE      | docs/plan/FEATURE-7CBA.md |
 | FEATURE-F7B5 | New application icon                     | DONE      | docs/plan/FEATURE-F7B5.md |
-| FEATURE-5736 | Release 6.12.0                           | TODO      | docs/plan/FEATURE-5736.md |
+| FEATURE-5736 | Release 6.12.0                           | DONE      | docs/plan/FEATURE-5736.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

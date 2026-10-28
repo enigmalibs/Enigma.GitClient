@@ -1,6 +1,6 @@
 # FEATURE-5736 — Release 6.12.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-5736-release-6-12-0`
 **Run:** feature/2026-10-28-new-app-icon
