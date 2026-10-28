@@ -10,12 +10,11 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.11** — a local branch's badge in the history renames the branch: `Rename
-> "<name>"…` in its menu asks for the new name, and the rename dialog opens with the name ready to
-> type over. 6.10 before it: squash a range of commits onto a new branch from the History page — set
-> a line as the squash base, then squash everything since it into one commit on a branch you name,
-> without rewriting or moving anything that exists; on the start window, one button gives the picked
-> profile's name and email to every repository on its list.
+> **What's new in 6.12** — a new application icon: the same line of commits and branch in softer
+> colours, drawn in more sizes for Windows' display scaling and the Linux desktop (on Linux, run the
+> installer again to get it). 6.11 before it: a local branch's badge in the history renames the
+> branch: `Rename "<name>"…` in its menu asks for the new name, and the rename dialog opens with the
+> name ready to type over.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
