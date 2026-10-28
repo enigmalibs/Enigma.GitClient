@@ -1,6 +1,6 @@
 # FEATURE-F7B5 — New application icon
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-f7b5-new-app-icon`
 **Run:** feature/2026-10-28-new-app-icon

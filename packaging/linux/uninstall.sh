@@ -13,7 +13,7 @@ readonly APP_EXE='Enigma.GitClient.Desktop'
 # The launcher's name up to 5.1.0. An installation made then links to it, and is still ours to
 # remove when this script runs before any reinstall has re-pointed the symlink.
 readonly FORMER_APP_EXE='Enigma.GitClient.App'
-readonly ICON_SIZES=(16 32 48 64 128 256)
+readonly ICON_SIZES=(16 24 32 48 64 96 128 256)
 
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 bin_home=${XDG_BIN_HOME:-$HOME/.local/bin}
@@ -33,7 +33,7 @@ usage() {
 Usage: uninstall.sh [-h|--help]
 
 Removes Enigma Git Client from the XDG directories install.sh wrote to:
-the application, the launcher symlink, the desktop entry and the six icons.
+the application, the launcher symlink, the desktop entry and the eight icons.
 
 Your settings, accounts and tokens in ~/.config/Enigma.GitClient are left exactly as they are.
 USAGE

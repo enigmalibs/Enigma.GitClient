@@ -5,7 +5,7 @@
 #   $XDG_DATA_HOME/enigma-git-client                        the application
 #   $XDG_BIN_HOME/enigma-git-client                         a symlink to its launcher
 #   $XDG_DATA_HOME/applications/enigma-git-client.desktop   the launcher entry
-#   $XDG_DATA_HOME/icons/hicolor/<N>x<N>/apps/…png          the icon, six sizes
+#   $XDG_DATA_HOME/icons/hicolor/<N>x<N>/apps/…png          the icon, eight sizes
 #
 # No root, no sudo, nothing outside $HOME. Run it again to upgrade in place.
 
@@ -13,7 +13,7 @@ set -euo pipefail
 
 readonly APP_ID='enigma-git-client'
 readonly APP_EXE='Enigma.GitClient.Desktop'
-readonly ICON_SIZES=(16 32 48 64 128 256)
+readonly ICON_SIZES=(16 24 32 48 64 96 128 256)
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 readonly script_dir
