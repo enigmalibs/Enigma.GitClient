@@ -1,26 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  The application icon: the master for the 48, 64, 128 and 256 pixel frames.
-  The 16 and 32 pixel frames come from enigma-git-client-small.svg, hinted for their size.
-
-  A line of commits on the left and a branch on the right, joined the way the History graph joins
-  them: out of the base commit horizontally, a rounded turn, and up along the branch's lane.
-
-  Regenerating the frames, from the repository root:
-
-    rsvg-convert -w N -h N packaging/icon/enigma-git-client.svg       -o enigma-git-client-N.png   (48 64 128 256)
-    rsvg-convert -w N -h N packaging/icon/enigma-git-client-small.svg -o enigma-git-client-N.png   (16 32)
-
-  then pack the six PNGs, unchanged and smallest first, as the 32-bit PNG entries of
-  src/Enigma.GitClient.Desktop/Assets/app.ico, and copy them byte for byte to
-  src/Enigma.GitClient.Desktop/Assets/app-256.png (the 256 frame) and packaging/linux/icons/.
+  Enigma.GitClient application icon: GC-A2 in Branding/Apps/preview.html, Branch in the Soft palette.
+  The master for the 40 px frames and up; the 16 to 32 px frames come from enigma-git-client-small.svg, simplified for their size.
+  Regenerate the SVGs, the PNG frames and the .ico with: python3 Branding/Apps/export.py
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <rect x="8" y="8" width="240" height="240" rx="48" fill="#1E1F22"/>
-  <path d="M92 64V192" fill="none" stroke="#3574F0" stroke-width="18"/>
-  <path d="M92 192H136A32 32 0 0 0 168 160V128" fill="none" stroke="#3FB950" stroke-width="18"/>
-  <circle cx="92" cy="128" r="26" fill="#3574F0"/>
-  <circle cx="92" cy="192" r="26" fill="#3574F0"/>
-  <circle cx="168" cy="128" r="22" fill="#3FB950"/>
-  <circle cx="92" cy="64" r="19.5" fill="#1E1F22" stroke="#3574F0" stroke-width="13"/>
+  <path d="M92 64V192" fill="none" stroke="#6A9BF4" stroke-width="18"/>
+  <path d="M92 192H136A32 32 0 0 0 168 160V128" fill="none" stroke="#63C77D" stroke-width="18"/>
+  <circle cx="92" cy="128" r="26" fill="#6A9BF4"/>
+  <circle cx="92" cy="192" r="26" fill="#6A9BF4"/>
+  <circle cx="168" cy="128" r="22" fill="#63C77D"/>
+  <circle cx="92" cy="64" r="19.5" fill="#1E1F22" stroke="#6A9BF4" stroke-width="13"/>
 </svg>

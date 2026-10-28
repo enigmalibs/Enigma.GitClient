@@ -20,17 +20,17 @@
 
   <!-- Desktop (Avalonia) — a version-coupled ecosystem: Avalonia, its Desktop/Fluent/Inter
        companions and the Enigma control and icon libraries are bumped TOGETHER, never one
-       package at a time. 12.1.1 is the exact set Enigma.Avalonia.Desktop 1.2.0 is built
-       against, as 1.0.0 and 1.1.0 were (its nuspec pins Avalonia 12.1.1 and
-       CommunityToolkit.Mvvm 8.4.2). -->
+       package at a time. 12.1.4 is the exact set Enigma.Avalonia.Desktop 1.3.0 is built
+       against (its nuspec pins Avalonia 12.1.4 and CommunityToolkit.Mvvm 8.4.2); 1.0.0 to 1.2.0
+       were built against 12.1.1. -->
   <ItemGroup>
-    <PackageVersion Include="Avalonia" Version="12.1.1" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageVersion Include="Enigma.Avalonia.Desktop" Version="1.2.0" />
+    <PackageVersion Include="Enigma.Avalonia.Desktop" Version="1.3.0" />
     <PackageVersion Include="Enigma.Icons.Avalonia" Version="1.0.0" />
   </ItemGroup>
 
@@ -49,8 +49,8 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <!-- Avalonia.Headless renders the real window off-screen in tests; Avalonia.Skia is what
          turns those frames into pixels a snapshot assertion can look at. -->
-    <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
-    <PackageVersion Include="Avalonia.Skia" Version="12.1.1" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
   </ItemGroup>
 
 </Project>
