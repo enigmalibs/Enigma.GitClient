@@ -104,7 +104,7 @@ It writes only under `$HOME`:
 | the application | `~/.local/share/enigma-git-client` |
 | the launcher symlink | `~/.local/bin/enigma-git-client` |
 | the desktop entry, "Enigma Git Client" | `~/.local/share/applications/enigma-git-client.desktop` |
-| the icon, six sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
+| the icon, eight sizes | `~/.local/share/icons/hicolor/<N>x<N>/apps/enigma-git-client.png` |
 
 `packaging/linux/uninstall.sh` removes exactly those and leaves `~/.config/Enigma.GitClient` — the
 settings, the repositories list, the accounts and their tokens — alone.
@@ -127,8 +127,8 @@ Windows has no installer: publish with `packaging/windows/publish.ps1` (step 5) 
 
 `dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0, 1.1.0,
 2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0, 4.1.1, 5.0.0, 5.1.0, 5.1.1, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0,
-5.7.0, 5.8.0, 5.9.0, 6.0.0, 6.1.0, 6.2.0, 6.3.0, 6.4.0, 6.5.0, 6.6.0, 6.7.0, 6.8.0, 6.9.0, 6.10.0
-and 6.11.0:
+5.7.0, 5.8.0, 5.9.0, 6.0.0, 6.1.0, 6.2.0, 6.3.0, 6.4.0, 6.5.0, 6.6.0, 6.7.0, 6.8.0, 6.9.0, 6.10.0,
+6.11.0 and 6.12.0:
 the releases' packaging is the Linux installer. When a Windows installer is wanted, generate the
 **first** profile then — its
 `upgradeCode` is created once and reused verbatim in every later version, while `productId` is new

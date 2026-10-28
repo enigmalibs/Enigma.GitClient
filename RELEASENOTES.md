@@ -1,5 +1,47 @@
 # Release notes
 
+## 6.12.0 — 2026-10-28
+
+A minor release:
+
+- a **new application icon**: the same line of commits and branch, in softer colours, and drawn in
+  more sizes, so Windows' display scaling and the Linux desktop find a frame made for their size;
+- the Avalonia set moves to **12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**.
+
+### A new application icon
+
+- **The same drawing, softer colours.** The line of commits is a lighter blue (`#6A9BF4`, was
+  `#3574F0`) and the branch a lighter green (`#63C77D`, was `#3FB950`), on the same dark rounded
+  square. The application's own colours — the HEAD badge, the accent — do not change.
+- **Wherever the icon shows:** the windows and the taskbar, the splash screen, the About dialog, the
+  Windows executable and, on Linux, the launcher.
+- **More sizes.** The Windows icon carries ten frames from 16 to 256 pixels, where it carried six: 20,
+  24, 40 and 96 are new, so at 125 % and 150 % display scaling Windows shows a frame drawn for that
+  size rather than scaling another one.
+- **On Linux,** `install.sh` installs the icon in eight sizes, 24 and 96 added, and `uninstall.sh`
+  removes all eight.
+
+### Upgrading from 6.11
+
+- **On Linux, run `packaging/linux/install.sh` again** to put the new icon in the launcher, as for any
+  upgrade.
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.11 keeps everything.
+
+### Dependencies
+
+- The Avalonia set **12.1.1 → 12.1.4**: `Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`,
+  `Avalonia.Fonts.Inter` and, for the tests, `Avalonia.Headless` and `Avalonia.Skia`.
+- **Enigma.Avalonia.Desktop 1.2.0 → 1.3.0**, built against that set. It is backward compatible with
+  1.2.0 (no API, key or value changes) and brings Enigma.Core 1.0.0 with it.
+- Nothing else is outdated.
+
+### Version
+
+- **6.12.0** is a minor release under Semantic Versioning. It changes the icon and moves dependencies
+  compatibly; it changes no public Core API, keeps every stored format and removes nothing.
+
 ## 6.11.0 — 2026-10-27
 
 A minor release:
