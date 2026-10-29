@@ -1,6 +1,6 @@
 # FEATURE-530E — Release 6.13.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-530e-release-6-13-0`
 **Run:** feature/2026-10-29-uniform-enigma-apps
