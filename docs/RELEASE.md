@@ -27,7 +27,7 @@ Run from the repository root, on the branch that will be merged:
       ```bash
       dotnet test --solution Enigma.GitClient.slnx -c Release
       ```
-- [ ] The running application says `Version X.Y.Z` on its splash screen and in its **About** dialog.
+- [ ] The running application says `Version X.Y.Z` in its **About** dialog.
       To read it off the build instead (`strings` is in binutils) — it prints the version and the
       commit the build was cut from, `X.Y.Z+<sha>`, which is what the About dialog's build line
       shortens:
@@ -77,16 +77,24 @@ Substitute the runtime identifier for the target platform — `linux-arm64`, `wi
 *every* platform in a `runtimes/` tree; with one, the natives sit beside the assemblies and the result
 is about 116 MB self-contained, or 37 MB against an installed runtime (`--self-contained false`).
 
-On Windows, `packaging/windows/publish.ps1` runs the Windows publish from any directory: `win-x64`,
-compiled ReadyToRun, against an installed .NET 10 runtime.
+The publish scripts run that publish from any directory, compiled ReadyToRun, against an installed
+.NET 10 runtime: `packaging/windows/publish.ps1` and `publish.bat` for `win-x64`,
+`packaging/linux/publish.sh` for `linux-x64`.
 
 ```powershell
 packaging\windows\publish.ps1
 # Under Windows PowerShell's default execution policy, which refuses local scripts:
 powershell -ExecutionPolicy Bypass -File packaging\windows\publish.ps1
+# Or, from a cmd prompt, with no execution policy involved:
+packaging\windows\publish.bat
 ```
 
-The result is in `src\Enigma.GitClient.Desktop\bin\Release\net10.0\win-x64\publish\`.
+```bash
+packaging/linux/publish.sh
+```
+
+The result is in `src/Enigma.GitClient.Desktop/bin/Release/net10.0/<rid>/publish/`, with the
+application icon beside the executable as `app.ico`.
 
 ## 6. Install it
 
@@ -109,16 +117,15 @@ It writes only under `$HOME`:
 `packaging/linux/uninstall.sh` removes exactly those and leaves `~/.config/Enigma.GitClient` — the
 settings, the repositories list, the accounts and their tokens — alone.
 
-Windows has no installer: publish with `packaging/windows/publish.ps1` (step 5) and run
-`Enigma.GitClient.Desktop.exe` from its result.
+Windows has no installer: publish with `packaging/windows/publish.ps1` or `publish.bat` (step 5) and
+run `Enigma.GitClient.Desktop.exe` from its result.
 
 ## 7. Post-release verification
 
 - [ ] **Enigma Git Client** appears in the application launcher, with its icon, and starts when
       clicked. A launcher starts a process from a bare environment, so this is not the same test as
       starting it from a terminal — check the launcher, not just the shell.
-- [ ] The splash screen and the **About** dialog say `Version X.Y.Z`, and the About dialog's build line
-      names the tagged commit.
+- [ ] The **About** dialog says `Version X.Y.Z`, and its build line names the tagged commit.
 - [ ] A repository opens, its history draws, and a branch hidden in the branches dialog stays hidden
       after a restart.
 - [ ] `git tag` lists `X.Y.Z` on the merge commit on `main`, and the tag is on the remote.
@@ -128,8 +135,8 @@ Windows has no installer: publish with `packaging/windows/publish.ps1` (step 5) 
 `dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0, 1.1.0,
 2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0, 4.1.1, 5.0.0, 5.1.0, 5.1.1, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0,
 5.7.0, 5.8.0, 5.9.0, 6.0.0, 6.1.0, 6.2.0, 6.3.0, 6.4.0, 6.5.0, 6.6.0, 6.7.0, 6.8.0, 6.9.0, 6.10.0,
-6.11.0 and 6.12.0:
-the releases' packaging is the Linux installer. When a Windows installer is wanted, generate the
+6.11.0, 6.12.0 and 6.13.0:
+the releases' packaging is the Linux installer and the publish scripts. When a Windows installer is wanted, generate the
 **first** profile then — its
 `upgradeCode` is created once and reused verbatim in every later version, while `productId` is new
 each time.
