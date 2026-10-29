@@ -389,7 +389,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-0DED | Remove the splash screen                 | DONE      | docs/plan/FEATURE-0DED.md |
 | FEATURE-5096 | App icon in the output directory         | DONE      | docs/plan/FEATURE-5096.md |
 | FEATURE-0D4E | Publish scripts for Windows and Linux    | DONE      | docs/plan/FEATURE-0D4E.md |
-| FEATURE-530E | Release 6.13.0                           | TODO      | docs/plan/FEATURE-530E.md |
+| FEATURE-530E | Release 6.13.0                           | DONE      | docs/plan/FEATURE-530E.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

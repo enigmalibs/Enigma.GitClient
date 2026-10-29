@@ -1,5 +1,68 @@
 # Release notes
 
+## 6.13.0 — 2026-10-29
+
+A minor release:
+
+- the application **starts straight into its first window**: the splash screen is gone;
+- the **application icon is a file** beside the executable, `app.ico`, in the build output and in
+  every published folder;
+- **publish scripts for both platforms**: `publish.bat` joins `publish.ps1` on Windows, and
+  `publish.sh` joins `install.sh` and `uninstall.sh` on Linux.
+
+### No splash screen
+
+- **The first window is the first thing on screen.** It is the start window, or the repository
+  window for a repository named on the command line, as before. The splash window and its one-second
+  minimum are gone, so a start no longer waits out that second.
+- **The version is still in the About dialog**, with the build it was cut from. It is the one place to
+  read it.
+- **A repository named on the command line** is opened first, and its window then appears on it
+  directly.
+
+### The icon beside the executable
+
+- **`app.ico`**, the icon the executable and the windows carry, all ten frames from 16 to 256 pixels,
+  is written next to `Enigma.GitClient.Desktop(.exe)`. It lands in the build output
+  (`bin/<Configuration>/net10.0/`) and in every published folder. A shortcut, a launcher or an
+  installer can point at the file instead of extracting the icon from the executable.
+- On Linux, `install.sh` still installs the launcher's icons from `packaging/linux/icons`, in eight
+  sizes. Nothing changes there.
+
+### Publish scripts
+
+- **One command per platform, from any directory.** Each script is a Release build, compiled
+  ReadyToRun so the application starts faster. It runs on an installed .NET 10 runtime, and the script
+  exits with `dotnet`'s exit code.
+
+| Platform | Script | Runs | Result |
+|---|---|---|---|
+| Windows | `packaging/windows/publish.ps1` or `publish.bat` | `dotnet publish src/Enigma.GitClient.Desktop -c Release -r win-x64 -p:PublishReadyToRun=true` | `src/Enigma.GitClient.Desktop/bin/Release/net10.0/win-x64/publish/` |
+| Linux | `packaging/linux/publish.sh` | the same with `-r linux-x64` | `src/Enigma.GitClient.Desktop/bin/Release/net10.0/linux-x64/publish/` |
+
+- **`publish.bat`** runs from a `cmd` prompt with no PowerShell execution policy involved.
+- **`install.sh`** remains the way to build and install on Linux in one step, with the runtime bundled
+  by default.
+
+### Upgrading from 6.12
+
+- **On Linux, run `packaging/linux/install.sh` again**, as for any upgrade.
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.12 keeps everything.
+
+### Dependencies
+
+- Nothing is outdated: every package is already at its latest version (`dotnet list package
+  --outdated`, 2026-10-29). The Avalonia set stays at **12.1.4**, with Enigma.Avalonia.Desktop
+  **1.3.0**.
+
+### Version
+
+- **6.13.0** is a minor release under Semantic Versioning. It removes a start-up screen and adds files
+  beside the executable and in the repository. It changes no public Core API, keeps every stored
+  format and moves no dependency.
+
 ## 6.12.0 — 2026-10-28
 
 A minor release:
