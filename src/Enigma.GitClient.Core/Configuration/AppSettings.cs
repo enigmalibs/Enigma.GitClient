@@ -316,7 +316,7 @@ public sealed record AppSettings
 
     /// <summary>
     /// Gets the bounds of the screen the application was last used on, which a fresh start opens its
-    /// splash and its first window on; <see langword="null"/> until a window has been seen on one.
+    /// first window on; <see langword="null"/> until a window has been seen on one.
     /// </summary>
     /// <remarks>
     /// Remembered rather than chosen, like <see cref="CloneParentDirectory"/>: every window placed,

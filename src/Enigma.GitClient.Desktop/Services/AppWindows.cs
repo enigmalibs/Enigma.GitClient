@@ -83,17 +83,12 @@ public interface IAppWindows
     /// repository, the start window otherwise.
     /// </summary>
     /// <param name="path">A path given on the command line, or <see langword="null"/>.</param>
-    /// <param name="splash">
-    /// The splash screen covering the start, or <see langword="null"/> when there is none: held until
-    /// its floor has passed, then closed once the first window is on screen — or on the way out of a
-    /// start that failed.
-    /// </param>
     /// <param name="screen">
     /// The screen to open on — the one of the window that started this instance — or
     /// <see langword="null"/> for the screen the application was last used on.
     /// </param>
     /// <returns>A task that completes once a window is on screen.</returns>
-    Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null);
+    Task StartAsync(string? path, ScreenArea? screen = null);
 
     /// <summary>Shows the start window in place of whatever is on screen.</summary>
     void ShowStart();
@@ -161,8 +156,8 @@ public sealed class AppWindows : IAppWindows
     public ScreenArea? LastScreen => _lastScreen;
 
     /// <summary>
-    /// Puts a window of a fresh start — the splash, or the first window — on the screen the application
-    /// was last used on: the primary screen when that one is gone or was never recorded.
+    /// Puts the first window of a fresh start on the screen the application was last used on: the
+    /// primary screen when that one is gone or was never recorded.
     /// </summary>
     /// <param name="placer">Reads the screens and moves the window.</param>
     /// <param name="window">The window, before it is shown.</param>
@@ -192,59 +187,43 @@ public sealed class AppWindows : IAppWindows
     public event EventHandler? CurrentWindowChanged;
 
     /// <inheritdoc />
-    public async Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
+    public async Task StartAsync(string? path, ScreenArea? screen = null)
     {
         _startScreen = screen;
 
         string? failure = null;
         bool opened = false;
 
-        try
+        if (path is { Length: > 0 })
         {
-            if (path is { Length: > 0 })
+            try
             {
-                try
-                {
-                    RepositoryDiscoveryResult discovery = await _opener.OpenAsync(path).ConfigureAwait(true);
+                RepositoryDiscoveryResult discovery = await _opener.OpenAsync(path).ConfigureAwait(true);
 
-                    opened = discovery.IsFound;
-                    failure = opened ? null : discovery.Message;
-                }
-                catch (Exception exception) when (exception is GitCommandException or IOException or ArgumentException)
-                {
-                    _logger.LogWarning(exception, "The repository at {Path} could not be opened", path);
-                    failure = exception.Message;
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
-                {
-                    // None of the failures above: the safety net says what it was, once the start
-                    // window below gives it a host to say it in — rather than a start that ends with
-                    // no window at all (BUG-9DE3).
-                    UnhandledExceptionHooks.Report(exception, UnhandledErrorSource.Startup);
-                }
+                opened = discovery.IsFound;
+                failure = opened ? null : discovery.Message;
             }
-
-            // After the slow part and before the first window: a start that took longer than the floor
-            // waits for nothing, and one fast enough to make the splash flash waits out the rest.
-            if (splash is not null)
+            catch (Exception exception) when (exception is GitCommandException or IOException or ArgumentException)
             {
-                await splash.WaitForMinimumAsync().ConfigureAwait(true);
+                _logger.LogWarning(exception, "The repository at {Path} could not be opened", path);
+                failure = exception.Message;
             }
-
-            if (opened)
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
             {
-                ShowRepository();
-            }
-            else
-            {
-                ShowStart();
+                // None of the failures above: the safety net says what it was, once the start
+                // window below gives it a host to say it in — rather than a start that ends with
+                // no window at all (BUG-9DE3).
+                UnhandledExceptionHooks.Report(exception, UnhandledErrorSource.Startup);
             }
         }
-        finally
+
+        if (opened)
         {
-            // Once the window that replaces it is on screen, so the splash is never the last window to
-            // close — and here, in a finally, so a start that threw still takes it away and ends.
-            splash?.Close();
+            ShowRepository();
+        }
+        else
+        {
+            ShowStart();
         }
 
         if (failure is not null)
