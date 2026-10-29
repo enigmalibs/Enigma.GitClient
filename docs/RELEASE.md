@@ -77,16 +77,24 @@ Substitute the runtime identifier for the target platform — `linux-arm64`, `wi
 *every* platform in a `runtimes/` tree; with one, the natives sit beside the assemblies and the result
 is about 116 MB self-contained, or 37 MB against an installed runtime (`--self-contained false`).
 
-On Windows, `packaging/windows/publish.ps1` runs the Windows publish from any directory: `win-x64`,
-compiled ReadyToRun, against an installed .NET 10 runtime.
+The publish scripts run that publish from any directory, compiled ReadyToRun, against an installed
+.NET 10 runtime: `packaging/windows/publish.ps1` and `publish.bat` for `win-x64`,
+`packaging/linux/publish.sh` for `linux-x64`.
 
 ```powershell
 packaging\windows\publish.ps1
 # Under Windows PowerShell's default execution policy, which refuses local scripts:
 powershell -ExecutionPolicy Bypass -File packaging\windows\publish.ps1
+# Or, from a cmd prompt, with no execution policy involved:
+packaging\windows\publish.bat
 ```
 
-The result is in `src\Enigma.GitClient.Desktop\bin\Release\net10.0\win-x64\publish\`.
+```bash
+packaging/linux/publish.sh
+```
+
+The result is in `src/Enigma.GitClient.Desktop/bin/Release/net10.0/<rid>/publish/`, with the
+application icon beside the executable as `app.ico`.
 
 ## 6. Install it
 
@@ -109,8 +117,8 @@ It writes only under `$HOME`:
 `packaging/linux/uninstall.sh` removes exactly those and leaves `~/.config/Enigma.GitClient` — the
 settings, the repositories list, the accounts and their tokens — alone.
 
-Windows has no installer: publish with `packaging/windows/publish.ps1` (step 5) and run
-`Enigma.GitClient.Desktop.exe` from its result.
+Windows has no installer: publish with `packaging/windows/publish.ps1` or `publish.bat` (step 5) and
+run `Enigma.GitClient.Desktop.exe` from its result.
 
 ## 7. Post-release verification
 

@@ -216,6 +216,16 @@ dotnet test --solution Enigma.GitClient.slnx
 dotnet run --project src/Enigma.GitClient.Desktop
 ```
 
+## Publish
+
+The publish scripts run `dotnet publish` from any directory: a Release build compiled ReadyToRun, which
+runs on an installed .NET 10 runtime, with the application icon beside the executable as `app.ico`.
+
+| Platform | Script | Result |
+|----------|--------|--------|
+| Windows | `packaging\windows\publish.ps1` or `publish.bat` | `src\Enigma.GitClient.Desktop\bin\Release\net10.0\win-x64\publish\` |
+| Linux | `packaging/linux/publish.sh` | `src/Enigma.GitClient.Desktop/bin/Release/net10.0/linux-x64/publish/` |
+
 ## Install on Linux
 
 `packaging/linux/install.sh` builds the application from this repository and installs it for you —
