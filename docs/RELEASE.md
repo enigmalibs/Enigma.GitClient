@@ -27,7 +27,7 @@ Run from the repository root, on the branch that will be merged:
       ```bash
       dotnet test --solution Enigma.GitClient.slnx -c Release
       ```
-- [ ] The running application says `Version X.Y.Z` on its splash screen and in its **About** dialog.
+- [ ] The running application says `Version X.Y.Z` in its **About** dialog.
       To read it off the build instead (`strings` is in binutils) — it prints the version and the
       commit the build was cut from, `X.Y.Z+<sha>`, which is what the About dialog's build line
       shortens:
@@ -117,8 +117,7 @@ Windows has no installer: publish with `packaging/windows/publish.ps1` (step 5) 
 - [ ] **Enigma Git Client** appears in the application launcher, with its icon, and starts when
       clicked. A launcher starts a process from a bare environment, so this is not the same test as
       starting it from a terminal — check the launcher, not just the shell.
-- [ ] The splash screen and the **About** dialog say `Version X.Y.Z`, and the About dialog's build line
-      names the tagged commit.
+- [ ] The **About** dialog says `Version X.Y.Z`, and its build line names the tagged commit.
 - [ ] A repository opens, its history draws, and a branch hidden in the branches dialog stays hidden
       after a restart.
 - [ ] `git tag` lists `X.Y.Z` on the merge commit on `main`, and the tag is on the remote.

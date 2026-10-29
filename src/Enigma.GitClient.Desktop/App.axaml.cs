@@ -4,14 +4,12 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
-using Avalonia.Threading;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.DependencyInjection;
 using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Controls.Diff;
 using Enigma.GitClient.Desktop.DependencyInjection;
 using Enigma.GitClient.Desktop.Services;
-using Enigma.GitClient.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -89,32 +87,15 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
             desktop.Exit += OnExit;
 
-            // The splash, once the theme it is painted in is known: a splash that paints dark and then
-            // flips to light is the flicker it exists to hide. The window service closes it once the
-            // first real window is on screen.
             // The repository to open, and the screen of the window that started this instance, if one
-            // did: what the splash and the first window open on, before the screen last used.
+            // did: what the first window opens on, before the screen last used.
             StartupArguments startup = StartupArguments.Parse(desktop.Args);
 
-            // On that screen — or the one the application was last used on, the primary one when it is
-            // gone — as the first window will be.
-            SplashWindow splash = new();
-            AppWindows.PlaceForStart(
-                services.GetRequiredService<IWindowPlacer>(),
-                splash,
-                startup.Screen ?? settings.Current.LastScreen);
-            splash.Show();
-            SplashHandOver handOver = new(splash, SplashTiming.MinimumDisplay, TimeProvider.System);
-
-            IAppWindows windows = services.GetRequiredService<IAppWindows>();
-
-            // Posted, so this method returns and the message loop paints the splash before the first
-            // window is built. Background priority is the point: layout and rendering run above
-            // Normal, so a start posted at the default would take its turn before the splash had drawn
-            // a single frame.
-            Dispatcher.UIThread.Post(
-                () => windows.StartAsync(startup.RepositoryPath, handOver, startup.Screen).Forget(),
-                DispatcherPriority.Background);
+            // Straight away, with no splash in front of it (FEATURE-0DED): the first window is the first
+            // thing on screen.
+            services.GetRequiredService<IAppWindows>()
+                .StartAsync(startup.RepositoryPath, startup.Screen)
+                .Forget();
         }
 
         base.OnFrameworkInitializationCompleted();
