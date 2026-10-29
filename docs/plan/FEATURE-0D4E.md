@@ -1,6 +1,6 @@
 # FEATURE-0D4E — Publish scripts for Windows and Linux
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-0d4e-publish-scripts`
 **Run:** feature/2026-10-29-uniform-enigma-apps
