@@ -337,10 +337,9 @@ public sealed class RecordingAppWindows : IAppWindows
     }
 
     /// <inheritdoc />
-    public Task StartAsync(string? path, SplashHandOver? splash = null, ScreenArea? screen = null)
+    public Task StartAsync(string? path, ScreenArea? screen = null)
     {
         Started.Add(path);
-        splash?.Close();
         return Task.CompletedTask;
     }
 

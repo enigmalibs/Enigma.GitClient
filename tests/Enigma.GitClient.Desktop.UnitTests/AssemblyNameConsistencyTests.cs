@@ -7,9 +7,10 @@ namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The application's assembly name is written in places the compiler cannot reach — the project's
-/// directory, the Linux installer and uninstaller, which look for the launcher it becomes, the desktop
-/// entry, which matches the window class Avalonia takes from it, and the Windows manifest — and nothing
-/// but this test ties them to the assembly the build really produces.
+/// directory, the Linux installer and uninstaller, which look for the launcher it becomes, the publish
+/// scripts, which name its project, the desktop entry, which matches the window class Avalonia takes
+/// from it, and the Windows manifest — and nothing but this test ties them to the assembly the build
+/// really produces.
 /// </summary>
 public sealed class AssemblyNameConsistencyTests
 {
@@ -28,6 +29,22 @@ public sealed class AssemblyNameConsistencyTests
         string[] lines = File.ReadAllLines(Path.Combine(Root(), "packaging", "linux", script));
 
         Assert.Contains($"readonly APP_EXE='{AssemblyName}'", lines);
+    }
+
+    [Theory]
+    [InlineData("windows", "publish.ps1", "win-x64")]
+    [InlineData("windows", "publish.bat", "win-x64")]
+    [InlineData("linux", "publish.sh", "linux-x64")]
+    public void ThePublishScriptsPublishTheProjectOfTheAssembly(string platform, string script, string runtime)
+    {
+        string text = File.ReadAllText(Path.Combine(Root(), "packaging", platform, script));
+
+        // Each script resolves the project from where it sits, with its own platform's separator.
+        Assert.True(
+            text.Contains($"src/{AssemblyName}", StringComparison.Ordinal)
+                || text.Contains($"src\\{AssemblyName}", StringComparison.Ordinal),
+            $"{script} does not name src/{AssemblyName}");
+        Assert.Contains($"-c Release -r {runtime} -p:PublishReadyToRun=true", text, StringComparison.Ordinal);
     }
 
     [Fact]

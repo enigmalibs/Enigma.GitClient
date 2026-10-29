@@ -10,11 +10,10 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.12** — a new application icon: the same line of commits and branch in softer
-> colours, drawn in more sizes for Windows' display scaling and the Linux desktop (on Linux, run the
-> installer again to get it). 6.11 before it: a local branch's badge in the history renames the
-> branch: `Rename "<name>"…` in its menu asks for the new name, and the rename dialog opens with the
-> name ready to type over.
+> **What's new in 6.13** — the application starts straight into its first window, with no splash
+> screen; the icon sits beside the executable as `app.ico`; and publish scripts cover both platforms
+> (`publish.ps1` and `publish.bat` on Windows, `publish.sh` on Linux). 6.12 before it: a new
+> application icon, in softer colours and more sizes (on Linux, run the installer again to get it).
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -215,6 +214,16 @@ dotnet build Enigma.GitClient.slnx
 dotnet test --solution Enigma.GitClient.slnx
 dotnet run --project src/Enigma.GitClient.Desktop
 ```
+
+## Publish
+
+The publish scripts run `dotnet publish` from any directory: a Release build compiled ReadyToRun, which
+runs on an installed .NET 10 runtime, with the application icon beside the executable as `app.ico`.
+
+| Platform | Script | Result |
+|----------|--------|--------|
+| Windows | `packaging\windows\publish.ps1` or `publish.bat` | `src\Enigma.GitClient.Desktop\bin\Release\net10.0\win-x64\publish\` |
+| Linux | `packaging/linux/publish.sh` | `src/Enigma.GitClient.Desktop/bin/Release/net10.0/linux-x64/publish/` |
 
 ## Install on Linux
 

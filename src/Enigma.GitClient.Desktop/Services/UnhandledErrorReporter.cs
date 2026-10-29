@@ -47,9 +47,8 @@ public interface IUnhandledErrorReporter
 /// <para>
 /// The dialog is shown on the current window's dialog host, which every question of that window
 /// shares: showing it over another question would replace that question's content, so it waits until
-/// the host is free, and before the first window — under the splash — until there is one. If the
-/// dialog itself fails, it is logged and no dialog is tried again in this session: the net must not
-/// loop on itself.
+/// the host is free, and before the first window until there is one. If the dialog itself fails, it
+/// is logged and no dialog is tried again in this session: the net must not loop on itself.
 /// </para>
 /// <para>
 /// Stored tokens that cannot be read are said where it happens, with the reset offered. Should one such
@@ -156,7 +155,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
 
         if ((_windows.CurrentWindow as IHostWindow)?.DialogHost is not { } host)
         {
-            // Under the splash, or between two windows: the next window brings a host.
+            // Before the first window, or between two windows: the next window brings a host.
             _waitingForWindow = true;
             return;
         }

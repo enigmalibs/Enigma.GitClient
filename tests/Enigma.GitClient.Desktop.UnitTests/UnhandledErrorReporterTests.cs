@@ -16,7 +16,7 @@ namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The safety net's reporter (BUG-9DE3): it logs every exception, shows one dialog on the current
-/// window's host when that host is free, waits for a window under the splash, and never loops on a
+/// window's host when that host is free, waits for the first window, and never loops on a
 /// dialog that cannot be shown.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
@@ -97,7 +97,7 @@ public sealed class UnhandledErrorReporterTests
             Harness harness = new();
             UnhandledErrorReporter reporter = harness.Build();
 
-            reporter.Report(Thrown("under the splash"), UnhandledErrorSource.Startup);
+            reporter.Report(Thrown("before the first window"), UnhandledErrorSource.Startup);
             reporter.Report(Thrown("and another"), UnhandledErrorSource.FireAndForget);
             Settle();
 
@@ -108,7 +108,7 @@ public sealed class UnhandledErrorReporterTests
 
             ContentDialog dialog = Assert.Single(harness.Dialogs.Shown);
             UnhandledErrorViewModel model = (UnhandledErrorViewModel)((UnhandledErrorView)dialog.Content!).DataContext!;
-            Assert.Equal("under the splash", model.Message);
+            Assert.Equal("before the first window", model.Message);
             Assert.Equal("1 more error occurred.", model.MoreText);
         });
     }

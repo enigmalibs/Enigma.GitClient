@@ -33,6 +33,11 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>
+  <!-- The icon as a file too, beside the executable in the build output and the publish folder, for
+       shortcuts, launchers and installers to point at (FEATURE-5096). -->
+  <ItemGroup>
+    <None Update="Assets/app.ico" CopyToOutputDirectory="PreserveNewest" TargetPath="app.ico" />
+  </ItemGroup>
   <!-- The app's entry point and composition root stay internal; the unit-test project drives them. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Enigma.GitClient.Desktop.UnitTests" />
