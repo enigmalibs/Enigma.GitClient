@@ -1,6 +1,6 @@
 # FEATURE-EAB7 — Windows MSI build script
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-03-icons-msi-release
@@ -103,7 +103,7 @@ Enigma.Msi. The repository carries a copy of Enigma.Msi's worker CLI.
 ## PHASE02 — The buildmsi script
 
 **Branch:** `feature/feature-eab7-phase02-buildmsi-script`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

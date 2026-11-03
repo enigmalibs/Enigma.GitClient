@@ -9,8 +9,8 @@ namespace Enigma.GitClient.Core.UnitTests;
 
 /// <summary>
 /// The product's name in words is written in more places than the code can reach — the Linux launcher
-/// entry, the installer and the uninstaller, the views' labels — and nothing but this test ties them to
-/// <see cref="ProductInformation.DisplayName"/>.
+/// entry, the installer and the uninstaller, the Windows installer, the views' labels — and nothing but
+/// this test ties them to <see cref="ProductInformation.DisplayName"/>.
 /// </summary>
 public sealed class DisplayNameConsistencyTests
 {
@@ -34,6 +34,15 @@ public sealed class DisplayNameConsistencyTests
         string text = File.ReadAllText(Path.Combine(Root(), "packaging", "linux", script));
 
         Assert.Contains(ProductInformation.DisplayName, text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheWindowsInstallerIsNamedAfterTheProduct()
+    {
+        // The MSI's product name, its install folder and its two shortcuts all take this one line.
+        string[] script = File.ReadAllLines(Path.Combine(Root(), "packaging", "windows", "buildmsi.ps1"));
+
+        Assert.Contains($"$ProductName = '{ProductInformation.DisplayName}'", script);
     }
 
     [Fact]

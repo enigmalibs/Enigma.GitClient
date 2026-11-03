@@ -225,6 +225,29 @@ runs on an installed .NET 10 runtime, with the application icon beside the execu
 | Windows | `packaging\windows\publish.ps1` or `publish.bat` | `src\Enigma.GitClient.Desktop\bin\Release\net10.0\win-x64\publish\` |
 | Linux | `packaging/linux/publish.sh` | `src/Enigma.GitClient.Desktop/bin/Release/net10.0/linux-x64/publish/` |
 
+## Windows installer
+
+`packaging\windows\buildmsi.ps1` (or `buildmsi.bat`, from a `cmd` prompt) builds
+`artifacts\Enigma.GitClient.X.Y.Z.msi` in one step:
+
+1. it runs `git clean -dxf`, which deletes **every file git does not track**: build output,
+   `artifacts\`, IDE folders, and any new file you have not added yet;
+2. it publishes with `publish.ps1`;
+3. it packages the result, uncompressed, with Enigma.Msi. A copy of Enigma.Msi's worker is in
+   `packaging\windows\Enigma.Msi.Worker\`.
+
+The MSI installs **Enigma Git Client** for all users in `%ProgramFiles%\Enigma Git Client`, with a
+shortcut on the desktop and one in the program menu. It replaces an earlier version installed from an
+MSI. The version is the one in `Directory.Build.props`. Building it needs Windows and the WiX CLI
+(`dotnet tool install --global wix`) as well as the .NET 10 SDK; the installed application needs the
+.NET 10 runtime.
+
+```powershell
+.\packaging\windows\buildmsi.ps1
+# Under Windows PowerShell's default execution policy, which refuses local scripts:
+powershell -ExecutionPolicy Bypass -File packaging\windows\buildmsi.ps1
+```
+
 ## Install on Linux
 
 `packaging/linux/install.sh` builds the application from this repository and installs it for you —
