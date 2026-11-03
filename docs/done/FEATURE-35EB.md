@@ -42,7 +42,9 @@ changes.
 - **Before tagging:** run the Desktop suite on Linux. `AppIconTests` pins the new files; it was compiled
   here, and its assertions were checked by script (below).
 - The source directory `Branding/Apps/final2/git-client` is outside this repository and was left alone.
-- Line endings: the SVGs are LF, as `.gitattributes` asks; no CRLF churn.
+- Line endings: the delivered SVGs have CRLF line endings. `.gitattributes` (`* text=auto eol=lf`) stores
+  them as LF, so the committed SVGs differ from the source only in line endings. The binaries (`.ico`,
+  `.png`) are byte for byte. No action taken (recommendation only: have `export.py` write LF).
 
 ## Build/test evidence
 
