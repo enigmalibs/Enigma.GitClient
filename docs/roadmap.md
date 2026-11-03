@@ -390,6 +390,11 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-5096 | App icon in the output directory         | DONE      | docs/plan/FEATURE-5096.md |
 | FEATURE-0D4E | Publish scripts for Windows and Linux    | DONE      | docs/plan/FEATURE-0D4E.md |
 | FEATURE-530E | Release 6.13.0                           | DONE      | docs/plan/FEATURE-530E.md |
+| FEATURE-35EB | New icon set without the tile            | TODO      | docs/plan/FEATURE-35EB.md |
+| FEATURE-EAB7 | Windows MSI build script                 | TODO      | docs/plan/FEATURE-EAB7.md |
+| - PHASE01    | Vendor the Enigma.Msi worker CLI         | TODO      | (in FEATURE-EAB7.md)      |
+| - PHASE02    | The buildmsi script                      | TODO      | (in FEATURE-EAB7.md)      |
+| FEATURE-AA46 | Release 6.14.0                           | TODO      | docs/plan/FEATURE-AA46.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
