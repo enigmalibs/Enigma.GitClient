@@ -394,7 +394,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-EAB7 | Windows MSI build script                 | DONE      | docs/plan/FEATURE-EAB7.md |
 | - PHASE01    | Vendor the Enigma.Msi worker CLI         | DONE      | (in FEATURE-EAB7.md)      |
 | - PHASE02    | The buildmsi script                      | DONE      | (in FEATURE-EAB7.md)      |
-| FEATURE-AA46 | Release 6.14.0                           | TODO      | docs/plan/FEATURE-AA46.md |
+| FEATURE-AA46 | Release 6.14.0                           | DONE      | docs/plan/FEATURE-AA46.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

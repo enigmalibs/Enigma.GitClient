@@ -1,6 +1,6 @@
 # FEATURE-AA46 — Release 6.14.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-aa46-release-6-14-0`
 **Run:** feature/2026-11-03-icons-msi-release
