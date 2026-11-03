@@ -1,6 +1,6 @@
 # FEATURE-E219 — Fill-the-frame icon set (final3)
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-e219-icon-set-final3`
 **Run:** feature/2026-11-03-final3-icons-release
