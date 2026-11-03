@@ -395,6 +395,8 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Vendor the Enigma.Msi worker CLI         | DONE      | (in FEATURE-EAB7.md)      |
 | - PHASE02    | The buildmsi script                      | DONE      | (in FEATURE-EAB7.md)      |
 | FEATURE-AA46 | Release 6.14.0                           | DONE      | docs/plan/FEATURE-AA46.md |
+| FEATURE-E219 | Fill-the-frame icon set (final3)         | DONE      | docs/plan/FEATURE-E219.md |
+| FEATURE-69DF | Release 6.15.0                           | DONE      | docs/plan/FEATURE-69DF.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

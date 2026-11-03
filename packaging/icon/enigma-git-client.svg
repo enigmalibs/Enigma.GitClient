@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Enigma.GitClient application icon without the tile: GC-A2 in Branding/Apps/preview.html, Branch in the Soft palette.
+  Enigma.GitClient application icon without the tile, filling the frame (final3): GC-A2 in Branding/Apps/preview.html, Branch in the Soft palette.
+  The final2/ drawing scaled by 1.2444 and centred, its longest side spanning 16 to 240 of the 256-unit view box.
   The master for the 40 px frames and up; the 16 to 32 px frames come from enigma-git-client-small.svg, simplified for their size.
-  Regenerate the SVGs, the PNG frames and the .ico with: python3 Branding/Apps/export.py final2
+  Regenerate the SVGs, the PNG frames and the .ico with: python3 Branding/Apps/export.py final3
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <path d="M92 83.5V192" fill="none" stroke="#6A9BF4" stroke-width="18"/>
-  <path d="M92 192H136A32 32 0 0 0 168 160V128" fill="none" stroke="#63C77D" stroke-width="18"/>
-  <circle cx="92" cy="128" r="26" fill="#6A9BF4"/>
-  <circle cx="92" cy="192" r="26" fill="#6A9BF4"/>
-  <circle cx="168" cy="128" r="22" fill="#63C77D"/>
-  <circle cx="92" cy="64" r="19.5" fill="none" stroke="#6A9BF4" stroke-width="13"/>
+  <g transform="translate(-31.2889 -31.2889) scale(1.2444)">
+    <path d="M92 83.5V192" fill="none" stroke="#6A9BF4" stroke-width="18"/>
+    <path d="M92 192H136A32 32 0 0 0 168 160V128" fill="none" stroke="#63C77D" stroke-width="18"/>
+    <circle cx="92" cy="128" r="26" fill="#6A9BF4"/>
+    <circle cx="92" cy="192" r="26" fill="#6A9BF4"/>
+    <circle cx="168" cy="128" r="22" fill="#63C77D"/>
+    <circle cx="92" cy="64" r="19.5" fill="none" stroke="#6A9BF4" stroke-width="13"/>
+  </g>
 </svg>
