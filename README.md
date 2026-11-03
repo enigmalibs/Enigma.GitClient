@@ -10,11 +10,10 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.14** — the application icon drops its dark tile (on Linux, run the installer again
-> to get it); and `buildmsi.ps1` or `buildmsi.bat` builds the Windows installer in one command, and that
-> installer upgrades an installed 6.13. 6.13 before it: the application starts straight into its first
-> window, with no splash screen; the icon sits beside the executable as `app.ico`; and publish scripts
-> cover both platforms. Coming from 5.9? The buttons on the
+> **What's new in 6.15** — the application icon fills its frame: the same drawing, larger, so it reads at
+> a glance in the taskbar and the launcher (on Linux, run the installer again to get it). 6.14 before
+> it: the icon dropped its dark tile, and `buildmsi.ps1` or `buildmsi.bat` builds the Windows installer
+> in one command, an installer that upgrades the installed version. Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
 > renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the
