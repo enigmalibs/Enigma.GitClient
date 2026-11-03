@@ -1,5 +1,47 @@
 # Release notes
 
+## 6.15.0 — 2026-11-03
+
+A minor release:
+
+- the **application icon fills its frame**: the same line of commits and branch, drawn larger, so it
+  reads at a glance in the taskbar, the window, the About dialog and the Linux launcher.
+
+### The icon fills its frame
+
+- **The same drawing, larger.** The commit line and the branch keep their blue (`#6A9BF4`) and green
+  (`#63C77D`) on a transparent background. They are a quarter larger than in 6.14: the drawing's
+  longest side now spans the icon but for a narrow margin at each end.
+- **The small sizes are redrawn.** The 16 to 32 pixel frames, the sizes the title bar and the taskbar
+  use at normal scaling, come from their own simpler drawing. It is redrawn for the larger area, with
+  heavier marks so they stay sharp.
+- **The same files and sizes.** `app.ico` still holds ten frames, from 16 to 256 pixels. It is in the
+  executable, on the windows, and beside the executable as `app.ico`, which the Windows installer's
+  shortcuts use. The About dialog shows its 256-pixel frame, and the Linux installer installs eight
+  sizes from `packaging/linux/icons`.
+
+### Upgrading from 6.14
+
+- **On Windows, install the 6.15.0 MSI**: `packaging\windows\buildmsi.ps1` builds
+  `artifacts\Enigma.GitClient.6.15.0.msi`, and it replaces 6.14.0. Windows caches icons, so a button
+  pinned to the taskbar may keep the 6.14 icon until that cache is refreshed.
+- **On Linux, run `packaging/linux/install.sh` again** to get the new icon in the launcher.
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.14 keeps everything.
+
+### Dependencies
+
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.1.5 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it. Nothing else is outdated (`dotnet list package --outdated`, 2026-11-03).
+- The installer build still uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2.
+
+### Version
+
+- **6.15.0** is a minor release under Semantic Versioning. It changes the icon's artwork. It changes no
+  public Core API, keeps every stored format and moves no dependency of the application.
+
 ## 6.14.0 — 2026-11-03
 
 A minor release:

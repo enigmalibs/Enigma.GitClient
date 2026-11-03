@@ -1,6 +1,6 @@
 # FEATURE-69DF — Release 6.15.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-69df-release-6-15-0`
 **Run:** feature/2026-11-03-final3-icons-release
