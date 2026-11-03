@@ -8,7 +8,7 @@
 
 The repository now carries Enigma.Msi's headless worker CLI in `packaging/windows/Enigma.Msi.Worker/`,
 for PHASE02's `buildmsi.ps1` to run (`Enigma.Msi.Worker.exe build <profile>`). It is Enigma.Msi `1.7.0`
-(`a7a1bfb`) built against WixSharp_wix4 2.14.2: the 21 files of its `bin/Release/net472/` output,
+(`a7a1bfb`) built against WixSharp_wix4 2.14.2: the 20 files of its `bin/Release/net472/` output,
 without the PDBs, the API XML and `.wixsharp/` (3.4 MB).
 
 - A `README.md` in the folder gives:
@@ -23,7 +23,7 @@ without the PDBs, the API XML and `.wixsharp/` (3.4 MB).
 ## Files/modules touched
 
 - Created:
-  - `packaging/windows/Enigma.Msi.Worker/` (21 binaries: `Enigma.Msi.Worker.exe`,
+  - `packaging/windows/Enigma.Msi.Worker/` (20 binaries: `Enigma.Msi.Worker.exe`,
     `Enigma.Msi.Worker.exe.config`, `Enigma.Msi.dll`, the `WixSharp*`, `WixToolset.*`, `System.*`,
     `Microsoft.Bcl.AsyncInterfaces.dll` and `mbanative.dll`)
   - `packaging/windows/Enigma.Msi.Worker/README.md`
@@ -59,7 +59,7 @@ without the PDBs, the API XML and `.wixsharp/` (3.4 MB).
   `NothingShippedStillSaysTheFormerName` run on its own: passed.
 - Core integration: 414 total, 412 passed, 2 skipped, 0 failed.
 - `cmp` of each copied file against its source: all identical before staging.
-- `git status --porcelain --ignored -uall packaging/windows/Enigma.Msi.Worker/`: the 22 files are
+- `git status --porcelain --ignored -uall packaging/windows/Enigma.Msi.Worker/`: the 21 files (20 binaries and the README) are
   untracked, none ignored. `git check-ignore` matches `.wixsharp/…` to the new rule.
 - `Enigma.Msi.Worker.exe` with no arguments printed "No arguments were given." and the two usage forms,
   exit code **2**.
