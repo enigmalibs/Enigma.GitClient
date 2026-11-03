@@ -8,9 +8,9 @@ namespace Enigma.GitClient.Desktop.UnitTests;
 /// <summary>
 /// The application's assembly name is written in places the compiler cannot reach — the project's
 /// directory, the Linux installer and uninstaller, which look for the launcher it becomes, the publish
-/// scripts, which name its project, the desktop entry, which matches the window class Avalonia takes
-/// from it, and the Windows manifest — and nothing but this test ties them to the assembly the build
-/// really produces.
+/// scripts, which name its project, the Windows installer, whose shortcuts start its executable, the
+/// desktop entry, which matches the window class Avalonia takes from it, and the Windows manifest — and
+/// nothing but this test ties them to the assembly the build really produces.
 /// </summary>
 public sealed class AssemblyNameConsistencyTests
 {
@@ -45,6 +45,15 @@ public sealed class AssemblyNameConsistencyTests
                 || text.Contains($"src\\{AssemblyName}", StringComparison.Ordinal),
             $"{script} does not name src/{AssemblyName}");
         Assert.Contains($"-c Release -r {runtime} -p:PublishReadyToRun=true", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheWindowsInstallerPackagesAndStartsTheExecutableOfTheAssembly()
+    {
+        // The publish folder the MSI packages and the executable its shortcuts start both take this line.
+        string[] script = File.ReadAllLines(Path.Combine(Root(), "packaging", "windows", "buildmsi.ps1"));
+
+        Assert.Contains($"$Assembly = '{AssemblyName}'", script);
     }
 
     [Fact]

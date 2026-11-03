@@ -1,5 +1,71 @@
 # Release notes
 
+## 6.14.0 — 2026-11-03
+
+A minor release:
+
+- the **application icon drops its dark tile**: the line of commits and the branch stand on a
+  transparent background, in the taskbar, the window, the About dialog and the Linux launcher;
+- a **Windows installer in one command**: `packaging\windows\buildmsi.ps1`, or `buildmsi.bat`, cleans
+  the repository, publishes, and builds `artifacts\Enigma.GitClient.6.14.0.msi`, which upgrades an
+  installed 6.13.
+
+### The icon without its tile
+
+- **The same drawing, without the dark rounded square.** The commit line and the branch keep their blue
+  (`#6A9BF4`) and green (`#63C77D`), and the background shows through the top commit's ring. They
+  stand on whatever is behind them.
+- **The same files and sizes.** `app.ico` still holds ten frames, from 16 to 256 pixels. It is in the
+  executable, on the windows, and beside the executable as `app.ico`. The About dialog shows its
+  256-pixel frame, and the Linux installer installs eight sizes from `packaging/linux/icons`.
+
+### The Windows installer
+
+- **One command, from any directory**: `packaging\windows\buildmsi.ps1`, or `buildmsi.bat` from a
+  `cmd` prompt.
+
+| Step | What it does |
+|---|---|
+| 1. `git clean -dxf` | Deletes every file git does not track: build output, `artifacts\`, IDE folders, and any new file not yet added |
+| 2. `publish.ps1` | The usual publish: `-c Release -r win-x64 -p:PublishReadyToRun=true` |
+| 3. Enigma.Msi | Packages the publish folder, uncompressed so it builds fast, into `artifacts\Enigma.GitClient.X.Y.Z.msi` |
+
+- **What the MSI installs**: **Enigma Git Client** for all users, in `%ProgramFiles%\Enigma Git Client`,
+  with a shortcut on the desktop and one in the program menu, both with the application's icon. In
+  *Installed apps* it shows as Enigma Git Client by Josué Clément.
+- **It replaces the installed version.** Every MSI carries the upgrade code of the one that installed
+  6.13.0. The code is written once in the script, and `WindowsInstallerIdentityTests` pins it.
+- **The version is the one in `Directory.Build.props`.** The profile the MSI was built from is kept
+  beside it, as `Enigma.GitClient.X.Y.Z.msipkg.json`. Nothing about the installer is edited for a
+  release.
+- **What it needs:** Windows, git, the .NET 10 SDK and the WiX CLI (`dotnet tool install --global wix`).
+  The script checks them before it cleans anything. A copy of Enigma.Msi's worker (1.7.0) is in
+  `packaging\windows\Enigma.Msi.Worker\`, so there is nothing else to install.
+- **Commit or move new files first:** `git clean -dxf` deletes them.
+
+### Upgrading from 6.13
+
+- **On Windows, install the 6.14.0 MSI**: it replaces 6.13.0, which keeps a single *Enigma Git Client*
+  in *Installed apps*.
+- **On Linux, run `packaging/linux/install.sh` again** to get the new icon in the launcher.
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.13 keeps everything.
+
+### Dependencies
+
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.1.5 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it. Nothing else is outdated (`dotnet list package --outdated`, 2026-11-03).
+- The installer build uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2. It is a build tool and
+  is not part of the application.
+
+### Version
+
+- **6.14.0** is a minor release under Semantic Versioning. It changes the icon's artwork and adds the
+  Windows installer build. It changes no public Core API, keeps every stored format and moves no
+  dependency of the application.
+
 ## 6.13.0 — 2026-10-29
 
 A minor release:

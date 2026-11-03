@@ -117,26 +117,49 @@ It writes only under `$HOME`:
 `packaging/linux/uninstall.sh` removes exactly those and leaves `~/.config/Enigma.GitClient` — the
 settings, the repositories list, the accounts and their tokens — alone.
 
-Windows has no installer: publish with `packaging/windows/publish.ps1` or `publish.bat` (step 5) and
-run `Enigma.GitClient.Desktop.exe` from its result.
+On Windows, build the MSI and install it:
+
+```powershell
+packaging\windows\buildmsi.ps1          # or buildmsi.bat from a cmd prompt
+```
+
+It runs `git clean -dxf` first, which deletes every file git does not track. Commit or move anything
+new before running it. Then it publishes (step 5) and packages the result with Enigma.Msi into
+`artifacts\Enigma.GitClient.X.Y.Z.msi`, beside the `.msipkg.json` profile it was built from.
+
+| What | Where |
+|---|---|
+| the application, for all users | `%ProgramFiles%\Enigma Git Client` (32-bit package: `Program Files (x86)` on 64-bit Windows) |
+| the shortcuts, "Enigma Git Client" | the desktop and the program menu |
+| the entry in *Installed apps* | "Enigma Git Client", publisher "Josué Clément" |
+
+Installing it replaces an earlier version installed from an MSI, and uninstalling it from *Installed
+apps* leaves `%APPDATA%\Enigma.GitClient` (the settings, the repositories list, the accounts and their
+tokens) alone.
 
 ## 7. Post-release verification
 
 - [ ] **Enigma Git Client** appears in the application launcher, with its icon, and starts when
       clicked. A launcher starts a process from a bare environment, so this is not the same test as
       starting it from a terminal — check the launcher, not just the shell.
+- [ ] On Windows, after installing the MSI, *Installed apps* lists one **Enigma Git Client**, at
+      `X.Y.Z`, and the desktop and program-menu shortcuts start it.
 - [ ] The **About** dialog says `Version X.Y.Z`, and its build line names the tagged commit.
 - [ ] A repository opens, its history draws, and a branch hidden in the branches dialog stays hidden
       after a restart.
 - [ ] `git tag` lists `X.Y.Z` on the merge commit on `main`, and the tag is on the remote.
 
-## Why there is no MSI profile
+## The Windows installer's identity
 
-`dotnet-release` offers a WixSharp MSI profile for an app release. It was declined for 1.0.0, 1.1.0,
-2.0.0, 3.0.0, 3.1.0, 4.0.0, 4.1.0, 4.1.1, 5.0.0, 5.1.0, 5.1.1, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0,
-5.7.0, 5.8.0, 5.9.0, 6.0.0, 6.1.0, 6.2.0, 6.3.0, 6.4.0, 6.5.0, 6.6.0, 6.7.0, 6.8.0, 6.9.0, 6.10.0,
-6.11.0, 6.12.0 and 6.13.0:
-the releases' packaging is the Linux installer and the publish scripts. When a Windows installer is wanted, generate the
-**first** profile then — its
-`upgradeCode` is created once and reused verbatim in every later version, while `productId` is new
-each time.
+There is no committed MSI profile per version. `buildmsi.ps1` writes the profile on every build from
+`Directory.Build.props` (the version) and its own constants, so a release changes nothing for the
+installer.
+
+- **`upgradeCode`** is `871622d1-a9c6-4c72-b6a3-e8d8104ad5c3`, written once in `buildmsi.ps1`. It is
+  the code the MSI that installed 6.13.0 carries. It must never change: an MSI with another code
+  installs beside the old version instead of replacing it. `WindowsInstallerIdentityTests` pins it.
+- **`productId`** is new for every build.
+
+The MSI that installed 6.13.0 was built outside this repository with Enigma.Msi. The script keeps its
+upgrade code. The `dotnet-release` skill's committed `msiProfiles/` was declined for every release from
+1.0.0 to 6.13.0, and is not needed now.
