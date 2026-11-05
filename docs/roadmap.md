@@ -397,6 +397,15 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-AA46 | Release 6.14.0                           | DONE      | docs/plan/FEATURE-AA46.md |
 | FEATURE-E219 | Fill-the-frame icon set (final3)         | DONE      | docs/plan/FEATURE-E219.md |
 | FEATURE-69DF | Release 6.15.0                           | DONE      | docs/plan/FEATURE-69DF.md |
+| FEATURE-D7D5 | Stacked ref badges in the History        | TODO      | docs/plan/FEATURE-D7D5.md |
+| - PHASE01    | Badge order: current, branches, tags     | TODO      | (in FEATURE-D7D5.md)      |
+| - PHASE02    | Badges stacked, the line on top          | TODO      | (in FEATURE-D7D5.md)      |
+| FEATURE-F452 | The line's items on badge menus          | TODO      | docs/plan/FEATURE-F452.md |
+| FEATURE-70CB | Delete a branch and its remote at once   | TODO      | docs/plan/FEATURE-70CB.md |
+| FEATURE-0123 | Remote mark on tag badges                | TODO      | docs/plan/FEATURE-0123.md |
+| - PHASE01    | Read a remote's tags in Core             | TODO      | (in FEATURE-0123.md)      |
+| - PHASE02    | The cloud on pushed tag badges           | TODO      | (in FEATURE-0123.md)      |
+| FEATURE-2D0A | Release 6.16.0                           | TODO      | docs/plan/FEATURE-2D0A.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
