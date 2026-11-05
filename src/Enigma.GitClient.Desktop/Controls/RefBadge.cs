@@ -69,6 +69,7 @@ public sealed class RefBadge : TemplatedControl
     static RefBadge()
     {
         KindProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateClasses());
+        KindProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateDescription());
         IsCurrentProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateClasses());
         TextProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateDescription());
         UpstreamProperty.Changed.AddClassHandler<RefBadge>((badge, _) => badge.UpdateDescription());
@@ -113,7 +114,8 @@ public sealed class RefBadge : TemplatedControl
 
     /// <summary>
     /// Gets or sets the upstream drawn in the same pill — <c>origin/main</c> beside <c>main</c>, both on
-    /// this commit — or <see langword="null"/> for a badge of its own.
+    /// this commit — or, for a tag, the remote that has it on this commit; <see langword="null"/> for a
+    /// badge of its own. Either way the pill draws the remote's cloud.
     /// </summary>
     public string? Upstream
     {
@@ -198,7 +200,10 @@ public sealed class RefBadge : TemplatedControl
     {
         HasUpstream = Upstream is { Length: > 0 };
 
-        string? name = HasUpstream ? $"{Text} and {Upstream}" : Text;
+        // A branch is drawn with its upstream, another branch; a tag with the remote that has it.
+        string? name = !HasUpstream ? Text
+            : Kind == GitRefKind.Tag ? $"{Text}, on {Upstream}"
+            : $"{Text} and {Upstream}";
         Description = WorktreeTip is { Length: > 0 } worktree ? $"{name}\n{worktree}" : name;
     }
 

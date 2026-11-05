@@ -1506,7 +1506,8 @@ public sealed class HistoryPageTests
             // The line is the row: whatever the columns do, the grid is as wide as the list gives it.
             Assert.True(row.Bounds.Width > 400, $"the row was only {row.Bounds.Width} wide");
 
-            TextBlock subject = row.Children.OfType<TextBlock>().First();
+            // The message column's cell, which holds the subject in the line's first band.
+            Panel subject = row.Children.OfType<Panel>().Single(cell => cell.Name == "SubjectCell");
 
             // The gap between two columns — ten points of ColumnSpacing carrying no child at all,
             // which is exactly where a right-click used to fall through to the list.
@@ -2098,7 +2099,7 @@ public sealed class HistoryPageTests
             List<double> subjectLefts = [.. strips
                 .Select(strip => strip.GetVisualParent() as Grid)
                 .OfType<Grid>()
-                .Select(row => row.Children.OfType<TextBlock>().First())
+                .Select(row => row.Children.OfType<Panel>().Single(cell => cell.Name == "SubjectCell"))
                 .Select(subject => subject.Bounds.X)];
 
             Assert.NotEmpty(subjectLefts);
@@ -2259,12 +2260,12 @@ public sealed class HistoryPageTests
         Assert.Equal(38, chrome);
         Assert.True(RefBadgeMetrics.MeasureBadge("main") > chrome);
 
-        // Two badges on a row are still separated by the strip's own spacing; the checked-out one
-        // counts its check.
+        // Two badges on a row are stacked one under the other, so the strip is as wide as the wider
+        // of them (FEATURE-D7D5); the checked-out one counts its check.
         RefBadgeItem[] two = [new(GitRefKind.LocalBranch, "main", true), new(GitRefKind.Tag, "v1.0.0", false)];
 
         Assert.Equal(
-            RefBadgeMetrics.MeasureBadge("main", isCurrent: true) + RefBadgeMetrics.MeasureBadge("v1.0.0") + RefBadgeMetrics.BadgeSpacing,
+            Math.Max(RefBadgeMetrics.MeasureBadge("main", isCurrent: true), RefBadgeMetrics.MeasureBadge("v1.0.0")),
             RefBadgeMetrics.Measure(two));
     }
 
@@ -2620,7 +2621,11 @@ public sealed class HistoryPageTests
         ListBox list = view.FindControl<ListBox>("CommitList")!;
         Control item = list.ContainerFromItem(row)!;
 
-        return item.GetVisualDescendants().OfType<TextBlock>().First(text => Grid.GetColumn(text) == 2);
+        return item.GetVisualDescendants()
+            .OfType<Panel>()
+            .Single(cell => cell.Name == "SubjectCell")
+            .Children.OfType<TextBlock>()
+            .Single();
     }
 
     [Fact]

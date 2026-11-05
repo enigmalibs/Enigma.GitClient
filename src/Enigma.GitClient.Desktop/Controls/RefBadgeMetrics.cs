@@ -54,7 +54,7 @@ public static class RefBadgeMetrics
     /// <summary>The padding on each side of a badge's content, the 1 px border included.</summary>
     public const double HorizontalPadding = 10;
 
-    /// <summary>The gap between two badges on the same row.</summary>
+    /// <summary>The gap between two badges on the same row, one under the other.</summary>
     public const double BadgeSpacing = 4;
 
     /// <summary>
@@ -65,7 +65,8 @@ public static class RefBadgeMetrics
     private static readonly ConcurrentDictionary<string, double> Labels = new();
 
     /// <summary>
-    /// Measures the strip of badges a row draws.
+    /// Measures the strip of badges a row draws: as wide as its widest badge, since the strip stacks
+    /// them one under the other (<see cref="BadgeStackPanel"/>).
     /// </summary>
     /// <param name="badges">The row's badges, in the order they are drawn.</param>
     /// <returns>The width the strip occupies, or 0 when the row has no badge.</returns>
@@ -80,10 +81,10 @@ public static class RefBadgeMetrics
 
         foreach (ViewModels.Pages.RefBadgeItem badge in badges)
         {
-            width += MeasureBadge(badge.Name, badge.HasUpstream, badge.IsCurrent, badge.IsWorktree);
+            width = Math.Max(width, MeasureBadge(badge.Name, badge.HasUpstream, badge.IsCurrent, badge.IsWorktree));
         }
 
-        return width + (BadgeSpacing * (badges.Count - 1));
+        return width;
     }
 
     /// <summary>

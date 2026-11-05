@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
@@ -165,7 +166,9 @@ public sealed record HistoryResetRequest(CommitRowViewModel Row, string Branch);
 /// <param name="IsCurrent">Whether this is the branch HEAD points at.</param>
 /// <param name="Upstream">
 /// For a local branch drawn together with its upstream — both on this commit — the upstream's short
-/// name (<c>origin/main</c>); <see langword="null"/> for every other badge.
+/// name (<c>origin/main</c>); for a tag the remote has on this commit, the remote's name
+/// (<c>origin</c>); <see langword="null"/> for every other badge. Either way the badge draws the
+/// remote's cloud.
 /// </param>
 /// <param name="Worktree">
 /// For a local branch checked out in another working tree, where it is
@@ -197,6 +200,56 @@ public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent, 
         ArgumentNullException.ThrowIfNull(reference);
 
         return new RefBadgeItem(reference.Kind, reference.ShortName, reference is GitBranch { IsCurrent: true });
+    }
+}
+
+/// <summary>
+/// The order a history line draws its badges in: the checked-out branch first, then the local
+/// branches, then the remote ones, then anything that is neither a branch nor a tag — the stash, a
+/// note — and the tags last; each group by name.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Applied to the line's own badges rather than left to whoever read the references: the stash badge
+/// is added here, and a remote branch drawn in its local branch's badge is taken out here, so only the
+/// finished list can be put in order.
+/// </para>
+/// <para>
+/// Names compare without regard to case, as Core's decoration index and the reference lists do. The
+/// sort is stable: two badges whose names differ only in case keep the order they came in.
+/// </para>
+/// </remarks>
+public static class RefBadgeOrder
+{
+    /// <summary>
+    /// Puts badges in drawing order.
+    /// </summary>
+    /// <param name="badges">The badges, in any order.</param>
+    /// <returns>The same badges, in the order they are drawn.</returns>
+    public static List<RefBadgeItem> Sort(IEnumerable<RefBadgeItem> badges)
+    {
+        ArgumentNullException.ThrowIfNull(badges);
+
+        return [.. badges.OrderBy(Group).ThenBy(badge => badge.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>
+    /// Says which group a badge is drawn in; lower groups come first.
+    /// </summary>
+    /// <param name="badge">The badge.</param>
+    /// <returns>0 for the checked-out branch, 1 a local branch, 2 a remote one, 3 anything else, 4 a tag.</returns>
+    public static int Group(RefBadgeItem badge)
+    {
+        ArgumentNullException.ThrowIfNull(badge);
+
+        return badge switch
+        {
+            { Kind: GitRefKind.LocalBranch, IsCurrent: true } => 0,
+            { Kind: GitRefKind.LocalBranch } => 1,
+            { Kind: GitRefKind.RemoteBranch } => 2,
+            { Kind: GitRefKind.Tag } => 4,
+            _ => 3,
+        };
     }
 }
 
@@ -233,6 +286,10 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Says where a local branch is checked out in another working tree, by its short name, or
     /// <see langword="null"/> when no other working tree has it; without it no badge carries a tree.
     /// </param>
+    /// <param name="remoteTagOf">
+    /// Says which remote has a tag on a commit, by the tag's name and the commit, or
+    /// <see langword="null"/> when none is known to; without it no tag badge carries a cloud.
+    /// </param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
@@ -242,7 +299,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         HistoryRowCommands? commands = null,
         bool absoluteDates = false,
         StashEntry? stash = null,
-        Func<string, string?>? worktreeOf = null)
+        Func<string, string?>? worktreeOf = null,
+        Func<string, string, string?>? remoteTagOf = null)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
@@ -251,7 +309,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commit = commit;
         Row = row;
         Stash = stash;
-        Refs = Project(refs, stash, worktreeOf);
+        Refs = Project(refs, stash, worktreeOf, remoteTagOf);
         (Branches, Badges) = BuildBranches(Refs, commands);
         IsHead = isHead;
 
@@ -307,7 +365,11 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// <summary>
     /// Gets the badges for the references pointing at this commit, in badge order.
     /// </summary>
-    public IReadOnlyList<RefBadgeItem> Refs { get; }
+    /// <remarks>
+    /// Replaced, not changed, when a tag's remote becomes known or stops being
+    /// (<see cref="ShowRemoteTags"/>): its badge draws the cloud, which makes it wider.
+    /// </remarks>
+    public IReadOnlyList<RefBadgeItem> Refs { get; private set; }
 
     /// <summary>
     /// Gets the commands the row's context menu runs, or <see langword="null"/> when the row was
@@ -553,6 +615,55 @@ public sealed class CommitRowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Gets what a badge's menu offers after its own items: everything the line's menu offers, so a
+    /// right-click on a badge reaches the line's actions too — less the items the badge already has.
+    /// </summary>
+    /// <param name="badge">The badge's item: a <see cref="HistoryBranchViewModel"/> or a <see cref="HistoryTagViewModel"/>.</param>
+    /// <returns>
+    /// The entries, starting with a separator that parts them from the badge's own items, never with two
+    /// separators in a row nor one last; empty when the line has nothing to add.
+    /// </returns>
+    /// <remarks>
+    /// The line names every branch on it — "set it as the merge source", "merge the source into it" —
+    /// and a branch's own badge offers those two for itself already, under the same conditions. They are
+    /// the line's entries whose parameter is the badge's item, and only those are left out: the other
+    /// branches' entries are the line's items like any other.
+    /// </remarks>
+    public IReadOnlyList<HistoryMenuEntry> BadgeMenuEntries(object badge)
+    {
+        ArgumentNullException.ThrowIfNull(badge);
+
+        List<HistoryMenuEntry> entries = [];
+
+        // A separator goes before the first item, after the badge's own.
+        bool separate = true;
+
+        foreach (HistoryMenuEntry entry in MenuEntries)
+        {
+            if (entry.IsSeparator)
+            {
+                separate = true;
+                continue;
+            }
+
+            if (ReferenceEquals(entry.Parameter, badge))
+            {
+                continue;
+            }
+
+            if (separate)
+            {
+                entries.Add(HistoryMenuEntry.Separator);
+                separate = false;
+            }
+
+            entries.Add(entry);
+        }
+
+        return entries;
+    }
+
+    /// <summary>
     /// The squash's two steps. With no base, every line offers to become it; the base's own line
     /// offers to forget it; any other line offers to replace it, to squash everything since it up to
     /// this line — counted from the loaded lines, and greyed out when the base is not on this line's
@@ -612,6 +723,54 @@ public sealed class CommitRowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(MenuEntries));
+    }
+
+    /// <summary>
+    /// Draws each tag badge of the line with the remote that has the tag on this commit, now.
+    /// </summary>
+    /// <param name="remoteTagOf">
+    /// Says which remote has a tag on a commit, by the tag's name and the commit, or
+    /// <see langword="null"/>.
+    /// </param>
+    /// <returns><see langword="true"/> when a badge changed, and with it maybe the width it needs.</returns>
+    public bool ShowRemoteTags(Func<string, string, string?> remoteTagOf)
+    {
+        ArgumentNullException.ThrowIfNull(remoteTagOf);
+
+        if (Commit is not { } commit)
+        {
+            return false;
+        }
+
+        bool changed = false;
+
+        foreach (object badge in Badges)
+        {
+            if (badge is HistoryTagViewModel tag)
+            {
+                changed |= tag.ShowRemote(remoteTagOf(tag.Name, commit.Sha));
+            }
+        }
+
+        // The plain list follows, whether or not the tags have menus: it is what the Refs column is
+        // measured from.
+        List<RefBadgeItem> refs = new(Refs.Count);
+        bool listChanged = false;
+
+        foreach (RefBadgeItem item in Refs)
+        {
+            RefBadgeItem shown = item.Kind == GitRefKind.Tag ? item with { Upstream = remoteTagOf(item.Name, commit.Sha) } : item;
+            listChanged |= shown != item;
+            refs.Add(shown);
+        }
+
+        if (listChanged)
+        {
+            Refs = refs;
+            OnPropertyChanged(nameof(Refs));
+        }
+
+        return changed || listChanged;
     }
 
     /// <summary>
@@ -832,7 +991,8 @@ public sealed class CommitRowViewModel : ViewModelBase
     private static IReadOnlyList<RefBadgeItem> Project(
         IReadOnlyList<GitRef>? refs,
         StashEntry? stash,
-        Func<string, string?>? worktreeOf)
+        Func<string, string?>? worktreeOf,
+        Func<string, string, string?>? remoteTagOf)
     {
         if ((refs is null || refs.Count == 0) && stash is null)
         {
@@ -858,6 +1018,12 @@ public sealed class CommitRowViewModel : ViewModelBase
                 continue;
             }
 
+            if (reference is GitTag tag)
+            {
+                items.Add(RefBadgeItem.From(tag) with { Upstream = remoteTagOf?.Invoke(tag.ShortName, tag.TargetSha) });
+                continue;
+            }
+
             if (reference is not GitBranch { IsRemote: false } local)
             {
                 items.Add(RefBadgeItem.From(reference));
@@ -875,7 +1041,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 worktree));
         }
 
-        return items;
+        return RefBadgeOrder.Sort(items);
     }
 
     /// <summary>

@@ -117,6 +117,16 @@ public sealed class SignedInOperationsTests
     }
 
     [Fact]
+    public async Task ReadingARemotesTags_SignsIn()
+    {
+        await Tags().ListRemoteAsync(Repository, "origin", TestContext.Current.CancellationToken);
+
+        GitCommand command = Assert.Single(_runner.Commands);
+        AssertSignedIn(command, "ls-remote");
+        Assert.Equal(["--tags", "--", "origin"], command.Arguments.TakeLast(3));
+    }
+
+    [Fact]
     public async Task ATagMadeHere_DoesNotAskForALogin()
     {
         await Tags().DeleteAsync(Repository, "v1.0.0", TestContext.Current.CancellationToken);

@@ -185,6 +185,44 @@ public sealed class TagAndCheckoutServiceTests : IAsyncLifetime
             await origin.GitLinesAsync("for-each-ref", "--format=%(refname:short)", "refs/tags/"));
     }
 
+    [Fact]
+    public async Task ListRemoteAsync_SaysWhichTagsTheRemoteHas_OnTheirCommits()
+    {
+        TemporaryRepository origin = await _workspace.InitRepositoryAsync("origin", bare: true);
+        await _repository.GitAsync("remote", "add", "origin", origin.Path);
+        await _repository.GitAsync("push", "origin", "main");
+
+        await Tags.CreateAsync(_handle, "light", _firstSha, cancellationToken: TestContext.Current.CancellationToken);
+        await Tags.CreateAsync(_handle, "annotated", _secondSha, "A release", cancellationToken: TestContext.Current.CancellationToken);
+        await Tags.CreateAsync(_handle, "local-only", cancellationToken: TestContext.Current.CancellationToken);
+        await Tags.PushAsync(_handle, "origin", "light", TestContext.Current.CancellationToken);
+        await Tags.PushAsync(_handle, "origin", "annotated", TestContext.Current.CancellationToken);
+
+        IReadOnlyDictionary<string, string> remote = await Tags.ListRemoteAsync(_handle, "origin", TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, remote.Count);
+        Assert.Equal(_firstSha, remote["light"]);
+
+        // The annotated tag's commit, not its tag object.
+        Assert.Equal(_secondSha, remote["annotated"]);
+        Assert.False(remote.ContainsKey("local-only"));
+    }
+
+    [Fact]
+    public async Task ListRemoteAsync_OfARemoteWithNoTag_IsEmpty()
+    {
+        TemporaryRepository origin = await _workspace.InitRepositoryAsync("origin", bare: true);
+        await _repository.GitAsync("remote", "add", "origin", origin.Path);
+        await _repository.GitAsync("push", "origin", "main");
+
+        Assert.Empty(await Tags.ListRemoteAsync(_handle, "origin", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ListRemoteAsync_OfAnUnknownRemote_Throws()
+        => await Assert.ThrowsAsync<GitCommandException>(
+            () => Tags.ListRemoteAsync(_handle, "nowhere", TestContext.Current.CancellationToken));
+
     // ---------------------------------------------------------------- checkout
 
     [Fact]
