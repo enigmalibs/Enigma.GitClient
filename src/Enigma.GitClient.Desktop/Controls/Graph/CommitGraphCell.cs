@@ -74,6 +74,12 @@ public sealed class CommitGraphCell : Control
         AvaloniaProperty.Register<CommitGraphCell, double>(nameof(CurveRadius), 9);
 
     /// <summary>
+    /// Defines the <see cref="LineHeight"/> property.
+    /// </summary>
+    public static readonly StyledProperty<double> LineHeightProperty =
+        AvaloniaProperty.Register<CommitGraphCell, double>(nameof(LineHeight));
+
+    /// <summary>
     /// Defines the <see cref="MaximumLanes"/> property.
     /// </summary>
     public static readonly StyledProperty<int> MaximumLanesProperty =
@@ -106,7 +112,8 @@ public sealed class CommitGraphCell : Control
             LanePaddingProperty,
             NodeRadiusProperty,
             StrokeThicknessProperty,
-            CurveRadiusProperty);
+            CurveRadiusProperty,
+            LineHeightProperty);
 
         AffectsMeasure<CommitGraphCell>(RowProperty, LaneWidthProperty, LanePaddingProperty, MaximumLanesProperty);
     }
@@ -194,6 +201,31 @@ public sealed class CommitGraphCell : Control
         get => GetValue(CurveRadiusProperty);
         set => SetValue(CurveRadiusProperty, value);
     }
+
+    /// <summary>
+    /// Gets or sets the height of the row's first band, in which the node is drawn; 0 — the default —
+    /// draws it in the middle of the whole row.
+    /// </summary>
+    /// <remarks>
+    /// A history line that stacks several badges is taller than the others, and the rest of the line —
+    /// the node with it — stays in its first band, level with the first badge. The lanes passing
+    /// through, and the line leaving the node for a parent, still run to the row's bottom edge, so the
+    /// graph is unbroken across a tall line.
+    /// </remarks>
+    public double LineHeight
+    {
+        get => GetValue(LineHeightProperty);
+        set => SetValue(LineHeightProperty, value);
+    }
+
+    /// <summary>
+    /// Gets the vertical centre of the node in a row of a given height: the middle of the first band
+    /// when <see cref="LineHeight"/> is set and smaller than the row, else the middle of the row.
+    /// </summary>
+    /// <param name="height">The row's height.</param>
+    /// <returns>The y coordinate.</returns>
+    public double GetNodeCentre(double height)
+        => LineHeight > 0 && LineHeight < height ? LineHeight / 2 : height / 2;
 
     /// <summary>
     /// Gets or sets how many lanes the column may grow to before it stops widening. Beyond this the
@@ -289,7 +321,7 @@ public sealed class CommitGraphCell : Control
         }
 
         double height = Bounds.Height;
-        double middle = height / 2;
+        double middle = GetNodeCentre(height);
 
         foreach (GraphEdge edge in row.Edges)
         {

@@ -553,8 +553,9 @@
             <ListBox.Styles>
               <Style Selector="ListBoxItem">
                 <Setter Property="Padding" Value="0" />
-                <!-- The row's own Grid carries the height, which is a preference; a MinHeight here would
-                     quietly win whenever that preference is smaller. -->
+                <!-- The row's own Grid carries the height, which is a preference — or more, on a line
+                     whose badges are stacked; a MinHeight here would quietly win whenever that
+                     preference is smaller. -->
                 <Setter Property="MinHeight" Value="0" />
                 <!-- Stated rather than inherited from the theme: the row's hit area is only the whole
                      line if the row's content is given the whole line. -->
@@ -573,8 +574,13 @@
                   a local value beats every style setter, so `commitrow` says "transparent" and
                   `commitrow.match` says "found", at the same precedence, and the more specific one
                   wins.
+
+                  Its height is the row height of the preferences at least: a line whose badges are
+                  stacked is taller, and the rest of the line — the node, the subject, the author, the
+                  date, the sha — stays in its first band, level with the first badge, rather than being
+                  centred over the whole height.
                 -->
-                <Grid Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                <Grid MinHeight="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
                       Classes="commitrow"
                       Classes.head="{Binding IsHead}"
                       Classes.match="{Binding IsSearchMatch}"
@@ -630,6 +636,7 @@
                                          IsHead="{Binding IsHead}"
                                          IsUncommitted="{Binding IsUncommitted}"
                                          LaneWidth="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).LaneWidth}"
+                                         LineHeight="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
                                          LanePadding="8"
                                          VerticalAlignment="Stretch" />
 
@@ -637,19 +644,21 @@
                     The badges are a column of their own: one width for the whole page, handed to
                     every row, exactly as the graph cell takes GraphColumnWidth. An Auto column is
                     measured per row, which is what used to put the subject at a different x on every
-                    line that carried a badge. A branch badge can be dragged onto another branch's:
-                    the page runs that gesture itself (HistoryPageView.axaml.cs) and offers the merge
-                    at the drop.
+                    line that carried a badge. The badges are stacked one under the other, the first
+                    centred in the line's first band (BadgeStackPanel): a line with several is taller.
+                    A branch badge can be dragged onto another branch's: the page runs that gesture
+                    itself (HistoryPageView.axaml.cs) and offers the merge at the drop.
                   -->
                   <ItemsControl Grid.Column="1"
                                 Name="RefStrip"
                                 Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.RefsWidth}"
                                 ItemsSource="{Binding Badges}"
                                 ClipToBounds="True"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Top">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="4" />
+                        <controls:BadgeStackPanel LineHeight="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                                                  Spacing="4" />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.DataTemplates>
@@ -868,31 +877,37 @@
                   </ItemsControl>
 
                   <!-- The squash base's flag shares the subject's cell, the subject padded clear of it
-                       while it shows: the subject stays the cell's own text block. -->
-                  <ei:Icon Grid.Column="2"
-                           Name="SquashBaseFlag"
-                           Kind="FlagBanner"
-                           Classes="pill"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding IsSquashBase}"
-                           ToolTip.Tip="Squash base"
-                           AutomationProperties.Name="Squash base"
-                           Foreground="{DynamicResource ActionAccentBrush}" />
-
-                  <TextBlock Grid.Column="2"
-                             Text="{Binding Subject}"
-                             Classes.squashbase="{Binding IsSquashBase}"
+                       while it shows: the subject stays the cell's own text block. The cell, like the
+                       three after it, is the line's first band: on a line taller than that, it stays at
+                       the top, level with the first badge. -->
+                  <Panel Grid.Column="2"
+                         Name="SubjectCell"
+                         Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                         VerticalAlignment="Top">
+                    <ei:Icon Name="SquashBaseFlag"
+                             Kind="FlagBanner"
+                             Classes="pill"
+                             HorizontalAlignment="Left"
                              VerticalAlignment="Center"
-                             TextTrimming="CharacterEllipsis"
-                             ToolTip.Tip="{Binding Subject}"
-                             Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                             IsVisible="{Binding IsSquashBase}"
+                             ToolTip.Tip="Squash base"
+                             AutomationProperties.Name="Squash base"
+                             Foreground="{DynamicResource ActionAccentBrush}" />
+
+                    <TextBlock Text="{Binding Subject}"
+                               Classes.squashbase="{Binding IsSquashBase}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding Subject}"
+                               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                  </Panel>
 
                   <StackPanel Grid.Column="3"
                               Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.AuthorWidth}"
+                              Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
                               Orientation="Horizontal"
                               Spacing="7"
-                              VerticalAlignment="Center"
+                              VerticalAlignment="Top"
                               IsVisible="{Binding !IsUncommitted}">
                     <controls:AuthorAvatar Initials="{Binding AuthorInitials}"
                                            Seed="{Binding AuthorName}"
@@ -904,21 +919,27 @@
                                Classes="dim" />
                   </StackPanel>
 
-                  <TextBlock Grid.Column="4"
-                             Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.DateWidth}"
-                             Text="{Binding DateText}"
-                             VerticalAlignment="Center"
-                             FontSize="12"
-                             TextTrimming="CharacterEllipsis"
-                             ToolTip.Tip="{Binding DateTooltip}"
-                             Classes="dim" />
+                  <Panel Grid.Column="4"
+                         Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                         VerticalAlignment="Top">
+                    <TextBlock Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.DateWidth}"
+                               Text="{Binding DateText}"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding DateTooltip}"
+                               Classes="dim" />
+                  </Panel>
 
-                  <TextBlock Grid.Column="5"
-                             Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.ShaWidth}"
-                             Classes="monospace faint"
-                             Text="{Binding ShortSha}"
-                             VerticalAlignment="Center"
-                             FontSize="12" />
+                  <Panel Grid.Column="5"
+                         Height="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).RowHeight}"
+                         VerticalAlignment="Top">
+                    <TextBlock Width="{Binding $parent[ListBox].((vm:HistoryPageViewModel)DataContext).Columns.ShaWidth}"
+                               Classes="monospace faint"
+                               Text="{Binding ShortSha}"
+                               VerticalAlignment="Center"
+                               FontSize="12" />
+                  </Panel>
                 </Grid>
               </DataTemplate>
             </ListBox.ItemTemplate>
