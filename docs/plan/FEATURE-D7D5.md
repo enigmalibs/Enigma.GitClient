@@ -1,6 +1,6 @@
 # FEATURE-D7D5 — Stacked ref badges in the History
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-05-history-badges-release
@@ -40,7 +40,7 @@ branches, then the remote branches, each by name, and the tags last.
 ## PHASE01 — Badge order: current, branches, tags
 
 **Branch:** `feature/feature-d7d5-phase01-badge-order`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

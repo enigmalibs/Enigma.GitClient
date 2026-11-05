@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Core.Graph;
 using Enigma.GitClient.Core.History;
@@ -197,6 +198,56 @@ public sealed record RefBadgeItem(GitRefKind Kind, string Name, bool IsCurrent, 
         ArgumentNullException.ThrowIfNull(reference);
 
         return new RefBadgeItem(reference.Kind, reference.ShortName, reference is GitBranch { IsCurrent: true });
+    }
+}
+
+/// <summary>
+/// The order a history line draws its badges in: the checked-out branch first, then the local
+/// branches, then the remote ones, then anything that is neither a branch nor a tag — the stash, a
+/// note — and the tags last; each group by name.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Applied to the line's own badges rather than left to whoever read the references: the stash badge
+/// is added here, and a remote branch drawn in its local branch's badge is taken out here, so only the
+/// finished list can be put in order.
+/// </para>
+/// <para>
+/// Names compare without regard to case, as Core's decoration index and the reference lists do. The
+/// sort is stable: two badges whose names differ only in case keep the order they came in.
+/// </para>
+/// </remarks>
+public static class RefBadgeOrder
+{
+    /// <summary>
+    /// Puts badges in drawing order.
+    /// </summary>
+    /// <param name="badges">The badges, in any order.</param>
+    /// <returns>The same badges, in the order they are drawn.</returns>
+    public static List<RefBadgeItem> Sort(IEnumerable<RefBadgeItem> badges)
+    {
+        ArgumentNullException.ThrowIfNull(badges);
+
+        return [.. badges.OrderBy(Group).ThenBy(badge => badge.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>
+    /// Says which group a badge is drawn in; lower groups come first.
+    /// </summary>
+    /// <param name="badge">The badge.</param>
+    /// <returns>0 for the checked-out branch, 1 a local branch, 2 a remote one, 3 anything else, 4 a tag.</returns>
+    public static int Group(RefBadgeItem badge)
+    {
+        ArgumentNullException.ThrowIfNull(badge);
+
+        return badge switch
+        {
+            { Kind: GitRefKind.LocalBranch, IsCurrent: true } => 0,
+            { Kind: GitRefKind.LocalBranch } => 1,
+            { Kind: GitRefKind.RemoteBranch } => 2,
+            { Kind: GitRefKind.Tag } => 4,
+            _ => 3,
+        };
     }
 }
 
@@ -875,7 +926,7 @@ public sealed class CommitRowViewModel : ViewModelBase
                 worktree));
         }
 
-        return items;
+        return RefBadgeOrder.Sort(items);
     }
 
     /// <summary>
