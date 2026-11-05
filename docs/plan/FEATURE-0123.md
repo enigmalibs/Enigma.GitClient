@@ -1,6 +1,6 @@
 # FEATURE-0123 — Remote mark on tag badges
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-05-history-badges-release
@@ -33,7 +33,7 @@ the remote has on another commit, has no cloud. The tooltip says where it is (`v
 ## PHASE01 — Read a remote's tags in Core
 
 **Branch:** `feature/feature-0123-phase01-remote-tags-core`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

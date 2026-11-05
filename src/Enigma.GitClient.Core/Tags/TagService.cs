@@ -79,6 +79,25 @@ public interface ITagService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Asks a remote which tags it has, and on which commits.
+    /// </summary>
+    /// <param name="repository">The repository whose remote is asked, and whose credentials are used.</param>
+    /// <param name="remote">The remote's name.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>
+    /// Each tag the remote has, by name, with the commit it points at — an annotated tag's peeled one.
+    /// </returns>
+    /// <remarks>
+    /// git keeps no remote-tracking tags: a fetched tag is a local tag like any other, so whether a tag
+    /// was pushed is known only by asking the remote. It is a network read, signed in as a push is.
+    /// </remarks>
+    /// <exception cref="GitCommandException">The remote could not be read — offline, refused, gone.</exception>
+    Task<IReadOnlyDictionary<string, string>> ListRemoteAsync(
+        RepositoryHandle repository,
+        string remote,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Answers whether a tag already exists.
     /// </summary>
     /// <param name="repository">The repository to read.</param>
@@ -226,6 +245,22 @@ public sealed class TagService : ITagService
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<string, string>> ListRemoteAsync(
+        RepositoryHandle repository,
+        string remote,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remote);
+
+        // "--" first: the remote's name is never read as an option, whatever it is called.
+        GitResult result = await RunOnRemoteAsync(repository, ["ls-remote", "--tags", "--", remote], cancellationToken)
+            .ConfigureAwait(false);
+
+        return RemoteTagParser.Parse(result.StandardOutput);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsAsync(
         RepositoryHandle repository,
         string name,
@@ -295,7 +330,7 @@ public sealed class TagService : ITagService
         await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task RunOnRemoteAsync(
+    private async Task<GitResult> RunOnRemoteAsync(
         RepositoryHandle repository,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken)
@@ -305,6 +340,6 @@ public sealed class TagService : ITagService
 
         GitCommand command = _commandFactory.Create(repository.WorkTreePath, arguments).WithCredentials(credentials);
 
-        await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
+        return await _runner.RunAsync(command, throwOnError: true, cancellationToken).ConfigureAwait(false);
     }
 }
