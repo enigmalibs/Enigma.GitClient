@@ -400,7 +400,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-D7D5 | Stacked ref badges in the History        | DONE      | docs/plan/FEATURE-D7D5.md |
 | - PHASE01    | Badge order: current, branches, tags     | DONE      | (in FEATURE-D7D5.md)      |
 | - PHASE02    | Badges stacked, the line on top          | DONE      | (in FEATURE-D7D5.md)      |
-| FEATURE-F452 | The line's items on badge menus          | TODO      | docs/plan/FEATURE-F452.md |
+| FEATURE-F452 | The line's items on badge menus          | DONE      | docs/plan/FEATURE-F452.md |
 | FEATURE-70CB | Delete a branch and its remote at once   | TODO      | docs/plan/FEATURE-70CB.md |
 | FEATURE-0123 | Remote mark on tag badges                | TODO      | docs/plan/FEATURE-0123.md |
 | - PHASE01    | Read a remote's tags in Core             | TODO      | (in FEATURE-0123.md)      |

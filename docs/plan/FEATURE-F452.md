@@ -1,6 +1,6 @@
 # FEATURE-F452 — The line's items on badge menus
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-f452-badge-menus-line-items`
 **Run:** feature/2026-11-05-history-badges-release
