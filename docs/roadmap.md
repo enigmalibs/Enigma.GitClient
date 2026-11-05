@@ -405,7 +405,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-0123 | Remote mark on tag badges                | DONE      | docs/plan/FEATURE-0123.md |
 | - PHASE01    | Read a remote's tags in Core             | DONE      | (in FEATURE-0123.md)      |
 | - PHASE02    | The cloud on pushed tag badges           | DONE      | (in FEATURE-0123.md)      |
-| FEATURE-2D0A | Release 6.16.0                           | TODO      | docs/plan/FEATURE-2D0A.md |
+| FEATURE-2D0A | Release 6.16.0                           | DONE      | docs/plan/FEATURE-2D0A.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

@@ -1,6 +1,6 @@
 # FEATURE-2D0A — Release 6.16.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-2d0a-release-6-16-0`
 **Run:** feature/2026-11-05-history-badges-release
