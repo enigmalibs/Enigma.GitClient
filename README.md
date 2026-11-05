@@ -10,10 +10,11 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.15** — the application icon fills its frame: the same drawing, larger, so it reads at
-> a glance in the taskbar and the launcher (on Linux, run the installer again to get it). 6.14 before
-> it: the icon dropped its dark tile, and `buildmsi.ps1` or `buildmsi.bat` builds the Windows installer
-> in one command, an installer that upgrades the installed version. Coming from 5.9? The buttons on the
+> **What's new in 6.16** — on the History page, a line's branch and tag badges are stacked, the
+> checked-out branch first and the tags last; a badge's menu offers the line's items too; a branch and
+> its remote can be deleted at once from their badge; and a pushed tag's badge shows the remote's
+> cloud, as a branch's does. 6.15 before it: the application icon fills its frame (on Linux, run the
+> installer again to get it). Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
 > renamed `Enigma.GitClient.Desktop` in 5.1.1: read *Upgrading from 5.1.0* there (on Linux, run the

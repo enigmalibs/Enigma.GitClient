@@ -45,6 +45,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     private readonly IBranchOperations _branchOperations;
     private readonly IWorktreeOperations _worktreeOperations;
     private readonly ITagOperations _tagOperations;
+    private readonly IRemoteTags _remoteTags;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IResetOperations _resetOperations;
     private readonly IRevertOperations _revertOperations;
@@ -125,6 +126,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
     /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
     /// <param name="discards">Throws the uncommitted work away, from the uncommitted line.</param>
+    /// <param name="remoteTags">Which tags the remote has, which the tag badges' clouds show.</param>
     /// <param name="workingTreePanel">What the details panel holds for the uncommitted line.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
@@ -152,6 +154,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         IStashOperations stashOperations,
         ICommitDetailsDialogService details,
         IDiscardOperations discards,
+        IRemoteTags remoteTags,
         WorkingTreePanelViewModel workingTreePanel,
         ILogger<HistoryPageViewModel> logger)
         : base(repositoryContext)
@@ -179,6 +182,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(stashOperations);
         ArgumentNullException.ThrowIfNull(details);
         ArgumentNullException.ThrowIfNull(discards);
+        ArgumentNullException.ThrowIfNull(remoteTags);
         ArgumentNullException.ThrowIfNull(workingTreePanel);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -206,6 +210,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _interop = interop;
         _details = details;
         _discards = discards;
+
+        // The remote answers after the lines are drawn — and again after every fetch: the tags'
+        // clouds follow it in place, without redrawing the history.
+        _remoteTags = remoteTags;
+        _remoteTags.Changed += (_, _) => OnRemoteTagsChanged();
 
         WorkingTree = workingTreePanel;
         WorkingTree.SelectionChanged += (_, _) => OnWorkingTreeSelectionChanged();
@@ -261,7 +270,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 new AsyncRelayCommand<HistoryBranchViewModel>(
                     OnRemoveWorktreeAsync,
                     branch => branch?.CanRemoveWorktree == true)),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnRenameBranchAsync, branch => branch?.CanRename == true));
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnRenameBranchAsync, branch => branch?.CanRename == true),
+
+            // Both or neither: git refuses to delete the branch HEAD is on, and deleting only its
+            // remote is the item above it.
+            new AsyncRelayCommand<HistoryBranchViewModel>(
+                OnDeleteBranchWithRemoteAsync,
+                branch => branch is { CanDeleteWithRemote: true, CanDelete: true }));
 
         ClearSquashBaseCommand = new RelayCommand(() => SquashBase = null, () => SquashBase is not null);
 
@@ -1411,6 +1426,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         string? reveal = await _tools.ShowAsync(dialog).ConfigureAwait(true);
 
+        // The tags dialog pushes and deletes tags on the remote, and the remotes dialog changes which
+        // remote there is: what the badges' clouds say is asked again.
+        if (IsRepositoryOpen && dialog is ToolDialog.Tags or ToolDialog.Remotes)
+        {
+            _remoteTags.RefreshAsync().Forget();
+        }
+
         if (IsRepositoryOpen && before != RepositoryStateStamp.Of(RepositoryContext))
         {
             await ReloadAsync().ConfigureAwait(true);
@@ -1693,7 +1715,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 RowCommands,
                 _absoluteDates,
                 _stashBySha.GetValueOrDefault(commit.Sha),
-                WorktreeTipOf));
+                WorktreeTipOf,
+                _remoteTags.RemoteOf));
         }
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
@@ -2323,6 +2346,25 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
+    /// <summary>
+    /// Deletes a branch and the upstream its badge draws with it, as one batch: one question naming both
+    /// and whatever would be lost, then both deletes, one reading of the repository and one report.
+    /// </summary>
+    private async Task OnDeleteBranchWithRemoteAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch is not { CanDeleteWithRemote: true, Remote: { } remote })
+        {
+            return;
+        }
+
+        BranchToDelete[] both = [new(branch.Name, IsRemote: false), new(remote.Name, IsRemote: true)];
+
+        if (await _branchOperations.DeleteAsync(both).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
     private async Task OnPullBranchAsync(HistoryBranchViewModel? branch)
     {
         if (branch is { CanSynchronise: true } && await _syncOperations.PullBranchAsync(branch.Name).ConfigureAwait(true))
@@ -2341,15 +2383,20 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Pushes a tag from its badge.
+    /// Pushes a tag from its badge, then asks the remote again so the badge draws its cloud.
     /// </summary>
     /// <remarks>
     /// No reload afterwards: a pushed tag moves nothing the graph draws — there is no remote-tracking
     /// reference for a tag — and the operation re-reads the repository's state as every exclusive
     /// operation does.
     /// </remarks>
-    private Task OnPushTagAsync(string? tag)
-        => tag is { Length: > 0 } ? _syncOperations.PushTagAsync(tag) : Task.CompletedTask;
+    private async Task OnPushTagAsync(string? tag)
+    {
+        if (tag is { Length: > 0 } && await _syncOperations.PushTagAsync(tag).ConfigureAwait(true))
+        {
+            await _remoteTags.RefreshAsync().ConfigureAwait(true);
+        }
+    }
 
     /// <summary>
     /// Deletes a tag here, from its badge, and re-reads the history so the badge goes.
@@ -2363,13 +2410,38 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Deletes a tag from the remote, from its badge.
+    /// Deletes a tag from the remote, from its badge, then asks the remote again so the badge loses its
+    /// cloud.
     /// </summary>
     /// <remarks>
-    /// No reload, as for the push: the tag here stays, and a remote's tags are not drawn.
+    /// No reload, as for the push: the tag here stays.
     /// </remarks>
-    private Task OnDeleteRemoteTagAsync(string? tag)
-        => tag is { Length: > 0 } ? _tagOperations.DeleteRemoteAsync(tag) : Task.CompletedTask;
+    private async Task OnDeleteRemoteTagAsync(string? tag)
+    {
+        if (tag is { Length: > 0 } && await _tagOperations.DeleteRemoteAsync(tag).ConfigureAwait(true))
+        {
+            await _remoteTags.RefreshAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Draws every loaded tag badge with what the remote now says, and measures the Refs column again:
+    /// a cloud makes a badge wider.
+    /// </summary>
+    private void OnRemoteTagsChanged()
+    {
+        bool changed = false;
+
+        foreach (CommitRowViewModel row in Rows)
+        {
+            changed |= row.ShowRemoteTags(_remoteTags.RemoteOf);
+        }
+
+        if (changed)
+        {
+            RecalculateRefColumnWidth();
+        }
+    }
 
     private void OnSetMergeSource(HistoryBranchViewModel? branch)
     {
@@ -2471,6 +2543,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         BranchCommands.FastForwardInto.NotifyCanExecuteChanged();
         BranchCommands.MergeIntoCurrent.NotifyCanExecuteChanged();
         BranchCommands.Delete.NotifyCanExecuteChanged();
+        BranchCommands.DeleteWithRemote?.NotifyCanExecuteChanged();
         BranchCommands.Pull.NotifyCanExecuteChanged();
         BranchCommands.Push.NotifyCanExecuteChanged();
     }

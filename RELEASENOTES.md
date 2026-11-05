@@ -1,5 +1,90 @@
 # Release notes
 
+## 6.16.0 — 2026-11-05
+
+A minor release, all on the History page:
+
+- a line's **branch and tag badges are stacked**, one under the other, in a fixed order: the
+  checked-out branch first, then the local branches, the remote branches, and the tags last;
+- a **badge's menu offers the line's items too**, after its own: create a branch or a tag here, check
+  out the commit, reset, revert, squash, copy the hash;
+- a branch badge that stands for the branch and its upstream can **delete both at once**;
+- a **tag badge shows the remote's cloud** when the remote has the tag, as a branch badge does for its
+  upstream.
+
+### Stacked badges
+
+- **One badge under another.** A line with several badges grows taller. A line with one badge, or
+  none, keeps the row height set in the preferences.
+- **The rest of the line stays on top.** On a taller line, the commit's node, the subject, the author,
+  the date and the sha are drawn level with the first badge, not centred over the whole height. The
+  graph's lanes run unbroken through it.
+- **One order on every line.** The checked-out branch comes first, then the local branches, then the
+  remote branches, each by name; anything else (the stash, a note) follows, and the tags come last, by
+  name.
+- **A narrower Refs column.** Badges no longer sit side by side, so the column is first sized to the
+  widest badge, not to a whole row of them. A width you set with the column's grip is kept.
+
+### A badge's menu reaches the line
+
+- **The line's items follow the badge's own**, after a separator, on a branch badge and on a tag badge:
+  show what it changed, the commit's details, create a branch, a worktree or a tag here, check out this
+  commit, reset, revert, the squash items, the line's merge items, open on the host, and copy the hash.
+- **No item twice.** On a branch's badge, *Set "x" as merge source* and the merge into "x" are the
+  badge's own items, so they are not repeated from the line.
+
+### Delete a branch and its remote at once
+
+- **`Delete "x" and "origin/x"…`** follows *Delete "x"…* and *Delete "origin/x"…* on a badge that draws
+  a branch and its upstream on the same commit.
+- **One question**, the one the Branches page asks when several branches are deleted together: both
+  branches, the commits that would be lost, and a warning that deleting from a remote changes it for
+  everyone. Then both are deleted and the history reloads.
+- **Not on the checked-out branch**: the item is there but disabled, since git will not delete the
+  branch you are on.
+
+### Pushed tags show the cloud
+
+- **The cloud means the remote has the tag on the same commit.** The tooltip says so: `v1.0, on
+  origin`. A tag that was never pushed, or that the remote has on another commit, has no cloud.
+- **The remote is the one a tag is pushed to**, the current branch's push remote, else `origin`, as the
+  badge's *Push* and *Delete … from the remote* use.
+- **When it is asked.** git keeps no record of a remote's tags, so the application asks the remote
+  (`git ls-remote --tags`, signed in as a push is):
+  - when a repository opens;
+  - after every automatic or requested refresh whose fetch ran;
+  - after you push a tag or delete one from the remote from its badge, and once the Tags or the
+    Remotes dialog closes.
+
+  A refresh caused by a change on disk never reaches the network.
+- **Offline, nothing is lost or reported.** A remote that cannot be reached keeps what it said last,
+  and a repository it never answered for shows no cloud. Nothing is shown in the info bar.
+
+### Upgrading from 6.15
+
+- **On Windows, install the 6.16.0 MSI**: `packaging\windows\buildmsi.ps1` builds
+  `artifacts\Enigma.GitClient.6.16.0.msi`, and it replaces 6.15.0.
+- **On Linux, run `packaging/linux/install.sh` again.**
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.15 keeps everything.
+- **A remote with tags is asked one more thing** after every fetch: its list of tags. On a slow remote
+  that is one more round trip a minute, at the default refresh interval.
+
+### Dependencies
+
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.1.5 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it. Nothing else is outdated (`dotnet list package --outdated`, 2026-11-05).
+- The installer build still uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2.
+
+### Version
+
+- **6.16.0** is a minor release under Semantic Versioning.
+  - Core gains one member, `ITagService.ListRemoteAsync`, and a `RemoteTagParser`. Both are additions:
+    nothing is removed or changed.
+  - Every stored format is kept, and no dependency of the application moves.
+
 ## 6.15.0 — 2026-11-03
 
 A minor release:

@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.GitClient.Desktop.Controls;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views;
 using Enigma.Icons.Phosphor;
 
 namespace Enigma.GitClient.Desktop.Views.Pages;
@@ -682,17 +683,29 @@ public partial class HistoryPageView : UserControl
             : null;
 
     /// <summary>
-    /// Asks the line under a right-click to rebuild its menu before the menu opens.
+    /// Asks the line under a right-click to rebuild its menu before the menu opens — and, on a branch or
+    /// a tag badge, puts the line's items at the end of the badge's menu, under its own.
     /// </summary>
     /// <param name="sender">The page.</param>
     /// <param name="e">The request, which is left for the menu to handle.</param>
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (e.Source is Visual source
-            && source.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(control => control.DataContext is CommitRowViewModel)
-                is { DataContext: CommitRowViewModel row })
+        if (e.Source is not Visual source
+            || source.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(control => control.DataContext is CommitRowViewModel)
+                is not { DataContext: CommitRowViewModel row })
         {
-            row.RefreshMenu();
+            return;
+        }
+
+        row.RefreshMenu();
+
+        if (source.GetSelfAndVisualAncestors().OfType<RefBadge>().FirstOrDefault() is
+            {
+                ContextMenu: { } menu,
+                DataContext: HistoryBranchViewModel or HistoryTagViewModel,
+            } badge)
+        {
+            BadgeMenus.AppendLineEntries(menu, row.BadgeMenuEntries(badge.DataContext));
         }
     }
 }
