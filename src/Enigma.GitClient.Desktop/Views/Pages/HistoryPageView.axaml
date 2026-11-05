@@ -806,6 +806,15 @@
                                   <ei:Icon Kind="CloudX" Classes="menu" />
                                 </MenuItem.Icon>
                               </MenuItem>
+                              <!-- Both at once, one question: on the badge that stands for both. -->
+                              <MenuItem Header="{Binding DeleteWithRemoteHeader}"
+                                        IsVisible="{Binding CanDeleteWithRemote}"
+                                        Command="{Binding Commands.DeleteWithRemote}"
+                                        CommandParameter="{Binding}">
+                                <MenuItem.Icon>
+                                  <ei:Icon Kind="Trash" Classes="menu" />
+                                </MenuItem.Icon>
+                              </MenuItem>
                               <Separator IsVisible="{Binding CanCopyName}" />
                               <MenuItem Header="Copy branch name"
                                         IsVisible="{Binding CanCopyName}"

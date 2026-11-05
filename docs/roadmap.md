@@ -401,7 +401,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Badge order: current, branches, tags     | DONE      | (in FEATURE-D7D5.md)      |
 | - PHASE02    | Badges stacked, the line on top          | DONE      | (in FEATURE-D7D5.md)      |
 | FEATURE-F452 | The line's items on badge menus          | DONE      | docs/plan/FEATURE-F452.md |
-| FEATURE-70CB | Delete a branch and its remote at once   | TODO      | docs/plan/FEATURE-70CB.md |
+| FEATURE-70CB | Delete a branch and its remote at once   | DONE      | docs/plan/FEATURE-70CB.md |
 | FEATURE-0123 | Remote mark on tag badges                | TODO      | docs/plan/FEATURE-0123.md |
 | - PHASE01    | Read a remote's tags in Core             | TODO      | (in FEATURE-0123.md)      |
 | - PHASE02    | The cloud on pushed tag badges           | TODO      | (in FEATURE-0123.md)      |

@@ -261,7 +261,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase
                 new AsyncRelayCommand<HistoryBranchViewModel>(
                     OnRemoveWorktreeAsync,
                     branch => branch?.CanRemoveWorktree == true)),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnRenameBranchAsync, branch => branch?.CanRename == true));
+            new AsyncRelayCommand<HistoryBranchViewModel>(OnRenameBranchAsync, branch => branch?.CanRename == true),
+
+            // Both or neither: git refuses to delete the branch HEAD is on, and deleting only its
+            // remote is the item above it.
+            new AsyncRelayCommand<HistoryBranchViewModel>(
+                OnDeleteBranchWithRemoteAsync,
+                branch => branch is { CanDeleteWithRemote: true, CanDelete: true }));
 
         ClearSquashBaseCommand = new RelayCommand(() => SquashBase = null, () => SquashBase is not null);
 
@@ -2323,6 +2329,25 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         }
     }
 
+    /// <summary>
+    /// Deletes a branch and the upstream its badge draws with it, as one batch: one question naming both
+    /// and whatever would be lost, then both deletes, one reading of the repository and one report.
+    /// </summary>
+    private async Task OnDeleteBranchWithRemoteAsync(HistoryBranchViewModel? branch)
+    {
+        if (branch is not { CanDeleteWithRemote: true, Remote: { } remote })
+        {
+            return;
+        }
+
+        BranchToDelete[] both = [new(branch.Name, IsRemote: false), new(remote.Name, IsRemote: true)];
+
+        if (await _branchOperations.DeleteAsync(both).ConfigureAwait(true))
+        {
+            await ReloadAsync().ConfigureAwait(true);
+        }
+    }
+
     private async Task OnPullBranchAsync(HistoryBranchViewModel? branch)
     {
         if (branch is { CanSynchronise: true } && await _syncOperations.PullBranchAsync(branch.Name).ConfigureAwait(true))
@@ -2471,6 +2496,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         BranchCommands.FastForwardInto.NotifyCanExecuteChanged();
         BranchCommands.MergeIntoCurrent.NotifyCanExecuteChanged();
         BranchCommands.Delete.NotifyCanExecuteChanged();
+        BranchCommands.DeleteWithRemote?.NotifyCanExecuteChanged();
         BranchCommands.Pull.NotifyCanExecuteChanged();
         BranchCommands.Push.NotifyCanExecuteChanged();
     }

@@ -1,6 +1,6 @@
 # FEATURE-70CB — Delete a branch and its remote at once
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-70cb-delete-local-and-remote`
 **Run:** feature/2026-11-05-history-badges-release

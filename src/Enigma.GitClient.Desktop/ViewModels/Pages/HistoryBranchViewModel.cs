@@ -36,6 +36,10 @@ public sealed record MergeSource(string Name, bool IsRemote);
 /// What the menu offers for a branch another working tree has checked out; nothing without it.
 /// </param>
 /// <param name="Rename">Renames a local branch, after asking for the new name; not offered without it.</param>
+/// <param name="DeleteWithRemote">
+/// Deletes a local branch and the upstream drawn in the same badge, after asking once; not offered
+/// without it.
+/// </param>
 public sealed record HistoryBranchCommands(
     AsyncRelayCommand<HistoryBranchViewModel> Checkout,
     RelayCommand<HistoryBranchViewModel> SetAsMergeSource,
@@ -51,7 +55,8 @@ public sealed record HistoryBranchCommands(
     AsyncRelayCommand<string>? Copy = null,
     AsyncRelayCommand<HistoryBranchViewModel>? CreateWorktree = null,
     HistoryWorktreeCommands? Worktrees = null,
-    AsyncRelayCommand<HistoryBranchViewModel>? Rename = null);
+    AsyncRelayCommand<HistoryBranchViewModel>? Rename = null,
+    AsyncRelayCommand<HistoryBranchViewModel>? DeleteWithRemote = null);
 
 /// <summary>
 /// What a branch badge's menu offers for a branch another working tree has checked out — the branches
@@ -128,6 +133,15 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 
     /// <summary>Gets what the item that deletes the upstream drawn with the branch says.</summary>
     public string DeleteRemoteHeader => $"Delete \"{Remote?.Name}\"…";
+
+    /// <summary>
+    /// Gets a value indicating whether the badge's menu offers deleting the branch and the upstream drawn
+    /// with it, at once: only a badge that stands for both.
+    /// </summary>
+    public bool CanDeleteWithRemote => HasRemote && Commands.DeleteWithRemote is not null;
+
+    /// <summary>Gets what the item that deletes the branch and its upstream at once says.</summary>
+    public string DeleteWithRemoteHeader => $"Delete \"{Name}\" and \"{Remote?.Name}\"…";
 
     /// <summary>Gets the branch's short name.</summary>
     public string Name => Badge.Name;
