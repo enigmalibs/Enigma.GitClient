@@ -1,6 +1,6 @@
 # FEATURE-0123 — Remote mark on tag badges
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-05-history-badges-release
@@ -62,7 +62,7 @@ the remote has on another commit, has no cloud. The tooltip says where it is (`v
 ## PHASE02 — The cloud on pushed tag badges
 
 **Branch:** `feature/feature-0123-phase02-tag-cloud`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

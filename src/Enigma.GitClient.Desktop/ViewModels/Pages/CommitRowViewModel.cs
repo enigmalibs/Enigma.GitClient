@@ -166,7 +166,9 @@ public sealed record HistoryResetRequest(CommitRowViewModel Row, string Branch);
 /// <param name="IsCurrent">Whether this is the branch HEAD points at.</param>
 /// <param name="Upstream">
 /// For a local branch drawn together with its upstream — both on this commit — the upstream's short
-/// name (<c>origin/main</c>); <see langword="null"/> for every other badge.
+/// name (<c>origin/main</c>); for a tag the remote has on this commit, the remote's name
+/// (<c>origin</c>); <see langword="null"/> for every other badge. Either way the badge draws the
+/// remote's cloud.
 /// </param>
 /// <param name="Worktree">
 /// For a local branch checked out in another working tree, where it is
@@ -284,6 +286,10 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// Says where a local branch is checked out in another working tree, by its short name, or
     /// <see langword="null"/> when no other working tree has it; without it no badge carries a tree.
     /// </param>
+    /// <param name="remoteTagOf">
+    /// Says which remote has a tag on a commit, by the tag's name and the commit, or
+    /// <see langword="null"/> when none is known to; without it no tag badge carries a cloud.
+    /// </param>
     public CommitRowViewModel(
         GitCommit commit,
         GraphRow row,
@@ -293,7 +299,8 @@ public sealed class CommitRowViewModel : ViewModelBase
         HistoryRowCommands? commands = null,
         bool absoluteDates = false,
         StashEntry? stash = null,
-        Func<string, string?>? worktreeOf = null)
+        Func<string, string?>? worktreeOf = null,
+        Func<string, string, string?>? remoteTagOf = null)
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(row);
@@ -302,7 +309,7 @@ public sealed class CommitRowViewModel : ViewModelBase
         Commit = commit;
         Row = row;
         Stash = stash;
-        Refs = Project(refs, stash, worktreeOf);
+        Refs = Project(refs, stash, worktreeOf, remoteTagOf);
         (Branches, Badges) = BuildBranches(Refs, commands);
         IsHead = isHead;
 
@@ -358,7 +365,11 @@ public sealed class CommitRowViewModel : ViewModelBase
     /// <summary>
     /// Gets the badges for the references pointing at this commit, in badge order.
     /// </summary>
-    public IReadOnlyList<RefBadgeItem> Refs { get; }
+    /// <remarks>
+    /// Replaced, not changed, when a tag's remote becomes known or stops being
+    /// (<see cref="ShowRemoteTags"/>): its badge draws the cloud, which makes it wider.
+    /// </remarks>
+    public IReadOnlyList<RefBadgeItem> Refs { get; private set; }
 
     /// <summary>
     /// Gets the commands the row's context menu runs, or <see langword="null"/> when the row was
@@ -715,6 +726,54 @@ public sealed class CommitRowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Draws each tag badge of the line with the remote that has the tag on this commit, now.
+    /// </summary>
+    /// <param name="remoteTagOf">
+    /// Says which remote has a tag on a commit, by the tag's name and the commit, or
+    /// <see langword="null"/>.
+    /// </param>
+    /// <returns><see langword="true"/> when a badge changed, and with it maybe the width it needs.</returns>
+    public bool ShowRemoteTags(Func<string, string, string?> remoteTagOf)
+    {
+        ArgumentNullException.ThrowIfNull(remoteTagOf);
+
+        if (Commit is not { } commit)
+        {
+            return false;
+        }
+
+        bool changed = false;
+
+        foreach (object badge in Badges)
+        {
+            if (badge is HistoryTagViewModel tag)
+            {
+                changed |= tag.ShowRemote(remoteTagOf(tag.Name, commit.Sha));
+            }
+        }
+
+        // The plain list follows, whether or not the tags have menus: it is what the Refs column is
+        // measured from.
+        List<RefBadgeItem> refs = new(Refs.Count);
+        bool listChanged = false;
+
+        foreach (RefBadgeItem item in Refs)
+        {
+            RefBadgeItem shown = item.Kind == GitRefKind.Tag ? item with { Upstream = remoteTagOf(item.Name, commit.Sha) } : item;
+            listChanged |= shown != item;
+            refs.Add(shown);
+        }
+
+        if (listChanged)
+        {
+            Refs = refs;
+            OnPropertyChanged(nameof(Refs));
+        }
+
+        return changed || listChanged;
+    }
+
+    /// <summary>
     /// Re-announces everything the page's squash base decides: the line's flag and its menu.
     /// </summary>
     public void NotifySquashBaseChanged()
@@ -932,7 +991,8 @@ public sealed class CommitRowViewModel : ViewModelBase
     private static IReadOnlyList<RefBadgeItem> Project(
         IReadOnlyList<GitRef>? refs,
         StashEntry? stash,
-        Func<string, string?>? worktreeOf)
+        Func<string, string?>? worktreeOf,
+        Func<string, string, string?>? remoteTagOf)
     {
         if ((refs is null || refs.Count == 0) && stash is null)
         {
@@ -955,6 +1015,12 @@ public sealed class CommitRowViewModel : ViewModelBase
             if (reference is GitBranch { IsRemote: true } remote && joined.ContainsValue(remote.ShortName))
             {
                 // Drawn by the local branch that tracks it.
+                continue;
+            }
+
+            if (reference is GitTag tag)
+            {
+                items.Add(RefBadgeItem.From(tag) with { Upstream = remoteTagOf?.Invoke(tag.ShortName, tag.TargetSha) });
                 continue;
             }
 

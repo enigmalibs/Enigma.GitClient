@@ -289,22 +289,85 @@ public sealed class HistoryBranchViewModel : ViewModelBase
 /// the branches — pushing the tag to the remote, deleting it here or there, and what it is called, to
 /// copy.
 /// </summary>
-/// <param name="Badge">The badge as drawn.</param>
-/// <param name="Copy">Copies a text to the clipboard.</param>
-/// <param name="Push">Pushes a tag, by its name, to the remote; the push is not offered without it.</param>
-/// <param name="Delete">Deletes a tag here, by its name, after asking; not offered without it.</param>
-/// <param name="DeleteRemote">
-/// Deletes a tag, by its name, from the remote its push goes to, after asking; not offered without it.
-/// </param>
-public sealed record HistoryTagViewModel(
-    RefBadgeItem Badge,
-    AsyncRelayCommand<string> Copy,
-    AsyncRelayCommand<string>? Push = null,
-    AsyncRelayCommand<string>? Delete = null,
-    AsyncRelayCommand<string>? DeleteRemote = null)
+/// <remarks>
+/// The badge carries the remote's cloud when the remote has the tag on this commit, as a branch badge
+/// does when its upstream is on it (<see cref="RefBadgeItem.Upstream"/>). The remote is asked after the
+/// line was drawn, so the badge is replaced in place when the answer comes (<see cref="ShowRemote"/>).
+/// </remarks>
+public sealed class HistoryTagViewModel : ViewModelBase
 {
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="badge">The badge as drawn.</param>
+    /// <param name="copy">Copies a text to the clipboard.</param>
+    /// <param name="push">Pushes a tag, by its name, to the remote; the push is not offered without it.</param>
+    /// <param name="delete">Deletes a tag here, by its name, after asking; not offered without it.</param>
+    /// <param name="deleteRemote">
+    /// Deletes a tag, by its name, from the remote its push goes to, after asking; not offered without it.
+    /// </param>
+    public HistoryTagViewModel(
+        RefBadgeItem badge,
+        AsyncRelayCommand<string> copy,
+        AsyncRelayCommand<string>? push = null,
+        AsyncRelayCommand<string>? delete = null,
+        AsyncRelayCommand<string>? deleteRemote = null)
+    {
+        ArgumentNullException.ThrowIfNull(badge);
+        ArgumentNullException.ThrowIfNull(copy);
+
+        Badge = badge;
+        Copy = copy;
+        Push = push;
+        Delete = delete;
+        DeleteRemote = deleteRemote;
+    }
+
+    /// <summary>Gets the badge as drawn: the tag, and the remote that has it on this commit, if any.</summary>
+    public RefBadgeItem Badge
+    {
+        get;
+        private set => SetProperty(ref field, value);
+    }
+
+    /// <summary>Gets the command that copies a text to the clipboard.</summary>
+    public AsyncRelayCommand<string> Copy { get; }
+
+    /// <summary>Gets the command that pushes the tag, or <see langword="null"/>.</summary>
+    public AsyncRelayCommand<string>? Push { get; }
+
+    /// <summary>Gets the command that deletes the tag here, or <see langword="null"/>.</summary>
+    public AsyncRelayCommand<string>? Delete { get; }
+
+    /// <summary>Gets the command that deletes the tag from the remote, or <see langword="null"/>.</summary>
+    public AsyncRelayCommand<string>? DeleteRemote { get; }
+
     /// <summary>Gets the tag's name, as the badge shows it.</summary>
     public string Name => Badge.Name;
+
+    /// <summary>
+    /// Gets the remote that has the tag on this commit — which the badge's cloud stands for — or
+    /// <see langword="null"/>.
+    /// </summary>
+    public string? Remote => Badge.Upstream;
+
+    /// <summary>
+    /// Draws the badge with the remote that has the tag on this commit, or without a cloud.
+    /// </summary>
+    /// <param name="remote">The remote's name, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the badge changed.</returns>
+    public bool ShowRemote(string? remote)
+    {
+        if (string.Equals(remote, Badge.Upstream, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        Badge = Badge with { Upstream = remote };
+        OnPropertyChanged(nameof(Remote));
+
+        return true;
+    }
 
     /// <summary>Gets a value indicating whether the badge's menu can push the tag.</summary>
     public bool CanPush => Push is not null;

@@ -833,8 +833,11 @@
                            deleting it here or there, and its name, to copy — the branch badge's shape,
                            actions first. -->
                       <DataTemplate DataType="vm:HistoryTagViewModel" x:DataType="vm:HistoryTagViewModel">
+                        <!-- The remote's cloud when it has the tag on this commit, as a branch's badge
+                             draws its upstream's. -->
                         <controls:RefBadge Kind="{Binding Badge.Kind}"
-                                           Text="{Binding Name}">
+                                           Text="{Binding Name}"
+                                           Upstream="{Binding Badge.Upstream}">
                           <controls:RefBadge.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="{Binding PushHeader}"
