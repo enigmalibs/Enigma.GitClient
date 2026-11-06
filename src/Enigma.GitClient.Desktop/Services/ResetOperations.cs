@@ -218,7 +218,7 @@ public sealed class ResetOperations : IResetOperations
             : $"The uncommitted changes to {CountFiles(tracked.Count)} are thrown away and cannot be brought back:\n\n"
                 + string.Join('\n', Describe(tracked));
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        DialogResult answer = await _dialogs.ShowDestructiveAsync(dialog =>
         {
             dialog.Title = "Discard all changes?";
             dialog.Content =
@@ -227,7 +227,6 @@ public sealed class ResetOperations : IResetOperations
                 + "\n\nUntracked files are left where they are.";
             dialog.PrimaryButtonText = "Reset and discard";
             dialog.CloseButtonText = "Cancel";
-            dialog.DefaultButton = DefaultButton.Close;
         }).ConfigureAwait(true);
 
         return answer == DialogResult.Primary;

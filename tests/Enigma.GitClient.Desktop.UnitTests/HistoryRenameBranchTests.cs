@@ -15,6 +15,7 @@ using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.UnitTests.Infrastructure;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
+using Enigma.GitClient.Desktop.Views;
 using Enigma.GitClient.Desktop.Views.Dialogs;
 using Enigma.GitClient.Desktop.Views.Pages;
 using Enigma.Icons.Avalonia;
@@ -236,6 +237,7 @@ public sealed class HistoryRenameBranchTests
 
             ContentDialogService dialogs = new();
             dialogs.RegisterHost(host);
+            DialogFocus.Attach(host);
 
             opener.Focus();
             Assert.True(opener.IsFocused);

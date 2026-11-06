@@ -200,12 +200,16 @@ public sealed class StashOperationsTests
             StashEntry entry = await StashAsync(services, repository, "app.txt", "stashed\n", "keep me");
 
             services.Dialogs.Result = DialogResult.Close;
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
 
             Assert.False(await services.Get<IStashOperations>().DropAsync(entry));
 
             ContentDialog asked = services.Dialogs.Last!;
             Assert.Equal("Delete stash", asked.Title);
             Assert.Equal(DefaultButton.Close, asked.DefaultButton);
+            Assert.True(redWhileAsked, "deleting a stash is not asked in red");
+            Assert.DoesNotContain(ContentDialogServiceExtensions.DangerClass, asked.Classes);
             Assert.Contains("keep me", Assert.IsType<string>(asked.Content), StringComparison.Ordinal);
             Assert.Single(await ListAsync(services, repository));
 

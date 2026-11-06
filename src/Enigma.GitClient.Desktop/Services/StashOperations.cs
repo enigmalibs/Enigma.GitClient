@@ -175,15 +175,13 @@ public sealed class StashOperations : IStashOperations
             return false;
         }
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        // Red, the harmless button the default one, as everywhere a delete is offered.
+        DialogResult answer = await _dialogs.ShowDestructiveAsync(dialog =>
         {
             dialog.Title = "Delete stash";
             dialog.Content = $"Delete \"{Describe(entry)}\" ({entry.Reference})? The changes it holds cannot be recovered.";
             dialog.PrimaryButtonText = "Delete";
             dialog.CloseButtonText = "Cancel";
-
-            // The harmless button is the default one, as everywhere a delete is offered.
-            dialog.DefaultButton = DefaultButton.Close;
         }).ConfigureAwait(true);
 
         if (answer != DialogResult.Primary)

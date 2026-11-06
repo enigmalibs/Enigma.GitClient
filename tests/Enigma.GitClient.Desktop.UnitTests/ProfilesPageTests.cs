@@ -487,10 +487,14 @@ public sealed class ProfilesPageTests
             await page.OnAppearingAsync();
 
             services.Dialogs.Script(DialogResult.Close, DialogResult.Primary);
+            int redQuestions = 0;
+            services.Dialogs.OnShown = dialog => redQuestions += dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass) ? 1 : 0;
 
             await page.RemoveProfileCommand.ExecuteAsync(page.Profiles[0]);
 
             Assert.Equal("Delete this profile", services.Dialogs.Last!.Title);
+            Assert.Equal(1, redQuestions);
+            Assert.Equal(DefaultButton.Close, services.Dialogs.Last!.DefaultButton);
             Assert.Single(await store.GetAllAsync());
             Assert.Single(page.Profiles);
 

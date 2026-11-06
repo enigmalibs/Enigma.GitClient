@@ -619,10 +619,14 @@ public sealed class ConflictResolutionPageTests
 
             // Refused first: nothing is resolved by a bulk action the user did not confirm.
             services.Dialogs.Script(DialogResult.Close, DialogResult.Primary);
+            int redQuestions = 0;
+            services.Dialogs.OnShown = dialog => redQuestions += dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass) ? 1 : 0;
 
             await page.TakeEveryFileOursCommand.ExecuteAsync(null);
 
             Assert.True(page.HasUnresolved);
+            Assert.Equal(1, redQuestions);
+            Assert.Equal(DefaultButton.Close, services.Dialogs.Last!.DefaultButton);
 
             await page.TakeEveryFileOursCommand.ExecuteAsync(null);
 

@@ -96,6 +96,75 @@ public sealed class DestructiveConfirmationTests
         });
     }
 
+    [Fact]
+    public void TheHarmlessButton_KeepsTheLabelItIsGiven()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            ScriptedContentDialogService dialogs = new() { Result = DialogResult.Close };
+
+            Assert.False(await dialogs.ConfirmDestructiveAsync("Delete this profile", "Gone.", "Delete", "Keep it"));
+
+            ContentDialog dialog = Assert.Single(dialogs.Shown);
+            Assert.Equal("Delete", dialog.PrimaryButtonText);
+            Assert.Equal("Keep it", dialog.CloseButtonText);
+            Assert.Equal(DefaultButton.Close, dialog.DefaultButton);
+        });
+    }
+
+    [Fact]
+    public void ARedQuestion_HasCancelAsItsDefault_WhateverItAsksFor()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            ScriptedContentDialogService dialogs = new() { Result = DialogResult.Secondary };
+            bool redWhileAsked = false;
+            dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
+
+            DialogResult answer = await dialogs.ShowDestructiveAsync(dialog =>
+            {
+                dialog.Title = "Reset \"topic\" to \"origin/topic\"?";
+                dialog.Content = "These commits are only on \"topic\", and are left behind.";
+                dialog.PrimaryButtonText = "Reset local to here";
+                dialog.SecondaryButtonText = "Check out \"topic\"";
+                dialog.CloseButtonText = "Cancel";
+                dialog.DefaultButton = DefaultButton.Primary;
+            });
+
+            // Every answer comes back, the secondary one included.
+            Assert.Equal(DialogResult.Secondary, answer);
+
+            ContentDialog asked = Assert.Single(dialogs.Shown);
+            Assert.True(redWhileAsked);
+            Assert.Equal(DefaultButton.Close, asked.DefaultButton);
+            Assert.Equal("Check out \"topic\"", asked.SecondaryButtonText);
+            Assert.DoesNotContain(ContentDialogServiceExtensions.DangerClass, asked.Classes);
+        });
+    }
+
+    [Fact]
+    public void ALongRedQuestion_ScrollsInABoundedCard_AndTheHeightIsGivenBack()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            ScriptedContentDialogService dialogs = new() { Result = DialogResult.Close };
+            double heightWhileAsked = double.NaN;
+            dialogs.OnShown = dialog => heightWhileAsked = dialog.DialogMaxHeight;
+
+            string message = string.Join('\n', Enumerable.Range(1, 30).Select(line => $"branch-{line}"));
+            await dialogs.ShowDestructiveAsync(dialog =>
+            {
+                dialog.Title = "Delete 30 branches";
+                dialog.Content = message;
+                dialog.PrimaryButtonText = "Delete";
+                dialog.CloseButtonText = "Cancel";
+            });
+
+            Assert.Equal(ContentDialogServiceExtensions.LongQuestionHeight, heightWhileAsked);
+            Assert.Equal(double.PositiveInfinity, Assert.Single(dialogs.Shown).DialogMaxHeight);
+        });
+    }
+
     private static Button ConfirmButton(ContentDialog host)
         => host.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_PrimaryButton");
 

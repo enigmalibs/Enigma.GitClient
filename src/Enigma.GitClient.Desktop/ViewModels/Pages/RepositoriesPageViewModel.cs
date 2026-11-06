@@ -768,7 +768,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 + "them whatever the global identity becomes later.";
             dialog.PrimaryButtonText = "Use it";
             dialog.CloseButtonText = "Not now";
-            dialog.DefaultButton = DefaultButton.Close;
+            dialog.DefaultButton = DefaultButton.Primary;
         }).ConfigureAwait(true);
 
         if (answer != DialogResult.Primary)
@@ -825,7 +825,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                     + "email of its own gets these instead.";
                 dialog.PrimaryButtonText = "Use it";
                 dialog.CloseButtonText = "Cancel";
-                dialog.DefaultButton = DefaultButton.Close;
+                dialog.DefaultButton = DefaultButton.Primary;
             }).ConfigureAwait(true);
 
             if (answer != DialogResult.Primary)

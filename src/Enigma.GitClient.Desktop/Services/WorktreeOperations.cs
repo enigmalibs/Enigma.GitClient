@@ -348,27 +348,16 @@ public sealed class WorktreeOperations : IWorktreeOperations
     private async Task<bool> ConfirmRemovalAsync(RemoveWorktreeDialogViewModel model)
     {
         RemoveWorktreeDialogView view = new() { DataContext = model };
-        ContentDialog? shown = null;
 
-        try
+        DialogResult result = await _dialogs.ShowDestructiveAsync(dialog =>
         {
-            DialogResult result = await _dialogs.ShowAsync(dialog =>
-            {
-                shown = dialog;
-                dialog.Classes.Add(ContentDialogServiceExtensions.DangerClass);
-                dialog.Title = RemoveTitle;
-                dialog.Content = view;
-                dialog.PrimaryButtonText = model.ConfirmText;
-                dialog.CloseButtonText = "Cancel";
-                dialog.DefaultButton = DefaultButton.Close;
-            }).ConfigureAwait(true);
+            dialog.Title = RemoveTitle;
+            dialog.Content = view;
+            dialog.PrimaryButtonText = model.ConfirmText;
+            dialog.CloseButtonText = "Cancel";
+        }).ConfigureAwait(true);
 
-            return result == DialogResult.Primary;
-        }
-        finally
-        {
-            shown?.Classes.Remove(ContentDialogServiceExtensions.DangerClass);
-        }
+        return result == DialogResult.Primary;
     }
 
     /// <summary>
