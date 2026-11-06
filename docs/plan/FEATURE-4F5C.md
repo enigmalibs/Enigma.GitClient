@@ -73,7 +73,7 @@ The start window's repository tiles get easier to read and to use:
 ## PHASE02 — The tile's context menu
 
 **Branch:** `feature/feature-4f5c-phase02-tile-menu`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

@@ -80,7 +80,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="launcher">Starts another instance on a repository, for working on two at once.</param>
     /// <param name="about">Shows the About dialog from the header.</param>
     /// <param name="theme">The theme switch beside it.</param>
-    /// <param name="interop">Opens a listed repository's folder in the file manager, and a terminal in it.</param>
+    /// <param name="interop">
+    /// Opens a listed repository's folder in the file manager and a terminal in it, and copies its path.
+    /// </param>
     /// <param name="services">Resolves the dialog views.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public RepositoriesPageViewModel(
@@ -151,6 +153,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ForgetCommand = new AsyncRelayCommand<ListedRepository>(OnForgetAsync);
         OpenFolderCommand = new AsyncRelayCommand<ListedRepository>(OnOpenFolderAsync);
         OpenTerminalCommand = new AsyncRelayCommand<ListedRepository>(OnOpenTerminalAsync);
+        CopyPathCommand = new AsyncRelayCommand<ListedRepository>(OnCopyPathAsync);
         UseProfileIdentityEverywhereCommand = new AsyncRelayCommand(
             OnUseProfileIdentityEverywhereAsync,
             () => IsNotBusy && SelectedProfile is { HasIdentity: true } && HasRepositories);
@@ -283,6 +286,13 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// window's toolbar does for the open one.
     /// </summary>
     public AsyncRelayCommand<ListedRepository> OpenTerminalCommand { get; }
+
+    /// <summary>
+    /// Gets the command that puts a listed repository's full path on the clipboard, from its tile's
+    /// menu. A repository that has moved can still have its path copied: that is how the reader finds
+    /// out where the list thought it was.
+    /// </summary>
+    public AsyncRelayCommand<ListedRepository> CopyPathCommand { get; }
 
     /// <summary>
     /// Gets the command that writes the selected profile's name and email into the own configuration
@@ -468,6 +478,16 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 $"No terminal could be started in '{entry.Path}'.",
                 InfoBarSeverity.Warning);
         }
+    }
+
+    private async Task OnCopyPathAsync(ListedRepository? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        await _interop.CopyTextAsync(entry.Path).ConfigureAwait(true);
     }
 
     /// <summary>

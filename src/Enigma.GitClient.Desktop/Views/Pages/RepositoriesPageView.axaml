@@ -57,6 +57,60 @@
                 CornerRadius="6"
                 Padding="8,10,14,10"
                 Margin="0,0,0,8">
+          <!-- The tile's menu: a right-click anywhere on it, or the keyboard's menu key, with what its
+               buttons do and the path to copy. It opens in a popup whose logical parent is the tile,
+               so its items reach the page through the page itself: not through the list, as the
+               buttons do, because a ContextMenu is an ItemsControl too and would be found first. A
+               right-click never starts a drag: only the left button carries a tile. -->
+          <Border.ContextMenu>
+            <ContextMenu Name="TileMenu">
+              <MenuItem Header="Open"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).OpenListedCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="ArrowSquareIn" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Open in a new window"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).OpenInNewWindowCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="ArrowSquareOut" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <Separator />
+              <MenuItem Header="Open the repository's folder"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).OpenFolderCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="FolderOpen" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Open a terminal in the repository's folder"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).OpenTerminalCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="TerminalWindow" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Copy repository path"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).CopyPathCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="Copy" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <Separator />
+              <MenuItem Header="Forget this repository"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).ForgetCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="X" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+            </ContextMenu>
+          </Border.ContextMenu>
+
           <!-- The grip's column keeps its width while the grip is hidden, so a filtered
                row does not shift sideways. -->
           <Grid ColumnDefinitions="22,Auto,*,Auto">
