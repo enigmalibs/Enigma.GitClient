@@ -417,7 +417,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Store and draw a repository icon         | DONE      | (in FEATURE-4F5C.md)      |
 | - PHASE04    | Choose an icon from the tile menu        | DONE      | (in FEATURE-4F5C.md)      |
 | FEATURE-0CDE | History search in its own bar            | DONE      | docs/plan/FEATURE-0CDE.md |
-| BUG-553F     | Disabled menu items grey their icon      | TODO      | docs/plan/BUG-553F.md     |
+| BUG-553F     | Disabled menu items grey their icon      | DONE      | docs/plan/BUG-553F.md     |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

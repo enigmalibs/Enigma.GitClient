@@ -1,6 +1,6 @@
 # BUG-553F — Disabled menu items grey their icon
 
-**Status:** TODO
+**Status:** DONE
 **Type:** BUG
 **Branch:** `bugfix/bug-553f-disabled-menu-icons`
 **Run:** feature/2026-11-06-repo-tiles-history-search

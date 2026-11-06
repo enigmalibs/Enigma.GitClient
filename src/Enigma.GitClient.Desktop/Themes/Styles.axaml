@@ -920,4 +920,15 @@
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
+  <!--
+    A menu item that cannot be chosen is grey all over. FluentTheme greys a disabled item's title, its
+    shortcut and its chevron, but not its icon, which inherits the item's own foreground: the glyph
+    stayed white beside a grey title, and the item looked half-enabled. Every menu icon is an
+    `ei:Icon.menu`, a logical child of its item, so this one rule reaches all of them — the History's
+    line and badge menus, and every other — with the very brush the theme gives the title.
+  -->
+  <Style Selector="MenuItem:disabled ei|Icon.menu">
+    <Setter Property="Foreground" Value="{DynamicResource MenuFlyoutItemForegroundDisabled}" />
+  </Style>
+
 </Styles>
