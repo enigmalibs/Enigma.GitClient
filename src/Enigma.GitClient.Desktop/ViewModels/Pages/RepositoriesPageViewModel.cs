@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -29,13 +30,28 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// </summary>
 public sealed class RepositoriesPageViewModel : PageViewModelBase
 {
+    /// <summary>
+    /// What the icon picker offers: the kinds of file an icon can be, then everything, for a picture
+    /// whose name does not say what it is.
+    /// </summary>
+    private static readonly IReadOnlyList<FilePickerFileType> IconFileTypes =
+    [
+        new FilePickerFileType("Images")
+        {
+            Patterns = [.. RepositoryIconStore.Extensions.Select(extension => "*" + extension)],
+        },
+        FilePickerFileTypes.All,
+    ];
+
     private readonly IRepositoryService _repositories;
     private readonly IRepositoryListStore _lists;
+    private readonly IRepositoryIconStore _icons;
     private readonly IProfileSelection _selection;
     private readonly IGitIdentityService _identity;
     private readonly IBulkLocalIdentityService _bulkIdentity;
     private readonly ISettingsService _settings;
     private readonly IFolderDialogService _folderDialogs;
+    private readonly IFileDialogService _fileDialogs;
     private readonly IContentDialogService _dialogs;
     private readonly IOverlayService _overlay;
     private readonly IInfoBarService _infoBar;
@@ -64,6 +80,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="repositories">Opens, creates and clones repositories.</param>
     /// <param name="lists">Keeps each profile's list of repositories.</param>
+    /// <param name="icons">Keeps the icon a repository's tile shows in place of the folder glyph.</param>
     /// <param name="selection">Says whose list is shown.</param>
     /// <param name="identity">
     /// Sets git's global identity to the profile picked, and offers it to a new clone or repository as
@@ -72,6 +89,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="bulkIdentity">Gives the profile's identity to every repository on its list.</param>
     /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
+    /// <param name="fileDialogs">Raises the file picker a repository's icon is chosen in.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
     /// <param name="overlay">Shows clone progress.</param>
     /// <param name="infoBar">Reports outcomes.</param>
@@ -80,18 +98,22 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="launcher">Starts another instance on a repository, for working on two at once.</param>
     /// <param name="about">Shows the About dialog from the header.</param>
     /// <param name="theme">The theme switch beside it.</param>
-    /// <param name="interop">Opens a listed repository's folder in the file manager, and a terminal in it.</param>
+    /// <param name="interop">
+    /// Opens a listed repository's folder in the file manager and a terminal in it, and copies its path.
+    /// </param>
     /// <param name="services">Resolves the dialog views.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public RepositoriesPageViewModel(
         IRepositoryContext repositoryContext,
         IRepositoryService repositories,
         IRepositoryListStore lists,
+        IRepositoryIconStore icons,
         IProfileSelection selection,
         IGitIdentityService identity,
         IBulkLocalIdentityService bulkIdentity,
         ISettingsService settings,
         IFolderDialogService folderDialogs,
+        IFileDialogService fileDialogs,
         IContentDialogService dialogs,
         IOverlayService overlay,
         IInfoBarService infoBar,
@@ -107,11 +129,13 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     {
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(lists);
+        ArgumentNullException.ThrowIfNull(icons);
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(bulkIdentity);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(folderDialogs);
+        ArgumentNullException.ThrowIfNull(fileDialogs);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(overlay);
         ArgumentNullException.ThrowIfNull(infoBar);
@@ -126,11 +150,13 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         _repositories = repositories;
         _lists = lists;
+        _icons = icons;
         _selection = selection;
         _identity = identity;
         _bulkIdentity = bulkIdentity;
         _settings = settings;
         _folderDialogs = folderDialogs;
+        _fileDialogs = fileDialogs;
         _dialogs = dialogs;
         _overlay = overlay;
         _infoBar = infoBar;
@@ -151,6 +177,9 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ForgetCommand = new AsyncRelayCommand<ListedRepository>(OnForgetAsync);
         OpenFolderCommand = new AsyncRelayCommand<ListedRepository>(OnOpenFolderAsync);
         OpenTerminalCommand = new AsyncRelayCommand<ListedRepository>(OnOpenTerminalAsync);
+        CopyPathCommand = new AsyncRelayCommand<ListedRepository>(OnCopyPathAsync);
+        ChooseIconCommand = new AsyncRelayCommand<ListedRepository>(OnChooseIconAsync);
+        ResetIconCommand = new AsyncRelayCommand<ListedRepository>(OnResetIconAsync);
         UseProfileIdentityEverywhereCommand = new AsyncRelayCommand(
             OnUseProfileIdentityEverywhereAsync,
             () => IsNotBusy && SelectedProfile is { HasIdentity: true } && HasRepositories);
@@ -283,6 +312,26 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// window's toolbar does for the open one.
     /// </summary>
     public AsyncRelayCommand<ListedRepository> OpenTerminalCommand { get; }
+
+    /// <summary>
+    /// Gets the command that puts a listed repository's full path on the clipboard, from its tile's
+    /// menu. A repository that has moved can still have its path copied: that is how the reader finds
+    /// out where the list thought it was.
+    /// </summary>
+    public AsyncRelayCommand<ListedRepository> CopyPathCommand { get; }
+
+    /// <summary>
+    /// Gets the command that asks for a picture and makes it the icon a listed repository's tile shows,
+    /// for every profile that lists the repository. A file that cannot be an icon is reported, and the
+    /// tile keeps the icon it had.
+    /// </summary>
+    public AsyncRelayCommand<ListedRepository> ChooseIconCommand { get; }
+
+    /// <summary>
+    /// Gets the command that puts the folder glyph back on a listed repository's tile, forgetting the
+    /// icon chosen for it.
+    /// </summary>
+    public AsyncRelayCommand<ListedRepository> ResetIconCommand { get; }
 
     /// <summary>
     /// Gets the command that writes the selected profile's name and email into the own configuration
@@ -468,6 +517,58 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 $"No terminal could be started in '{entry.Path}'.",
                 InfoBarSeverity.Warning);
         }
+    }
+
+    private async Task OnChooseIconAsync(ListedRepository? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        string? file = (await _fileDialogs.ShowOpenFileDialogAsync(
+                title: $"Choose an icon for {entry.Name}",
+                fileTypeFilter: IconFileTypes)
+            .ConfigureAwait(true)).FirstOrDefault();
+
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _icons.SetAsync(entry.Path, file).ConfigureAwait(true);
+        }
+        catch (RepositoryIconException exception)
+        {
+            Report("The icon was not changed", exception.Message, InfoBarSeverity.Error);
+            return;
+        }
+
+        Replace(_all);
+    }
+
+    private async Task OnResetIconAsync(ListedRepository? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        await _icons.ResetAsync(entry.Path).ConfigureAwait(true);
+
+        Replace(_all);
+    }
+
+    private async Task OnCopyPathAsync(ListedRepository? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        await _interop.CopyTextAsync(entry.Path).ConfigureAwait(true);
     }
 
     /// <summary>
@@ -1159,11 +1260,31 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private void Replace(IReadOnlyList<ListedRepository> entries)
     {
-        _all = entries;
+        _all = [.. entries.Select(WithIcon)];
 
         ApplyFilter();
         OnPropertyChanged(nameof(HasRepositories));
         UseProfileIdentityEverywhereCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// A listed repository with the icon its tile shows, when it has one that can be drawn. One that
+    /// cannot — removed by hand, damaged — is left out, the tile shows the folder glyph, and the log
+    /// says why.
+    /// </summary>
+    private ListedRepository WithIcon(ListedRepository entry)
+    {
+        string? file = _icons.Find(entry.Path);
+
+        if (file is not null && RepositoryIconImages.Load(file) is null)
+        {
+            _logger.LogWarning("The icon of {Repository}, {File}, cannot be read; the folder glyph is shown", entry.Path, file);
+            file = null;
+        }
+
+        // A new record even for the same file, which has been replaced by another of its kind: the
+        // tile is drawn again, and reads the file again.
+        return entry with { IconFile = file };
     }
 
     private void ApplyFilter()

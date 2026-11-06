@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         {
             services.AddSingleton<IRepositoryContext, RepositoryContext>();
             services.AddSingleton<IRepositoryListStore, RepositoryListStore>();
+            services.AddSingleton<IRepositoryIconStore, RepositoryIconStore>();
             services.AddSingleton<IProfileSelection, ProfileSelection>();
             services.AddSingleton<IHiddenBranchStore, HiddenBranchStore>();
             services.AddSingleton<IHiddenBranches, HiddenBranches>();

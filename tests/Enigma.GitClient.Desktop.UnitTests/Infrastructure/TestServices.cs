@@ -117,6 +117,10 @@ public sealed class TestServices : IDisposable
         services.RemoveAll<IFolderDialogService>();
         services.AddSingleton<IFolderDialogService, RecordingFolderDialogService>();
 
+        // And the file picker: a test says which file it answers with.
+        services.RemoveAll<IFileDialogService>();
+        services.AddSingleton<IFileDialogService, RecordingFileDialogService>();
+
         // And so does their git identity: the real service writes their own global configuration.
         services.RemoveAll<IGitIdentityService>();
         services.AddSingleton<IGitIdentityService, FakeGitIdentityService>();
@@ -171,6 +175,11 @@ public sealed class TestServices : IDisposable
     /// was asked to start.
     /// </summary>
     public RecordingFolderDialogService Folders => (RecordingFolderDialogService)Get<IFolderDialogService>();
+
+    /// <summary>
+    /// Gets the recording file picker, for choosing the file it answers with.
+    /// </summary>
+    public RecordingFileDialogService Files => (RecordingFileDialogService)Get<IFileDialogService>();
 
     /// <summary>
     /// Orders the branches and tags dialogs by name, A to Z, instead of newest first.
