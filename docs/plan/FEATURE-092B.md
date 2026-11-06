@@ -1,6 +1,6 @@
 # FEATURE-092B — Release 6.18.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-092b-release-6-18-0`
 **Run:** feature/2026-11-06-release-6-18-0

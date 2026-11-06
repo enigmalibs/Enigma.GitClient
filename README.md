@@ -10,12 +10,13 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.17** — every dialog opens with the keyboard focus inside it: in its first text
-> field, else on its default button, so Enter and Escape reach it; a question that removes something or
-> throws work away is red and opens with Cancel focused; and a branch or tag badge's menu holds the
-> badge's own items again. 6.16 before it: on the History page, a line's branch and tag badges are
-> stacked, the checked-out branch first and the tags last; a branch and its remote can be deleted at
-> once from their badge; and a pushed tag's badge shows the remote's cloud, as a branch's does.
+> **What's new in 6.18** — a repository tile on the start window has a menu, opened by a right-click,
+> with what its buttons do, *Copy repository path*, and *Choose an icon…*, which gives the repository a
+> picture or an SVG of its own in place of the folder glyph; the History's search has a bar of its own,
+> under the commands, shown by the *Search* toggle or Ctrl+F; and a disabled menu item's glyph greys
+> with its title. 6.17 before it: every dialog opens with the keyboard focus inside it, in its first
+> text field, else on its default button; a question that removes something or throws work away is red
+> and opens with Cancel focused; and a branch or tag badge's menu holds the badge's own items again.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -102,7 +103,10 @@ Two things matter more than everything else in this app:
   while it is picked (a clone from one of its integrations goes there too); the button beside the
   profile writes its name and email into every repository on its list, after one question, so each
   of them keeps committing as that profile whatever the global identity becomes; the repository you pick
-  opens in a window of its own, and `Enigma.GitClient.Desktop <path>` opens one straight away
+  opens in a window of its own, and `Enigma.GitClient.Desktop <path>` opens one straight away; a
+  right-click on a repository's tile opens its menu — open it, its folder or a terminal there, copy its
+  path, forget it — and *Choose an icon…* there gives it a picture or an SVG of its own in place of the
+  folder glyph, in every profile that lists it
 - Working directory in the same panel: select the history's uncommitted line to see what is not
   staged and what is — stage/unstage, discard and commit (Ctrl+Enter) there, with each file's diff
   over the graph; every discard confirms with a red button, and the uncommitted line's menu discards
@@ -192,6 +196,7 @@ Everything the client remembers about you lives in one per-user directory —
 | `tokens.json` + `tokens.key` | Those tokens, encrypted, and the key that reads them |
 | `identity-profiles.json` | Your profiles: a label each, and the name and email it sets, if any |
 | `hidden-branches.json` | The branches you hid from the history, per repository |
+| `repository-icons/` | A copy of each icon you chose for a repository's tile |
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email, make a profile active on the
