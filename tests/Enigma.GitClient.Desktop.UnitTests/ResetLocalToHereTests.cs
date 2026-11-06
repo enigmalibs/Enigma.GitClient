@@ -38,7 +38,10 @@ public sealed class ResetLocalToHereTests
             await OpenAsync(services, world);
 
             services.Dialogs.Result = DialogResult.Close;
+            bool redWhileAsked = true;
+            services.Dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
             Assert.False(await services.Get<IBranchOperations>().CheckoutAsync("origin/main", isRemote: true));
+            Assert.False(redWhileAsked, "a reset that leaves nothing behind is asked in red");
 
             ContentDialog question = Assert.Single(services.Dialogs.Shown);
             Assert.Equal("Reset \"main\" to \"origin/main\"?", question.Title);
@@ -135,10 +138,14 @@ public sealed class ResetLocalToHereTests
             await OpenAsync(services, world);
 
             services.Dialogs.Result = DialogResult.Close;
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
             await services.Get<IBranchOperations>().CheckoutAsync("origin/topic", isRemote: true);
 
             ContentDialog question = Assert.Single(services.Dialogs.Shown);
             Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.True(redWhileAsked, "a reset that leaves commits behind is not asked in red");
+            Assert.DoesNotContain(ContentDialogServiceExtensions.DangerClass, question.Classes);
 
             string content = Assert.IsType<string>(question.Content);
             Assert.Contains("These commits are only on \"topic\", and are left behind:", content, StringComparison.Ordinal);

@@ -139,7 +139,7 @@ public sealed class MergeOperations : IMergeOperations
             return false;
         }
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        DialogResult answer = await _dialogs.ShowDestructiveAsync(dialog =>
         {
             dialog.Title = "Abandon the merge";
             dialog.Content =
@@ -148,7 +148,6 @@ public sealed class MergeOperations : IMergeOperations
                 + "affected.";
             dialog.PrimaryButtonText = "Abandon";
             dialog.CloseButtonText = "Keep going";
-            dialog.DefaultButton = DefaultButton.Close;
         }).ConfigureAwait(true);
 
         if (answer != DialogResult.Primary)

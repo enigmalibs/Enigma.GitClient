@@ -298,6 +298,8 @@ public sealed class MergeOperationTests
             await services.Get<IRepositoryContext>().RefreshAsync();
 
             services.Dialogs.Result = DialogResult.Close;
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = dialog => redWhileAsked = dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
 
             await shell.AbortMergeCommand.ExecuteAsync(null);
 
@@ -306,6 +308,8 @@ public sealed class MergeOperationTests
             // The question says what survives, because "abandon" sounds like it might not.
             Assert.Contains("Commits on either branch are not", message, StringComparison.Ordinal);
             Assert.Equal(DefaultButton.Close, services.Dialogs.Last.DefaultButton);
+            Assert.True(redWhileAsked, "abandoning the merge is not asked in red");
+            Assert.Equal("Keep going", services.Dialogs.Last.CloseButtonText);
             Assert.True(shell.IsMergeInProgress);
         });
     }

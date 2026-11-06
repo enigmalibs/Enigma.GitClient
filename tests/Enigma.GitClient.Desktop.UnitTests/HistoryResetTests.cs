@@ -238,12 +238,15 @@ public sealed class HistoryResetTests
 
             string before = Sha(repository, "main");
             services.Dialogs.Result = DialogResult.None;
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = asked => redWhileAsked = asked.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
 
             await RunAsync(Entry(Line(history, "Add the readme"), HardSuffix));
 
             ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
             Assert.Equal("Discard all changes?", dialog.Title);
             Assert.Equal(DefaultButton.Close, dialog.DefaultButton);
+            Assert.True(redWhileAsked, "the hard reset is not asked in red");
 
             Assert.Equal(before, Sha(repository, "main"));
             Assert.Equal("edited but not committed\n", Read(repository, "README.md"));

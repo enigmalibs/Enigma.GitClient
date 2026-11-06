@@ -189,11 +189,21 @@ public sealed class WorktreeRemoveTests
             using TestServices services = TestServices.Build(useRealRefReader: true);
             (_, string worktree) = await OpenAsync(services);
             Func<RemoveWorktreeDialogViewModel?> asked = Answer(services, DialogResult.Primary);
+            System.Action<ContentDialog>? fill = services.Dialogs.OnShown;
+            bool redWhileAsked = false;
+            services.Dialogs.OnShown = shown =>
+            {
+                redWhileAsked = shown.Classes.Contains(ContentDialogServiceExtensions.DangerClass);
+                fill?.Invoke(shown);
+            };
 
             Assert.True(await services.Get<IWorktreeOperations>().RemoveAsync(Linked(services)));
 
             ContentDialog dialog = Assert.Single(services.Dialogs.Shown);
             Assert.Equal("Remove worktree", dialog.Title);
+            Assert.True(redWhileAsked, "removing a worktree is not asked in red");
+            Assert.Equal(DefaultButton.Close, dialog.DefaultButton);
+            Assert.DoesNotContain(ContentDialogServiceExtensions.DangerClass, dialog.Classes);
             Assert.Equal("Remove", dialog.PrimaryButtonText);
             Assert.True(asked()!.DeleteBranch);
 

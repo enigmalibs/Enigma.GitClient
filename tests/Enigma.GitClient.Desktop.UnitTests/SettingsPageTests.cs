@@ -239,11 +239,15 @@ public sealed class SettingsPageTests
             page.Theme = ThemePreference.Dark;
 
             services.Dialogs.Script(DialogResult.Close, DialogResult.Primary);
+            int redQuestions = 0;
+            services.Dialogs.OnShown = dialog => redQuestions += dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass) ? 1 : 0;
 
             await page.ResetCommand.ExecuteAsync(null);
 
             Assert.Equal(ThemePreference.Dark, page.Theme);
             Assert.Equal("Reset every preference", services.Dialogs.Last!.Title);
+            Assert.Equal(1, redQuestions);
+            Assert.Equal(DefaultButton.Close, services.Dialogs.Last!.DefaultButton);
 
             await page.ResetCommand.ExecuteAsync(null);
 

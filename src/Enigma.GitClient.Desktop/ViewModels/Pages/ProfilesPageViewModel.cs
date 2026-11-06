@@ -962,7 +962,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             _ => $"\n\nIts {row.Integrations.Count.ToString(System.Globalization.CultureInfo.CurrentCulture)} integrations are disconnected and their tokens deleted.",
         };
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        DialogResult answer = await _dialogs.ShowDestructiveAsync(dialog =>
         {
             dialog.Title = "Delete this profile";
             dialog.Content =
@@ -972,7 +972,6 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
                 + integrations;
             dialog.PrimaryButtonText = "Delete";
             dialog.CloseButtonText = "Keep it";
-            dialog.DefaultButton = DefaultButton.Close;
         }).ConfigureAwait(true);
 
         if (answer != DialogResult.Primary)
@@ -1411,7 +1410,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             return;
         }
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        DialogResult answer = await _dialogs.ShowDestructiveAsync(dialog =>
         {
             dialog.Title = "Disconnect this account";
             dialog.Content =
@@ -1419,7 +1418,6 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
                 + "Nothing on the host is touched, and repositories you have already cloned keep working.";
             dialog.PrimaryButtonText = "Disconnect";
             dialog.CloseButtonText = "Keep it";
-            dialog.DefaultButton = DefaultButton.Close;
         }).ConfigureAwait(true);
 
         if (answer != DialogResult.Primary)

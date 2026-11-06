@@ -406,6 +406,11 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01    | Read a remote's tags in Core             | DONE      | (in FEATURE-0123.md)      |
 | - PHASE02    | The cloud on pushed tag badges           | DONE      | (in FEATURE-0123.md)      |
 | FEATURE-2D0A | Release 6.16.0                           | DONE      | docs/plan/FEATURE-2D0A.md |
+| FEATURE-0A3D | Focus a dialog's first field or button   | DONE      | docs/plan/FEATURE-0A3D.md |
+| - PHASE01    | The focus rule on every dialog host      | DONE      | (in FEATURE-0A3D.md)      |
+| - PHASE02    | Red questions for every destructive one  | DONE      | (in FEATURE-0A3D.md)      |
+| FEATURE-83E5 | Badge menus: the badge's items only      | DONE      | docs/plan/FEATURE-83E5.md |
+| FEATURE-9D08 | Release 6.17.0                           | DONE      | docs/plan/FEATURE-9D08.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

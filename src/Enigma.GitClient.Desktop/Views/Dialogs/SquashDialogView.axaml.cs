@@ -23,8 +23,9 @@ public partial class SquashDialogView : UserControl
     /// dialog cannot propose, and the bullets below it are already written.
     /// </summary>
     /// <remarks>
-    /// Posted rather than called, as the tag dialog does, because the box cannot take the focus until
-    /// it is laid out.
+    /// Every other dialog opens with the caret in its first field (<see cref="DialogFocus"/>), which
+    /// here is the branch name; the dialog leaves the focus where this view has put it. Posted rather
+    /// than called, because the box cannot take the focus until it is laid out.
     /// </remarks>
     private void FocusTheTitle()
         => Dispatcher.UIThread.Post(() =>
