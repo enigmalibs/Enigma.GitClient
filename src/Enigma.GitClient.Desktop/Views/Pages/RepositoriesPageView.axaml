@@ -108,6 +108,24 @@
                   <ei:Icon Kind="X" Classes="menu" />
                 </MenuItem.Icon>
               </MenuItem>
+              <!-- The tile's own icon: a picture or an SVG in place of the folder glyph, and the way
+                   back to the glyph while there is one to undo. -->
+              <Separator />
+              <MenuItem Header="Choose an icon…"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).ChooseIconCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="ImageSquare" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Use the default icon"
+                        IsVisible="{Binding IconFile, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Command="{Binding $parent[UserControl].((vm:RepositoriesPageViewModel)DataContext).ResetIconCommand}"
+                        CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                  <ei:Icon Kind="ArrowCounterClockwise" Classes="menu" />
+                </MenuItem.Icon>
+              </MenuItem>
             </ContextMenu>
           </Border.ContextMenu>
 

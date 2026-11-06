@@ -21,8 +21,8 @@ using Xunit;
 namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
-/// A repository tile's menu on the start window: what its buttons do, the path to copy, each with its
-/// glyph, opened by a right-click or the keyboard — and never a drag (FEATURE-4F5C).
+/// A repository tile's menu on the start window: what its buttons do, the path to copy and the tile's
+/// icon, each with its glyph, opened by a right-click or the keyboard — and never a drag (FEATURE-4F5C).
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class RepositoryTileMenuTests
@@ -94,8 +94,12 @@ public sealed class RepositoryTileMenuTests
                 Assert.Equal(
                     ["Open", "Open in a new window", "|",
                      "Open the repository's folder", "Open a terminal in the repository's folder", "Copy repository path", "|",
-                     "Forget this repository"],
+                     "Forget this repository", "|",
+                     "Choose an icon…", "Use the default icon"],
                     read);
+
+                // Going back to the folder is offered only once there is an icon to undo.
+                Assert.False(Item(menu, "Use the default icon").IsVisible);
 
                 (string Header, PhosphorIcon Glyph)[] glyphs =
                 [
@@ -105,6 +109,7 @@ public sealed class RepositoryTileMenuTests
                     ("Open a terminal in the repository's folder", PhosphorIcon.TerminalWindow),
                     ("Copy repository path", PhosphorIcon.Copy),
                     ("Forget this repository", PhosphorIcon.X),
+                    ("Choose an icon…", PhosphorIcon.ImageSquare),
                 ];
 
                 foreach ((string header, PhosphorIcon glyph) in glyphs)
@@ -145,6 +150,8 @@ public sealed class RepositoryTileMenuTests
                     ("Open a terminal in the repository's folder", model.OpenTerminalCommand),
                     ("Copy repository path", model.CopyPathCommand),
                     ("Forget this repository", model.ForgetCommand),
+                    ("Choose an icon…", model.ChooseIconCommand),
+                    ("Use the default icon", model.ResetIconCommand),
                 ];
 
                 foreach ((string header, object command) in expected)
