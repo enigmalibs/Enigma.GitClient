@@ -1,6 +1,6 @@
 # FEATURE-83E5 — Badge menus: the badge's items only
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-83e5-badge-menus-own-items`
 **Run:** feature/2026-11-06-dialog-focus-badge-menus

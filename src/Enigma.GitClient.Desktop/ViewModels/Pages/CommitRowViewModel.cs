@@ -615,55 +615,6 @@ public sealed class CommitRowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Gets what a badge's menu offers after its own items: everything the line's menu offers, so a
-    /// right-click on a badge reaches the line's actions too — less the items the badge already has.
-    /// </summary>
-    /// <param name="badge">The badge's item: a <see cref="HistoryBranchViewModel"/> or a <see cref="HistoryTagViewModel"/>.</param>
-    /// <returns>
-    /// The entries, starting with a separator that parts them from the badge's own items, never with two
-    /// separators in a row nor one last; empty when the line has nothing to add.
-    /// </returns>
-    /// <remarks>
-    /// The line names every branch on it — "set it as the merge source", "merge the source into it" —
-    /// and a branch's own badge offers those two for itself already, under the same conditions. They are
-    /// the line's entries whose parameter is the badge's item, and only those are left out: the other
-    /// branches' entries are the line's items like any other.
-    /// </remarks>
-    public IReadOnlyList<HistoryMenuEntry> BadgeMenuEntries(object badge)
-    {
-        ArgumentNullException.ThrowIfNull(badge);
-
-        List<HistoryMenuEntry> entries = [];
-
-        // A separator goes before the first item, after the badge's own.
-        bool separate = true;
-
-        foreach (HistoryMenuEntry entry in MenuEntries)
-        {
-            if (entry.IsSeparator)
-            {
-                separate = true;
-                continue;
-            }
-
-            if (ReferenceEquals(entry.Parameter, badge))
-            {
-                continue;
-            }
-
-            if (separate)
-            {
-                entries.Add(HistoryMenuEntry.Separator);
-                separate = false;
-            }
-
-            entries.Add(entry);
-        }
-
-        return entries;
-    }
-
-    /// <summary>
     /// The squash's two steps. With no base, every line offers to become it; the base's own line
     /// offers to forget it; any other line offers to replace it, to squash everything since it up to
     /// this line — counted from the loaded lines, and greyed out when the base is not on this line's
