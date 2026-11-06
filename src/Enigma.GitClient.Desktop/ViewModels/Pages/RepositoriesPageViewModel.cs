@@ -31,6 +31,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 {
     private readonly IRepositoryService _repositories;
     private readonly IRepositoryListStore _lists;
+    private readonly IRepositoryIconStore _icons;
     private readonly IProfileSelection _selection;
     private readonly IGitIdentityService _identity;
     private readonly IBulkLocalIdentityService _bulkIdentity;
@@ -64,6 +65,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="repositoryContext">The repository the application is looking at.</param>
     /// <param name="repositories">Opens, creates and clones repositories.</param>
     /// <param name="lists">Keeps each profile's list of repositories.</param>
+    /// <param name="icons">Keeps the icon a repository's tile shows in place of the folder glyph.</param>
     /// <param name="selection">Says whose list is shown.</param>
     /// <param name="identity">
     /// Sets git's global identity to the profile picked, and offers it to a new clone or repository as
@@ -89,6 +91,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IRepositoryContext repositoryContext,
         IRepositoryService repositories,
         IRepositoryListStore lists,
+        IRepositoryIconStore icons,
         IProfileSelection selection,
         IGitIdentityService identity,
         IBulkLocalIdentityService bulkIdentity,
@@ -109,6 +112,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     {
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(lists);
+        ArgumentNullException.ThrowIfNull(icons);
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(bulkIdentity);
@@ -128,6 +132,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
         _repositories = repositories;
         _lists = lists;
+        _icons = icons;
         _selection = selection;
         _identity = identity;
         _bulkIdentity = bulkIdentity;
@@ -1179,11 +1184,34 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private void Replace(IReadOnlyList<ListedRepository> entries)
     {
-        _all = entries;
+        _all = [.. entries.Select(WithIcon)];
 
         ApplyFilter();
         OnPropertyChanged(nameof(HasRepositories));
         UseProfileIdentityEverywhereCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// A listed repository with the icon its tile shows, when it has one that can be drawn. One that
+    /// cannot — removed by hand, damaged — is left out, the tile shows the folder glyph, and the log
+    /// says why.
+    /// </summary>
+    private ListedRepository WithIcon(ListedRepository entry)
+    {
+        string? file = _icons.Find(entry.Path);
+
+        if (file is null)
+        {
+            return entry;
+        }
+
+        if (RepositoryIconImages.Load(file) is null)
+        {
+            _logger.LogWarning("The icon of {Repository}, {File}, cannot be read; the folder glyph is shown", entry.Path, file);
+            return entry;
+        }
+
+        return entry with { IconFile = file };
     }
 
     private void ApplyFilter()

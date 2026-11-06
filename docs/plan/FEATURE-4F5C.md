@@ -111,7 +111,7 @@ The start window's repository tiles get easier to read and to use:
 ## PHASE03 — Store and draw a repository icon
 
 **Branch:** `feature/feature-4f5c-phase03-icon-store`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

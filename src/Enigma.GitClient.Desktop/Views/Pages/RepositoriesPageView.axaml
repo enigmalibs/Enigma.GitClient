@@ -125,12 +125,31 @@
                      ToolTip.Tip="Drag to reorder"
                      AutomationProperties.Name="Drag to reorder" />
 
-            <ei:Icon Grid.Column="1"
-                     Name="TileGlyph"
-                     Kind="Folder"
-                     Margin="0,0,12,0"
-                     VerticalAlignment="Center"
-                     Classes="tile dim" />
+            <!-- The repository's icon: the folder glyph, or the one chosen for it — a picture, or an
+                 SVG drawn as it is when it names its own colours and like the application's glyphs
+                 (in the theme's foreground) when it does not. One square, so every name lines up. -->
+            <Panel Grid.Column="1"
+                   Width="24"
+                   Height="24"
+                   Margin="0,0,12,0"
+                   VerticalAlignment="Center">
+              <ei:Icon Name="TileGlyph"
+                       Kind="Folder"
+                       Classes="tile dim"
+                       IsVisible="{Binding IconFile, Converter={x:Static ObjectConverters.IsNull}}" />
+              <Image Name="TileImage"
+                     Width="24"
+                     Height="24"
+                     Stretch="Uniform"
+                     RenderOptions.BitmapInterpolationMode="HighQuality"
+                     Source="{Binding IconFile, Converter={x:Static services:RepositoryIconImages.ImageOf}}"
+                     IsVisible="{Binding $self.Source, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <ei:Icon Name="TileCustomGlyph"
+                       Classes="tile"
+                       IconName="icon"
+                       IconSet="{Binding IconFile, Converter={x:Static services:RepositoryIconImages.GlyphOf}}"
+                       IsVisible="{Binding $self.IconSet, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </Panel>
 
             <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
               <StackPanel Orientation="Horizontal" Spacing="8">

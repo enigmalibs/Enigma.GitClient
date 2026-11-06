@@ -414,7 +414,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-4F5C | Repository tiles: menu and icon          | IN PROGRESS | docs/plan/FEATURE-4F5C.md |
 | - PHASE01    | Legible path, icon at 24                 | DONE        | (in FEATURE-4F5C.md)      |
 | - PHASE02    | The tile's context menu                  | DONE        | (in FEATURE-4F5C.md)      |
-| - PHASE03    | Store and draw a repository icon         | TODO        | (in FEATURE-4F5C.md)      |
+| - PHASE03    | Store and draw a repository icon         | DONE        | (in FEATURE-4F5C.md)      |
 | - PHASE04    | Choose an icon from the tile menu        | TODO        | (in FEATURE-4F5C.md)      |
 | FEATURE-0CDE | History search in its own bar            | TODO        | docs/plan/FEATURE-0CDE.md |
 | BUG-553F     | Disabled menu items grey their icon      | TODO        | docs/plan/BUG-553F.md     |
