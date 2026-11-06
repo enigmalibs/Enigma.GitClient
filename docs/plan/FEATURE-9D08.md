@@ -1,6 +1,6 @@
 # FEATURE-9D08 — Release 6.17.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-9d08-release-6-17-0`
 **Run:** feature/2026-11-06-release-6-17-0

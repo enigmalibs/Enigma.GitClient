@@ -1,5 +1,86 @@
 # Release notes
 
+## 6.17.0 — 2026-11-06
+
+A minor release, about the keyboard in dialogs and the History's badge menus:
+
+- every **dialog opens with the keyboard focus inside it**: in its first text field when it asks for
+  one, else on its default button, so Enter and Escape reach it;
+- a question that **removes something or throws work away is red** and opens with **Cancel**
+  focused, so an Enter pressed by mistake cancels, and eight more questions are red now;
+- a **branch or tag badge's menu holds the badge's own items again**: the line's items that 6.16.0
+  added under them are on the line's own menu only.
+
+### The focus goes into the dialog
+
+- **Before, it stayed behind.** A dialog left the keyboard focus on what opened it, a toolbar button
+  or a menu item, so Enter and Escape never reached the dialog, and a name could not be typed before
+  clicking in its box.
+- **Now, once the dialog is drawn, the focus goes:**
+  - into its first field that can be typed in: create a branch, a tag or a worktree, rename a branch,
+    add a remote, clone, a profile. A filled name is selected, so typing replaces it;
+  - else onto its default button, with its focus ring. Enter answers with it, and Tab goes on to the
+    next button.
+- **Read-only text is skipped.** An error's details are not a field to type in: the error report
+  focuses its *Close* button.
+- **A dialog that chooses for itself keeps its choice.** The squash dialog still puts the caret on the
+  message's title, not in the branch name above it.
+- **The tool dialogs too.** The branches and the tags dialogs put the caret in their filter box, so
+  typing filters at once.
+- **The focus comes back.** When the dialog closes, the focus returns to where it was: to the tool
+  dialog, when a question was asked over it.
+
+### Red questions open on Cancel
+
+- **Cancel has the focus** on every question whose red button removes something or throws work away,
+  whatever button it would otherwise favour. An Enter pressed straight away cancels.
+- **Eight more questions are red.** They asked in plain colours, with Cancel as their default; each
+  keeps its wording and its own cancel button:
+  - delete a stash;
+  - delete a profile; disconnect an account;
+  - reset every preference;
+  - abandon a merge;
+  - a hard reset;
+  - keep ours or theirs everywhere, in a conflict;
+  - reset a branch to its remote, when commits would be left behind. With nothing left behind it stays
+    a plain question, its main button focused.
+- **Two questions now open on their main button**, where they defaulted to Cancel: on the
+  repositories page, `Use your identity in this repository` and `Use <profile> in every repository`.
+
+### Badge menus: the badge's own items
+
+- **6.16.0 put the line's items under a badge's own**, and the menu grew too long to use. They are
+  about the commit, not the branch or the tag, and they are gone from the badge again.
+- **A branch badge** offers check out, the worktree items, the merge items, pull, push, rename, the
+  delete items and *Copy branch name*. **A tag badge** offers push, delete here or on the remote, and
+  *Copy tag name*.
+- **The line's menu is unchanged.** Right-click the line, not the badge, to create a branch, a
+  worktree or a tag here, check out the commit, reset, revert, squash, open it on the host or copy
+  its hash.
+
+### Upgrading from 6.16
+
+- **On Windows, install the 6.17.0 MSI**: `packaging\windows\buildmsi.ps1` builds
+  `artifacts\Enigma.GitClient.6.17.0.msi`, and it replaces 6.16.0.
+- **On Linux, run `packaging/linux/install.sh` again.**
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.16 keeps everything.
+- **A badge's menu is shorter**: what 6.16 added under a branch or tag badge is on the line's menu.
+
+### Dependencies
+
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.1.5 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it. Nothing else is outdated (`dotnet list package --outdated`, 2026-11-06).
+- The installer build still uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2.
+
+### Version
+
+- **6.17.0** is a minor release under Semantic Versioning. It changes where dialogs put the keyboard
+  focus, which questions are red, and what a badge's menu holds. It changes no public Core API, keeps
+  every stored format and moves no dependency of the application.
+
 ## 6.16.0 — 2026-11-05
 
 A minor release, all on the History page:
