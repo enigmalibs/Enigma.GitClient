@@ -72,11 +72,11 @@
                      AutomationProperties.Name="Drag to reorder" />
 
             <ei:Icon Grid.Column="1"
+                     Name="TileGlyph"
                      Kind="Folder"
-                     Size="20"
                      Margin="0,0,12,0"
                      VerticalAlignment="Center"
-                     Classes="dim" />
+                     Classes="tile dim" />
 
             <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
               <StackPanel Orientation="Horizontal" Spacing="8">
@@ -90,10 +90,13 @@
                              Foreground="{DynamicResource EnigmaForegroundBrush}" />
                 </Border>
               </StackPanel>
+              <!-- The secondary grey, not the faint one: the path is read, to tell two repositories
+                   of the same name apart, and the faint grey looked like disabled text. -->
               <TextBlock Text="{Binding Path}"
+                         Name="TilePath"
                          FontSize="12"
                          TextTrimming="CharacterEllipsis"
-                         Classes="faint" />
+                         Classes="dim" />
             </StackPanel>
 
             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">

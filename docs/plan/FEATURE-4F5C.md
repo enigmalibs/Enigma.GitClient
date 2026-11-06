@@ -1,6 +1,6 @@
 # FEATURE-4F5C — Repository tiles: menu and icon
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-06-repo-tiles-history-search
@@ -52,7 +52,7 @@ The start window's repository tiles get easier to read and to use:
 ## PHASE01 — Legible path, icon at 24
 
 **Branch:** `feature/feature-4f5c-phase01-tile-path-icon-size`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

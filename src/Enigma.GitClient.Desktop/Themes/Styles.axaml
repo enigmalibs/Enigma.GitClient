@@ -20,6 +20,7 @@
       toolbar  an icon-only button, or a segmented toggle, on a toolbar strip
       row      an icon on a line: a list row's leading glyph, its own actions, a banner
       pill     an icon inside a badge, a counter or a group heading
+      tile     a repository tile's leading glyph, on the start window's list
 
     An icon that belongs to a control template (RefBadge, EmptyState) is that control's business
     and keeps its own size.
@@ -46,6 +47,10 @@
 
   <Style Selector="ei|Icon.pill">
     <Setter Property="Size" Value="12" />
+  </Style>
+
+  <Style Selector="ei|Icon.tile">
+    <Setter Property="Size" Value="24" />
   </Style>
 
   <!-- Beside a context menu's item: the size the menu's icon column is laid out for. -->
