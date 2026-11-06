@@ -26,6 +26,9 @@ public partial class StartWindow : Window, IHostWindow
         Opened += OnOpened;
         SizeChanged += (_, e) => InfoBarPlacement.Place(HostInfoBar, e.NewSize.Width, NavigationRail.PaneSize);
         InfoBarPlacement.Place(HostInfoBar, Width, NavigationRail.PaneSize);
+
+        // Every dialog opens with the focus inside it, and gives it back as it closes.
+        DialogFocus.Attach(HostDialog);
     }
 
     /// <inheritdoc />

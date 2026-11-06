@@ -33,6 +33,10 @@ public partial class MainWindow : Window, IHostWindow, IToolDialogHostWindow
         };
         SizeToolDialog(new Size(Width, Height));
         InfoBarPlacement.Place(HostInfoBar, Width, NavigationRail.PaneSize);
+
+        // Every dialog opens with the focus inside it, and gives it back as it closes.
+        DialogFocus.Attach(HostDialog);
+        DialogFocus.Attach(ToolDialog);
     }
 
     /// <inheritdoc />
