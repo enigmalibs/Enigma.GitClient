@@ -24,6 +24,14 @@ public sealed record ListedRepository(string Path, string Name)
     /// </summary>
     [JsonIgnore]
     public bool Exists => Directory.Exists(Path);
+
+    /// <summary>
+    /// Gets the icon the tile draws in place of the folder glyph: the stored copy's path, or
+    /// <see langword="null"/> for the glyph. Kept by <see cref="IRepositoryIconStore"/>, per
+    /// repository, and filled in when the list is shown; never written into the list's file.
+    /// </summary>
+    [JsonIgnore]
+    public string? IconFile { get; init; }
 }
 
 /// <summary>

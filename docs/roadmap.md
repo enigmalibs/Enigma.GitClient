@@ -411,6 +411,14 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | Red questions for every destructive one  | DONE      | (in FEATURE-0A3D.md)      |
 | FEATURE-83E5 | Badge menus: the badge's items only      | DONE      | docs/plan/FEATURE-83E5.md |
 | FEATURE-9D08 | Release 6.17.0                           | DONE      | docs/plan/FEATURE-9D08.md |
+| FEATURE-4F5C | Repository tiles: menu and icon          | DONE      | docs/plan/FEATURE-4F5C.md |
+| - PHASE01    | Legible path, icon at 24                 | DONE      | (in FEATURE-4F5C.md)      |
+| - PHASE02    | The tile's context menu                  | DONE      | (in FEATURE-4F5C.md)      |
+| - PHASE03    | Store and draw a repository icon         | DONE      | (in FEATURE-4F5C.md)      |
+| - PHASE04    | Choose an icon from the tile menu        | DONE      | (in FEATURE-4F5C.md)      |
+| FEATURE-0CDE | History search in its own bar            | DONE      | docs/plan/FEATURE-0CDE.md |
+| BUG-553F     | Disabled menu items grey their icon      | DONE      | docs/plan/BUG-553F.md     |
+| FEATURE-092B | Release 6.18.0                           | DONE      | docs/plan/FEATURE-092B.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.

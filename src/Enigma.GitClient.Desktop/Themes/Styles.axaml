@@ -20,6 +20,7 @@
       toolbar  an icon-only button, or a segmented toggle, on a toolbar strip
       row      an icon on a line: a list row's leading glyph, its own actions, a banner
       pill     an icon inside a badge, a counter or a group heading
+      tile     a repository tile's leading glyph, on the start window's list
 
     An icon that belongs to a control template (RefBadge, EmptyState) is that control's business
     and keeps its own size.
@@ -46,6 +47,10 @@
 
   <Style Selector="ei|Icon.pill">
     <Setter Property="Size" Value="12" />
+  </Style>
+
+  <Style Selector="ei|Icon.tile">
+    <Setter Property="Size" Value="24" />
   </Style>
 
   <!-- Beside a context menu's item: the size the menu's icon column is laid out for. -->
@@ -119,6 +124,14 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
 
+  <!-- A switch among the commands — the History bar's Search — is a segment toggle in a command's
+       shape: framed and greyed as the commands, the selection plate behind it while it is on. -->
+  <Style Selector="ToggleButton.segment.command">
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="MinWidth" Value="56" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+
   <Style Selector="TextBlock.commandlabel">
     <Setter Property="FontSize" Value="11" />
     <Setter Property="HorizontalAlignment" Value="Center" />
@@ -134,15 +147,15 @@
     <Setter Property="Background" Value="{DynamicResource EnigmaBorderSubtleBrush}" />
   </Style>
 
-  <!-- A window too narrow for the named commands beside the search box: the commands keep their
-       icons and their tips, and give up their names and the width the names needed, rather than the
-       search block being pushed off the bar's edge. After the command button's own style, so this one
-       wins. -->
+  <!-- A window too narrow for the named commands beside what is left of them: the commands keep
+       their icons and their tips, and give up their names and the width the names needed, rather than
+       being pushed off the bar's edge. After the command button's own style, so this one wins. -->
   <Style Selector="controls|CommandBarPanel:compact TextBlock.commandlabel">
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
-  <Style Selector="controls|CommandBarPanel:compact Button.toolbar.command">
+  <Style Selector="controls|CommandBarPanel:compact Button.toolbar.command,
+                   controls|CommandBarPanel:compact ToggleButton.segment.command">
     <Setter Property="MinWidth" Value="0" />
   </Style>
 
@@ -905,6 +918,17 @@
 
   <Style Selector="MenuItem /template/ ContentPresenter#PART_HeaderPresenter">
     <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!--
+    A menu item that cannot be chosen is grey all over. FluentTheme greys a disabled item's title, its
+    shortcut and its chevron, but not its icon, which inherits the item's own foreground: the glyph
+    stayed white beside a grey title, and the item looked half-enabled. Every menu icon is an
+    `ei:Icon.menu`, a logical child of its item, so this one rule reaches all of them — the History's
+    line and badge menus, and every other — with the very brush the theme gives the title.
+  -->
+  <Style Selector="MenuItem:disabled ei|Icon.menu">
+    <Setter Property="Foreground" Value="{DynamicResource MenuFlyoutItemForegroundDisabled}" />
   </Style>
 
 </Styles>

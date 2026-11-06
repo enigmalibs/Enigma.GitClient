@@ -1,5 +1,95 @@
 # Release notes
 
+## 6.18.0 — 2026-11-06
+
+A minor release, about the start window's repository tiles and the History's search:
+
+- a **repository tile has a menu**, opened by a right-click or the menu key, with what its buttons do,
+  **Copy repository path**, and the way to give the repository **an icon of its own**;
+- a **repository's icon**, a picture or an SVG, takes the place of the folder glyph on its tile, in
+  every profile that lists it;
+- the History's **search has a bar of its own**, under the commands, shown by the new **Search**
+  toggle or Ctrl+F, with a box twice as wide;
+- a **menu item that cannot be chosen is grey all over**, its glyph included.
+
+### The repository tile's menu
+
+- **Right-click a tile**, anywhere on it, or press Shift+F10 or the menu key on one of its buttons:
+  - *Open* · *Open in a new window*;
+  - *Open the repository's folder* · *Open a terminal in the repository's folder* ·
+    *Copy repository path*;
+  - *Forget this repository*;
+  - *Choose an icon…* · *Use the default icon*, shown only while the tile has an icon of its own.
+- **The items run what the tile's buttons run**, for that tile's repository. *Copy repository path*
+  is new: it copies the full path, and works for a repository whose folder is gone too.
+- **A right-click never drags.** Only the left button carries a tile to reorder the list.
+- **A more legible tile.** The path under the name is drawn in the secondary grey, not the faint one
+  that looked disabled, and the folder glyph is 24 px, up from 20.
+
+### An icon for a repository
+
+- **Choose an icon…** opens a file picker, "Choose an icon for <name>", that offers the images the tile
+  can draw: PNG, JPEG, BMP, GIF, ICO, WebP and SVG.
+- **The tile draws it** in place of the folder glyph:
+  - a picture as it is;
+  - an SVG that names its own colours in them;
+  - an SVG that names none, as most icon files do, in the theme's text colour, so it follows a switch
+    between the dark and the light theme.
+- **A copy is kept**, so the original file can move or go. The copy is the repository's, not the
+  profile's: every profile that lists the repository shows it, and it is still there if the repository
+  is forgotten and added again.
+- **A file that cannot be an icon is refused**, in a red bar, "The icon was not changed", that says
+  why: another kind of file, a missing one, one over 10 MB (1 MB for an SVG), or one the tile could
+  not draw. The tile keeps the icon it had.
+- **Use the default icon** puts the folder glyph back.
+- **An icon that can no longer be read** leaves the folder glyph on the tile.
+
+### The History's search bar
+
+- **A bar of its own.** The search left the right end of the command bar for a bar under it, across
+  the page. The commands end with a **Search** toggle, after *Close*, that shows or hides it.
+- **A wider box.** The box is 400 px wide, twice what it was, with the match count, the previous and
+  next buttons and the clear button beside it, their keys unchanged. The count is drawn in the
+  secondary grey.
+- **Ctrl+F** shows the bar and puts the caret in its box, or goes back to the box when the bar is
+  already shown. In a diff, Ctrl+F still searches the diff.
+- **Escape backs out one step at a time:** it clears the text, then puts the bar away, then closes the
+  diffs. When the bar goes, the focus returns to the diffs, or to the selected line.
+- **Hiding the bar clears the search**, so no line stays highlighted by a search you cannot see. The
+  bar is hidden when the page opens.
+
+### Disabled menu items
+
+- **The glyph greys with the title.** A menu item that cannot be chosen drew its title grey and its
+  glyph in full colour. Both are grey now, in every menu of the application, the History's line and
+  badge menus among them.
+
+### Upgrading from 6.17
+
+- **On Windows, install the 6.18.0 MSI**: `packaging\windows\buildmsi.ps1` builds
+  `artifacts\Enigma.GitClient.6.18.0.msi`, and it replaces 6.17.0.
+- **On Linux, run `packaging/linux/install.sh` again.**
+- **Nothing you saved changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format. Going back to 6.17 keeps everything.
+- **One new folder.** The icons you choose are kept in `repository-icons`, beside those files in the
+  configuration directory. 6.17 does not read it, and leaves it alone.
+- **The search box has moved** to the bar under the History's commands: press Ctrl+F, or the *Search*
+  toggle.
+
+### Dependencies
+
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.1.5 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it. Nothing else is outdated (`dotnet list package --outdated`, 2026-11-06).
+- The installer build still uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2.
+
+### Version
+
+- **6.18.0** is a minor release under Semantic Versioning. It adds the tile's menu, a repository's
+  own icon and the History's search bar, and greys a disabled item's glyph. It changes no public Core
+  API, keeps every stored format and moves no dependency of the application.
+
 ## 6.17.0 — 2026-11-06
 
 A minor release, about the keyboard in dialogs and the History's badge menus:

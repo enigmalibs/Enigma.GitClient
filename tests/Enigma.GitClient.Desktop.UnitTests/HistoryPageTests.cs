@@ -692,6 +692,8 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
                 await ShowHistoryPageAsync(services);
 
+            OpenTheSearchBar(window, model);
+
             TextBox box = view.FindControl<TextBox>("SearchBox")!;
             Button previous = view.FindControl<Button>("PreviousMatch")!;
             Button next = view.FindControl<Button>("NextMatch")!;
@@ -739,6 +741,8 @@ public sealed class HistoryPageTests
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
                 await ShowHistoryPageAsync(services);
 
+            OpenTheSearchBar(window, model);
+
             TextBox box = view.FindControl<TextBox>("SearchBox")!;
             TextBlock counter = view.FindControl<TextBlock>("MatchCounter")!;
 
@@ -768,7 +772,7 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Escape_InTheSearchBox_ClearsTheSearchBeforeItLeavesTheDiffs()
+    public void Escape_InTheSearchBox_ClearsTheSearch_ThenPutsTheBarAway_BeforeItLeavesTheDiffs()
     {
         _fixture.RunAsync(async () =>
         {
@@ -782,6 +786,7 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
 
             // The bar is not under the diffs: the box can be clicked into while they are open.
+            OpenTheSearchBar(window, model);
             TextBox box = view.FindControl<TextBox>("SearchBox")!;
             box.Focus();
             model.SearchText = "branch";
@@ -791,9 +796,19 @@ public sealed class HistoryPageTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(string.Empty, model.SearchText);
+            Assert.True(model.IsSearchBarOpen, "the first Escape put the bar away rather than clearing the search");
             Assert.True(model.IsDiffViewOpen, "the first Escape put the diffs away rather than clearing the search");
 
-            // Nothing left to clear: the next one is the diffs'.
+            // Nothing left to clear: the next one puts the bar away, and the focus goes back to the diffs.
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(model.IsSearchBarOpen);
+            Assert.True(model.IsDiffViewOpen, "the second Escape put the diffs away rather than the bar");
+
+            // And the one after that is the diffs'.
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             Dispatcher.UIThread.RunJobs();
 
@@ -804,13 +819,15 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Escape_InAnEmptySearchBox_ChangesNothing()
+    public void Escape_InAnEmptySearchBox_PutsTheBarAway_AndChangesNothingElse()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build(useRealRefReader: true);
             (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
                 await ShowHistoryPageAsync(services);
+
+            OpenTheSearchBar(window, model);
 
             TextBox box = view.FindControl<TextBox>("SearchBox")!;
             CommitRowViewModel selected = model.Rows.First(row => row.Commit is not null);
@@ -819,13 +836,120 @@ public sealed class HistoryPageTests
 
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
 
+            Assert.False(model.IsSearchBarOpen);
+            Assert.False(view.FindControl<Border>("SearchBar")!.IsVisible);
             Assert.Equal(string.Empty, model.SearchText);
             Assert.Same(selected, model.SelectedRow);
             Assert.False(model.IsDiffViewOpen);
-            Assert.True(box.IsKeyboardFocusWithin);
+
+            // The focus is not left on nothing: it is back on the graph, on the selected line.
+            Assert.True(
+                view.FindControl<ListBox>("CommitList")!.ContainerFromItem(selected)!.IsKeyboardFocusWithin,
+                "the focus did not go back to the selected line");
 
             window.Close();
+        });
+    }
+
+    [Fact]
+    public void CtrlF_ShowsTheSearchBar_WithTheCaretInItsBox()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            ListBox list = view.FindControl<ListBox>("CommitList")!;
+            TextBox box = view.FindControl<TextBox>("SearchBox")!;
+            CommitRowViewModel selected = model.Rows.First(row => row.Commit is not null);
+            model.SelectedRow = selected;
+            window.UpdateLayout();
+
+            // A line of the graph has the focus, as a click on it leaves it.
+            Control line = list.ContainerFromItem(selected)!;
+            line.Focus();
+
+            Assert.False(model.IsSearchBarOpen);
+
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(model.IsSearchBarOpen);
+            Assert.True(box.IsKeyboardFocusWithin, "Ctrl+F did not put the caret in the search box");
+
+            // Already shown: Ctrl+F from the graph goes back to the box, with what it holds selected.
+            model.SearchText = "branch";
+            line.Focus();
+
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(model.IsSearchBarOpen);
+            Assert.True(box.IsKeyboardFocusWithin, "Ctrl+F did not go back to the search box");
+            Assert.Equal("branch", box.SelectedText);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void CtrlF_InADiff_IsTheDiffsOwnSearch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            (Window window, HistoryPageViewModel model, HistoryPageView view, _, _) =
+                await ShowHistoryPageAsync(services);
+
+            model.RowCommands.ShowChanges.Execute(model.Rows.First(row => row.Commit is not null));
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Controls.Diff.DiffTextEditor editor = view.GetVisualDescendants()
+                .OfType<Controls.Diff.DiffTextEditor>()
+                .First(candidate => candidate.IsEffectivelyVisible);
+            editor.TextArea.Focus();
+
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(editor.SearchPanel.IsOpened, "Ctrl+F in the diff did not open the diff's search");
+            Assert.False(model.IsSearchBarOpen, "Ctrl+F in the diff showed the history's search bar");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void PuttingTheSearchBarAway_ClearsTheSearch()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildHistoryAsync(services);
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+
+            HistoryPageViewModel page = services.Get<HistoryPageViewModel>();
+            await page.ReloadAsync();
+
+            Assert.False(page.IsSearchBarOpen);
+
+            page.IsSearchBarOpen = true;
+            page.SearchText = "branch";
+            Assert.Contains(page.Rows, row => row.IsSearchMatch);
+
+            page.IsSearchBarOpen = false;
+
+            Assert.Equal(string.Empty, page.SearchText);
+            Assert.DoesNotContain(page.Rows, row => row.IsSearchMatch);
+            Assert.Equal(string.Empty, page.MatchSummary);
         });
     }
 
@@ -2391,6 +2515,17 @@ public sealed class HistoryPageTests
     /// <summary>
     /// What the diff view says it is showing.
     /// </summary>
+    /// <summary>
+    /// Shows the search bar, as its toggle does, and lets the layout show it.
+    /// </summary>
+    private static void OpenTheSearchBar(Window window, HistoryPageViewModel model)
+    {
+        model.IsSearchBarOpen = true;
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static string SubjectOf(HistoryPageView view)
         => view.FindControl<TextBlock>("DiffSubject")?.Text ?? string.Empty;
 

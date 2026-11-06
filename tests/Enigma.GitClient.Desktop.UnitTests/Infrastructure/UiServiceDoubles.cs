@@ -439,6 +439,60 @@ public sealed class RecordingFolderDialogService : IFolderDialogService, IDispos
 }
 
 /// <summary>
+/// An <see cref="IFileDialogService"/> that answers with a file a test chose instead of asking anyone,
+/// and records what it was asked.
+/// </summary>
+public sealed class RecordingFileDialogService : IFileDialogService, IDisposable
+{
+    private readonly List<FilePickerOpenOptions> _requests = [];
+    private Window? _window;
+    private IStorageProvider? _provider;
+
+    /// <inheritdoc />
+    public IStorageProvider? StorageProvider => _provider ??= OpenProvider();
+
+    /// <summary>Gets the options every open picker was raised with, in order.</summary>
+    public IReadOnlyList<FilePickerOpenOptions> Requests => _requests;
+
+    /// <summary>
+    /// Gets or sets the file every open picker answers with, or <see langword="null"/> for a picker the
+    /// reader cancels.
+    /// </summary>
+    public string? Answer { get; set; }
+
+    /// <inheritdoc />
+    public void SetStorageProvider(IStorageProvider storageProvider) => _provider = storageProvider;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<IStorageFile>> ShowOpenFileDialogAsync(FilePickerOpenOptions options)
+    {
+        _requests.Add(options);
+
+        if (Answer is null || await StorageProvider!.TryGetFileFromPathAsync(Answer) is not { } file)
+        {
+            return [];
+        }
+
+        return [file];
+    }
+
+    /// <inheritdoc />
+    public Task<IStorageFile?> ShowSaveFileDialogAsync(FilePickerSaveOptions options)
+        => Task.FromResult<IStorageFile?>(null);
+
+    /// <inheritdoc />
+    public void Dispose() => _window?.Close();
+
+    private IStorageProvider OpenProvider()
+    {
+        _window = new Window();
+        _window.Show();
+
+        return _window.StorageProvider;
+    }
+}
+
+/// <summary>
 /// An <see cref="IUnhandledErrorReporter"/> that records what reached the safety net instead of logging
 /// and showing it — attached to <see cref="UnhandledExceptionHooks"/> by a test that checks what goes
 /// there, and detached again.
