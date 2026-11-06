@@ -57,6 +57,10 @@ public partial class HistoryPageView : UserControl
         // Tunnelling too, so Enter reaches the search before the box itself sees the key.
         SearchBox.AddHandler(KeyDownEvent, OnSearchKeyDown, RoutingStrategies.Tunnel);
 
+        // Bubbling, and only for keys nobody handled: the diff viewer has a Ctrl+F of its own, which
+        // keeps it while the focus is in the diff.
+        AddHandler(KeyDownEvent, OnFindKeyDown, RoutingStrategies.Bubble);
+
         // Tunnelling too, so the line's menu is rebuilt before it opens: what it offers depends on
         // things that change while the line is on screen — the host's name, read after the rows were.
         AddHandler(ContextRequestedEvent, OnContextRequested, RoutingStrategies.Tunnel);
@@ -216,6 +220,98 @@ public partial class HistoryPageView : UserControl
         {
             MoveFocus(_page?.IsDiffViewOpen ?? false);
         }
+
+        if (e.PropertyName is nameof(HistoryPageViewModel.IsSearchBarOpen))
+        {
+            MoveSearchFocus(_page?.IsSearchBarOpen ?? false);
+        }
+    }
+
+    /// <summary>
+    /// Puts the caret in the search box when the search bar is shown, and gives the focus back to the
+    /// diffs or the graph when it is put away from inside it.
+    /// </summary>
+    /// <param name="isOpen">Whether the bar is shown.</param>
+    /// <remarks>
+    /// Shown from the toggle or from Ctrl+F, the bar is there to be typed in. Put away while the focus
+    /// is in it, the focus would be left on nothing; put away from the toggle, the focus stays on the
+    /// toggle. Posted, as <see cref="MoveFocus"/> is: the bar is shown or hidden by the layout pass
+    /// after this notification.
+    /// </remarks>
+    private void MoveSearchFocus(bool isOpen)
+        => Dispatcher.UIThread.Post(() =>
+        {
+            if (isOpen)
+            {
+                if (SearchBar.IsVisible)
+                {
+                    SearchBox.Focus(NavigationMethod.Tab);
+                    SearchBox.SelectAll();
+                }
+
+                return;
+            }
+
+            // Hiding the bar may already have taken the focus off the box, before this page heard of
+            // it: whether it was inside is read from where the focus is now — nowhere, or still in
+            // the hidden bar.
+            IInputElement? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+
+            if (focused is not null && !(focused is Visual visual && SearchBar.IsVisualAncestorOf(visual)))
+            {
+                return;
+            }
+
+            if (_page is { IsDiffViewOpen: true })
+            {
+                MoveFocus(true);
+            }
+            else if (CommitList.IsVisible)
+            {
+                FocusTheGraph();
+            }
+        });
+
+    /// <summary>
+    /// Gives the focus to the graph: to the selected line, else the first one shown. The list itself
+    /// takes no focus — its lines do — so focusing it would leave the focus on nothing, where no key
+    /// reaches this page.
+    /// </summary>
+    private void FocusTheGraph()
+    {
+        Control? line = _page?.SelectedRow is { } selected ? CommitList.ContainerFromItem(selected) : null;
+        line ??= CommitList.GetRealizedContainers().FirstOrDefault();
+
+        if (line is not null)
+        {
+            line.Focus(NavigationMethod.Directional);
+        }
+    }
+
+    /// <summary>
+    /// Shows the search bar on Ctrl+F, with the caret in its box — or puts the caret back in the box
+    /// when the bar is already shown.
+    /// </summary>
+    /// <param name="sender">The page.</param>
+    /// <param name="e">The key.</param>
+    private void OnFindKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F || e.KeyModifiers != KeyModifiers.Control || _page is null)
+        {
+            return;
+        }
+
+        if (_page.IsSearchBarOpen)
+        {
+            SearchBox.Focus(NavigationMethod.Tab);
+            SearchBox.SelectAll();
+        }
+        else
+        {
+            _page.IsSearchBarOpen = true;
+        }
+
+        e.Handled = true;
     }
 
     /// <summary>
@@ -257,16 +353,17 @@ public partial class HistoryPageView : UserControl
         });
 
     /// <summary>
-    /// Clears the search on Escape while the search box has the focus, and leaves the diffs on Escape
-    /// otherwise.
+    /// Clears the search on Escape while the search box has the focus, puts the search bar away when
+    /// the box is already empty, and leaves the diffs on Escape otherwise.
     /// </summary>
     /// <param name="sender">The page.</param>
     /// <param name="e">The key.</param>
     /// <remarks>
     /// Handled here so that nothing below can claim the key first — the search box's own handler
     /// included, which would see it only after the diffs had gone. The search comes first: the bar is
-    /// not under the diffs, and with the focus in the box the reader is in the box, so the next Escape
-    /// is the one that leaves them. An empty box has nothing to clear and lets the key through.
+    /// not under the diffs, and with the focus in the box the reader is in the box. Each Escape backs
+    /// out of one thing: the text, then the bar (the focus going back to the diffs or the graph), then
+    /// the diffs.
     ///
     /// The diffs are left only while they are on screen: Escape on the graph itself belongs to
     /// whatever the reader is using — a context menu, a tooltip, the shell.
@@ -290,6 +387,14 @@ public partial class HistoryPageView : UserControl
         if (SearchBox.IsKeyboardFocusWithin && _page?.ClearSearchCommand is { } clear && clear.CanExecute(null))
         {
             clear.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // Nothing left to clear: the bar goes, as the toggle would put it away.
+        if (SearchBox.IsKeyboardFocusWithin && _page is { IsSearchBarOpen: true } searching)
+        {
+            searching.IsSearchBarOpen = false;
             e.Handled = true;
             return;
         }

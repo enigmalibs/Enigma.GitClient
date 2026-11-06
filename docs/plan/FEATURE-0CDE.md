@@ -1,6 +1,6 @@
 # FEATURE-0CDE — History search in its own bar
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-0cde-search-bar`
 **Run:** feature/2026-11-06-repo-tiles-history-search

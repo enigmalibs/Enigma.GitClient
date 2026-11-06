@@ -406,6 +406,27 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     } = string.Empty;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the search bar is shown, under the command bar. It is
+    /// not when the page opens: the search is reached by the toggle at the end of the commands, or by
+    /// Ctrl+F.
+    /// </summary>
+    /// <remarks>
+    /// Hiding it clears the search: highlighted lines with no search in sight, and no box to clear it
+    /// from, would be a state the reader cannot see the cause of.
+    /// </remarks>
+    public bool IsSearchBarOpen
+    {
+        get;
+        set
+        {
+            if (SetProperty(ref field, value) && !value)
+            {
+                SearchText = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets how many of the loaded rows match the search.
     /// </summary>
     public int MatchCount { get; private set => SetProperty(ref field, value); }
@@ -416,7 +437,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     public bool HasSearch => SearchText.Trim().Length > 0;
 
     /// <summary>
-    /// Gets what the toolbar says beside the search box, empty while nothing is searched for.
+    /// Gets what the search bar says beside its box, empty while nothing is searched for.
     /// </summary>
     /// <remarks>
     /// <para>

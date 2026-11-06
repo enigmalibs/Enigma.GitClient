@@ -6,6 +6,9 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.GitClient.Core.History;
@@ -25,9 +28,10 @@ namespace Enigma.GitClient.Desktop.UnitTests;
 
 /// <summary>
 /// The History page's command bar, which took the repository strip's buttons (FEATURE-D977): the
-/// commands in the middle, labelled, in the order asked for; search on its right, and nothing else — the
-/// theme and About are on the Settings page (FEATURE-47AE); over the whole page, so neither the details
-/// panel nor a diff takes it away.
+/// commands in the middle, labelled, in the order asked for, ending with the search bar's toggle; the
+/// search in a bar of its own under it, shown on demand (FEATURE-0CDE); nothing else — the theme and
+/// About are on the Settings page (FEATURE-47AE); over the whole page, so neither the details panel nor
+/// a diff takes it away.
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class HistoryCommandBarTests
@@ -82,6 +86,23 @@ public sealed class HistoryCommandBarTests
         where T : Control
         => root.GetVisualDescendants().OfType<T>().Single(control => control.Name == name);
 
+    /// <summary>
+    /// A window narrow enough for the commands to give up their names: about the window's minimum, 900.
+    /// </summary>
+    private const double NarrowWidth = 1000;
+
+    private static void Click(Window window, Control control)
+    {
+        Point centre = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)
+            ?? throw new InvalidOperationException($"{control} is not in the window.");
+
+        window.MouseDown(centre, MouseButton.Left);
+        window.MouseUp(centre, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static TextBlock LabelOf(Button button)
         => button.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Classes.Contains("commandlabel"));
 
@@ -108,7 +129,7 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
-    public void TheCommands_AreInTheOrderAskedFor_InFourGroups()
+    public void TheCommands_AreInTheOrderAskedFor_InFiveGroups()
     {
         _fixture.RunAsync(async () =>
         {
@@ -122,7 +143,7 @@ public sealed class HistoryCommandBarTests
 
                 Assert.Equal(
                     ["Fetch", "Pull", "Push", "Stash", "|", "Folder", "Terminal", "|",
-                     "Branches", "Worktrees", "Tags", "Remotes", "|", "Refresh", "Close"],
+                     "Branches", "Worktrees", "Tags", "Remotes", "|", "Refresh", "Close", "|", "Search"],
                     read);
 
                 await LetTheHistoryFinishAsync(services);
@@ -179,29 +200,127 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
-    public void TheCommands_AreAtTheBarsCentre_WithSearchOnItsRight()
+    public void TheCommands_AreAtTheBarsCentre_EndingWithTheSearchToggle()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
-            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services);
+            (MainWindow window, _, HistoryPageViewModel history, HistoryPageView page) = await ShowAsync(services);
 
             try
             {
                 Border bar = Named<Border>(page, "CommandBar");
-                Rect commands = BoundsIn(Named<StackPanel>(page, "Commands"), bar);
-                Rect search = BoundsIn(Named<TextBox>(page, "SearchBox"), bar);
+                StackPanel commands = Named<StackPanel>(page, "Commands");
+                ToggleButton toggle = Named<ToggleButton>(page, "ToggleSearchBar");
+
+                Assert.Equal(bar.Bounds.Width / 2, BoundsIn(commands, bar).Center.X, 0.5);
+
+                // Last, after a separator right of Close; nothing right of the commands any more.
+                Assert.Same(toggle, commands.Children[^1]);
+                Assert.Contains("commandseparator", commands.Children[^2].Classes);
+                Assert.Equal("CloseRepository", commands.Children[^3].Name);
+                Assert.DoesNotContain(bar.GetVisualDescendants().OfType<TextBox>(), _ => true);
+
+                // A command like the others, which says it is a switch and how to reach it from the keys.
+                Assert.Equal(PhosphorIcon.MagnifyingGlass, IconOf(toggle).Kind);
+                Assert.Equal(24, IconOf(toggle).Size);
+                Assert.Equal("Show or hide the search bar (Ctrl+F)", ToolTip.GetTip(toggle));
+                Assert.Equal("Show or hide the search bar", AutomationProperties.GetName(toggle));
+                Assert.False(toggle.IsChecked);
+                Assert.False(history.IsSearchBarOpen);
+
+                await LetTheHistoryFinishAsync(services);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheSearchBar_IsHidden_UntilTheToggleShowsItUnderTheCommandBar()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (MainWindow window, _, HistoryPageViewModel history, HistoryPageView page) = await ShowAsync(services);
+
+            try
+            {
+                DockPanel root = Named<DockPanel>(page, "PageRoot");
+                Border bar = Named<Border>(page, "CommandBar");
+                Border search = Named<Border>(page, "SearchBar");
+                ToggleButton toggle = Named<ToggleButton>(page, "ToggleSearchBar");
+
+                Assert.False(search.IsVisible);
+
+                Click(window, toggle);
+
+                Assert.True(history.IsSearchBarOpen);
+                Assert.True(toggle.IsChecked);
+                Assert.True(search.IsEffectivelyVisible);
+
+                // Right under the command bar, as wide as the page, before the graph and the panels.
+                Assert.Equal(BoundsIn(bar, root).Bottom, BoundsIn(search, root).Top, 0.5);
+                Assert.Equal(root.Bounds.Width, search.Bounds.Width, 0.5);
+
+                // On, the toggle stands on the selection plate.
+                Assert.Contains(":checked", toggle.Classes);
+                Assert.True(
+                    Named<TextBox>(page, "SearchBox").IsKeyboardFocusWithin,
+                    "showing the bar did not put the caret in its box");
+
+                Click(window, toggle);
+
+                Assert.False(history.IsSearchBarOpen);
+                Assert.False(search.IsVisible);
+
+                await LetTheHistoryFinishAsync(services);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheSearchBar_HoldsTheBoxTheCountAndTheButtons_AtItsCentre()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build();
+            (MainWindow window, _, HistoryPageViewModel history, HistoryPageView page) = await ShowAsync(services);
+
+            try
+            {
+                history.IsSearchBarOpen = true;
+                window.UpdateLayout();
+
+                Border search = Named<Border>(page, "SearchBar");
+                TextBox box = Named<TextBox>(page, "SearchBox");
+                Rect boxAt = BoundsIn(box, search);
+                Rect counterAt = BoundsIn(Named<TextBlock>(page, "MatchCounter"), search);
+                Rect previousAt = BoundsIn(Named<Button>(page, "PreviousMatch"), search);
+                Rect nextAt = BoundsIn(Named<Button>(page, "NextMatch"), search);
                 Button clear = Named<Button>(page, "ClearSearch");
-                Rect clearAt = BoundsIn(clear, bar);
+                Rect clearAt = BoundsIn(clear, search);
 
-                Assert.Equal(bar.Bounds.Width / 2, commands.Center.X, 0.5);
+                // In that order, left to right, and the whole row at the bar's centre.
+                Assert.True(counterAt.Left >= boxAt.Right, "the count is not right of the box");
+                Assert.True(previousAt.Left >= counterAt.Right, "the arrows are not right of the count");
+                Assert.True(nextAt.Left >= previousAt.Right);
+                Assert.True(clearAt.Left >= nextAt.Right);
+                Assert.Equal(search.Bounds.Width / 2, (boxAt.Left + clearAt.Right) / 2, 0.5);
 
-                // The search block ends the bar: clearing the search is its last button.
-                Assert.True(search.Left > commands.Right, "the search box is not right of the commands");
-                Assert.True(clearAt.Left > search.Right, "clearing the search is not right of the box");
-                Assert.Equal(bar.Bounds.Width - bar.Padding.Right, clearAt.Right, 1.0);
+                // Twice the 200 px it had beside the commands; its placeholder reads in full, and what
+                // it leaves out is in its tip.
+                Assert.Equal(400, box.Bounds.Width, 0.5);
+                AssertThePlaceholderFits(box);
+                Assert.Equal("Search the commits by message, SHA or author", ToolTip.GetTip(box));
 
-                // At the size it always had: a toolbar button, not a command.
+                // The buttons at the toolbar size they always had.
                 Assert.Equal(18, IconOf(clear).Size);
                 Assert.DoesNotContain("command", clear.Classes);
 
@@ -215,24 +334,25 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
-    public void TheSearchBox_IsNarrow_AndItsPlaceholderReadsInFull()
+    public void TheMatchCount_ReadsInTheSecondaryGrey()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
-            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services);
+            (MainWindow window, _, HistoryPageViewModel history, HistoryPageView page) = await ShowAsync(services);
 
             try
             {
-                TextBox box = Named<TextBox>(page, "SearchBox");
+                history.IsSearchBarOpen = true;
+                history.SearchText = "nothing";
+                window.UpdateLayout();
 
-                // Room for a SHA or a few words, however wide the window: it was about 250 px on this
-                // window, and up to 340 on a wider one.
-                Assert.Equal(200, box.Bounds.Width, 0.5);
-                AssertThePlaceholderFits(box);
+                TextBlock counter = Named<TextBlock>(page, "MatchCounter");
+                Application application = Application.Current!;
 
-                // What the short placeholder leaves out is in the box's tip.
-                Assert.Equal("Search the commits by message, SHA or author", ToolTip.GetTip(box));
+                Assert.True(application.TryFindResource("EnigmaForegroundSecondaryBrush", application.ActualThemeVariant, out object? secondary));
+                Assert.Same(secondary, counter.Foreground);
+                Assert.Equal("no match", counter.Text);
 
                 await LetTheHistoryFinishAsync(services);
             }
@@ -323,7 +443,9 @@ public sealed class HistoryCommandBarTests
             try
             {
                 Button[] buttons = [.. Named<StackPanel>(page, "Commands").Children.OfType<Button>()];
-                Assert.Equal(12, buttons.Length);
+
+                // Twelve commands and the search bar's toggle, which is a button too.
+                Assert.Equal(13, buttons.Length);
 
                 foreach (Button button in buttons)
                 {
@@ -353,19 +475,18 @@ public sealed class HistoryCommandBarTests
     }
 
     [Fact]
-    public void OnANarrowWindow_TheCommandsGiveUpTheirNames_AndTheSearchStaysOnTheBar()
+    public void OnANarrowWindow_TheCommandsGiveUpTheirNames_AndStayOnTheBar()
     {
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
 
-            // 1920 at 150 %: too narrow for the named commands beside the search box.
-            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services, width: 1280);
+            // Too narrow for the named commands beside the page's title.
+            (MainWindow window, _, HistoryPageViewModel history, HistoryPageView page) = await ShowAsync(services, width: NarrowWidth);
 
             try
             {
                 Border bar = Named<Border>(page, "CommandBar");
-                Button clear = Named<Button>(page, "ClearSearch");
                 Button[] buttons = [.. Named<StackPanel>(page, "Commands").Children.OfType<Button>()];
 
                 Assert.True(bar.GetVisualDescendants().OfType<Controls.CommandBarPanel>().Single().IsCompact);
@@ -375,14 +496,22 @@ public sealed class HistoryCommandBarTests
                 Assert.All(buttons, button => Assert.Equal(24, IconOf(button).Size));
                 Assert.All(buttons, button => Assert.False(string.IsNullOrEmpty(ToolTip.GetTip(button) as string)));
 
-                // And nothing is pushed off the bar.
-                Assert.True(BoundsIn(clear, bar).Right <= bar.Bounds.Width - bar.Padding.Right + 1, "the search block is off the bar");
-                AssertThePlaceholderFits(Named<TextBox>(page, "SearchBox"));
+                // And nothing is pushed off the bar: the toggle, last, included.
+                ToggleButton toggle = Named<ToggleButton>(page, "ToggleSearchBar");
+                Assert.True(BoundsIn(toggle, bar).Right <= bar.Bounds.Width - bar.Padding.Right + 1, "the search toggle is off the bar");
 
                 // The groups are as far apart as on a wide bar.
                 Assert.All(
                     Named<StackPanel>(page, "Commands").Children.OfType<Border>(),
                     separator => Assert.Equal(new Thickness(16, 8), separator.Margin));
+
+                // The search bar's row fits too.
+                history.IsSearchBarOpen = true;
+                window.UpdateLayout();
+
+                Border search = Named<Border>(page, "SearchBar");
+                Assert.True(BoundsIn(Named<Button>(page, "ClearSearch"), search).Right <= search.Bounds.Width - search.Padding.Right + 1, "the search row is off its bar");
+                Assert.True(BoundsIn(Named<TextBox>(page, "SearchBox"), search).Left >= search.Padding.Left - 1, "the search row is off its bar");
 
                 await LetTheHistoryFinishAsync(services);
             }
@@ -399,7 +528,7 @@ public sealed class HistoryCommandBarTests
         _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
-            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services, width: 1280);
+            (MainWindow window, _, _, HistoryPageView page) = await ShowAsync(services, width: NarrowWidth);
 
             try
             {
