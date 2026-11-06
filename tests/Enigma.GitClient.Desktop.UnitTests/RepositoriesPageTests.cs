@@ -841,7 +841,7 @@ public sealed class RepositoriesPageTests
             ContentDialog question = Assert.Single(services.Dialogs.Shown);
             Assert.Equal("Use your identity in this repository", question.Title);
             Assert.Contains("Ada Lovelace <ada@work.example>", question.Content as string, StringComparison.Ordinal);
-            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.Equal(DefaultButton.Primary, question.DefaultButton);
             Assert.False(overlayOpenWhenAsked);
 
             RepositoryHandle clone = services.Get<IRepositoryContext>().Repository!;
@@ -955,7 +955,7 @@ public sealed class RepositoriesPageTests
             ContentDialog question = services.Dialogs.Shown[1];
             Assert.Equal("Use your identity in this repository", question.Title);
             Assert.Contains("Make Ada Lovelace <ada@work.example> the name and email of brand-new?", question.Content as string, StringComparison.Ordinal);
-            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.Equal(DefaultButton.Primary, question.DefaultButton);
             Assert.Equal("0", commitsWhenAsked);
 
             RepositoryHandle created = services.Get<IRepositoryContext>().Repository!;
@@ -1170,7 +1170,7 @@ public sealed class RepositoriesPageTests
                 "Make Ada Lovelace <ada@work.example> the name and email of the 3 repositories on Work's list?",
                 question.Content as string,
                 StringComparison.Ordinal);
-            Assert.Equal(DefaultButton.Close, question.DefaultButton);
+            Assert.Equal(DefaultButton.Primary, question.DefaultButton);
             Assert.False(openWhileAsking);
 
             foreach (RepositoryHandle repository in repositories)

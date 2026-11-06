@@ -1,6 +1,6 @@
 # FEATURE-0A3D — Focus a dialog's first field or button
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-06-dialog-focus-badge-menus
@@ -102,7 +102,7 @@ Every content dialog opens with the keyboard focus where the reader's next keyst
 ## PHASE02 — Red questions for every destructive one
 
 **Branch:** `feature/feature-0a3d-phase02-red-questions`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

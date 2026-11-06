@@ -630,7 +630,7 @@ public sealed class BranchOperations : IBranchOperations
 
         string message = DescribeReset(local, remote, nothingLeftBehind, leftBehind);
 
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        void Ask(ContentDialog dialog)
         {
             dialog.Title = $"Reset \"{name}\" to \"{remote.ShortName}\"?";
             dialog.Content = message;
@@ -643,11 +643,14 @@ public sealed class BranchOperations : IBranchOperations
             }
 
             dialog.CloseButtonText = "Cancel";
+            dialog.DefaultButton = DefaultButton.Primary;
+        }
 
-            // The reset is the default only when it costs nothing: with commits to leave behind, a
-            // stray Enter must not be what leaves them.
-            dialog.DefaultButton = nothingLeftBehind ? DefaultButton.Primary : DefaultButton.Close;
-        }).ConfigureAwait(true);
+        // The reset is the default only when it costs nothing. With commits to leave behind it is red,
+        // and Cancel is the default: a stray Enter must not be what leaves them.
+        DialogResult answer = nothingLeftBehind
+            ? await _dialogs.ShowAsync(Ask).ConfigureAwait(true)
+            : await _dialogs.ShowDestructiveAsync(Ask).ConfigureAwait(true);
 
         if (answer == DialogResult.Secondary && !local.IsCurrent)
         {

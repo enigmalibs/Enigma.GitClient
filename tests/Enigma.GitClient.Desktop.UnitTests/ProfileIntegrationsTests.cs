@@ -597,11 +597,15 @@ public sealed class ProfileIntegrationsTests
             HostAccountRowViewModel row = Assert.Single(Profile(page, "Work").Integrations);
 
             services.Dialogs.Script(DialogResult.Close, DialogResult.Primary);
+            int redQuestions = 0;
+            services.Dialogs.OnShown = dialog => redQuestions += dialog.Classes.Contains(ContentDialogServiceExtensions.DangerClass) ? 1 : 0;
 
             await row.RemoveCommand.ExecuteAsync(row);
 
             Assert.Single(Profile(page, "Work").Integrations);
             Assert.Equal("Disconnect this account", services.Dialogs.Last!.Title);
+            Assert.Equal(1, redQuestions);
+            Assert.Equal(DefaultButton.Close, services.Dialogs.Last!.DefaultButton);
 
             await row.RemoveCommand.ExecuteAsync(row);
 

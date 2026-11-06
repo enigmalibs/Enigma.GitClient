@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
-using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Git;
@@ -1332,19 +1331,11 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         return false;
     }
 
-    private async Task<bool> ConfirmAsync(string title, string message)
-    {
-        DialogResult result = await _dialogs.ShowAsync(dialog =>
-        {
-            dialog.Title = title;
-            dialog.Content = message;
-            dialog.PrimaryButtonText = "Continue";
-            dialog.CloseButtonText = "Cancel";
-            dialog.DefaultButton = DefaultButton.Close;
-        }).ConfigureAwait(true);
-
-        return result == DialogResult.Primary;
-    }
+    /// <summary>
+    /// Asks before the unsaved choices are thrown away: in red, Cancel focused.
+    /// </summary>
+    private Task<bool> ConfirmAsync(string title, string message)
+        => _dialogs.ConfirmDestructiveAsync(title, message, "Continue");
 
     private void Report(string title, string message, InfoBarSeverity severity)
         => _infoBar.Notify(title, message, severity);

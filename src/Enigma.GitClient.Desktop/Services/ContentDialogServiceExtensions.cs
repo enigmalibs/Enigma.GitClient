@@ -33,45 +33,73 @@ public static class ContentDialogServiceExtensions
         /// <param name="title">The question's title.</param>
         /// <param name="message">What will be lost, and that it cannot be undone.</param>
         /// <param name="confirmText">The confirm button, which is red.</param>
+        /// <param name="cancelText">The harmless button, which has the focus.</param>
         /// <returns><see langword="true"/> only when the confirm button was pressed.</returns>
         /// <remarks>
-        /// A plain yes or no: nothing to type, and the harmless button is the default, so a stray
-        /// Enter keeps the work. The host dialog is shared by every question the window asks, and its
-        /// service does not reset its classes, so the red is put on for this question and taken off
-        /// again whatever the answer — the next question is not red. A long question — a batch of
-        /// deletions listing every item — scrolls inside a card no taller than
-        /// <see cref="LongQuestionHeight"/>, and the height is given back afterwards too.
+        /// A plain yes or no, asked as <see cref="ShowDestructiveAsync"/> asks it.
         /// </remarks>
-        public async Task<bool> ConfirmDestructiveAsync(string title, string message, string confirmText)
+        public async Task<bool> ConfirmDestructiveAsync(string title, string message, string confirmText, string cancelText = "Cancel")
         {
             ArgumentNullException.ThrowIfNull(title);
             ArgumentNullException.ThrowIfNull(message);
             ArgumentNullException.ThrowIfNull(confirmText);
+            ArgumentNullException.ThrowIfNull(cancelText);
+
+            DialogResult result = await dialogs.ShowDestructiveAsync(dialog =>
+            {
+                dialog.Title = title;
+                dialog.Content = message;
+                dialog.PrimaryButtonText = confirmText;
+                dialog.CloseButtonText = cancelText;
+            }).ConfigureAwait(true);
+
+            return result == DialogResult.Primary;
+        }
+
+        /// <summary>
+        /// Asks a question whose main button throws work away — removes something, discards changes,
+        /// resets — with that button in red and the harmless one focused.
+        /// </summary>
+        /// <param name="configure">Sets the question's title, content and buttons.</param>
+        /// <returns>The button the question was answered with.</returns>
+        /// <remarks>
+        /// <para>
+        /// The harmless button — the close button, Cancel — is the default whatever
+        /// <paramref name="configure"/> says, so it has the focus as the question opens
+        /// (<c>Views/DialogFocus</c>) and a stray Enter keeps the work.
+        /// </para>
+        /// <para>
+        /// The host dialog is shared by every question the window asks, and its service does not reset
+        /// its classes, so the red is put on for this question and taken off again whatever the answer —
+        /// the next question is not red. A long question — a batch of deletions listing every item —
+        /// scrolls inside a card no taller than <see cref="LongQuestionHeight"/>, and the height is given
+        /// back afterwards too.
+        /// </para>
+        /// </remarks>
+        public async Task<DialogResult> ShowDestructiveAsync(Action<ContentDialog> configure)
+        {
+            ArgumentNullException.ThrowIfNull(configure);
 
             ContentDialog? shown = null;
             double height = double.NaN;
 
             try
             {
-                DialogResult result = await dialogs.ShowAsync(dialog =>
+                return await dialogs.ShowAsync(dialog =>
                 {
                     shown = dialog;
                     height = dialog.DialogMaxHeight;
                     dialog.Classes.Add(DangerClass);
 
-                    if (message.Count(character => character == '\n') >= LongQuestionLines)
+                    configure(dialog);
+
+                    dialog.DefaultButton = DefaultButton.Close;
+
+                    if (dialog.Content is string message && message.Count(character => character == '\n') >= LongQuestionLines)
                     {
                         dialog.DialogMaxHeight = LongQuestionHeight;
                     }
-
-                    dialog.Title = title;
-                    dialog.Content = message;
-                    dialog.PrimaryButtonText = confirmText;
-                    dialog.CloseButtonText = "Cancel";
-                    dialog.DefaultButton = DefaultButton.Close;
                 }).ConfigureAwait(true);
-
-                return result == DialogResult.Primary;
             }
             finally
             {

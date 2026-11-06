@@ -341,7 +341,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
 
     private async Task OnResetAsync()
     {
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        DialogResult answer = await _dialogs.ShowDestructiveAsync(dialog =>
         {
             dialog.Title = "Reset every preference";
             dialog.Content =
@@ -349,7 +349,6 @@ public sealed class SettingsPageViewModel : PageViewModelBase
                 + "Connected accounts, their tokens and your lists of repositories are not touched.";
             dialog.PrimaryButtonText = "Reset";
             dialog.CloseButtonText = "Keep them";
-            dialog.DefaultButton = DefaultButton.Close;
         }).ConfigureAwait(true);
 
         if (answer != DialogResult.Primary)
