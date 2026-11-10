@@ -69,6 +69,12 @@ public sealed class SubmoduleNoticeViewModel : ViewModelBase
 
         _context.StateRefreshed += (_, _) => ReadAsync().Forget();
         _context.RepositoryChanged += (_, _) => Show([]);
+
+        // Built after the repository's first refresh — a window started on a path — it reads at once.
+        if (_context.IsRepositoryOpen)
+        {
+            ReadAsync().Forget();
+        }
     }
 
     /// <summary>Gets a value indicating whether the band is on screen.</summary>

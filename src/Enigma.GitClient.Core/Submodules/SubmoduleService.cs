@@ -107,6 +107,18 @@ public interface ISubmoduleService
     Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Finds the repository a repository is a submodule of.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>
+    /// The superproject's work tree as a full path with the platform's separators, or
+    /// <see langword="null"/> when the repository is not a submodule.
+    /// </returns>
+    /// <remarks><c>git rev-parse --show-superproject-working-tree</c>, which prints nothing for a repository that is not one.</remarks>
+    Task<string?> ReadSuperprojectAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Finds the submodules whose expected commit differs between two commits of the repository.
     /// </summary>
     /// <param name="repository">The repository.</param>
@@ -303,6 +315,24 @@ public sealed class SubmoduleService : ISubmoduleService
         ArgumentNullException.ThrowIfNull(repository);
 
         return ReadHeadAsync(repository.WorkTreePath, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> ReadSuperprojectAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        GitResult result = await _runner.RunAsync(
+                _commandFactory.Create(repository.WorkTreePath, "rev-parse", "--show-superproject-working-tree"),
+                throwOnError: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        string printed = result.TrimmedOutput.Trim();
+
+        return result.IsSuccess && printed.Length > 0 && Path.IsPathFullyQualified(printed)
+            ? Path.TrimEndingDirectorySeparator(Path.GetFullPath(printed))
+            : null;
     }
 
     /// <inheritdoc />

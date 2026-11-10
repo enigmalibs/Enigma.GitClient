@@ -82,6 +82,13 @@ public sealed class FakeSubmoduleService : ISubmoduleService
     public Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
         => Task.FromResult(Heads.Count > 1 ? Heads.Dequeue() : Heads.Count == 1 ? Heads.Peek() : null);
 
+    /// <summary>Gets or sets the superproject every read answers, or <see langword="null"/> for none.</summary>
+    public string? Superproject { get; set; }
+
+    /// <inheritdoc />
+    public Task<string?> ReadSuperprojectAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+        => Task.FromResult(Superproject);
+
     /// <inheritdoc />
     public Task<IReadOnlyList<string>> ChangedPinsAsync(
         RepositoryHandle repository,

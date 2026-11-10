@@ -57,6 +57,17 @@
                      Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
           </Border>
 
+          <!-- A submodule says whose it is, as a linked worktree does (FEATURE-6693). -->
+          <Border Name="SubmoduleMark"
+                  Background="Transparent"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding SubmoduleWindow.IsSubmodule}"
+                  ToolTip.Tip="{Binding SubmoduleWindow.MarkTip}"
+                  AutomationProperties.Name="{Binding SubmoduleWindow.MarkTip}">
+            <ei:Icon Kind="Package" Classes="title"
+                     Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          </Border>
+
           <!-- The checked-out branch, drawn by the badge the history draws it with: the same blue,
                the same white, the same size — one control, so the two cannot drift apart. -->
           <gitcontrols:RefBadge Name="HeadBadge"
@@ -211,6 +222,44 @@
                     ToolTip.Tip="Open the Submodules dialog"
                     AutomationProperties.Name="Open the submodules">
               <TextBlock Text="Submodules…" FontSize="12" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- A submodule's window on no branch, as every update leaves it: a commit made there belongs to
+           no branch, and the next update leaves it behind. Never shown for anything but a submodule. -->
+      <Border Name="SubmoduleDetachedBand"
+              DockPanel.Dock="Top"
+              Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+              BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="12,8"
+              IsVisible="{Binding SubmoduleWindow.IsDetachedBandVisible}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ei:Icon Grid.Column="0" Kind="GitBranch" Classes="row" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaWarningBrush}" />
+          <TextBlock Grid.Column="1"
+                     Text="{Binding SubmoduleWindow.DetachedMessage}"
+                     VerticalAlignment="Center"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <Button Classes="toolbar"
+                    Name="CheckoutBranchAtHead"
+                    Command="{Binding SubmoduleWindow.CheckoutBranchCommand}"
+                    IsVisible="{Binding SubmoduleWindow.OffersCheckout}"
+                    ToolTip.Tip="Check out the branch already at this commit"
+                    AutomationProperties.Name="{Binding SubmoduleWindow.CheckoutBranchHeader}">
+              <TextBlock Text="{Binding SubmoduleWindow.CheckoutBranchHeader}" FontSize="12" />
+            </Button>
+            <Button Classes="toolbar"
+                    Name="CreateBranchAtHead"
+                    Command="{Binding SubmoduleWindow.CreateBranchCommand}"
+                    ToolTip.Tip="Create a branch at this commit and check it out"
+                    AutomationProperties.Name="Create a branch">
+              <TextBlock Text="Create a branch…" FontSize="12" />
             </Button>
           </StackPanel>
         </Grid>

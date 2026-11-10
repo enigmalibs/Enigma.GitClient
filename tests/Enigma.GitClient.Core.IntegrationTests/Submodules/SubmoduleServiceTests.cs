@@ -355,6 +355,18 @@ public sealed class SubmoduleServiceTests : IAsyncLifetime, IClassFixture<Submod
         Assert.False(await Service.IsOnAnyRefAsync(gamma, orphan, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task ReadSuperprojectAsync_FindsTheRepositoryASubmoduleBelongsTo_AndNoneForTheRepository()
+    {
+        IRepositoryLocator locator = _host.GetRequiredService<IRepositoryLocator>();
+        RepositoryHandle leaf = (await locator.DiscoverAsync(_super.GetPath(Leaf), TestContext.Current.CancellationToken)).Repository!;
+        RepositoryHandle alpha = (await locator.DiscoverAsync(_super.GetPath(Alpha), TestContext.Current.CancellationToken)).Repository!;
+
+        Assert.Equal(_handle.WorkTreePath, await Service.ReadSuperprojectAsync(alpha, TestContext.Current.CancellationToken), System.StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(alpha.WorkTreePath, await Service.ReadSuperprojectAsync(leaf, TestContext.Current.CancellationToken), System.StringComparer.OrdinalIgnoreCase);
+        Assert.Null(await Service.ReadSuperprojectAsync(_handle, TestContext.Current.CancellationToken));
+    }
+
     private sealed class SynchronousProgress<T> : System.IProgress<T>
     {
         private readonly System.Action<T> _report;

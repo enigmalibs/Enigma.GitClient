@@ -60,7 +60,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IAutoRefreshService autoRefresh,
         ISystemInterop interop,
         GitSignInNoticeViewModel signInNotice,
-        SubmoduleNoticeViewModel submoduleNotice)
+        SubmoduleNoticeViewModel submoduleNotice,
+        SubmoduleWindowViewModel submoduleWindow)
     {
         ArgumentNullException.ThrowIfNull(shell);
         ArgumentNullException.ThrowIfNull(repositoryContext);
@@ -74,6 +75,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(signInNotice);
         ArgumentNullException.ThrowIfNull(submoduleNotice);
+        ArgumentNullException.ThrowIfNull(submoduleWindow);
 
         // What follows the repository's state (branches, tags, the working tree, this strip) follows
         // the refresh on its own; the graph is told, because redrawing it is what costs the reader
@@ -89,6 +91,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         Conflicts = conflicts;
         SignInNotice = signInNotice;
         SubmoduleNotice = submoduleNotice;
+        SubmoduleWindow = submoduleWindow;
         RepositoryContext = repositoryContext;
         _windows = windows;
         _infoBar = infoBar;
@@ -128,6 +131,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// Gets the band that says when submodules are not on the commit the repository expects.
     /// </summary>
     public SubmoduleNoticeViewModel SubmoduleNotice { get; }
+
+    /// <summary>
+    /// Gets what the window says when it is open on a submodule: whose it is, and a band while it is on
+    /// no branch.
+    /// </summary>
+    public SubmoduleWindowViewModel SubmoduleWindow { get; }
 
     /// <summary>
     /// Gets the conflicts page, which the banner reads its progress and its commit button from.

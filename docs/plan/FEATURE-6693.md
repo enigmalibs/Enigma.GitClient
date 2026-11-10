@@ -202,7 +202,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE04 — Working inside a submodule
 
 **Branch:** `feature/feature-6693-phase04-submodule-window`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

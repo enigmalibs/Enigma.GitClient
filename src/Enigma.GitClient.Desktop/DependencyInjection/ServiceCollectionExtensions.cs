@@ -114,6 +114,7 @@ public static class ServiceCollectionExtensions
             // stays said from one repository window to the next.
             services.AddSingleton<GitSignInNoticeViewModel>();
             services.AddSingleton<SubmoduleNoticeViewModel>();
+            services.AddSingleton<SubmoduleWindowViewModel>();
 
             services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();

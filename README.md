@@ -76,6 +76,10 @@ Two things matter more than everything else in this app:
   automatically* in Settings turns it off. A band says when a submodule is not downloaded or behind,
   whatever the cause, with *Update* and *Submodules…*; a new worktree's submodules are downloaded
   before its window opens
+- A window opened on a submodule shows a package after the repository's name, its tooltip naming
+  the repository it belongs to; while it is on no branch — as every update leaves it — a band says
+  commits made there are easy to lose, and offers to check out the branch already at that commit
+  and to create one
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
