@@ -85,6 +85,13 @@ public sealed class FakeSubmoduleService : ISubmoduleService
     /// <summary>Gets the pin changes <see cref="DescribePinChangeAsync"/> answers, by path.</summary>
     public Dictionary<string, PinChange> PinChanges { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Gets the commits <see cref="DescribeCommitAsync"/> answers, by object name.</summary>
+    public Dictionary<string, PinCommit> Commits { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
+    public Task<PinCommit?> DescribeCommitAsync(RepositoryHandle repository, string path, string sha, CancellationToken cancellationToken = default)
+        => Task.FromResult(Commits.TryGetValue(sha, out PinCommit? commit) ? commit : null);
+
     /// <summary>Gets or sets the staged pin changes every read answers.</summary>
     public IReadOnlyList<StagedPin> StagedPins { get; set; } = [];
 

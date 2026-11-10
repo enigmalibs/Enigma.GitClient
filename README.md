@@ -88,6 +88,10 @@ Two things matter more than everything else in this app:
 - A push never publishes a submodule commit that is on no remote of its submodule — whatever
   `push.recurseSubmodules` says: it offers to push the submodule first (on its branch, where its
   profile may push), then the repository; a submodule on no branch is named, with a way to open it
+- A merge that moves a submodule two ways shows both commits on the conflict page — title, author and
+  date — with *Take ours* and *Take theirs*, which record the commit and put the submodule on it;
+  keeping both means merging them inside the submodule first, which *Open submodule* leads to. A
+  submodule added or removed on one side is left for a terminal
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the

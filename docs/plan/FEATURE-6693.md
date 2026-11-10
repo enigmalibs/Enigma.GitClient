@@ -1,6 +1,6 @@
 # FEATURE-6693 — Submodule support
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-09-feature-6693
@@ -284,7 +284,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE07 — Pin conflicts on the conflict page
 
 **Branch:** `feature/feature-6693-phase07-pin-conflicts`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

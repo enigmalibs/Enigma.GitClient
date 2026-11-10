@@ -11,6 +11,7 @@ using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Submodules;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.Icons.Phosphor;
 using Microsoft.Extensions.Logging;
@@ -403,6 +404,8 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<ConflictResolutionPageViewModel> _logger;
+    private readonly ISubmoduleService? _submodules;
+    private readonly IInstanceLauncher? _launcher;
 
     private readonly Dictionary<string, ConflictFile> _seen = [];
     private readonly HashSet<string> _resolvedPaths = [];
@@ -429,7 +432,9 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         IMergeOperations mergeOperations,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
-        ILogger<ConflictResolutionPageViewModel> logger)
+        ILogger<ConflictResolutionPageViewModel> logger,
+        ISubmoduleService? submodules = null,
+        IInstanceLauncher? launcher = null)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(conflicts);
@@ -463,8 +468,12 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         ClearChoicesCommand = new RelayCommand(() => ResolveEveryRegion(ConflictResolution.Unresolved), () => HasDocument);
 
         SaveCommand = new AsyncRelayCommand(OnSaveAsync, () => CanSave);
-        KeepOursCommand = new AsyncRelayCommand(() => OnKeepSideAsync(ConflictSide.Ours), () => HasSelection);
-        KeepTheirsCommand = new AsyncRelayCommand(() => OnKeepSideAsync(ConflictSide.Theirs), () => HasSelection);
+        _submodules = submodules;
+        _launcher = launcher;
+
+        KeepOursCommand = new AsyncRelayCommand(() => OnKeepSideAsync(ConflictSide.Ours), () => HasSelection && !IsSubmoduleTerminalOnly);
+        KeepTheirsCommand = new AsyncRelayCommand(() => OnKeepSideAsync(ConflictSide.Theirs), () => HasSelection && !IsSubmoduleTerminalOnly);
+        OpenSubmoduleCommand = new RelayCommand(OnOpenSubmodule, () => SelectedFile?.File.IsSubmodule == true && _launcher is not null);
 
         TakeEveryFileOursCommand = new AsyncRelayCommand(() => OnTakeEveryFileAsync(ConflictSide.Ours), () => HasUnresolved);
         TakeEveryFileTheirsCommand = new AsyncRelayCommand(() => OnTakeEveryFileAsync(ConflictSide.Theirs), () => HasUnresolved);
@@ -574,19 +583,60 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
     public string WholeFileMessage
         => SelectedFile is null
             ? string.Empty
+            : SelectedFile.File.IsSubmodule
+                ? SelectedFile.File.IsPinConflict
+                    ? SelectedFile.Description + " A pin is one commit: to keep both, merge them inside the submodule first."
+                    : SelectedFile.Description
             : SelectedFile.IsBinary
                 ? SelectedFile.Description + " It has no text to merge line by line, so keep one version or the other."
                 : SelectedFile.Description + " There is no second version to merge with, so keep one side or the other.";
 
+    /// <summary>Gets a value indicating whether the selection is a submodule's pin conflict.</summary>
+    public bool IsPinConflict => SelectedFile?.File.IsPinConflict == true;
+
+    /// <summary>
+    /// Gets a value indicating whether the selection is a submodule conflict the page cannot resolve —
+    /// added or removed on one side — which is resolved in a terminal.
+    /// </summary>
+    public bool IsSubmoduleTerminalOnly => SelectedFile?.File is { IsSubmodule: true, IsPinConflict: false };
+
+    /// <summary>Gets a value indicating whether the selection is a submodule's conflict of any kind.</summary>
+    public bool IsSubmoduleConflict => SelectedFile?.File.IsSubmodule == true;
+
+    /// <summary>Gets our side's card: "Ours: f00ba12 — Fix X", with the author and the date when known.</summary>
+    public string OursPin { get; private set => SetProperty(ref field, value); } = string.Empty;
+
+    /// <summary>Gets their side's card: "Theirs: c0ffee1 — Add Y", with the author and the date when known.</summary>
+    public string TheirsPin { get; private set => SetProperty(ref field, value); } = string.Empty;
+
+    /// <summary>Gets the command that opens the conflicted submodule in a new window.</summary>
+    public RelayCommand OpenSubmoduleCommand { get; }
+
+    /// <summary>
+    /// Builds a side's card for a pin conflict.
+    /// </summary>
+    /// <param name="side">"Ours" or "Theirs".</param>
+    /// <param name="sha">The commit the side records.</param>
+    /// <param name="commit">The commit read in the submodule, or <see langword="null"/> when it could not be.</param>
+    /// <returns>The card's text: the hashes alone when the commit could not be read.</returns>
+    public static string DescribePinSide(string side, string sha, PinCommit? commit)
+        => commit is null
+            ? $"{side}: {PinChange.Short(sha)}"
+            : $"{side}: {commit.ShortSha} — {commit.Title}\n{commit.Author}, {commit.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
+
     /// <summary>Gets what keeping our side does, which for a deletion is removing the file.</summary>
     public string KeepOursDescription
-        => SelectedFile?.File.Kind == ConflictKind.DeletedByUs
+        => SelectedFile?.File.IsPinConflict == true
+            ? "Take ours"
+            : SelectedFile?.File.Kind == ConflictKind.DeletedByUs
             ? "Keep ours (delete the file)"
             : "Keep ours";
 
     /// <summary>Gets what keeping their side does, which for a deletion is removing the file.</summary>
     public string KeepTheirsDescription
-        => SelectedFile?.File.Kind == ConflictKind.DeletedByThem
+        => SelectedFile?.File.IsPinConflict == true
+            ? "Take theirs"
+            : SelectedFile?.File.Kind == ConflictKind.DeletedByThem
             ? "Keep theirs (delete the file)"
             : "Keep theirs";
 
@@ -991,6 +1041,21 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
             return;
         }
 
+        if (row.File.IsPinConflict)
+        {
+            await DescribePinSidesAsync(repository, row.File, generation).ConfigureAwait(true);
+
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+        }
+        else
+        {
+            OursPin = string.Empty;
+            TheirsPin = string.Empty;
+        }
+
         IsLoadingFile = false;
         _document = document;
 
@@ -1043,6 +1108,12 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(WholeFileMessage));
         OnPropertyChanged(nameof(KeepOursDescription));
         OnPropertyChanged(nameof(KeepTheirsDescription));
+        OnPropertyChanged(nameof(IsPinConflict));
+        OnPropertyChanged(nameof(IsSubmoduleTerminalOnly));
+        OnPropertyChanged(nameof(IsSubmoduleConflict));
+        KeepOursCommand.NotifyCanExecuteChanged();
+        KeepTheirsCommand.NotifyCanExecuteChanged();
+        OpenSubmoduleCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(RegionProgress));
         OnPropertyChanged(nameof(CanSave));
 
@@ -1211,6 +1282,12 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         string path = row.Path;
 
+        if (row.File.IsPinConflict)
+        {
+            await KeepPinAsync(path, side == ConflictSide.Ours ? row.File.OursSha! : row.File.TheirsSha!, side).ConfigureAwait(true);
+            return;
+        }
+
         bool kept = await RunAsync(
             (handle, token) => _conflicts.ResolveWithAsync(handle, path, side, token),
             "Could not resolve the file").ConfigureAwait(true);
@@ -1221,6 +1298,66 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
                 "File resolved",
                 $"{path} keeps {(side == ConflictSide.Ours ? "our" : "their")} version.",
                 InfoBarSeverity.Success);
+        }
+    }
+
+    private async Task KeepPinAsync(string path, string sha, ConflictSide side)
+    {
+        SubmoduleUpdateResult? moved = null;
+
+        bool kept = await RunAsync(
+            async (handle, token) => moved = await _conflicts.ResolveSubmoduleAsync(handle, path, sha, token).ConfigureAwait(true),
+            "Could not resolve the submodule").ConfigureAwait(true);
+
+        if (!kept)
+        {
+            return;
+        }
+
+        string which = side == ConflictSide.Ours ? "our" : "their";
+
+        if (moved is { HasProblems: true } && SubmoduleOperations.DescribeProblems(moved) is { } problems)
+        {
+            Report(
+                "Submodule resolved; its folder stayed",
+                $"{path} records {which} commit, {PinChange.Short(sha)}. {problems.Message}",
+                InfoBarSeverity.Warning);
+            return;
+        }
+
+        Report("Submodule resolved", $"{path} is on {which} commit, {PinChange.Short(sha)}.", InfoBarSeverity.Success);
+    }
+
+    private async Task DescribePinSidesAsync(RepositoryHandle repository, ConflictFile file, int generation)
+    {
+        PinCommit? ours = null;
+        PinCommit? theirs = null;
+
+        if (_submodules is not null)
+        {
+            try
+            {
+                ours = await _submodules.DescribeCommitAsync(repository, file.Path, file.OursSha!, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+                theirs = await _submodules.DescribeCommitAsync(repository, file.Path, file.TheirsSha!, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+            }
+            catch (GitCommandException exception)
+            {
+                _logger.LogWarning(exception, "The commits of the conflicted submodule {Path} could not be read", file.Path);
+            }
+        }
+
+        if (generation == _loadGeneration)
+        {
+            OursPin = DescribePinSide("Ours", file.OursSha!, ours);
+            TheirsPin = DescribePinSide("Theirs", file.TheirsSha!, theirs);
+        }
+    }
+
+    private void OnOpenSubmodule()
+    {
+        if (SelectedFile?.File is { IsSubmodule: true } file && RepositoryContext.Repository is { } repository)
+        {
+            _launcher?.Launch(System.IO.Path.Combine(repository.WorkTreePath, file.Path.Replace('/', System.IO.Path.DirectorySeparatorChar)));
         }
     }
 

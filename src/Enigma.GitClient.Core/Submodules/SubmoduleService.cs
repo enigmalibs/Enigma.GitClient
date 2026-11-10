@@ -127,6 +127,16 @@ public interface ISubmoduleService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads one commit of a submodule: its title, author and date.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="path">The submodule's path.</param>
+    /// <param name="sha">The commit.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The commit, or <see langword="null"/> when the submodule is not downloaded or lacks it.</returns>
+    Task<PinCommit?> DescribeCommitAsync(RepositoryHandle repository, string path, string sha, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lists the submodules whose recorded commit the index changes against HEAD — what a commit would
     /// record.
     /// </summary>
@@ -443,6 +453,40 @@ public sealed class SubmoduleService : ISubmoduleService
             : [];
 
         return new PinChange(path, old, @new, direction, added, ahead, removed, behind);
+    }
+
+    /// <inheritdoc />
+    public async Task<PinCommit?> DescribeCommitAsync(
+        RepositoryHandle repository,
+        string path,
+        string sha,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (!SubmoduleOutputParser.IsObjectName(sha))
+        {
+            return null;
+        }
+
+        string root = Path.TrimEndingDirectorySeparator(repository.WorkTreePath);
+        string folder = Path.GetFullPath(Path.Combine(root, path));
+
+        if (!folder.StartsWith(root + Path.DirectorySeparatorChar, PathComparison)
+            || !IsCheckedOut(folder)
+            || !await HasCommitAsync(folder, sha, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        GitResult result = await _runner.RunAsync(
+                _commandFactory.Create(folder, "log", "-1", "--format=%h%x1f%s%x1f%an%x1f%aI", sha, "--"),
+                throwOnError: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsSuccess && ParsePinCommits(result.StandardOutput) is [var commit, ..] ? commit : null;
     }
 
     /// <inheritdoc />
