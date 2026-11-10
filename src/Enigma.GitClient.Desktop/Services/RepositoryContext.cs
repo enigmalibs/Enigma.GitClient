@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Enigma.GitClient.Core.History;
 using Enigma.GitClient.Core.Refs;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Submodules;
 using Enigma.GitClient.Core.Worktrees;
 using Microsoft.Extensions.Logging;
 
@@ -98,6 +99,9 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     public string? MainWorktreePath => Worktrees is [{ IsMain: true } main, ..] ? main.Path : null;
 
     /// <inheritdoc />
+    public bool HasSubmodules { get; private set => SetProperty(ref field, value); }
+
+    /// <inheritdoc />
     public GitWorktree? WorktreeOf(string branch)
     {
         ArgumentNullException.ThrowIfNull(branch);
@@ -143,6 +147,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         Refs = RefCollection.Empty;
         Decorations = RefDecorationIndex.Empty;
         Worktrees = NoWorktrees;
+        HasSubmodules = false;
         Head = null;
 
         RepositoryChanged?.Invoke(this, new RepositoryChangedEventArgs(previous, repository));
@@ -168,6 +173,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         Refs = RefCollection.Empty;
         Decorations = RefDecorationIndex.Empty;
         Worktrees = NoWorktrees;
+        HasSubmodules = false;
 
         RepositoryChanged?.Invoke(this, new RepositoryChangedEventArgs(previous, null));
     }
@@ -206,6 +212,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
             Head = state.Head;
             Decorations = state.Decorations;
             Worktrees = worktrees;
+            HasSubmodules = SubmoduleService.HasGitModules(repository.WorkTreePath);
 
             StateRefreshed?.Invoke(this, EventArgs.Empty);
         }

@@ -62,6 +62,13 @@ Two things matter more than everything else in this app:
   Deleting or checking out such a branch is refused up front, naming the folder, and the checkout
   offers to open the worktree instead; a window opened on a worktree shows a tree after the
   repository's name
+- Submodules: in a repository that has some, the *Submodules* dialog, beside *Worktrees* in the
+  toolbar, lists each one — nested ones under theirs — with the commit the repository expects it on
+  and where it stands: up to date, behind, with new commits, elsewhere or not downloaded, and a mark
+  when it holds uncommitted changes. Its menu opens it in a new window, updates it, opens its folder
+  or a terminal in it, or copies its path; *Update all* puts every one on the commit the repository
+  expects. An update never moves a submodule with uncommitted changes or one on a commit no branch
+  contains — it names it instead — and never rebases
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the

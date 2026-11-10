@@ -364,6 +364,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         OpenBranchesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Branches), () => IsRepositoryOpen);
         OpenWorktreesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Worktrees), () => IsRepositoryOpen);
+        OpenSubmodulesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Submodules), () => IsRepositoryOpen);
         OpenTagsCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Tags), () => IsRepositoryOpen);
         OpenRemotesCommand = new AsyncRelayCommand(() => OpenToolAsync(ToolDialog.Remotes), () => IsRepositoryOpen);
         ShowHiddenBranchesCommand = new RelayCommand(_hidden.ShowAll, () => HiddenBranchCount > 0);
@@ -1031,6 +1032,15 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <summary>Gets the command that opens the worktrees over the history.</summary>
     public AsyncRelayCommand OpenWorktreesCommand { get; }
 
+    /// <summary>Gets the command that opens the submodules over the history.</summary>
+    public AsyncRelayCommand OpenSubmodulesCommand { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the repository declares submodules, which is when the toolbar
+    /// offers the Submodules dialog.
+    /// </summary>
+    public bool HasSubmodules => RepositoryContext.HasSubmodules;
+
     /// <summary>Gets the command that opens the tags over the history.</summary>
     public AsyncRelayCommand OpenTagsCommand { get; }
 
@@ -1354,6 +1364,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         CatchUpWithTheFirstState();
         OnPropertyChanged(nameof(IsLoading));
+        OnPropertyChanged(nameof(HasSubmodules));
     }
 
     /// <summary>
@@ -1424,6 +1435,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase
 
         OpenBranchesCommand.NotifyCanExecuteChanged();
         OpenWorktreesCommand.NotifyCanExecuteChanged();
+        OpenSubmodulesCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(HasSubmodules));
         OpenTagsCommand.NotifyCanExecuteChanged();
         OpenRemotesCommand.NotifyCanExecuteChanged();
         NotifyHiddenBranches();

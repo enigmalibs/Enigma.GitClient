@@ -421,7 +421,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-092B | Release 6.18.0                           | DONE        | docs/plan/FEATURE-092B.md |
 | FEATURE-6693 | Submodule support                        | IN PROGRESS | docs/plan/FEATURE-6693.md |
 | - PHASE01    | Read and update submodules in Core       | DONE        | (in FEATURE-6693.md)      |
-| - PHASE02    | The Submodules dialog                    | TODO        | (in FEATURE-6693.md)      |
+| - PHASE02    | The Submodules dialog                    | DONE        | (in FEATURE-6693.md)      |
 | - PHASE03    | Submodules follow the pin                | TODO        | (in FEATURE-6693.md)      |
 | - PHASE04    | Working inside a submodule               | TODO        | (in FEATURE-6693.md)      |
 | - PHASE05    | Pin changes: diff, guard, discard        | TODO        | (in FEATURE-6693.md)      |

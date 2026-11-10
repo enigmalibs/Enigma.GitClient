@@ -89,6 +89,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IWorktreeGuard, WorktreeGuard>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
+            services.AddSingleton<ISubmoduleOperations, SubmoduleOperations>();
             services.AddSingleton<ITagOperations, TagOperations>();
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
             services.AddSingleton<IResetOperations, ResetOperations>();
@@ -118,6 +119,7 @@ public static class ServiceCollectionExtensions
             services.AddTransient<TagsPageView>();
             services.AddTransient<RemotesPageView>();
             services.AddTransient<WorktreesPageView>();
+            services.AddTransient<SubmodulesPageView>();
             services.AddTransient<ConflictResolutionPageView>();
             services.AddTransient<ProfilesPageView>();
             services.AddTransient<SettingsPageView>();
@@ -128,6 +130,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<TagsPageViewModel>();
             services.AddSingleton<RemotesPageViewModel>();
             services.AddSingleton<WorktreesPageViewModel>();
+            services.AddSingleton<SubmodulesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();

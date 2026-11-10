@@ -68,6 +68,16 @@ public interface IRepositoryContext : INotifyPropertyChanged
     string? MainWorktreePath { get; }
 
     /// <summary>
+    /// Gets a value indicating whether the open repository declares submodules — its work tree holds a
+    /// <c>.gitmodules</c> file — as of the last refresh.
+    /// </summary>
+    /// <remarks>
+    /// A file check, not a git process: what keeps everything about submodules free for a repository
+    /// without any.
+    /// </remarks>
+    bool HasSubmodules { get; }
+
+    /// <summary>
     /// Finds the working tree that has a branch checked out, other than the one open here.
     /// </summary>
     /// <param name="branch">The local branch's short name.</param>

@@ -139,7 +139,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE02 — The Submodules dialog
 
 **Branch:** `feature/feature-6693-phase02-submodules-dialog`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

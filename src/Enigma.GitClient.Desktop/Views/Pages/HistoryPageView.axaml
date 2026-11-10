@@ -237,6 +237,17 @@
               <TextBlock Classes="commandlabel" Text="Worktrees" />
             </StackPanel>
           </Button>
+          <Button Name="OpenSubmodules"
+                  Classes="toolbar command"
+                  Command="{Binding OpenSubmodulesCommand}"
+                  IsVisible="{Binding HasSubmodules}"
+                  ToolTip.Tip="Submodules"
+                  AutomationProperties.Name="Open the submodules">
+            <StackPanel>
+              <ei:Icon Kind="Package" Classes="command" />
+              <TextBlock Classes="commandlabel" Text="Submodules" />
+            </StackPanel>
+          </Button>
           <Button Name="OpenTags"
                   Classes="toolbar command"
                   Command="{Binding OpenTagsCommand}"
