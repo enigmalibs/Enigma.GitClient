@@ -10,13 +10,16 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.18** — a repository tile on the start window has a menu, opened by a right-click,
-> with what its buttons do, *Copy repository path*, and *Choose an icon…*, which gives the repository a
-> picture or an SVG of its own in place of the folder glyph; the History's search has a bar of its own,
-> under the commands, shown by the *Search* toggle or Ctrl+F; and a disabled menu item's glyph greys
-> with its title. 6.17 before it: every dialog opens with the keyboard focus inside it, in its first
-> text field, else on its default button; a question that removes something or throws work away is red
-> and opens with Cancel focused; and a branch or tag badge's menu holds the badge's own items again.
+> **What's new in 6.19** — submodules: the *Submodules* dialog, beside *Worktrees*, lists them and
+> where each one stands; a clone downloads them, and they follow every checkout, pull, merge, reset,
+> revert or squash the app performs (*Update submodules automatically* in Settings turns that off); a
+> band says when one is not downloaded or behind; a submodule's change says which way it goes, a
+> commit that moves one back asks first, and a push never publishes a submodule commit no remote has.
+> 6.18 before it: a repository tile on the start window has a menu, opened by a right-click, with what
+> its buttons do, *Copy repository path*, and *Choose an icon…*, which gives the repository a picture
+> or an SVG of its own in place of the folder glyph; the History's search has a bar of its own, under
+> the commands, shown by the *Search* toggle or Ctrl+F; and a disabled menu item's glyph greys with
+> its title.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -165,8 +168,9 @@ Two things matter more than everything else in this app:
   window, give that repository a name and email of its own (copied from the active profile in one
   click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
-  font and context, the pull strategy, the path to git, how often the repository is fetched and
-  whether its files are watched — every one of them applied without a restart
+  font and context, the pull strategy, the path to git, how often the repository is fetched,
+  whether its files are watched and whether submodules follow it — every one of them applied
+  without a restart
 
 ## Non-goals
 
