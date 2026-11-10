@@ -271,6 +271,16 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         set => Change(current => current with { WatchFileSystem = value });
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether submodules are put on the commits the repository expects
+    /// after every checkout, pull, merge, reset, revert and squash the application performs.
+    /// </summary>
+    public bool UpdateSubmodulesAutomatically
+    {
+        get => _settings.Current.UpdateSubmodulesAutomatically;
+        set => Change(current => current with { UpdateSubmodulesAutomatically = value });
+    }
+
     /// <summary>Gets the shortest interval the automatic refresh accepts, for the editor's hint.</summary>
     public static int MinimumAutoRefreshSeconds => AppSettings.MinimumAutoRefreshSeconds;
 
@@ -393,6 +403,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
             OnPropertyChanged(nameof(DiffFontSize));
             OnPropertyChanged(nameof(GitExecutablePath));
             OnPropertyChanged(nameof(Pull));
+            OnPropertyChanged(nameof(UpdateSubmodulesAutomatically));
         }
         finally
         {

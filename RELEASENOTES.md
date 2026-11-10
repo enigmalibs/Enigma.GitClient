@@ -1,5 +1,174 @@
 # Release notes
 
+## 6.19.0 — 2026-11-10
+
+A minor release, about submodules. The app now follows them and shows them, and it keeps the three
+classic accidents from happening:
+
+- folders left empty after a clone;
+- a submodule left on its old commit, which a later commit records again;
+- a repository pushed before the submodule commit it points at.
+
+In short:
+
+- a **Submodules** dialog, beside *Worktrees*, lists a repository's submodules and where each one
+  stands, and updates them;
+- **submodules follow the repository**. A clone downloads them. After every checkout, pull, merge,
+  reset, revert or squash the app performs, each submodule whose expected commit changed is moved to
+  it. A setting turns this off;
+- a **band** says when a submodule is not downloaded or is behind;
+- a **window opened on a submodule** says which repository it belongs to, and warns while it is on
+  no branch;
+- a **submodule's change** says which way it goes and lists the commits. A commit that moves a
+  submodule back asks first, and *Discard* puts a submodule back;
+- a **push** never publishes a submodule commit that no remote has. It offers to push the submodule
+  first;
+- a **merge conflict on a submodule** is resolved by taking one of the two commits.
+
+A repository without submodules sees none of this: the *Submodules* button shows only in a
+repository that has a `.gitmodules` file.
+
+### The Submodules dialog
+
+- **The *Submodules* button** sits beside *Worktrees* in the History's toolbar and opens the dialog.
+- **One line per submodule**, nested ones under their parent. Each line shows the commit the
+  repository expects and where the submodule stands:
+  - *Up to date* — on that commit;
+  - *Behind* — on an older commit. Update it, or a commit here would record the old commit again;
+  - *New commits* — on a newer commit: work not recorded here yet;
+  - *Elsewhere, on a1b2c3d* — on a commit on another line;
+  - *Not downloaded* — its folder is empty;
+  - *Conflicted* — a merge left two commits for it.
+
+  A badge says when a submodule has *uncommitted changes*. The line's tooltip gives the submodule's
+  name and its address, with any credentials hidden.
+- **Each line has a menu:**
+  - *Open in a new window* (a double-click does the same);
+  - *Update*;
+  - *Open folder*;
+  - *Open a terminal*;
+  - *Copy path*.
+
+  **Update all**, at the top of the dialog, moves every submodule to the commit the repository
+  expects, and downloads the ones that are not downloaded yet.
+- **An update never loses work.** It leaves two kinds of submodule where they are, and names each one
+  with the reason:
+  - a submodule with modified files;
+  - a submodule on a commit that no branch contains.
+- **An update only checks the commit out.** It never rebases or merges, whatever
+  `submodule.<name>.update` says.
+
+### Submodules that follow
+
+- **A clone downloads them.** *Clone submodules as well*, under the Clone dialog's *More options*, now
+  starts ticked.
+- **They follow the app's operations:**
+  - after a checkout, pull, merge, reset, revert or squash the app performs, each submodule whose
+    expected commit changed is moved to it. This includes a merge made by dragging a branch, and
+    finishing a merge that had conflicts;
+  - submodules that are not downloaded yet are downloaded;
+  - nested submodules follow too;
+  - a submodule you moved yourself, and which the operation did not change, stays where it is;
+  - a progress card with *Cancel* shows while a submodule is updated. Any submodule that could not be
+    updated is named in one warning.
+- **To turn this off**, use *Update submodules automatically* in Settings → Git, under *Pull*. It is
+  on by default, and it applies at once.
+- **git's `submodule.recurse` is set aside during the app's operations.** Those operations run with
+  it off, so only the rules above move submodules.
+- **A new worktree's submodules are downloaded** before its window opens.
+- **A band** says "2 submodules are not on the commit this repository expects." when a submodule is
+  not downloaded or is behind, whatever the cause: the setting is off, a pull was made in a terminal,
+  or an update left the submodule where it was. The band offers *Update* and *Submodules…*. A
+  submodule with new commits, or on a commit elsewhere, does not raise it: that is usually work in
+  progress.
+- **A commit made inside a submodule** shows in the repository's window within a second.
+
+### A window on a submodule
+
+- **A package glyph follows the repository's name** when the repository is a submodule. Its tooltip
+  says which repository it belongs to: "Submodule libs/Common of MainApp — <its folder>".
+- **While the submodule is on no branch**, as every update leaves it, a band says "You're on no branch
+  — commits made here are easy to lose." It offers:
+  - *Check out <branch>*, when a branch is already at that commit;
+  - *Create a branch…*.
+
+### A submodule's change
+
+- **In the history and in the working changes**, a submodule's diff says which way the change goes:
+  - "libs/Common: a1b2c3d → f00ba12 · 3 new commits" when it goes forward;
+  - "goes back 3 commits", in the warning colour, when it goes back;
+  - both counts when the two commits are on different lines.
+
+  The diff lists the commits, ten at most, then "and N more". When the submodule is not downloaded,
+  or lacks one of the two commits, the diff shows the two hashes and says why. Nothing is fetched.
+- **A submodule's line in the working changes** says what the submodule holds: "other commit checked
+  out", "modified content" or "untracked content". The line's menu has *Open submodule*.
+- **A commit that moves a submodule back asks first**, in red: "This commit moves libs/Common back
+  3 commits (to a1b2c3d). Is that intended?", with *Commit anyway*. A commit that moves a submodule
+  forward asks nothing.
+- **Discard puts a submodule back** on the commit HEAD records. A red question first names that
+  commit. When commits that no branch contains would be left behind, it also says how many.
+  - A submodule with uncommitted changes of its own refuses the discard, with *Open submodule*.
+  - *Discard all* puts every changed submodule back the same way.
+
+### The push
+
+- **A push never publishes a submodule commit that is on no remote of its submodule**, whatever
+  `push.recurseSubmodules` says. It offers instead "Push libs/Common, then this repository":
+  - first, each submodule's profile must be allowed to push to the submodule's remote. If one is
+    not, nothing is pushed;
+  - then each submodule is pushed, on its own branch. Its upstream is set on a first push;
+  - then the repository is pushed.
+
+  A submodule on no branch is named instead, with a way to open it.
+- **A force push and a tag push** make the same check.
+
+### Conflicts
+
+- **A merge that moves a submodule two ways** shows both commits on the conflict page — "Ours:
+  f00ba12 — Fix X" and "Theirs: c0ffee1 — Add Y" — with their author and date.
+  - *Take ours* and *Take theirs* record that commit and move the submodule to it.
+  - To keep both, merge them inside the submodule first: *Open submodule* takes you there.
+- **A submodule added or removed on one side**, and changed on the other, is left for a terminal. The
+  rest of the merge works as usual.
+
+### Upgrading from 6.18
+
+- **On Windows, install the 6.19.0 MSI**: `packaging\windows\buildmsi.ps1` builds
+  `artifacts\Enigma.GitClient.6.19.0.msi`, which replaces 6.18.0.
+- **On Linux, run `packaging/linux/install.sh` again.**
+- **No stored format changes:**
+  - `settings.json` stays at version 7 and gains one key, `updateSubmodulesAutomatically`. A file
+    without the key reads as on;
+  - `repository-lists.json` stays at version 1;
+  - the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their format.
+- **Going back to 6.18 keeps everything.** 6.18 ignores the new key and drops it the next time it
+  saves the settings. So if you turned the setting off, it reads as on again in 6.19.
+- **In a repository with submodules, some things now happen without being asked:**
+  - submodules move after the app's operations. Turn *Update submodules automatically* off to keep
+    them where you put them;
+  - a clone downloads them, unless you untick the box;
+  - a push stops when it would publish a submodule commit that no remote has, even when
+    `push.recurseSubmodules` is `on-demand` or `no`;
+  - `submodule.recurse` in your git configuration no longer moves submodules during the app's
+    checkouts, pulls, merges, resets and reverts.
+
+### Dependencies
+
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.1.6 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it.
+- **xunit.v3 4.0.2 → 4.0.3**, used by the tests only. Nothing else is outdated
+  (`dotnet list package --outdated`, 2026-11-10).
+- The installer build still uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2.
+
+### Version
+
+- **6.19.0** is a minor release under Semantic Versioning. It adds submodule support and keeps every
+  stored format. Core gains the `Enigma.GitClient.Core.Submodules` namespace, and `ConflictService`
+  takes the submodule service, which the application supplies. No dependency of the application
+  moves.
+
 ## 6.18.0 — 2026-11-06
 
 A minor release, about the start window's repository tiles and the History's search:

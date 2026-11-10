@@ -68,6 +68,16 @@ public interface IRepositoryContext : INotifyPropertyChanged
     string? MainWorktreePath { get; }
 
     /// <summary>
+    /// Gets a value indicating whether the open repository declares submodules — its work tree holds a
+    /// <c>.gitmodules</c> file — as of the last refresh.
+    /// </summary>
+    /// <remarks>
+    /// A file check, not a git process: what keeps everything about submodules free for a repository
+    /// without any.
+    /// </remarks>
+    bool HasSubmodules { get; }
+
+    /// <summary>
     /// Finds the working tree that has a branch checked out, other than the one open here.
     /// </summary>
     /// <param name="branch">The local branch's short name.</param>
@@ -144,11 +154,16 @@ public interface IRepositoryContext : INotifyPropertyChanged
     /// <param name="operation">The operation, given a token linked to the repository's lifetime.</param>
     /// <param name="refreshAfter">Whether to re-read the reference state when the operation finishes.</param>
     /// <param name="cancellationToken">Cancels waiting for the lock and the operation itself.</param>
+    /// <param name="followSubmodules">
+    /// Whether the submodules the operation moved HEAD's expectation for are put on their new commits
+    /// once it is over (<see cref="ISubmoduleFollowStep"/>); a write that must leave them alone opts out.
+    /// </param>
     /// <returns>A task that completes when the operation and any refresh have finished.</returns>
     Task RunExclusiveAsync(
         Func<RepositoryHandle, CancellationToken, Task> operation,
         bool refreshAfter = true,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool followSubmodules = true);
 
     /// <summary>
     /// Runs an operation that writes to the repository and returns a result, serialised against
@@ -158,11 +173,16 @@ public interface IRepositoryContext : INotifyPropertyChanged
     /// <param name="operation">The operation, given a token linked to the repository's lifetime.</param>
     /// <param name="refreshAfter">Whether to re-read the reference state when the operation finishes.</param>
     /// <param name="cancellationToken">Cancels waiting for the lock and the operation itself.</param>
+    /// <param name="followSubmodules">
+    /// Whether the submodules the operation moved HEAD's expectation for are put on their new commits
+    /// once it is over (<see cref="ISubmoduleFollowStep"/>); a write that must leave them alone opts out.
+    /// </param>
     /// <returns>The operation's result.</returns>
     Task<TResult> RunExclusiveAsync<TResult>(
         Func<RepositoryHandle, CancellationToken, Task<TResult>> operation,
         bool refreshAfter = true,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool followSubmodules = true);
 
     /// <summary>
     /// Runs a write the way <see cref="RunExclusiveAsync"/> does — but only if no other write is in

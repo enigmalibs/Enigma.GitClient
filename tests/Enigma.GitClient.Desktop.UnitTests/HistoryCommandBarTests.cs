@@ -175,6 +175,7 @@ public sealed class HistoryCommandBarTests
                     ("OpenTerminal", shell.OpenTerminalCommand),
                     ("OpenBranches", history.OpenBranchesCommand),
                     ("OpenWorktrees", history.OpenWorktreesCommand),
+                    ("OpenSubmodules", history.OpenSubmodulesCommand),
                     ("OpenTags", history.OpenTagsCommand),
                     ("OpenRemotes", history.OpenRemotesCommand),
                     ("RefreshEverything", shell.RefreshCommand),
@@ -442,10 +443,12 @@ public sealed class HistoryCommandBarTests
 
             try
             {
-                Button[] buttons = [.. Named<StackPanel>(page, "Commands").Children.OfType<Button>()];
+                // Submodules shows only for a repository that declares some, which this one does not.
+                Button[] buttons = [.. Named<StackPanel>(page, "Commands").Children.OfType<Button>().Where(button => button.IsVisible)];
 
                 // Twelve commands and the search bar's toggle, which is a button too.
                 Assert.Equal(13, buttons.Length);
+                Assert.False(Named<Button>(page, "OpenSubmodules").IsVisible);
 
                 foreach (Button button in buttons)
                 {
@@ -546,7 +549,7 @@ public sealed class HistoryCommandBarTests
                 Assert.False(panel.IsCompact);
                 Assert.Equal(bar.Bounds.Width / 2, BoundsIn(commands, bar).Center.X, 0.5);
 
-                foreach (Button button in commands.Children.OfType<Button>())
+                foreach (Button button in commands.Children.OfType<Button>().Where(button => button.IsVisible))
                 {
                     TextBlock label = LabelOf(button);
 

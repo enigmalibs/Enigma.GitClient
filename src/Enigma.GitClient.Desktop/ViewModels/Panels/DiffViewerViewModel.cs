@@ -10,6 +10,7 @@ using Enigma.GitClient.Core.Diff;
 using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
+using Enigma.GitClient.Core.Submodules;
 using Enigma.GitClient.Desktop.Controls.Diff;
 using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.Logging;
@@ -254,6 +255,8 @@ public sealed class DiffViewerViewModel : ViewModelBase
     private readonly ISettingsService _settings;
     private readonly ISystemInterop _interop;
     private readonly ILogger<DiffViewerViewModel> _logger;
+    private readonly ISubmoduleService? _submodules;
+    private readonly IInstanceLauncher? _launcher;
 
     private RepositoryHandle? _repository;
     private DiffTarget? _target;
@@ -272,7 +275,9 @@ public sealed class DiffViewerViewModel : ViewModelBase
         IDiffService diffs,
         ISystemInterop interop,
         ISettingsService settings,
-        ILogger<DiffViewerViewModel> logger)
+        ILogger<DiffViewerViewModel> logger,
+        ISubmoduleService? submodules = null,
+        IInstanceLauncher? launcher = null)
     {
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
@@ -283,6 +288,10 @@ public sealed class DiffViewerViewModel : ViewModelBase
         _interop = interop;
         _settings = settings;
         _logger = logger;
+        _submodules = submodules;
+        _launcher = launcher;
+
+        OpenSubmoduleCommand = new RelayCommand(OnOpenSubmodule, () => _launcher is not null && _pinFolder is not null);
 
         ShowUnifiedCommand = new RelayCommand(() => ViewMode = DiffViewMode.Unified);
         ShowSideBySideCommand = new RelayCommand(() => ViewMode = DiffViewMode.SideBySide);
@@ -417,13 +426,13 @@ public sealed class DiffViewerViewModel : ViewModelBase
     /// A message stands alone. Drawn under an empty editor, its gutter and its background, it read as
     /// half hidden in the middle of a diff that was not there (BUG-D0D9).
     /// </remarks>
-    public bool ShowsUnified => IsUnified && !HasMessage;
+    public bool ShowsUnified => IsUnified && !HasMessage && !HasPinChange;
 
     /// <summary>
     /// Gets a value indicating whether the side-by-side rendering is on screen (see
     /// <see cref="ShowsUnified"/>).
     /// </summary>
-    public bool ShowsSideBySide => IsSideBySide && !HasMessage;
+    public bool ShowsSideBySide => IsSideBySide && !HasMessage && !HasPinChange;
 
     /// <summary>
     /// Gets or sets how many unchanged lines are shown around each change.
@@ -693,6 +702,24 @@ public sealed class DiffViewerViewModel : ViewModelBase
 
             string message = MessageFor(patch, file);
 
+            // A submodule's patch is two commits, not text: what moving between them does is shown
+            // instead — the message stays for when it cannot be read.
+            PinChange? pin = patch is { IsSubmodule: true }
+                ? await DescribePinAsync(repository, file, patch).ConfigureAwait(true)
+                : null;
+
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            ShowPin(pin, patch, file, repository);
+
+            if (pin is not null)
+            {
+                message = string.Empty;
+            }
+
             if (refreshing && Shows(patch, message))
             {
                 return;
@@ -782,6 +809,91 @@ public sealed class DiffViewerViewModel : ViewModelBase
             row >= 0 && row < rows.Count && rows[row].CellFor(selection.Pane)?.Line is { Kind: not DiffLineKind.NoNewline } line
                 ? line.Text
                 : null);
+    }
+
+    // ---------------------------------------------------------------- a submodule's pin change
+
+    private string? _pinFolder;
+
+    /// <summary>Gets a value indicating whether a submodule's pin change is shown instead of a diff.</summary>
+    public bool HasPinChange { get; private set => SetProperty(ref field, value); }
+
+    /// <summary>Gets the pin change's line: "libs/Common: a1b2c3d → f00ba12 · 3 new commits".</summary>
+    public string PinSummary { get; private set => SetProperty(ref field, value); } = string.Empty;
+
+    /// <summary>Gets a value indicating whether the change takes commits back, which is drawn as a warning.</summary>
+    public bool IsPinBack { get; private set => SetProperty(ref field, value); }
+
+    /// <summary>Gets why the commits cannot be listed, or an empty string.</summary>
+    public string PinReason { get; private set => SetProperty(ref field, value); } = string.Empty;
+
+    /// <summary>Gets a value indicating whether <see cref="PinReason"/> says something.</summary>
+    public bool HasPinReason => PinReason.Length > 0;
+
+    /// <summary>Gets one line per commit brought in (+) or taken back (−).</summary>
+    public IReadOnlyList<string> PinCommits { get; private set => SetProperty(ref field, value); } = [];
+
+    /// <summary>Gets what the submodule's own files hold, or an empty string.</summary>
+    public string PinDirt { get; private set => SetProperty(ref field, value); } = string.Empty;
+
+    /// <summary>Gets a value indicating whether <see cref="PinDirt"/> says something.</summary>
+    public bool HasPinDirt => PinDirt.Length > 0;
+
+    /// <summary>Gets the command that opens the submodule in a new window.</summary>
+    public RelayCommand OpenSubmoduleCommand { get; }
+
+    private async Task<PinChange?> DescribePinAsync(RepositoryHandle repository, ChangedFile file, FilePatch patch)
+    {
+        if (_submodules is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _submodules
+                .DescribePinChangeAsync(repository, file.Path, patch.OldSubproject?.Sha, patch.NewSubproject?.Sha)
+                .ConfigureAwait(true);
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogWarning(exception, "What the pin change of {Path} does could not be read", file.Path);
+            return null;
+        }
+    }
+
+    private void ShowPin(PinChange? pin, FilePatch? patch, ChangedFile file, RepositoryHandle repository)
+    {
+        HasPinChange = pin is not null;
+        PinSummary = pin?.Summary ?? string.Empty;
+        IsPinBack = pin?.Direction == PinDirection.Back;
+        PinReason = pin?.UnknownReason ?? string.Empty;
+        PinCommits = pin?.Lines ?? [];
+
+        bool dirty = patch?.NewSubproject?.IsDirty == true || file.Submodule.IsDirty;
+        PinDirt = pin is null || !dirty
+            ? string.Empty
+            : PinChange.DescribeDirt(file.Submodule.HasModifiedTracked || patch?.NewSubproject?.IsDirty == true, file.Submodule.HasUntracked) is { Length: > 0 } text
+                ? text
+                : "The submodule has changes of its own.";
+
+        _pinFolder = pin is null
+            ? null
+            : System.IO.Path.Combine(repository.WorkTreePath, file.Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+
+        OnPropertyChanged(nameof(HasPinReason));
+        OnPropertyChanged(nameof(HasPinDirt));
+        OnPropertyChanged(nameof(ShowsUnified));
+        OnPropertyChanged(nameof(ShowsSideBySide));
+        OpenSubmoduleCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnOpenSubmodule()
+    {
+        if (_pinFolder is not null)
+        {
+            _launcher?.Launch(_pinFolder);
+        }
     }
 
     private string MessageFor(FilePatch? patch, ChangedFile file)

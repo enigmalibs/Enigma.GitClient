@@ -18,6 +18,7 @@ using Enigma.GitClient.Core.Squash;
 using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Stashes;
 using Enigma.GitClient.Core.Status;
+using Enigma.GitClient.Core.Submodules;
 using Enigma.GitClient.Core.Sync;
 using Enigma.GitClient.Core.Tags;
 using Enigma.GitClient.Core.Worktrees;
@@ -82,6 +83,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IDiffService, DiffService>();
             services.AddSingleton<IBranchService, BranchService>();
             services.AddSingleton<IWorktreeService, WorktreeService>();
+            services.AddSingleton<ISubmoduleService, SubmoduleService>();
             services.AddSingleton<ITagService, TagService>();
             services.AddSingleton<ICheckoutService, CheckoutService>();
             services.AddSingleton<IResetService, ResetService>();

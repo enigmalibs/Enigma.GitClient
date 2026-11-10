@@ -19,6 +19,35 @@ public sealed class GitCommandFactoryTests
             command.Arguments);
     }
 
+    [Theory]
+    [InlineData("checkout", "main")]
+    [InlineData("switch", "main")]
+    [InlineData("pull", "--no-rebase")]
+    [InlineData("merge", "topic")]
+    [InlineData("reset", "--hard")]
+    [InlineData("revert", "HEAD")]
+    [InlineData("cherry-pick", "HEAD")]
+    [InlineData("restore", "--staged")]
+    [InlineData("read-tree", "HEAD")]
+    public void Create_TurnsGitsSubmoduleRecursionOff_ForWhatMovesHead(string verb, string argument)
+    {
+        GitCommand command = _factory.Create("/repo", verb, argument);
+
+        Assert.Equal(
+            ["--no-pager", "-c", "core.quotePath=false", "-c", "color.ui=false", "-c", "submodule.recurse=false", verb, argument],
+            command.Arguments);
+        Assert.Equal(verb, command.Verb);
+    }
+
+    [Theory]
+    [InlineData("status")]
+    [InlineData("commit")]
+    [InlineData("fetch")]
+    [InlineData("push")]
+    [InlineData("submodule")]
+    public void Create_LeavesTheConfigurationAlone_ForTheRest(string verb)
+        => Assert.DoesNotContain("submodule.recurse=false", _factory.Create("/repo", verb).Arguments);
+
     [Fact]
     public void Create_ResolvesTheVerbPastTheGlobalOptions()
         => Assert.Equal("status", _factory.Create("/repo", "status").Verb);

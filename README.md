@@ -10,13 +10,16 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.18** — a repository tile on the start window has a menu, opened by a right-click,
-> with what its buttons do, *Copy repository path*, and *Choose an icon…*, which gives the repository a
-> picture or an SVG of its own in place of the folder glyph; the History's search has a bar of its own,
-> under the commands, shown by the *Search* toggle or Ctrl+F; and a disabled menu item's glyph greys
-> with its title. 6.17 before it: every dialog opens with the keyboard focus inside it, in its first
-> text field, else on its default button; a question that removes something or throws work away is red
-> and opens with Cancel focused; and a branch or tag badge's menu holds the badge's own items again.
+> **What's new in 6.19** — submodules: the *Submodules* dialog, beside *Worktrees*, lists them and
+> where each one stands; a clone downloads them, and they follow every checkout, pull, merge, reset,
+> revert or squash the app performs (*Update submodules automatically* in Settings turns that off); a
+> band says when one is not downloaded or behind; a submodule's change says which way it goes, a
+> commit that moves one back asks first, and a push never publishes a submodule commit no remote has.
+> 6.18 before it: a repository tile on the start window has a menu, opened by a right-click, with what
+> its buttons do, *Copy repository path*, and *Choose an icon…*, which gives the repository a picture
+> or an SVG of its own in place of the folder glyph; the History's search has a bar of its own, under
+> the commands, shown by the *Search* toggle or Ctrl+F; and a disabled menu item's glyph greys with
+> its title.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -62,6 +65,36 @@ Two things matter more than everything else in this app:
   Deleting or checking out such a branch is refused up front, naming the folder, and the checkout
   offers to open the worktree instead; a window opened on a worktree shows a tree after the
   repository's name
+- Submodules: in a repository that has some, the *Submodules* dialog, beside *Worktrees* in the
+  toolbar, lists each one — nested ones under theirs — with the commit the repository expects it on
+  and where it stands: up to date, behind, with new commits, elsewhere or not downloaded, and a mark
+  when it holds uncommitted changes. Its menu opens it in a new window, updates it, opens its folder
+  or a terminal in it, or copies its path; *Update all* puts every one on the commit the repository
+  expects. An update never moves a submodule with uncommitted changes or one on a commit no branch
+  contains — it names it instead — and never rebases
+- Submodules follow: a clone downloads them (the box starts ticked), and after every checkout, pull,
+  merge, reset, revert or squash the app performs, each submodule whose expected commit changed is
+  put on it and the ones not downloaded are downloaded — a submodule you moved on purpose is left
+  alone, and git's own `submodule.recurse` never moves one behind the app's back. *Update submodules
+  automatically* in Settings turns it off. A band says when a submodule is not downloaded or behind,
+  whatever the cause, with *Update* and *Submodules…*; a new worktree's submodules are downloaded
+  before its window opens
+- A window opened on a submodule shows a package after the repository's name, its tooltip naming
+  the repository it belongs to; while it is on no branch — as every update leaves it — a band says
+  commits made there are easy to lose, and offers to check out the branch already at that commit
+  and to create one
+- A submodule's change, in the history and in the working changes, says which way it goes —
+  "libs/Common: a1b2c3d → f00ba12 · 3 new commits", or "goes back 3 commits" in the warning colour —
+  and lists the commits; its line in the working changes says what it holds and opens it from its
+  menu. A commit that would move a submodule back asks first; *Discard* puts a submodule back on its
+  commit, after saying so — and refuses when the submodule has uncommitted changes of its own
+- A push never publishes a submodule commit that is on no remote of its submodule — whatever
+  `push.recurseSubmodules` says: it offers to push the submodule first (on its branch, where its
+  profile may push), then the repository; a submodule on no branch is named, with a way to open it
+- A merge that moves a submodule two ways shows both commits on the conflict page — title, author and
+  date — with *Take ours* and *Take theirs*, which record the commit and put the submodule on it;
+  keeping both means merging them inside the submodule first, which *Open submodule* leads to. A
+  submodule added or removed on one side is left for a terminal
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the
@@ -135,8 +168,9 @@ Two things matter more than everything else in this app:
   window, give that repository a name and email of its own (copied from the active profile in one
   click), or remove them again
 - Preferences that stick: theme, history and graph metrics, the file list's shape, the diff's shape,
-  font and context, the pull strategy, the path to git, how often the repository is fetched and
-  whether its files are watched — every one of them applied without a restart
+  font and context, the pull strategy, the path to git, how often the repository is fetched,
+  whether its files are watched and whether submodules follow it — every one of them applied
+  without a restart
 
 ## Non-goals
 

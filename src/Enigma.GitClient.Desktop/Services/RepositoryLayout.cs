@@ -45,7 +45,9 @@ public sealed record RepositoryLayout(string WorkTree, string GitDirectory, stri
     /// <param name="path">The full path the operating system reported.</param>
     /// <returns>
     /// <see cref="RepositoryChanges.References"/> for a reference, HEAD, the index or the merge state;
-    /// <see cref="RepositoryChanges.WorkingTree"/> for a file of the work tree; and
+    /// <see cref="RepositoryChanges.WorkingTree"/> for a file of the work tree, and for a submodule's
+    /// HEAD or references under <c>modules/</c> — a commit or a checkout made inside a submodule changes
+    /// what the repository shows for it; and
     /// <see cref="RepositoryChanges.None"/> for everything else — objects, logs, lock files, the git
     /// directory's own bookkeeping, and anything outside the repository.
     /// </returns>
@@ -60,12 +62,17 @@ public sealed record RepositoryLayout(string WorkTree, string GitDirectory, stri
         // main repository's, and its HEAD is this worktree's own.
         if (TryRelativeTo(path, GitDirectory, out ReadOnlySpan<char> inGitDirectory))
         {
-            return ClassifyGitPath(inGitDirectory, holdsReferences: GitDirectory.Equals(CommonDirectory, PathComparison));
+            return ClassifyGitPath(
+                inGitDirectory,
+                holdsReferences: GitDirectory.Equals(CommonDirectory, PathComparison),
+                holdsSubmodules: true);
         }
 
         if (TryRelativeTo(path, CommonDirectory, out ReadOnlySpan<char> inCommonDirectory))
         {
-            return ClassifyGitPath(inCommonDirectory, holdsReferences: true);
+            // A linked worktree's submodules are under its own git directory; the main one's are not
+            // this window's.
+            return ClassifyGitPath(inCommonDirectory, holdsReferences: true, holdsSubmodules: false);
         }
 
         if (TryRelativeTo(path, WorkTree, out ReadOnlySpan<char> inWorkTree))
@@ -81,7 +88,7 @@ public sealed record RepositoryLayout(string WorkTree, string GitDirectory, stri
         return RepositoryChanges.None;
     }
 
-    private static RepositoryChanges ClassifyGitPath(ReadOnlySpan<char> relative, bool holdsReferences)
+    private static RepositoryChanges ClassifyGitPath(ReadOnlySpan<char> relative, bool holdsReferences, bool holdsSubmodules)
     {
         // git writes every file through a lock beside it and renames the lock into place: the rename
         // is the change, and the lock on its own is nothing.
@@ -105,9 +112,51 @@ public sealed record RepositoryLayout(string WorkTree, string GitDirectory, stri
             return RepositoryChanges.None;
         }
 
+        if (holdsSubmodules && first.Equals("modules", PathComparison))
+        {
+            return MovesASubmodule(relative[(first.Length + 1)..])
+                ? RepositoryChanges.WorkingTree
+                : RepositoryChanges.None;
+        }
+
         return holdsReferences && first.Equals("refs", PathComparison)
             ? RepositoryChanges.References
             : RepositoryChanges.None;
+    }
+
+    /// <summary>
+    /// Tells whether a path under <c>modules/</c> is a submodule's HEAD or one of its references —
+    /// <c>libs/Common/HEAD</c>, <c>libs/Common/refs/heads/main</c>, or a nested submodule's under
+    /// <c>libs/Common/modules/</c> — rather than its objects, its index or its logs.
+    /// </summary>
+    /// <param name="relative">The path after <c>modules/</c>; a submodule's name may hold slashes.</param>
+    private static bool MovesASubmodule(ReadOnlySpan<char> relative)
+    {
+        ReadOnlySpan<char> previous = default;
+
+        while (!relative.IsEmpty)
+        {
+            ReadOnlySpan<char> segment = FirstSegment(relative);
+            bool last = segment.Length == relative.Length;
+
+            // logs/HEAD and logs/refs/… are the reflog, written with the change itself.
+            bool afterLogs = previous.Equals("logs", PathComparison);
+
+            if (!afterLogs && last && segment.Equals("HEAD", PathComparison))
+            {
+                return true;
+            }
+
+            if (!afterLogs && !last && segment.Equals("refs", PathComparison))
+            {
+                return true;
+            }
+
+            previous = segment;
+            relative = last ? default : relative[(segment.Length + 1)..];
+        }
+
+        return false;
     }
 
     /// <summary>

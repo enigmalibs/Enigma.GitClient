@@ -87,6 +87,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
     private readonly IInstanceLauncher _launcher;
     private readonly ISystemInterop _interop;
     private readonly IInfoBarService _infoBar;
+    private readonly ISubmoduleOperations? _submodules;
     private readonly ILogger<WorktreeOperations> _logger;
 
     /// <summary>
@@ -101,6 +102,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
     /// <param name="interop">Opens a worktree's folder or a terminal in it.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
+    /// <param name="submodules">Downloads a new worktree's submodules before its window opens.</param>
     public WorktreeOperations(
         IRepositoryContext context,
         IWorktreeService worktrees,
@@ -110,7 +112,8 @@ public sealed class WorktreeOperations : IWorktreeOperations
         IInstanceLauncher launcher,
         ISystemInterop interop,
         IInfoBarService infoBar,
-        ILogger<WorktreeOperations> logger)
+        ILogger<WorktreeOperations> logger,
+        ISubmoduleOperations? submodules = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(worktrees);
@@ -131,6 +134,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
         _interop = interop;
         _infoBar = infoBar;
         _logger = logger;
+        _submodules = submodules;
     }
 
     /// <inheritdoc />
@@ -198,6 +202,11 @@ public sealed class WorktreeOperations : IWorktreeOperations
         if (!created)
         {
             return false;
+        }
+
+        if (_submodules is not null)
+        {
+            await _submodules.PrepareNewWorktreeAsync(folder).ConfigureAwait(true);
         }
 
         if (open && !_launcher.Launch(folder))

@@ -7,6 +7,7 @@ using Enigma.GitClient.Core.Files;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Status;
+using Enigma.GitClient.Core.Submodules;
 
 namespace Enigma.GitClient.Core.Merging;
 
@@ -58,13 +59,35 @@ public sealed record ConflictFile(string Path, ConflictKind Kind, string State, 
     /// Gets a value indicating whether the file has all three stages, and so can be merged line by
     /// line rather than chosen between whole.
     /// </summary>
-    public bool HasThreeWayContent => !IsBinary && Kind == ConflictKind.BothModified;
+    public bool HasThreeWayContent => !IsBinary && !IsSubmodule && Kind == ConflictKind.BothModified;
+
+    /// <summary>
+    /// Gets a value indicating whether the conflict is a submodule's: a side of it records a commit
+    /// (mode <c>160000</c>), never text.
+    /// </summary>
+    public bool IsSubmodule { get; init; }
+
+    /// <summary>Gets the commit our side records for a submodule, or <see langword="null"/>.</summary>
+    public string? OursSha { get; init; }
+
+    /// <summary>Gets the commit their side records for a submodule, or <see langword="null"/>.</summary>
+    public string? TheirsSha { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether both sides moved a submodule to different commits — a pin
+    /// conflict, resolved by taking one of the two.
+    /// </summary>
+    public bool IsPinConflict => IsSubmodule && OursSha is not null && TheirsSha is not null;
 
     /// <summary>
     /// Gets the sentence describing the conflict.
     /// </summary>
     public string Description
-        => Kind switch
+        => IsSubmodule
+            ? IsPinConflict
+                ? "Both sides moved this submodule to different commits."
+                : "This submodule was removed or added on one side and changed on the other: resolve this one in a terminal."
+            : Kind switch
         {
             ConflictKind.BothModified => "Both sides changed this file.",
             ConflictKind.BothAdded => "Both sides added a file with this name.",
@@ -187,6 +210,23 @@ public interface IConflictService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Resolves a submodule's pin conflict with one of the two commits, and puts the submodule on it.
+    /// </summary>
+    /// <param name="repository">The repository to write to.</param>
+    /// <param name="path">The submodule's path.</param>
+    /// <param name="sha">The commit to record — ours or theirs.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>
+    /// What moving the submodule did: the conflict is resolved even when the folder cannot move — it
+    /// has uncommitted changes, or is on a commit no ref contains — and the result says it stayed.
+    /// </returns>
+    Task<SubmoduleUpdateResult> ResolveSubmoduleAsync(
+        RepositoryHandle repository,
+        string path,
+        string sha,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Takes the same side of every conflict left in the repository.
     /// </summary>
     /// <param name="repository">The repository to write to.</param>
@@ -234,6 +274,7 @@ public sealed class ConflictService : IConflictService
     private readonly IGitProcessRunner _runner;
     private readonly IGitCommandFactory _commandFactory;
     private readonly IStatusService _status;
+    private readonly ISubmoduleService? _submodules;
 
     /// <summary>
     /// Initialises a new instance.
@@ -241,7 +282,15 @@ public sealed class ConflictService : IConflictService
     /// <param name="runner">Runs the commands.</param>
     /// <param name="commandFactory">Builds the commands.</param>
     /// <param name="status">Lists the conflicted files.</param>
-    public ConflictService(IGitProcessRunner runner, IGitCommandFactory commandFactory, IStatusService status)
+    /// <param name="submodules">
+    /// Puts a submodule on the commit its pin conflict was resolved with; <see langword="null"/> resolves
+    /// the conflict and leaves the folder.
+    /// </param>
+    public ConflictService(
+        IGitProcessRunner runner,
+        IGitCommandFactory commandFactory,
+        IStatusService status,
+        ISubmoduleService? submodules = null)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(commandFactory);
@@ -250,6 +299,7 @@ public sealed class ConflictService : IConflictService
         _runner = runner;
         _commandFactory = commandFactory;
         _status = status;
+        _submodules = submodules;
     }
 
     /// <summary>
@@ -287,8 +337,31 @@ public sealed class ConflictService : IConflictService
 
         List<ConflictFile> files = [];
 
+        if (status.Conflicted.Count == 0)
+        {
+            return files;
+        }
+
+        Dictionary<string, Dictionary<int, (string Mode, string Sha)>> stages =
+            await ReadUnmergedStagesAsync(repository, cancellationToken).ConfigureAwait(false);
+
         foreach (ChangedFile file in status.Conflicted)
         {
+            stages.TryGetValue(file.Path, out Dictionary<int, (string Mode, string Sha)>? entries);
+
+            if (entries is not null && IsGitlinkConflict(entries))
+            {
+                // A commit on either side, never text: read neither as a file.
+                files.Add(new ConflictFile(file.Path, ToKind(file.ConflictState), file.ConflictState, IsBinary: false)
+                {
+                    IsSubmodule = true,
+                    OursSha = GitlinkAt(entries, OursStageNumber),
+                    TheirsSha = GitlinkAt(entries, TheirsStageNumber),
+                });
+
+                continue;
+            }
+
             bool binary = await IsBinaryAsync(repository, file.Path, cancellationToken).ConfigureAwait(false);
 
             files.Add(new ConflictFile(file.Path, ToKind(file.ConflictState), file.ConflictState, binary));
@@ -327,6 +400,15 @@ public sealed class ConflictService : IConflictService
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        Dictionary<string, Dictionary<int, (string Mode, string Sha)>> stages =
+            await ReadUnmergedStagesAsync(repository, cancellationToken, path).ConfigureAwait(false);
+
+        if (stages.TryGetValue(path, out Dictionary<int, (string Mode, string Sha)>? entries) && IsGitlinkConflict(entries))
+        {
+            // A submodule's sides are commits: a choice between two, never a text to merge.
+            return null;
+        }
 
         ConflictSides sides = await GetSidesAsync(repository, path, cancellationToken).ConfigureAwait(false);
 
@@ -420,6 +502,121 @@ public sealed class ConflictService : IConflictService
     }
 
     /// <inheritdoc />
+    public async Task<SubmoduleUpdateResult> ResolveSubmoduleAsync(
+        RepositoryHandle repository,
+        string path,
+        string sha,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (!SubmoduleOutputParser.IsObjectName(sha))
+        {
+            throw new ArgumentException("A submodule is resolved with a full commit name.", nameof(sha));
+        }
+
+        // One index entry at stage 0 replaces the three stages: the conflict is resolved with that commit.
+        await RunAsync(
+                repository,
+                ["update-index", "--cacheinfo", $"{SubmoduleOutputParser.GitlinkMode},{sha},{path}"],
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return _submodules is null
+            ? SubmoduleUpdateResult.Nothing
+            : await _submodules.UpdateAsync(repository, [path], null, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads the unmerged entries of the index — <c>git ls-files -u -z</c> — by path and stage.
+    /// </summary>
+    private async Task<Dictionary<string, Dictionary<int, (string Mode, string Sha)>>> ReadUnmergedStagesAsync(
+        RepositoryHandle repository,
+        CancellationToken cancellationToken,
+        string? path = null)
+    {
+        List<string> arguments = ["--literal-pathspecs", "ls-files", "-u", "-z"];
+
+        if (path is not null)
+        {
+            arguments.Add("--");
+            arguments.Add(path);
+        }
+
+        GitResult result = await _runner.RunAsync(_commandFactory.Create(repository.WorkTreePath, arguments), throwOnError: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsSuccess ? ParseUnmergedStages(result.StandardOutput) : [];
+    }
+
+    /// <summary>
+    /// Parses <c>git ls-files -u -z</c>: per NUL-ended record, the mode, the object, the stage, a tab
+    /// and the path.
+    /// </summary>
+    /// <param name="output">What git printed.</param>
+    /// <returns>Each path's stages, with the mode and the object of each.</returns>
+    public static Dictionary<string, Dictionary<int, (string Mode, string Sha)>> ParseUnmergedStages(string? output)
+    {
+        Dictionary<string, Dictionary<int, (string Mode, string Sha)>> stages = new(StringComparer.Ordinal);
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return stages;
+        }
+
+        foreach (string record in output.Split('\0'))
+        {
+            int tab = record.IndexOf('\t');
+
+            if (tab <= 0)
+            {
+                continue;
+            }
+
+            string[] fields = record[..tab].Split(' ');
+
+            if (fields.Length != 3 || fields[2] is not ("1" or "2" or "3"))
+            {
+                continue;
+            }
+
+            string path = record[(tab + 1)..];
+
+            if (!stages.TryGetValue(path, out Dictionary<int, (string Mode, string Sha)>? entries))
+            {
+                entries = [];
+                stages[path] = entries;
+            }
+
+            entries[fields[2][0] - '0'] = (fields[0], fields[1]);
+        }
+
+        return stages;
+    }
+
+    private const int OursStageNumber = 2;
+    private const int TheirsStageNumber = 3;
+
+    private static bool IsGitlinkConflict(Dictionary<int, (string Mode, string Sha)> entries)
+    {
+        foreach ((string mode, string _) in entries.Values)
+        {
+            if (mode == SubmoduleOutputParser.GitlinkMode)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? GitlinkAt(Dictionary<int, (string Mode, string Sha)> entries, int stage)
+        => entries.TryGetValue(stage, out (string Mode, string Sha) entry) && entry.Mode == SubmoduleOutputParser.GitlinkMode
+            ? entry.Sha
+            : null;
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ResolveAllWithAsync(
         RepositoryHandle repository,
         ConflictSide side,
@@ -435,6 +632,21 @@ public sealed class ConflictService : IConflictService
         foreach (ConflictFile file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (file.IsSubmodule)
+            {
+                // A pin takes the side's commit; a submodule added or removed on one side is left for
+                // a terminal, as the page says.
+                if (file.IsPinConflict)
+                {
+                    await ResolveSubmoduleAsync(repository, file.Path, side == ConflictSide.Ours ? file.OursSha! : file.TheirsSha!, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    resolved.Add(file.Path);
+                }
+
+                continue;
+            }
 
             // One side taken whole is the same thing as choosing that side for every region, and it
             // is the only form that also works for the binary and whole-file conflicts in the list.

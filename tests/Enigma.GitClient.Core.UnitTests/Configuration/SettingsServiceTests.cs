@@ -102,6 +102,7 @@ public sealed class SettingsServiceTests : IDisposable
                 GraphLaneWidth = 20,
                 Pull = PullStrategy.FastForwardOnly,
                 GitExecutablePath = "/opt/git/bin/git",
+                UpdateSubmodulesAutomatically = false,
             });
 
             await settings.FlushAsync(TestContext.Current.CancellationToken);
@@ -123,6 +124,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(20, stored.GraphLaneWidth);
         Assert.Equal(PullStrategy.FastForwardOnly, stored.Pull);
         Assert.Equal("/opt/git/bin/git", stored.GitExecutablePath);
+        Assert.False(stored.UpdateSubmodulesAutomatically);
     }
 
     // ---------------------------------------------------------------- the automatic refresh
@@ -134,6 +136,10 @@ public sealed class SettingsServiceTests : IDisposable
     [Fact]
     public void TheRepository_IsWatchedByDefault()
         => Assert.True(AppSettings.Defaults.WatchFileSystem);
+
+    [Fact]
+    public void Submodules_FollowThePinByDefault()
+        => Assert.True(AppSettings.Defaults.UpdateSubmodulesAutomatically);
 
     [Theory]
     [InlineData(0, 0)]
@@ -159,6 +165,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(ThemePreference.Dark, loaded.Theme);
         Assert.Equal(AppSettings.Defaults.AutoRefreshSeconds, loaded.AutoRefreshSeconds);
         Assert.True(loaded.WatchFileSystem);
+        Assert.True(loaded.UpdateSubmodulesAutomatically);
     }
 
     [Fact]

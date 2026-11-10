@@ -202,6 +202,52 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     /// <summary>Gets a value indicating whether the file was deleted.</summary>
     public bool IsDeleted => File?.ChangeKind == FileChangeKind.Deleted;
 
+    /// <summary>Gets a value indicating whether the row is a submodule's.</summary>
+    public bool IsSubmodule => File?.IsSubmodule == true;
+
+    /// <summary>
+    /// Gets what a submodule's line says of it — "other commit checked out, modified content" — or an
+    /// empty string for any other line.
+    /// </summary>
+    public string SubmoduleBadge
+    {
+        get
+        {
+            if (File is not { IsSubmodule: true } file)
+            {
+                return string.Empty;
+            }
+
+            List<string> parts = [];
+
+            if (file.Submodule.CommitChanged)
+            {
+                parts.Add("other commit checked out");
+            }
+
+            if (file.Submodule.HasModifiedTracked)
+            {
+                parts.Add("modified content");
+            }
+
+            if (file.Submodule.HasUntracked)
+            {
+                parts.Add("untracked content");
+            }
+
+            return string.Join(", ", parts);
+        }
+    }
+
+    /// <summary>Gets a value indicating whether the line carries a submodule badge.</summary>
+    public bool HasSubmoduleBadge => SubmoduleBadge.Length > 0;
+
+    /// <summary>Gets a value indicating whether the line's menu offers to open its submodule.</summary>
+    public bool CanOpenSubmodule => IsSubmodule && !IsDeleted && _owner.CanOpenSubmodules;
+
+    /// <summary>Gets the command that opens the line's submodule in a new window.</summary>
+    public AsyncRelayCommand<ChangedFileNodeViewModel> OpenSubmoduleCommand => _owner.OpenSubmoduleCommand;
+
     /// <summary>Gets a value indicating whether the file moved or was copied.</summary>
     public bool IsMoved => File?.ChangeKind is FileChangeKind.Renamed or FileChangeKind.Copied;
 
@@ -300,6 +346,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
 
     private readonly ISystemInterop _interop;
     private readonly ISettingsService? _settings;
+    private readonly IInstanceLauncher? _launcher;
 
     private IReadOnlyList<ChangedFile> _files = [];
 
@@ -312,12 +359,25 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// Initialises a new instance.
     /// </summary>
     /// <param name="interop">Runs the row menu's clipboard and open-file actions.</param>
-    public ChangedFilesPanelViewModel(ISystemInterop interop, ISettingsService? settings = null)
+    public ChangedFilesPanelViewModel(ISystemInterop interop, ISettingsService? settings = null, IInstanceLauncher? launcher = null)
     {
         ArgumentNullException.ThrowIfNull(interop);
 
         _interop = interop;
         _settings = settings;
+        _launcher = launcher;
+
+        OpenSubmoduleCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
+            node =>
+            {
+                if (node is { CanOpenSubmodule: true } && _launcher is not null)
+                {
+                    _launcher.Launch(System.IO.Path.Combine(WorkTreePath, node.Path.Replace('/', System.IO.Path.DirectorySeparatorChar)));
+                }
+
+                return Task.CompletedTask;
+            },
+            node => node?.CanOpenSubmodule == true);
 
         ShowAsListCommand = new RelayCommand(() => ViewMode = ChangedFilesViewMode.List);
         ShowAsTreeCommand = new RelayCommand(() => ViewMode = ChangedFilesViewMode.Tree);
@@ -428,6 +488,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
             {
                 OpenFileCommand.NotifyCanExecuteChanged();
                 RevealFileCommand.NotifyCanExecuteChanged();
+                OpenSubmoduleCommand.NotifyCanExecuteChanged();
             }
         }
     } = string.Empty;
@@ -1002,6 +1063,15 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// Whether a row names something the menu can reach on disk. A deleted file and a directory row
     /// both fail this, and so does any row while the work tree is unknown.
     /// </summary>
+    /// <summary>
+    /// Gets a value indicating whether the panel can open a submodule's line in a new window: the
+    /// working changes can, a commit's files cannot.
+    /// </summary>
+    public bool CanOpenSubmodules => _launcher is not null && WorkTreePath.Length > 0;
+
+    /// <summary>Gets the command that opens a submodule's line in a new window.</summary>
+    public AsyncRelayCommand<ChangedFileNodeViewModel> OpenSubmoduleCommand { get; }
+
     private bool CanReachOnDisk(ChangedFileNodeViewModel? node)
         => node is { IsDirectory: false, IsDeleted: false } && WorkTreePath.Length > 0;
 

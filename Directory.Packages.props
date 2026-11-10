@@ -45,7 +45,7 @@
   <!-- Tests (MTP-native: xunit.v3 only; Microsoft.Testing.Extensions.CodeCoverage for coverage).
        No Microsoft.NET.Test.Sdk, no coverlet.collector. -->
   <ItemGroup>
-    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <!-- Avalonia.Headless renders the real window off-screen in tests; Avalonia.Skia is what
          turns those frames into pixels a snapshot assertion can look at. -->

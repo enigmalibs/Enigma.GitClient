@@ -1,0 +1,156 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ei="https://github.com/josueclement/Enigma.Icons"
+             xmlns:controls="using:Enigma.GitClient.Desktop.Controls"
+             xmlns:vm="using:Enigma.GitClient.Desktop.ViewModels.Pages"
+             x:Class="Enigma.GitClient.Desktop.Views.Pages.SubmodulesPageView"
+             x:DataType="vm:SubmodulesPageViewModel">
+
+  <!--
+    The Submodules dialog: every submodule of the repository, each followed by the ones nested in it,
+    as compact lines drawn like the worktrees dialog's — the folder, the commit the repository expects
+    it on, and where it stands. Everything that can be done with one is in its line's menu, and a
+    double-click opens it in a new window. What cannot be done says why, in the greyed item's tooltip.
+  -->
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource EnigmaSurfaceBrush}"
+            BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+      <DockPanel>
+        <Button Name="UpdateAll"
+                DockPanel.Dock="Right"
+                Command="{Binding UpdateAllCommand}"
+                ToolTip.Tip="Put every submodule on the commit this repository expects, downloading the ones that are not"
+                AutomationProperties.Name="Update all the submodules">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <ei:Icon Kind="ArrowsClockwise" Classes="menu" VerticalAlignment="Center" />
+            <TextBlock Text="Update all" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <ei:Icon Kind="Package" Classes="header" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+          <TextBlock Text="{Binding Title}"
+                     VerticalAlignment="Center"
+                     FontSize="15"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid>
+
+      <controls:EmptyState IconKind="Package"
+                           Title="Submodules"
+                           Message="{Binding EmptyMessage}"
+                           IsVisible="{Binding IsEmpty}"
+                           ZIndex="1" />
+
+      <ListBox Name="SubmoduleList"
+               Classes="rows"
+               IsVisible="{Binding !IsEmpty}"
+               ItemsSource="{Binding Rows}"
+               AutomationProperties.Name="Submodules">
+
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:SubmoduleRowViewModel">
+            <Grid Classes="listrow" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ToolTip.Tip="{Binding Details}">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Open in a new window"
+                            Command="{Binding OpenCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding OpenTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="AppWindow" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Update"
+                            Command="{Binding UpdateCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding UpdateTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="ArrowsClockwise" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <Separator />
+                  <MenuItem Header="Open folder"
+                            Command="{Binding OpenFolderCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="FolderOpen" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Open a terminal"
+                            Command="{Binding OpenTerminalCommand}"
+                            CommandParameter="{Binding}"
+                            ToolTip.Tip="{Binding OpenTip}"
+                            ToolTip.ShowOnDisabled="True">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="TerminalWindow" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Copy path"
+                            Command="{Binding CopyPathCommand}"
+                            CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                      <ei:Icon Kind="Copy" Classes="menu" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                </ContextMenu>
+              </Grid.ContextMenu>
+
+              <!-- A nested submodule sits under the one it is in. -->
+              <Border Grid.Column="0" Margin="{Binding Indent}" />
+
+              <ei:Icon Grid.Column="1"
+                       Kind="Package"
+                       Classes="row dim"
+                       VerticalAlignment="Center" />
+
+              <TextBlock Grid.Column="2"
+                         Classes="rowname"
+                         Text="{Binding DisplayPath}" />
+
+              <TextBlock Grid.Column="3"
+                         Classes="rowdetail faint"
+                         Margin="12,0,0,0"
+                         Text="{Binding ExpectedShort}"
+                         ToolTip.Tip="The commit this repository expects"
+                         TextTrimming="CharacterEllipsis" />
+
+              <!-- Where it stands, and a mark when it holds uncommitted work. -->
+              <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <StackPanel Classes="badge"
+                            IsVisible="{Binding HasUncommittedChanges}"
+                            ToolTip.Tip="{Binding UncommittedTip}"
+                            AutomationProperties.Name="{Binding UncommittedTip}">
+                  <ei:Icon Kind="PencilSimple" Classes="pill faint" VerticalAlignment="Center" />
+                  <TextBlock Classes="rowdetail faint" Text="uncommitted changes" />
+                </StackPanel>
+
+                <StackPanel Classes="badge"
+                            ToolTip.Tip="{Binding StateTip}"
+                            AutomationProperties.Name="{Binding StateTip}">
+                  <ei:Icon Kind="Warning"
+                           Classes="pill"
+                           IsVisible="{Binding IsAttention}"
+                           Foreground="{DynamicResource EnigmaWarningBrush}"
+                           VerticalAlignment="Center" />
+                  <TextBlock Classes="rowdetail faint" Text="{Binding State}" />
+                </StackPanel>
+              </StackPanel>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </DockPanel>
+</UserControl>

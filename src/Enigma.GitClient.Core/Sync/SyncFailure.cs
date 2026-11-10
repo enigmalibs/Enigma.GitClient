@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Enigma.GitClient.Core.Sync;
 
@@ -36,6 +37,12 @@ public enum SyncFailureKind
 
     /// <summary>The operation would overwrite uncommitted work.</summary>
     LocalChanges,
+
+    /// <summary>
+    /// The push records submodule commits no remote of their submodule has: pushed, the repository would
+    /// point its users at commits they cannot fetch (<see cref="SyncFailure.SubmodulePaths"/> names them).
+    /// </summary>
+    UnpushedSubmodule,
 }
 
 /// <summary>
@@ -47,6 +54,12 @@ public enum SyncFailureKind
 public sealed record SyncFailure(SyncFailureKind Kind, string Message, string Detail)
 {
     /// <summary>
+    /// Gets the submodules whose commits are on no remote, for <see cref="SyncFailureKind.UnpushedSubmodule"/>;
+    /// empty otherwise.
+    /// </summary>
+    public IReadOnlyList<string> SubmodulePaths { get; init; } = [];
+
+    /// <summary>
     /// Gets a value indicating whether the failure is one the user can fix by retrying after doing
     /// something, rather than one that needs their credentials or their host configuration.
     /// </summary>
@@ -55,7 +68,8 @@ public sealed record SyncFailure(SyncFailureKind Kind, string Message, string De
             or SyncFailureKind.StaleLease
             or SyncFailureKind.MergeConflict
             or SyncFailureKind.LocalChanges
-            or SyncFailureKind.NoUpstream;
+            or SyncFailureKind.NoUpstream
+            or SyncFailureKind.UnpushedSubmodule;
 }
 
 /// <summary>
@@ -115,6 +129,50 @@ public sealed class SyncException : Exception
 /// </remarks>
 public static class SyncErrorMapper
 {
+    /// <summary>The start of git's refusal of a push that records unpushed submodule commits.</summary>
+    public const string UnpushedSubmodulesHeading = "The following submodule paths contain changes that can";
+
+    /// <summary>
+    /// Reads the submodule paths git lists when it refuses a push for them: the indented lines after
+    /// "not be found on any remote:", up to the first blank one.
+    /// </summary>
+    /// <param name="standardError">What git wrote.</param>
+    /// <returns>The paths, in git's order.</returns>
+    public static IReadOnlyList<string> ParseUnpushedSubmodules(string? standardError)
+    {
+        List<string> paths = [];
+
+        if (string.IsNullOrEmpty(standardError))
+        {
+            return paths;
+        }
+
+        bool listing = false;
+
+        foreach (string raw in standardError.Split('\n'))
+        {
+            string line = raw.TrimEnd('\r');
+
+            if (!listing)
+            {
+                listing = line.EndsWith("not be found on any remote:", StringComparison.Ordinal);
+                continue;
+            }
+
+            if (line.Trim().Length == 0)
+            {
+                break;
+            }
+
+            if (line.StartsWith("  ", StringComparison.Ordinal))
+            {
+                paths.Add(line.Trim());
+            }
+        }
+
+        return paths;
+    }
+
     /// <summary>
     /// What a refused integration token is told, with the scopes each host needs for a push.
     /// </summary>
@@ -158,6 +216,22 @@ public static class SyncErrorMapper
                 SyncFailureKind.Authentication,
                 usedHostToken ? RefusedTokenMessage : RefusedCredentialsMessage,
                 standardError);
+        }
+
+        // git checks this before it contacts the remote (--recurse-submodules=check).
+        if (Contains(text, UnpushedSubmodulesHeading))
+        {
+            IReadOnlyList<string> paths = ParseUnpushedSubmodules(standardError);
+
+            return new SyncFailure(
+                SyncFailureKind.UnpushedSubmodule,
+                paths.Count == 1
+                    ? $"The submodule {paths[0]} has commits this repository records that are on no remote yet. Push it first."
+                    : $"{paths.Count.ToString(System.Globalization.CultureInfo.CurrentCulture)} submodules have commits this repository records that are on no remote yet. Push them first.",
+                standardError)
+            {
+                SubmodulePaths = paths,
+            };
         }
 
         if (Contains(text, "Host key verification failed", "REMOTE HOST IDENTIFICATION HAS CHANGED",
