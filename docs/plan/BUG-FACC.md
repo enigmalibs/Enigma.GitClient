@@ -1,6 +1,6 @@
 # BUG-FACC — App crashes at startup: DI cycle
 
-**Status:** TODO
+**Status:** DONE
 **Type:** BUG
 **Branch:** `bugfix/bug-facc-startup-di-cycle`
 **Run:** bugfix/2026-11-10-startup-di-cycle
