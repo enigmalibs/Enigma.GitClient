@@ -74,6 +74,7 @@ public sealed class ToolDialogTests
     [InlineData(ToolDialog.Tags, typeof(TagsPageView), typeof(TagsPageViewModel))]
     [InlineData(ToolDialog.Remotes, typeof(RemotesPageView), typeof(RemotesPageViewModel))]
     [InlineData(ToolDialog.Worktrees, typeof(WorktreesPageView), typeof(WorktreesPageViewModel))]
+    [InlineData(ToolDialog.Submodules, typeof(SubmodulesPageView), typeof(SubmodulesPageViewModel))]
     public void ShowAsync_ShowsThePageWithItsViewModelUntilItIsClosed(ToolDialog dialog, Type view, Type viewModel)
     {
         _fixture.RunAsync(async () =>
@@ -249,6 +250,7 @@ public sealed class ToolDialogTests
                 [
                     (new(history.OpenBranchesCommand), typeof(BranchesPageView)),
                     (new(history.OpenWorktreesCommand), typeof(WorktreesPageView)),
+                    (new(history.OpenSubmodulesCommand), typeof(SubmodulesPageView)),
                     (new(history.OpenTagsCommand), typeof(TagsPageView)),
                     (new(history.OpenRemotesCommand), typeof(RemotesPageView)),
                 ];

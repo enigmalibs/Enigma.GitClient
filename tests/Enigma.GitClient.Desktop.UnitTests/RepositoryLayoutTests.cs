@@ -120,4 +120,32 @@ public sealed class RepositoryLayoutTests
         Assert.Equal(RepositoryChanges.WorkingTree, Submodule.Classify(At("super", "sub", "lib.c")));
         Assert.Equal(RepositoryChanges.None, Submodule.Classify(At("super", "sub", ".git")));
     }
+
+    // ---------------------------------------------------------------- the repository's own submodules
+
+    [Theory]
+    [InlineData("modules", "libs", "Common", "HEAD")]
+    [InlineData("modules", "libs", "Common", "refs", "heads", "main")]
+    [InlineData("modules", "libs", "Common", "refs", "remotes", "origin", "main")]
+    [InlineData("modules", "Common", "modules", "vendor", "Json", "HEAD")]
+    public void ASubmodulesHeadOrReferences_AreAWorkingTreeChangeOfTheRepository(params string[] segments)
+        => Assert.Equal(RepositoryChanges.WorkingTree, Plain.Classify(At(["repo", ".git", .. segments])));
+
+    [Theory]
+    [InlineData("modules", "libs", "Common", "HEAD.lock")]
+    [InlineData("modules", "libs", "Common", "objects", "ab", "cd")]
+    [InlineData("modules", "libs", "Common", "index")]
+    [InlineData("modules", "libs", "Common", "logs", "HEAD")]
+    [InlineData("modules", "libs", "Common", "logs", "refs", "heads", "main")]
+    [InlineData("modules", "libs", "Common", "FETCH_HEAD")]
+    [InlineData("modules", "libs", "Common", "config")]
+    public void ASubmodulesOtherFiles_AreNothing(params string[] segments)
+        => Assert.Equal(RepositoryChanges.None, Plain.Classify(At(["repo", ".git", .. segments])));
+
+    [Fact]
+    public void ALinkedWorktreesSubmodules_AreItsOwn_NotTheMainRepositorys()
+    {
+        Assert.Equal(RepositoryChanges.WorkingTree, Worktree.Classify(At("main", ".git", "worktrees", "wt", "modules", "libs", "HEAD")));
+        Assert.Equal(RepositoryChanges.None, Worktree.Classify(At("main", ".git", "modules", "libs", "HEAD")));
+    }
 }

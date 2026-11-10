@@ -4,6 +4,52 @@ using System.Collections.Generic;
 namespace Enigma.GitClient.Core.Diff;
 
 /// <summary>
+/// One side of a submodule's patch: the <c>Subproject commit &lt;sha&gt;[-dirty]</c> line git writes in
+/// place of content.
+/// </summary>
+/// <param name="Sha">The commit recorded for the submodule on that side.</param>
+/// <param name="IsDirty">
+/// Whether git added <c>-dirty</c>: the submodule's own files have changes — a working-tree side only.
+/// </param>
+public sealed record SubprojectCommit(string Sha, bool IsDirty)
+{
+    private const string Prefix = "Subproject commit ";
+    private const string DirtySuffix = "-dirty";
+
+    /// <summary>
+    /// Reads a <c>Subproject commit</c> line, without its diff marker.
+    /// </summary>
+    /// <param name="text">The line's text.</param>
+    /// <returns>The commit, or <see langword="null"/> when the line is not one.</returns>
+    public static SubprojectCommit? TryParse(string? text)
+    {
+        if (text is null || !text.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        string rest = text[Prefix.Length..].Trim();
+        bool dirty = rest.EndsWith(DirtySuffix, StringComparison.Ordinal);
+        string sha = dirty ? rest[..^DirtySuffix.Length] : rest;
+
+        if (sha.Length is not (40 or 64))
+        {
+            return null;
+        }
+
+        foreach (char character in sha)
+        {
+            if (!char.IsAsciiHexDigit(character))
+            {
+                return null;
+            }
+        }
+
+        return new SubprojectCommit(sha, dirty);
+    }
+}
+
+/// <summary>
 /// What happened to a file between two trees.
 /// </summary>
 public enum FileChangeKind
@@ -277,6 +323,62 @@ public sealed class FilePatch
 
         AddedLines = added;
         RemovedLines = removed;
+
+        if (IsSubmodule)
+        {
+            (OldSubproject, NewSubproject) = ReadSubprojectCommits(hunks);
+        }
+    }
+
+    /// <summary>
+    /// Gets the commit a submodule's patch records on its old side, or <see langword="null"/> when the
+    /// patch is not a submodule's or the submodule is new.
+    /// </summary>
+    public SubprojectCommit? OldSubproject { get; }
+
+    /// <summary>
+    /// Gets the commit a submodule's patch records on its new side — <c>-dirty</c> when its files have
+    /// changes — or <see langword="null"/> when the patch is not a submodule's or the submodule is gone.
+    /// </summary>
+    public SubprojectCommit? NewSubproject { get; }
+
+    /// <summary>
+    /// Reads the two sides of a submodule's patch: a removed line for the old side, an added one for the
+    /// new, and a context line for both — git writes one when only <c>-dirty</c> changed.
+    /// </summary>
+    private static (SubprojectCommit? Old, SubprojectCommit? New) ReadSubprojectCommits(IReadOnlyList<DiffHunk> hunks)
+    {
+        SubprojectCommit? old = null;
+        SubprojectCommit? @new = null;
+
+        foreach (DiffHunk hunk in hunks)
+        {
+            foreach (DiffLine line in hunk.Lines)
+            {
+                if (SubprojectCommit.TryParse(line.Text) is not { } commit)
+                {
+                    continue;
+                }
+
+                switch (line.Kind)
+                {
+                    case DiffLineKind.Removed:
+                        old = commit;
+                        break;
+
+                    case DiffLineKind.Added:
+                        @new = commit;
+                        break;
+
+                    case DiffLineKind.Context:
+                        old ??= commit;
+                        @new ??= commit;
+                        break;
+                }
+            }
+        }
+
+        return (old, @new);
     }
 
     /// <summary>Gets the path before the change, or <see langword="null"/> for an addition.</summary>

@@ -30,6 +30,9 @@ public enum ToolDialog
 
     /// <summary>Worktrees: every working tree of the repository.</summary>
     Worktrees,
+
+    /// <summary>Submodules: the repositories inside this one, and where each stands.</summary>
+    Submodules,
 }
 
 /// <summary>
@@ -138,6 +141,7 @@ public sealed class ToolDialogService : IToolDialogService
             ToolDialog.Tags => (typeof(TagsPageView), typeof(TagsPageViewModel)),
             ToolDialog.Remotes => (typeof(RemotesPageView), typeof(RemotesPageViewModel)),
             ToolDialog.Worktrees => (typeof(WorktreesPageView), typeof(WorktreesPageViewModel)),
+            ToolDialog.Submodules => (typeof(SubmodulesPageView), typeof(SubmodulesPageViewModel)),
             _ => throw new ArgumentOutOfRangeException(nameof(dialog), dialog, "Not a tool dialog."),
         };
 

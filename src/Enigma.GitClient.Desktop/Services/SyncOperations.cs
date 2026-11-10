@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Branches;
@@ -114,6 +118,9 @@ public sealed class SyncOperations : ISyncOperations
     private readonly IInfoBarService _infoBar;
     private readonly IContentDialogService _dialogs;
     private readonly ILogger<SyncOperations> _logger;
+    private readonly IRepositoryLocator? _locator;
+    private readonly IRefReader? _refReader;
+    private readonly IInstanceLauncher? _launcher;
 
     private CancellationTokenSource? _cancellation;
 
@@ -138,7 +145,10 @@ public sealed class SyncOperations : ISyncOperations
         IOverlayService overlay,
         IInfoBarService infoBar,
         IContentDialogService dialogs,
-        ILogger<SyncOperations> logger)
+        ILogger<SyncOperations> logger,
+        IRepositoryLocator? locator = null,
+        IRefReader? refReader = null,
+        IInstanceLauncher? launcher = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(sync);
@@ -159,6 +169,9 @@ public sealed class SyncOperations : ISyncOperations
         _infoBar = infoBar;
         _dialogs = dialogs;
         _logger = logger;
+        _locator = locator;
+        _refReader = refReader;
+        _launcher = launcher;
 
         CancelCommand = new RelayCommand(() => _cancellation?.Cancel());
     }
@@ -382,11 +395,180 @@ public sealed class SyncOperations : ISyncOperations
                 successMessage,
                 explain: null,
 
-                // Only a named branch can be forced: a detached HEAD's push is reported as before.
+                // Only a named branch can be forced: a detached HEAD's push is reported as before. A
+                // refusal for unpushed submodule commits is offered a way through.
+                handOver: failure => (failure.Kind == SyncFailureKind.NonFastForward && request.Branch is { Length: > 0 })
+                    || (failure.Kind == SyncFailureKind.UnpushedSubmodule && failure.SubmodulePaths.Count > 0))
+            .ConfigureAwait(true);
+
+        if (rejection is null)
+        {
+            return pushed;
+        }
+
+        return rejection.Kind == SyncFailureKind.UnpushedSubmodule
+            ? await OfferSubmodulePushAsync(request, rejection, title, successMessage).ConfigureAwait(true)
+            : await OfferForcePushAsync(request, request.Branch!, title).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// One submodule to push before the repository that records its commit.
+    /// </summary>
+    /// <param name="Path">The submodule's path in the repository.</param>
+    /// <param name="Repository">The submodule, opened.</param>
+    /// <param name="Branch">The branch it has checked out.</param>
+    /// <param name="Remote">The remote it pushes to.</param>
+    /// <param name="SetUpstream">Whether the branch has no upstream yet, which the push sets.</param>
+    public sealed record SubmodulePush(string Path, RepositoryHandle Repository, string Branch, string Remote, bool SetUpstream);
+
+    /// <summary>
+    /// Builds the offer made when a push records submodule commits no remote has.
+    /// </summary>
+    /// <param name="pushes">The submodules to push first.</param>
+    /// <returns>The question's title, its message and its confirm button.</returns>
+    public static (string Title, string Message, string Confirm) DescribeSubmodulePush(IReadOnlyList<SubmodulePush> pushes)
+    {
+        ArgumentNullException.ThrowIfNull(pushes);
+
+        string which = pushes.Count == 1 ? pushes[0].Path : "the submodules";
+        string lines = string.Join('\n', pushes.Select(push => $"{push.Path}: {push.Branch} → {push.Remote}"));
+
+        return (
+            pushes.Count == 1 ? $"Push {pushes[0].Path} first?" : "Push the submodules first?",
+            "This repository records submodule commits that are on no remote yet: pushed alone, it would point "
+            + "everyone who pulls it at commits they cannot fetch.\n\n"
+            + lines
+            + $"\n\nPush {which}, then this repository.",
+            $"Push {which}, then this repository");
+    }
+
+    /// <summary>
+    /// Offers to push the submodules whose commits the push records, then pushes the repository again.
+    /// </summary>
+    /// <returns><see langword="true"/> when the repository's push finished.</returns>
+    /// <remarks>
+    /// Each submodule is pushed on its own branch, set as upstream on a first push as the repository's
+    /// own push does, and only where its profile may push. One on no branch cannot be pushed from here:
+    /// it is named, with a way to open it.
+    /// </remarks>
+    private async Task<bool> OfferSubmodulePushAsync(PushRequest request, SyncFailure rejection, string title, string successMessage)
+    {
+        if (_context.Repository is not { } repository || _locator is null || _refReader is null)
+        {
+            Report($"{title} failed", rejection.Message, InfoBarSeverity.Warning);
+            return false;
+        }
+
+        List<SubmodulePush> pushes = [];
+        List<string> onNoBranch = [];
+
+        foreach (string path in rejection.SubmodulePaths)
+        {
+            string folder = Path.Combine(repository.WorkTreePath, path.Replace('/', Path.DirectorySeparatorChar));
+            RepositoryHandle? submodule = (await _locator.DiscoverAsync(folder, _context.RepositoryLifetime).ConfigureAwait(true)).Repository;
+
+            if (submodule is null)
+            {
+                onNoBranch.Add(path);
+                continue;
+            }
+
+            RepositoryRefState state = await _refReader.GetStateAsync(submodule, _context.RepositoryLifetime).ConfigureAwait(true);
+
+            if (state.Head is { IsDetached: false, IsUnborn: false, BranchName: { Length: > 0 } branch })
+            {
+                string? upstream = state.Refs.CurrentBranch?.UpstreamShortName;
+                string remote = upstream is { Length: > 0 } && upstream.IndexOf('/') is > 0 and int slash
+                    ? upstream[..slash]
+                    : GitRemote.DefaultName;
+
+                pushes.Add(new SubmodulePush(path, submodule, branch, remote, upstream is null));
+            }
+            else
+            {
+                onNoBranch.Add(path);
+            }
+        }
+
+        if (onNoBranch.Count > 0)
+        {
+            string first = onNoBranch[0];
+
+            DialogResult answer = await _dialogs.ShowAsync(dialog =>
+            {
+                dialog.Title = $"{title} stopped";
+                dialog.Content = $"{string.Join(", ", onNoBranch)} {(onNoBranch.Count == 1 ? "has" : "have")} the commits this "
+                    + "repository records, but on no branch, so it cannot be pushed from here. Open it, put the "
+                    + "commits on a branch and push it, then push this repository.";
+                dialog.PrimaryButtonText = _launcher is null ? null : $"Open {first}";
+                dialog.CloseButtonText = "Close";
+                dialog.DefaultButton = DefaultButton.Primary;
+            }).ConfigureAwait(true);
+
+            if (answer == DialogResult.Primary)
+            {
+                _launcher?.Launch(Path.Combine(repository.WorkTreePath, first.Replace('/', Path.DirectorySeparatorChar)));
+            }
+
+            return false;
+        }
+
+        (string question, string message, string confirm) = DescribeSubmodulePush(pushes);
+
+        DialogResult offer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = question;
+            dialog.Content = message;
+            dialog.PrimaryButtonText = confirm;
+            dialog.CloseButtonText = "Cancel";
+            dialog.DefaultButton = DefaultButton.Primary;
+        }).ConfigureAwait(true);
+
+        if (offer != DialogResult.Primary)
+        {
+            return false;
+        }
+
+        // Every submodule's profile is asked before anything is pushed: none goes if one may not.
+        foreach (SubmodulePush push in pushes)
+        {
+            PushPermission permission = await _pushGuard.CheckAsync(push.Repository, push.Remote, _context.RepositoryLifetime).ConfigureAwait(true);
+
+            if (!permission.IsAllowed)
+            {
+                (string refusedTitle, string refusedMessage) = DescribeRefusal(permission);
+                Report(refusedTitle, $"{push.Path}: {refusedMessage}", InfoBarSeverity.Warning);
+                return false;
+            }
+        }
+
+        foreach (SubmodulePush push in pushes)
+        {
+            PushRequest submodulePush = new() { Remote = push.Remote, Branch = push.Branch, SetUpstream = push.SetUpstream };
+
+            bool done = await RunAsync(
+                    $"Pushing {push.Path}",
+                    (_, progress, token) => _sync.PushAsync(push.Repository, submodulePush, progress, token),
+                    "Pushed",
+                    $"The remote has the commits of {push.Path}.")
+                .ConfigureAwait(true);
+
+            if (!done)
+            {
+                return false;
+            }
+        }
+
+        (bool pushed, SyncFailure? refused) = await RunCoreAsync(
+                title,
+                (handle, progress, token) => _sync.PushAsync(handle, request, progress, token),
+                "Pushed",
+                successMessage,
+                explain: null,
                 handOver: failure => failure.Kind == SyncFailureKind.NonFastForward && request.Branch is { Length: > 0 })
             .ConfigureAwait(true);
 
-        return rejection is null
+        return refused is null
             ? pushed
             : await OfferForcePushAsync(request, request.Branch!, title).ConfigureAwait(true);
     }

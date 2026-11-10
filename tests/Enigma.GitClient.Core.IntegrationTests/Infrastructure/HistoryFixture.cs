@@ -138,7 +138,12 @@ public sealed class HistoryFixture
         };
     }
 
-    private static void CopyDirectory(string source, string destination)
+    /// <summary>
+    /// Copies a folder and everything in it, empty folders included.
+    /// </summary>
+    /// <param name="source">The folder to copy.</param>
+    /// <param name="destination">Where the copy goes.</param>
+    internal static void CopyDirectory(string source, string destination)
     {
         // Directories first: git needs .git/refs and its kin even when they are empty.
         Directory.CreateDirectory(destination);

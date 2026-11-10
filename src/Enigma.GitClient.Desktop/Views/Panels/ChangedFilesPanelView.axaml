@@ -39,6 +39,14 @@
               </MenuItem.Icon>
             </MenuItem>
             <Separator IsVisible="{Binding HasActions}" />
+            <MenuItem Header="Open submodule"
+                      IsVisible="{Binding CanOpenSubmodule}"
+                      Command="{Binding OpenSubmoduleCommand}"
+                      CommandParameter="{Binding}">
+              <MenuItem.Icon>
+                <ei:Icon Kind="AppWindow" Classes="menu" />
+              </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="Open file"
                       Command="{Binding OpenFileCommand}"
                       CommandParameter="{Binding}">
@@ -105,6 +113,15 @@
                    Classes="rowname"
                    Text="{Binding Label}"
                    ToolTip.Tip="{Binding Path}" />
+
+        <!-- A submodule's line says what it holds: another commit checked out, modified or untracked
+             content (FEATURE-6693). -->
+        <TextBlock Grid.Column="2"
+                   Classes="rowdetail faint"
+                   Text="{Binding SubmoduleBadge}"
+                   IsVisible="{Binding HasSubmoduleBadge}"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
 
         <TextBlock Grid.Column="2"
                    Classes="rowdetail faint"

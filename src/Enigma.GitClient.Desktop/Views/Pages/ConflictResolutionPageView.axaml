@@ -392,7 +392,21 @@
                            TextWrapping="Wrap"
                            Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <!-- A submodule's pin conflict: the two commits, each a card (FEATURE-6693). -->
+                <StackPanel Spacing="8" IsVisible="{Binding IsPinConflict}">
+                  <Border Classes="card" Padding="12,8"
+                          BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}" BorderThickness="1" CornerRadius="4">
+                    <TextBlock Name="OursPinCard" Text="{Binding OursPin}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                  </Border>
+                  <Border Classes="card" Padding="12,8"
+                          BorderBrush="{DynamicResource EnigmaBorderSubtleBrush}" BorderThickness="1" CornerRadius="4">
+                    <TextBlock Name="TheirsPinCard" Text="{Binding TheirsPin}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                  </Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsSubmoduleTerminalOnly}">
                   <Button Classes="choice"
                           Command="{Binding KeepOursCommand}"
                           Content="{Binding KeepOursDescription}"
@@ -402,6 +416,11 @@
                           Content="{Binding KeepTheirsDescription}"
                           AutomationProperties.Name="Keep their version" />
                 </StackPanel>
+
+                <Button Content="Open submodule"
+                        IsVisible="{Binding IsSubmoduleConflict}"
+                        Command="{Binding OpenSubmoduleCommand}"
+                        AutomationProperties.Name="Open the submodule in a new window" />
               </StackPanel>
             </Border>
 

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Commits;
@@ -14,6 +16,7 @@ using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Staging;
 using Enigma.GitClient.Core.Status;
+using Enigma.GitClient.Core.Submodules;
 using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.Logging;
 
@@ -74,6 +77,8 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
     private readonly ILogger<WorkingTreePanelViewModel> _logger;
+    private readonly ISubmoduleService? _submodules;
+    private readonly IInstanceLauncher? _launcher;
 
     private WorkingTreeStatus _current = WorkingTreeStatus.Empty;
 
@@ -104,7 +109,9 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
         ISettingsService settings,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
-        ILogger<WorkingTreePanelViewModel> logger)
+        ILogger<WorkingTreePanelViewModel> logger,
+        ISubmoduleService? submodules = null,
+        IInstanceLauncher? launcher = null)
     {
         ArgumentNullException.ThrowIfNull(repositoryContext);
         ArgumentNullException.ThrowIfNull(status);
@@ -126,8 +133,11 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
         _infoBar = infoBar;
         _logger = logger;
 
-        Unstaged = new ChangedFilesPanelViewModel(interop, settings);
-        Staged = new ChangedFilesPanelViewModel(interop, settings);
+        _submodules = submodules;
+        _launcher = launcher;
+
+        Unstaged = new ChangedFilesPanelViewModel(interop, settings, launcher);
+        Staged = new ChangedFilesPanelViewModel(interop, settings, launcher);
 
         // Only one side can be selected at a time: the diff shown has to be unambiguous about which
         // half of the change it is.
@@ -501,10 +511,16 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
 
         IReadOnlyList<string> paths = PathsOf(node);
 
+        if (await PlanSubmodulesAsync(paths).ConfigureAwait(true) is not { } plans)
+        {
+            return;
+        }
+
         bool confirmed = await _dialogs.ConfirmDestructiveAsync(
             "Discard changes",
             $"Throw away the changes to {Count(paths.Count)}? This cannot be undone.\n\n"
-            + string.Join('\n', paths),
+            + string.Join('\n', paths)
+            + DescribeSubmodules(plans),
             "Discard").ConfigureAwait(true);
 
         if (!confirmed)
@@ -512,9 +528,7 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
             return;
         }
 
-        await RunAsync(
-            (handle, token) => _staging.DiscardAsync(handle, paths, token),
-            "Could not discard").ConfigureAwait(true);
+        await DiscardAsync(paths, plans, "Could not discard").ConfigureAwait(true);
     }
 
     private async Task OnDiscardAllAsync()
@@ -536,11 +550,16 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
             return;
         }
 
+        if (await PlanSubmodulesAsync(paths).ConfigureAwait(true) is not { } plans)
+        {
+            return;
+        }
+
         // A plain question, confirmed in red: a hand can still click by accident, but the harmless
         // button is the default and the button that loses the work says so in its colour.
         bool confirmed = await _dialogs.ConfirmDestructiveAsync(
             "Discard everything",
-            $"Throw away every change in {Count(paths.Count)}? This cannot be undone.",
+            $"Throw away every change in {Count(paths.Count)}? This cannot be undone." + DescribeSubmodules(plans),
             "Discard everything").ConfigureAwait(true);
 
         if (!confirmed)
@@ -548,14 +567,167 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
             return;
         }
 
-        await RunAsync(
-            (handle, token) => _staging.DiscardAsync(handle, paths, token),
-            "Could not discard the changes").ConfigureAwait(true);
+        await DiscardAsync(paths, plans, "Could not discard the changes").ConfigureAwait(true);
+    }
+
+    // ---------------------------------------------------------------- submodules in a discard or a commit
+
+    /// <summary>
+    /// Works out what a discard does to the submodules among its paths, and refuses it — naming the
+    /// submodule, with a way to open it — when one has uncommitted changes, which a discard cannot put
+    /// back.
+    /// </summary>
+    /// <returns>The submodules among the paths, or <see langword="null"/> when the discard is refused.</returns>
+    private async Task<IReadOnlyList<SubmoduleDiscard>?> PlanSubmodulesAsync(IReadOnlyList<string> paths)
+    {
+        if (_submodules is null || RepositoryContext.Repository is not { } repository || !RepositoryContext.HasSubmodules)
+        {
+            return [];
+        }
+
+        IReadOnlyList<SubmoduleDiscard> plans;
+
+        try
+        {
+            plans = await _submodules.PlanDiscardAsync(repository, paths, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogWarning(exception, "The submodules of a discard could not be read");
+            return [];
+        }
+
+        if (plans.FirstOrDefault(plan => plan.HasUncommittedChanges) is not { } dirty)
+        {
+            return plans;
+        }
+
+        DialogResult answer = await _dialogs.ShowAsync(dialog =>
+        {
+            dialog.Title = "Discard changes";
+            dialog.Content = $"{dirty.Path} has uncommitted changes of its own, which a discard here cannot put back. "
+                + "Open it to commit or discard them first.";
+            dialog.PrimaryButtonText = _launcher is null ? null : "Open submodule";
+            dialog.CloseButtonText = "Cancel";
+            dialog.DefaultButton = DefaultButton.Close;
+        }).ConfigureAwait(true);
+
+        if (answer == DialogResult.Primary)
+        {
+            _launcher?.Launch(System.IO.Path.Combine(repository.WorkTreePath, dirty.Path.Replace('/', System.IO.Path.DirectorySeparatorChar)));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Says, for a discard's question, where each submodule goes back to and what it leaves behind.
+    /// </summary>
+    /// <param name="plans">The submodules among the discarded paths.</param>
+    /// <returns>The lines, after a blank one, or an empty string when no submodule moves.</returns>
+    public static string DescribeSubmodules(IReadOnlyList<SubmoduleDiscard> plans)
+    {
+        ArgumentNullException.ThrowIfNull(plans);
+
+        List<string> lines = [.. plans.Where(plan => plan.Moves).Select(plan => plan.Describe())];
+
+        return lines.Count == 0 ? string.Empty : "\n\n" + string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Discards the paths and puts the submodules among them back on HEAD's commit, in one write.
+    /// </summary>
+    private async Task DiscardAsync(IReadOnlyList<string> paths, IReadOnlyList<SubmoduleDiscard> plans, string failureTitle)
+    {
+        List<string> moving = [.. plans.Where(plan => plan.Moves).Select(plan => plan.Path)];
+        SubmoduleUpdateResult? moved = null;
+
+        bool done = await RunAsync(
+            async (handle, token) =>
+            {
+                await _staging.DiscardAsync(handle, paths, token).ConfigureAwait(true);
+
+                if (moving.Count > 0 && _submodules is not null)
+                {
+                    moved = await _submodules.PutBackAsync(handle, moving, null, token).ConfigureAwait(true);
+                }
+            },
+            failureTitle).ConfigureAwait(true);
+
+        if (done && moved is not null && SubmoduleOperations.DescribeProblems(moved) is { } problems)
+        {
+            Report(problems.Title, problems.Message, InfoBarSeverity.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Asks before a commit that moves a submodule back — the stale folder that undoes a colleague's
+    /// bump. A move forward, or one that cannot be read, asks nothing.
+    /// </summary>
+    /// <returns>Whether to go on with the commit.</returns>
+    private async Task<bool> ConfirmPinsGoingBackAsync()
+    {
+        if (_submodules is null || RepositoryContext.Repository is not { } repository || !RepositoryContext.HasSubmodules)
+        {
+            return true;
+        }
+
+        List<PinChange> changes = [];
+
+        try
+        {
+            foreach (StagedPin pin in await _submodules.ReadStagedPinsAsync(repository, RepositoryContext.RepositoryLifetime).ConfigureAwait(true))
+            {
+                if (pin.HeadSha.Length > 0 && pin.IndexSha.Length > 0)
+                {
+                    changes.Add(await _submodules
+                        .DescribePinChangeAsync(repository, pin.Path, pin.HeadSha, pin.IndexSha, RepositoryContext.RepositoryLifetime)
+                        .ConfigureAwait(true));
+                }
+            }
+        }
+        catch (GitCommandException exception)
+        {
+            // A guard that cannot read does not stand in the way: the commit is the user's.
+            _logger.LogWarning(exception, "The staged submodules could not be read before a commit");
+            return true;
+        }
+
+        if (DescribeGoingBack(changes) is not { } question)
+        {
+            return true;
+        }
+
+        return await _dialogs.ConfirmDestructiveAsync("A submodule goes back", question, "Commit anyway").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Builds the question a commit asks when it moves submodules back.
+    /// </summary>
+    /// <param name="changes">The staged pin changes.</param>
+    /// <returns>
+    /// "This commit moves libs/Common back 3 commits (to a1b2c3d). Is that intended?", or
+    /// <see langword="null"/> when none goes back.
+    /// </returns>
+    public static string? DescribeGoingBack(IReadOnlyList<PinChange> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+
+        List<string> lines = [.. changes
+            .Where(change => change.Direction == PinDirection.Back)
+            .Select(change => $"This commit moves {change.Path} back {(change.RemovedCount == 1 ? "1 commit" : $"{change.RemovedCount.ToString(CultureInfo.CurrentCulture)} commits")} (to {PinChange.Short(change.NewSha)}).")];
+
+        return lines.Count == 0 ? null : string.Join('\n', lines) + " Is that intended?";
     }
 
     private async Task OnCommitAsync()
     {
         if (!CanCommit())
+        {
+            return;
+        }
+
+        if (!await ConfirmPinsGoingBackAsync().ConfigureAwait(true))
         {
             return;
         }
