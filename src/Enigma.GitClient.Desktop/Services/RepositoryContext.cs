@@ -21,6 +21,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
 
     private readonly IRefReader _refReader;
     private readonly IWorktreeService _worktreeService;
+    private readonly ISubmoduleFollowStep? _follow;
     private readonly ILogger<RepositoryContext> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
@@ -37,7 +38,15 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     /// <param name="refReader">Reads the reference state after every change.</param>
     /// <param name="worktreeService">Lists the repository's working trees with the references.</param>
     /// <param name="logger">Receives failures that must not take the shell down.</param>
-    public RepositoryContext(IRefReader refReader, IWorktreeService worktreeService, ILogger<RepositoryContext> logger)
+    /// <param name="follow">
+    /// Puts the submodules a write moved on their new commits; <see langword="null"/> leaves them alone,
+    /// for a test about something else.
+    /// </param>
+    public RepositoryContext(
+        IRefReader refReader,
+        IWorktreeService worktreeService,
+        ILogger<RepositoryContext> logger,
+        ISubmoduleFollowStep? follow = null)
     {
         ArgumentNullException.ThrowIfNull(refReader);
         ArgumentNullException.ThrowIfNull(worktreeService);
@@ -46,6 +55,7 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
         _refReader = refReader;
         _worktreeService = worktreeService;
         _logger = logger;
+        _follow = follow;
     }
 
     /// <inheritdoc />
@@ -232,7 +242,8 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     public async Task RunExclusiveAsync(
         Func<RepositoryHandle, CancellationToken, Task> operation,
         bool refreshAfter = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool followSubmodules = true)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
@@ -243,7 +254,8 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
                     return null;
                 },
                 refreshAfter,
-                cancellationToken)
+                cancellationToken,
+                followSubmodules)
             .ConfigureAwait(true);
     }
 
@@ -251,7 +263,8 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
     public async Task<TResult> RunExclusiveAsync<TResult>(
         Func<RepositoryHandle, CancellationToken, Task<TResult>> operation,
         bool refreshAfter = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool followSubmodules = true)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
@@ -266,7 +279,17 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
 
         try
         {
+            SubmoduleFollowMark? mark = followSubmodules && _follow is not null
+                ? await _follow.BeforeAsync(repository, Head?.Sha, linked.Token).ConfigureAwait(true)
+                : null;
+
             TResult result = await operation(repository, linked.Token).ConfigureAwait(true);
+
+            // Before the refresh, so what is read and drawn next has the submodules where they end up.
+            if (mark is not null)
+            {
+                await _follow!.AfterAsync(repository, mark, linked.Token).ConfigureAwait(true);
+            }
 
             if (refreshAfter)
             {

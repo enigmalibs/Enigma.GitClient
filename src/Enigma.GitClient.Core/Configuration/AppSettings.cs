@@ -267,6 +267,18 @@ public sealed record AppSettings
     /// </remarks>
     public bool WatchFileSystem { get; init; } = true;
 
+    /// <summary>
+    /// Gets a value indicating whether the application puts submodules on the commits the repository
+    /// expects after every checkout, pull, merge, reset, revert and squash it performs.
+    /// </summary>
+    /// <remarks>
+    /// On by default: a submodule left on the old commit after a pull is the folder a later commit
+    /// records again, undoing a colleague's bump. Off, the band that says a submodule is behind still
+    /// shows. A file written before this setting existed does not carry the key and reads as the
+    /// default, so no schema migration is needed.
+    /// </remarks>
+    public bool UpdateSubmodulesAutomatically { get; init; } = true;
+
     // ---------------------------------------------------------------- lists
 
     /// <summary>

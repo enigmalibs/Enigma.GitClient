@@ -177,6 +177,45 @@
         </Grid>
       </Border>
 
+      <!-- Submodules not downloaded, or behind the commit the repository expects, whatever the cause:
+           the folder a later commit would record again. New commits and another line are work in
+           progress, and do not raise it (FEATURE-6693). -->
+      <Border Name="SubmoduleNoticeBand"
+              DockPanel.Dock="Top"
+              Background="{DynamicResource EnigmaWarningBackgroundBrush}"
+              BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
+              BorderThickness="0,0,0,1"
+              Padding="12,8"
+              IsVisible="{Binding SubmoduleNotice.IsVisible}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ei:Icon Grid.Column="0" Kind="Package" Classes="row" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EnigmaWarningBrush}" />
+          <TextBlock Grid.Column="1"
+                     Text="{Binding SubmoduleNotice.Message}"
+                     ToolTip.Tip="{Binding SubmoduleNotice.Details}"
+                     VerticalAlignment="Center"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource EnigmaForegroundBrush}" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <Button Classes="toolbar"
+                    Name="UpdateSubmodulesFromBand"
+                    Command="{Binding SubmoduleNotice.UpdateCommand}"
+                    ToolTip.Tip="Put them on the commits this repository expects, downloading the ones that are not; one with uncommitted changes is left where it is"
+                    AutomationProperties.Name="Update the submodules">
+              <TextBlock Text="Update" FontSize="12" />
+            </Button>
+            <Button Classes="toolbar"
+                    Name="OpenSubmodulesFromBand"
+                    Command="{Binding SubmoduleNotice.OpenSubmodulesCommand}"
+                    ToolTip.Tip="Open the Submodules dialog"
+                    AutomationProperties.Name="Open the submodules">
+              <TextBlock Text="Submodules…" FontSize="12" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
       <nav:NavigationView x:Name="NavigationRail"
                           DockPanel.Dock="Left"
                           Items="{Binding Navigation.Items}"

@@ -57,6 +57,31 @@ public sealed class FakeSubmoduleService : ISubmoduleService
         return Task.FromResult(UpdateResult);
     }
 
+    /// <summary>Gets the follows asked for, oldest first.</summary>
+    public List<(string? Old, string New)> Follows { get; } = [];
+
+    /// <summary>Gets or sets what every follow returns.</summary>
+    public SubmoduleUpdateResult FollowResult { get; set; } = SubmoduleUpdateResult.Nothing;
+
+    /// <summary>Gets or sets the commit every HEAD read answers, one per read in turn and then the last.</summary>
+    public Queue<string?> Heads { get; } = new();
+
+    /// <inheritdoc />
+    public Task<SubmoduleUpdateResult> FollowAsync(
+        RepositoryHandle repository,
+        string? oldSha,
+        string newSha,
+        IProgress<SubmoduleUpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        Follows.Add((oldSha, newSha));
+        return Task.FromResult(FollowResult);
+    }
+
+    /// <inheritdoc />
+    public Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+        => Task.FromResult(Heads.Count > 1 ? Heads.Dequeue() : Heads.Count == 1 ? Heads.Peek() : null);
+
     /// <inheritdoc />
     public Task<IReadOnlyList<string>> ChangedPinsAsync(
         RepositoryHandle repository,

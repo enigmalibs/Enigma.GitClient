@@ -69,6 +69,13 @@ Two things matter more than everything else in this app:
   or a terminal in it, or copies its path; *Update all* puts every one on the commit the repository
   expects. An update never moves a submodule with uncommitted changes or one on a commit no branch
   contains — it names it instead — and never rebases
+- Submodules follow: a clone downloads them (the box starts ticked), and after every checkout, pull,
+  merge, reset, revert or squash the app performs, each submodule whose expected commit changed is
+  put on it and the ones not downloaded are downloaded — a submodule you moved on purpose is left
+  alone, and git's own `submodule.recurse` never moves one behind the app's back. *Update submodules
+  automatically* in Settings turns it off. A band says when a submodule is not downloaded or behind,
+  whatever the cause, with *Update* and *Submodules…*; a new worktree's submodules are downloaded
+  before its window opens
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the

@@ -71,6 +71,42 @@ public interface ISubmoduleService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Puts on their expected commits the submodules an operation moved the repository's expectation
+    /// for — and only those, plus the ones not downloaded yet.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="oldSha">
+    /// The commit HEAD was on before the operation, or <see langword="null"/> when there was none — every
+    /// submodule then counts as moved.
+    /// </param>
+    /// <param name="newSha">The commit HEAD is on after it.</param>
+    /// <param name="progress">Receives git's progress, submodule by submodule.</param>
+    /// <param name="cancellationToken">Cancels the update; what is done stays done.</param>
+    /// <returns>What was updated, skipped and why, and what git could not update.</returns>
+    /// <remarks>
+    /// The submodules whose recorded commit differs between the two commits
+    /// (<see cref="ChangedPinsAsync"/>), and the ones <c>.gitmodules</c> declares that are not
+    /// downloaded, go through <see cref="UpdateAsync"/>'s rule. A submodule the operation did not touch —
+    /// one the user moved on purpose — stays where it is. Inside a submodule that moves, the same rule
+    /// applies to the ones nested in it, between the commit it leaves and the one it goes to. Nothing
+    /// runs without a <c>.gitmodules</c>.
+    /// </remarks>
+    Task<SubmoduleUpdateResult> FollowAsync(
+        RepositoryHandle repository,
+        string? oldSha,
+        string newSha,
+        IProgress<SubmoduleUpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the commit a repository's HEAD is on — what <see cref="FollowAsync"/> compares.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The commit's full name, or <see langword="null"/> before the first commit.</returns>
+    Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Finds the submodules whose expected commit differs between two commits of the repository.
     /// </summary>
     /// <param name="repository">The repository.</param>
@@ -233,6 +269,43 @@ public sealed class SubmoduleService : ISubmoduleService
     }
 
     /// <inheritdoc />
+    public async Task<SubmoduleUpdateResult> FollowAsync(
+        RepositoryHandle repository,
+        string? oldSha,
+        string newSha,
+        IProgress<SubmoduleUpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        EnsureRevision(newSha, nameof(newSha));
+
+        if (!HasGitModules(repository.WorkTreePath))
+        {
+            return SubmoduleUpdateResult.Nothing;
+        }
+
+        IReadOnlyList<string> changed = await ChangedPinsAsync(repository, oldSha, newSha, cancellationToken)
+            .ConfigureAwait(false);
+
+        GitCredentials credentials = await _credentials.ForRepositoryAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
+
+        UpdateRun run = new(repository, credentials, progress, followOnly: true);
+
+        await FollowLevelAsync(run, repository.WorkTreePath, parent: null, changed, cancellationToken).ConfigureAwait(false);
+
+        return run.ToResult();
+    }
+
+    /// <inheritdoc />
+    public Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        return ReadHeadAsync(repository.WorkTreePath, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ChangedPinsAsync(
         RepositoryHandle repository,
         string? oldSha,
@@ -240,12 +313,22 @@ public sealed class SubmoduleService : ISubmoduleService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(repository);
+
+        return await ChangedPinsInAsync(repository.WorkTreePath, oldSha, newSha, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<string>> ChangedPinsInAsync(
+        string directory,
+        string? oldSha,
+        string newSha,
+        CancellationToken cancellationToken)
+    {
         EnsureRevision(newSha, nameof(newSha));
 
         if (string.IsNullOrEmpty(oldSha))
         {
             GitResult tree = await _runner.RunAsync(
-                    _commandFactory.Create(repository.WorkTreePath, "ls-tree", "-r", "-z", newSha),
+                    _commandFactory.Create(directory, "ls-tree", "-r", "-z", newSha),
                     throwOnError: true,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -256,7 +339,7 @@ public sealed class SubmoduleService : ISubmoduleService
         EnsureRevision(oldSha, nameof(oldSha));
 
         GitResult diff = await _runner.RunAsync(
-                _commandFactory.Create(repository.WorkTreePath, "diff-tree", "-r", "--no-renames", "-z", oldSha, newSha),
+                _commandFactory.Create(directory, "diff-tree", "-r", "--no-renames", "-z", oldSha, newSha),
                 throwOnError: true,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -463,7 +546,8 @@ public sealed class SubmoduleService : ISubmoduleService
     private async Task<List<GitSubmodule>> ListLevelAsync(
         string directory,
         GitSubmodule? parent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? onlyThese = null)
     {
         List<GitSubmodule> submodules = [];
 
@@ -523,6 +607,13 @@ public sealed class SubmoduleService : ISubmoduleService
             if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, PathComparison))
             {
                 _logger.LogWarning("The submodule path {Path} in {Directory} leads outside it and is ignored", local, root);
+                continue;
+            }
+
+            // A follow describes the moved ones and the empty ones only; telling a folder is empty
+            // takes no git process.
+            if (onlyThese is not null && !onlyThese.Contains(local) && IsCheckedOut(fullPath))
+            {
                 continue;
             }
 
@@ -732,8 +823,28 @@ public sealed class SubmoduleService : ISubmoduleService
                 {
                     return;
                 }
+                else if (run.FollowOnly)
+                {
+                    // Moved: the nested ones follow what this move changed for them.
+                    IReadOnlyList<string> moved = await ChangedPinsInAsync(
+                            submodule.FullPath,
+                            submodule.CheckedOutSha,
+                            submodule.ExpectedSha,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+
+                    await FollowLevelAsync(run, submodule.FullPath, submodule, moved, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
 
                 break;
+        }
+
+        if (run.FollowOnly)
+        {
+            // Not moved: nothing changed for the nested ones but those still to download.
+            await FollowLevelAsync(run, submodule.FullPath, submodule, [], cancellationToken).ConfigureAwait(false);
+            return;
         }
 
         await UpdateNestedAsync(run, submodule, cancellationToken).ConfigureAwait(false);
@@ -749,6 +860,31 @@ public sealed class SubmoduleService : ISubmoduleService
             .ConfigureAwait(false))
         {
             await UpdateTreeAsync(run, nested, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Follows one repository level: its submodules whose recorded commit moved, and the ones not
+    /// downloaded.
+    /// </summary>
+    private async Task FollowLevelAsync(
+        UpdateRun run,
+        string directory,
+        GitSubmodule? parent,
+        IReadOnlyCollection<string> moved,
+        CancellationToken cancellationToken)
+    {
+        HashSet<string> paths = new(moved, StringComparer.Ordinal);
+
+        foreach (GitSubmodule submodule in await ListLevelAsync(directory, parent, cancellationToken, paths)
+            .ConfigureAwait(false))
+        {
+            string local = parent is null ? submodule.Path : submodule.Path[(parent.Path.Length + 1)..];
+
+            if (paths.Contains(local) || submodule.State == SubmoduleCheckoutState.NotDownloaded)
+            {
+                await UpdateTreeAsync(run, submodule, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -807,12 +943,20 @@ public sealed class SubmoduleService : ISubmoduleService
         public UpdateRun(
             RepositoryHandle repository,
             GitCredentials credentials,
-            IProgress<SubmoduleUpdateProgress>? progress)
+            IProgress<SubmoduleUpdateProgress>? progress,
+            bool followOnly = false)
         {
             Repository = repository;
             Credentials = credentials;
             Progress = progress;
+            FollowOnly = followOnly;
         }
+
+        /// <summary>
+        /// Gets a value indicating whether nested submodules are updated only where their parent's move
+        /// changed them (a follow), rather than all of them (an update).
+        /// </summary>
+        public bool FollowOnly { get; }
 
         public RepositoryHandle Repository { get; }
 

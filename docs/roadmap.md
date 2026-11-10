@@ -422,7 +422,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-6693 | Submodule support                        | IN PROGRESS | docs/plan/FEATURE-6693.md |
 | - PHASE01    | Read and update submodules in Core       | DONE        | (in FEATURE-6693.md)      |
 | - PHASE02    | The Submodules dialog                    | DONE        | (in FEATURE-6693.md)      |
-| - PHASE03    | Submodules follow the pin                | TODO        | (in FEATURE-6693.md)      |
+| - PHASE03    | Submodules follow the pin                | DONE        | (in FEATURE-6693.md)      |
 | - PHASE04    | Working inside a submodule               | TODO        | (in FEATURE-6693.md)      |
 | - PHASE05    | Pin changes: diff, guard, discard        | TODO        | (in FEATURE-6693.md)      |
 | - PHASE06    | Push guard for submodule commits         | TODO        | (in FEATURE-6693.md)      |

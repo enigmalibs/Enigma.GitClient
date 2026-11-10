@@ -90,6 +90,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
             services.AddSingleton<ISubmoduleOperations, SubmoduleOperations>();
+            services.AddSingleton<ISubmoduleFollowStep, SubmoduleFollowStep>();
             services.AddSingleton<ITagOperations, TagOperations>();
             services.AddSingleton<ICheckoutOperations, CheckoutOperations>();
             services.AddSingleton<IResetOperations, ResetOperations>();
@@ -112,6 +113,7 @@ public static class ServiceCollectionExtensions
             // Built with the repository window's ViewModel, and kept for the session: what it has said
             // stays said from one repository window to the next.
             services.AddSingleton<GitSignInNoticeViewModel>();
+            services.AddSingleton<SubmoduleNoticeViewModel>();
 
             services.AddTransient<RepositoriesPageView>();
             services.AddTransient<HistoryPageView>();

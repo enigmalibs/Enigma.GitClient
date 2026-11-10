@@ -124,9 +124,10 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
     public bool IsDepthEnabled => IsShallow;
 
     /// <summary>
-    /// Gets or sets a value indicating whether submodules are cloned too.
+    /// Gets or sets a value indicating whether submodules are cloned too — on unless unticked: a clone
+    /// whose submodule folders are empty does not build.
     /// </summary>
-    public bool RecurseSubmodules { get; set => SetProperty(ref field, value); }
+    public bool RecurseSubmodules { get; set => SetProperty(ref field, value); } = true;
 
     /// <summary>
     /// Gets the reason the dialog cannot be confirmed, empty when it can.

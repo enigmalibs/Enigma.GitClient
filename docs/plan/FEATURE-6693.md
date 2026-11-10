@@ -164,7 +164,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE03 — Submodules follow the pin
 
 **Branch:** `feature/feature-6693-phase03-follow-pins`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
+using Enigma.GitClient.Core.Repositories;
 using Enigma.GitClient.Core.Submodules;
 using Enigma.GitClient.Desktop.Controls;
 using Microsoft.Extensions.Logging;
@@ -34,6 +36,18 @@ public interface ISubmoduleOperations
     /// read again after it.
     /// </remarks>
     Task<SubmoduleUpdateResult?> UpdateAsync(IReadOnlyCollection<string>? paths);
+
+    /// <summary>
+    /// Downloads the submodules of a worktree just created, behind the progress card, before its window
+    /// opens — when the submodules follow automatically and the worktree declares some.
+    /// </summary>
+    /// <param name="workTreePath">The new worktree's folder.</param>
+    /// <returns>A task that completes once they are downloaded, or at once when there is nothing to do.</returns>
+    /// <remarks>
+    /// A linked worktree keeps submodules of its own, which <c>git worktree add</c> leaves empty. What
+    /// could not be downloaded is named in a warning; the worktree is there all the same.
+    /// </remarks>
+    Task PrepareNewWorktreeAsync(string workTreePath);
 
     /// <summary>
     /// Opens a submodule in a new window of the application.
@@ -74,6 +88,8 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
 
     private readonly IRepositoryContext _context;
     private readonly ISubmoduleService _submodules;
+    private readonly IRepositoryLocator _locator;
+    private readonly ISettingsService _settings;
     private readonly IOverlayService _overlay;
     private readonly IInstanceLauncher _launcher;
     private readonly ISystemInterop _interop;
@@ -87,6 +103,8 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="submodules">Updates the submodules.</param>
+    /// <param name="locator">Opens a new worktree, to download its submodules.</param>
+    /// <param name="settings">Says whether a new worktree's submodules are downloaded.</param>
     /// <param name="overlay">Shows the progress card.</param>
     /// <param name="launcher">Opens a submodule in another instance.</param>
     /// <param name="interop">Opens a submodule's folder or a terminal in it, and copies its path.</param>
@@ -95,6 +113,8 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
     public SubmoduleOperations(
         IRepositoryContext context,
         ISubmoduleService submodules,
+        IRepositoryLocator locator,
+        ISettingsService settings,
         IOverlayService overlay,
         IInstanceLauncher launcher,
         ISystemInterop interop,
@@ -103,6 +123,8 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(submodules);
+        ArgumentNullException.ThrowIfNull(locator);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(overlay);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(interop);
@@ -111,6 +133,8 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
 
         _context = context;
         _submodules = submodules;
+        _locator = locator;
+        _settings = settings;
         _overlay = overlay;
         _launcher = launcher;
         _interop = interop;
@@ -179,6 +203,78 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
         }
 
         return null;
+    }
+
+    /// <inheritdoc />
+    public async Task PrepareNewWorktreeAsync(string workTreePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workTreePath);
+
+        if (!_settings.Current.UpdateSubmodulesAutomatically
+            || !SubmoduleService.HasGitModules(workTreePath)
+            || !_context.IsRepositoryOpen)
+        {
+            return;
+        }
+
+        RepositoryDiscoveryResult discovered = await _locator.DiscoverAsync(workTreePath, _context.RepositoryLifetime)
+            .ConfigureAwait(true);
+
+        if (discovered.Repository is not { } worktree)
+        {
+            return;
+        }
+
+        using CancellationTokenSource cancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(_context.RepositoryLifetime);
+
+        _cancellation = cancellation;
+
+        ProgressOverlayCard card = new()
+        {
+            Title = "Downloading the worktree's submodules",
+            Message = "Reading the submodules…",
+            IsIndeterminate = true,
+            CancelCommand = CancelCommand,
+        };
+
+        Progress<SubmoduleUpdateProgress> progress = new(report => Apply(card, report));
+
+        await _overlay.ShowAsync(card).ConfigureAwait(true);
+
+        try
+        {
+            // Serialised with this window's writes: the worktree shares the repository's objects.
+            SubmoduleUpdateResult result = await _context
+                .RunExclusiveAsync(
+                    (_, token) => _submodules.UpdateAsync(worktree, null, progress, token),
+                    refreshAfter: false,
+                    cancellation.Token,
+                    followSubmodules: false)
+                .ConfigureAwait(true);
+
+            if (DescribeProblems(result) is { } problems)
+            {
+                _infoBar.Notify(problems.Title, problems.Message, InfoBarSeverity.Warning);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _infoBar.Notify(
+                "Submodule download cancelled",
+                $"The worktree is in '{workTreePath}'; its submodules not downloaded yet can be from its own window.",
+                InfoBarSeverity.Info);
+        }
+        catch (GitCommandException exception)
+        {
+            _logger.LogWarning(exception, "The submodules of the worktree {Folder} could not be downloaded", workTreePath);
+            _infoBar.Notify("The worktree's submodules were not downloaded", FirstLine(exception.StandardError), InfoBarSeverity.Warning);
+        }
+        finally
+        {
+            _cancellation = null;
+            await _overlay.HideAsync().ConfigureAwait(true);
+        }
     }
 
     /// <inheritdoc />

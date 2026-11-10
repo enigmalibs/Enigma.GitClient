@@ -27,6 +27,31 @@ public sealed class GitCommandFactory : IGitCommandFactory
         "color.ui=false",
     ];
 
+    /// <summary>
+    /// The sub-commands that move HEAD or the work tree, which run with <c>submodule.recurse</c> off.
+    /// </summary>
+    /// <remarks>
+    /// A user's <c>submodule.recurse=true</c> makes these move — and, configured so, rebase — the
+    /// submodules as well. The application's own follow step is the only thing that moves a submodule
+    /// (<c>ISubmoduleService.FollowAsync</c>), under the rule that it never moves one with uncommitted
+    /// work, so git's recursion is switched off for these, whatever the configuration says.
+    /// </remarks>
+    public static readonly IReadOnlySet<string> SubmoduleRecursionOffVerbs = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "checkout",
+        "switch",
+        "pull",
+        "merge",
+        "reset",
+        "revert",
+        "cherry-pick",
+        "restore",
+        "read-tree",
+    };
+
+    /// <summary>The override that switches git's own submodule recursion off.</summary>
+    public const string SubmoduleRecursionOff = "submodule.recurse=false";
+
     /// <inheritdoc />
     public GitCommand Create(string workingDirectory, params string[] arguments)
         => Create(workingDirectory, (IEnumerable<string>)arguments);
@@ -47,7 +72,13 @@ public sealed class GitCommandFactory : IGitCommandFactory
         ArgumentNullException.ThrowIfNull(arguments);
 
         List<string> vector = [.. GlobalOptions];
+        int start = vector.Count;
         vector.AddRange(arguments);
+
+        if (GitArgumentVector.FindVerb(vector) is { } verb && SubmoduleRecursionOffVerbs.Contains(verb))
+        {
+            vector.InsertRange(start, ["-c", SubmoduleRecursionOff]);
+        }
 
         if (vector.Count == GlobalOptions.Count)
         {

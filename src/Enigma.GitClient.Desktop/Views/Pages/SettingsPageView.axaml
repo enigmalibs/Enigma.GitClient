@@ -334,6 +334,22 @@
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <StackPanel Grid.Column="0">
+                <TextBlock Text="Update submodules automatically"
+                           Foreground="{DynamicResource EnigmaForegroundBrush}" />
+                <TextBlock Text="After a checkout, pull, merge, reset, revert or squash, each submodule whose expected commit changed is put on it, and the ones not downloaded are downloaded. A submodule with uncommitted changes, or on a commit no branch contains, is left where it is and named."
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1"
+                            Name="UpdateSubmodulesToggle"
+                            IsChecked="{Binding UpdateSubmodulesAutomatically, Mode=TwoWay}"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Update submodules automatically" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0">
                 <TextBlock Text="Fetch and refresh automatically"
                            Foreground="{DynamicResource EnigmaForegroundBrush}" />
                 <TextBlock Text="Every so many seconds while a repository is open, quietly: nothing on screen moves unless something changed. While the repository is watched, what changes on this machine shows at once, so this mostly sets how often the remote is fetched. 0 turns it off."
