@@ -424,7 +424,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE02    | The Submodules dialog                    | DONE        | (in FEATURE-6693.md)      |
 | - PHASE03    | Submodules follow the pin                | DONE        | (in FEATURE-6693.md)      |
 | - PHASE04    | Working inside a submodule               | DONE        | (in FEATURE-6693.md)      |
-| - PHASE05    | Pin changes: diff, guard, discard        | TODO        | (in FEATURE-6693.md)      |
+| - PHASE05    | Pin changes: diff, guard, discard        | DONE        | (in FEATURE-6693.md)      |
 | - PHASE06    | Push guard for submodule commits         | TODO        | (in FEATURE-6693.md)      |
 | - PHASE07    | Pin conflicts on the conflict page       | TODO        | (in FEATURE-6693.md)      |
 

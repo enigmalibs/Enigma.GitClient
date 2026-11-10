@@ -224,7 +224,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE05 — Pin changes: diff, guard, discard
 
 **Branch:** `feature/feature-6693-phase05-pin-changes`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

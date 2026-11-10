@@ -80,6 +80,11 @@ Two things matter more than everything else in this app:
   the repository it belongs to; while it is on no branch — as every update leaves it — a band says
   commits made there are easy to lose, and offers to check out the branch already at that commit
   and to create one
+- A submodule's change, in the history and in the working changes, says which way it goes —
+  "libs/Common: a1b2c3d → f00ba12 · 3 new commits", or "goes back 3 commits" in the warning colour —
+  and lists the commits; its line in the working changes says what it holds and opens it from its
+  menu. A commit that would move a submodule back asks first; *Discard* puts a submodule back on its
+  commit, after saying so — and refuses when the submodule has uncommitted changes of its own
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the

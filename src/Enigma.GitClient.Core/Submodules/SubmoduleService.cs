@@ -107,6 +107,62 @@ public interface ISubmoduleService
     Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says what a change of a submodule's recorded commit does: which way it goes, and the commits it
+    /// brings in or takes back.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="path">The submodule's path.</param>
+    /// <param name="oldSha">The commit recorded before, or <see langword="null"/> for a new submodule.</param>
+    /// <param name="newSha">The commit recorded after, or <see langword="null"/> for a removed one.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>
+    /// The change; <see cref="PinDirection.Unknown"/>, with why, when the submodule is not downloaded or
+    /// lacks one of the commits. Nothing is fetched.
+    /// </returns>
+    Task<PinChange> DescribePinChangeAsync(
+        RepositoryHandle repository,
+        string path,
+        string? oldSha,
+        string? newSha,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists the submodules whose recorded commit the index changes against HEAD — what a commit would
+    /// record.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The staged pin changes, in git's order; empty at once without <c>.gitmodules</c>.</returns>
+    Task<IReadOnlyList<StagedPin>> ReadStagedPinsAsync(RepositoryHandle repository, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Says what discarding the changes of some paths would do to the submodules among them.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="paths">The paths to be discarded; the ones that are not submodules HEAD records are left out.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>For each submodule among them, the commit it goes back to and what stops it or would be lost.</returns>
+    Task<IReadOnlyList<SubmoduleDiscard>> PlanDiscardAsync(
+        RepositoryHandle repository,
+        IReadOnlyCollection<string> paths,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Puts submodules back on the commit the index records, once a discard has put the index back on
+    /// HEAD's — even off a commit no branch contains, which the discard's question named.
+    /// </summary>
+    /// <param name="repository">The repository.</param>
+    /// <param name="paths">The submodules.</param>
+    /// <param name="progress">Receives git's progress, submodule by submodule.</param>
+    /// <param name="cancellationToken">Cancels the moves; what is done stays done.</param>
+    /// <returns>What was moved, what was left — never one with uncommitted changes — and what failed.</returns>
+    Task<SubmoduleUpdateResult> PutBackAsync(
+        RepositoryHandle repository,
+        IReadOnlyCollection<string> paths,
+        IProgress<SubmoduleUpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Finds the repository a repository is a submodule of.
     /// </summary>
     /// <param name="repository">The repository.</param>
@@ -315,6 +371,340 @@ public sealed class SubmoduleService : ISubmoduleService
         ArgumentNullException.ThrowIfNull(repository);
 
         return ReadHeadAsync(repository.WorkTreePath, cancellationToken);
+    }
+
+    /// <summary>How many commits a <see cref="PinChange"/> lists on each side.</summary>
+    public const int PinCommitsShown = 10;
+
+    /// <inheritdoc />
+    public async Task<PinChange> DescribePinChangeAsync(
+        RepositoryHandle repository,
+        string path,
+        string? oldSha,
+        string? newSha,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        string old = oldSha ?? string.Empty;
+        string @new = newSha ?? string.Empty;
+
+        PinChange Unknown(string reason) => new(path, old, @new, PinDirection.Unknown, [], 0, [], 0, reason);
+
+        if (old.Length == 0 || @new.Length == 0)
+        {
+            return Unknown(old.Length == 0 ? "The submodule is added here." : "The submodule is removed here.");
+        }
+
+        if (!SubmoduleOutputParser.IsObjectName(old) || !SubmoduleOutputParser.IsObjectName(@new))
+        {
+            return Unknown("The commits are not whole object names.");
+        }
+
+        if (string.Equals(old, @new, StringComparison.OrdinalIgnoreCase))
+        {
+            return new PinChange(path, old, @new, PinDirection.Unchanged, [], 0, [], 0);
+        }
+
+        string root = Path.TrimEndingDirectorySeparator(repository.WorkTreePath);
+        string folder = Path.GetFullPath(Path.Combine(root, path));
+
+        if (!folder.StartsWith(root + Path.DirectorySeparatorChar, PathComparison) || !IsCheckedOut(folder))
+        {
+            return Unknown("The submodule is not downloaded, so its commits cannot be listed.");
+        }
+
+        foreach (string sha in new[] { old, @new })
+        {
+            if (!await HasCommitAsync(folder, sha, cancellationToken).ConfigureAwait(false))
+            {
+                return Unknown($"The submodule does not have {PinChange.Short(sha)} yet; updating it fetches it.");
+            }
+        }
+
+        int ahead = await CountCommitsAsync(folder, [$"{old}..{@new}"], cancellationToken).ConfigureAwait(false);
+        int behind = await CountCommitsAsync(folder, [$"{@new}..{old}"], cancellationToken).ConfigureAwait(false);
+
+        PinDirection direction = (ahead > 0, behind > 0) switch
+        {
+            (true, false) => PinDirection.Forward,
+            (false, true) => PinDirection.Back,
+            (true, true) => PinDirection.Diverged,
+            _ => PinDirection.Unchanged,
+        };
+
+        IReadOnlyList<PinCommit> added = ahead > 0
+            ? await ReadCommitsAsync(folder, $"{old}..{@new}", cancellationToken).ConfigureAwait(false)
+            : [];
+
+        IReadOnlyList<PinCommit> removed = behind > 0
+            ? await ReadCommitsAsync(folder, $"{@new}..{old}", cancellationToken).ConfigureAwait(false)
+            : [];
+
+        return new PinChange(path, old, @new, direction, added, ahead, removed, behind);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StagedPin>> ReadStagedPinsAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        if (!HasGitModules(repository.WorkTreePath))
+        {
+            return [];
+        }
+
+        GitResult diff = await _runner.RunAsync(
+                _commandFactory.Create(repository.WorkTreePath, "diff", "--cached", "--raw", "--no-abbrev", "-z", "--no-renames", "--ignore-submodules=none"),
+                throwOnError: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        List<StagedPin> pins = [];
+
+        if (!diff.IsSuccess)
+        {
+            return pins;
+        }
+
+        foreach ((string path, string oldSha, string newSha) in ParseChangedGitlinkEntries(diff.StandardOutput))
+        {
+            pins.Add(new StagedPin(path, oldSha, newSha));
+        }
+
+        return pins;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SubmoduleDiscard>> PlanDiscardAsync(
+        RepositoryHandle repository,
+        IReadOnlyCollection<string> paths,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(paths);
+
+        List<SubmoduleDiscard> plans = [];
+
+        if (paths.Count == 0 || !HasGitModules(repository.WorkTreePath))
+        {
+            return plans;
+        }
+
+        List<string> arguments = ["--literal-pathspecs", "ls-tree", "-z", "HEAD", "--"];
+        arguments.AddRange(paths);
+
+        GitResult tree = await _runner.RunAsync(_commandFactory.Create(repository.WorkTreePath, arguments), throwOnError: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        Dictionary<string, string> headPins = new(StringComparer.Ordinal);
+
+        if (tree.IsSuccess)
+        {
+            foreach ((string path, string sha) in ParseTreeGitlinkEntries(tree.StandardOutput))
+            {
+                headPins[path] = sha;
+            }
+        }
+
+        if (headPins.Count == 0)
+        {
+            return plans;
+        }
+
+        HashSet<string> wanted = new(headPins.Keys, StringComparer.Ordinal);
+
+        foreach (GitSubmodule submodule in await ListLevelAsync(repository.WorkTreePath, null, cancellationToken, wanted).ConfigureAwait(false))
+        {
+            if (!headPins.TryGetValue(submodule.Path, out string? headSha))
+            {
+                continue;
+            }
+
+            int leftBehind = submodule.CheckedOutSha is { } checkedOut && !string.Equals(checkedOut, headSha, StringComparison.OrdinalIgnoreCase)
+                ? await CountCommitsAsync(submodule.FullPath, [checkedOut, "--not", "--branches", "--tags", "--remotes"], cancellationToken).ConfigureAwait(false)
+                : 0;
+
+            plans.Add(new SubmoduleDiscard(submodule.Path, headSha, submodule.CheckedOutSha, submodule.HasUncommittedChanges, leftBehind));
+        }
+
+        return plans;
+    }
+
+    /// <inheritdoc />
+    public async Task<SubmoduleUpdateResult> PutBackAsync(
+        RepositoryHandle repository,
+        IReadOnlyCollection<string> paths,
+        IProgress<SubmoduleUpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(paths);
+
+        if (paths.Count == 0 || !HasGitModules(repository.WorkTreePath))
+        {
+            return SubmoduleUpdateResult.Nothing;
+        }
+
+        GitCredentials credentials = await _credentials.ForRepositoryAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
+
+        UpdateRun run = new(repository, credentials, progress, followOnly: true) { LeavesUnreferencedCommits = true };
+        HashSet<string> wanted = new(paths, StringComparer.Ordinal);
+
+        foreach (GitSubmodule submodule in await ListLevelAsync(repository.WorkTreePath, null, cancellationToken, wanted).ConfigureAwait(false))
+        {
+            if (wanted.Contains(submodule.Path))
+            {
+                await UpdateTreeAsync(run, submodule, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return run.ToResult();
+    }
+
+    /// <summary>
+    /// Reads the gitlinks <c>git diff --raw -z</c> reports as changed, with both sides.
+    /// </summary>
+    /// <param name="output">What git printed.</param>
+    /// <returns>The path, the old commit and the new one — empty for a side without the submodule.</returns>
+    public static IReadOnlyList<(string Path, string OldSha, string NewSha)> ParseChangedGitlinkEntries(string? output)
+    {
+        List<(string, string, string)> entries = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return entries;
+        }
+
+        string[] fields = output.Split('\0');
+
+        for (int index = 0; index + 1 < fields.Length; index++)
+        {
+            string header = fields[index];
+
+            if (!header.StartsWith(':'))
+            {
+                continue;
+            }
+
+            string[] parts = header[1..].Split(' ');
+            string path = fields[++index];
+
+            if (parts.Length < 4 || (parts[0] != SubmoduleOutputParser.GitlinkMode && parts[1] != SubmoduleOutputParser.GitlinkMode))
+            {
+                continue;
+            }
+
+            entries.Add((path, OrEmpty(parts[0], parts[2]), OrEmpty(parts[1], parts[3])));
+        }
+
+        return entries;
+
+        static string OrEmpty(string mode, string sha)
+            => mode == SubmoduleOutputParser.GitlinkMode && sha.Trim('0').Length > 0 ? sha : string.Empty;
+    }
+
+    /// <summary>
+    /// Reads the gitlinks of <c>git ls-tree -z</c>'s output, with the commit each records.
+    /// </summary>
+    /// <param name="output">What git printed.</param>
+    /// <returns>The path and the commit of each submodule, in git's order.</returns>
+    public static IReadOnlyList<(string Path, string Sha)> ParseTreeGitlinkEntries(string? output)
+    {
+        List<(string, string)> entries = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return entries;
+        }
+
+        foreach (string record in output.Split('\0'))
+        {
+            int tab = record.IndexOf('\t');
+
+            if (tab < 0 || !record.StartsWith(SubmoduleOutputParser.GitlinkMode + " ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string[] fields = record[..tab].Split(' ');
+
+            if (fields.Length == 3 && SubmoduleOutputParser.IsObjectName(fields[2]))
+            {
+                entries.Add((record[(tab + 1)..], fields[2]));
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Reads <c>git log --format=%h%x1f%s%x1f%an%x1f%aI</c>'s records.
+    /// </summary>
+    /// <param name="output">What git printed, one commit per line.</param>
+    /// <returns>The commits.</returns>
+    public static IReadOnlyList<PinCommit> ParsePinCommits(string? output)
+    {
+        List<PinCommit> commits = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return commits;
+        }
+
+        foreach (string line in output.Split('\n'))
+        {
+            string[] fields = line.TrimEnd('\r').Split('\u001f');
+
+            if (fields.Length == 4 && DateTimeOffset.TryParse(fields[3], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTimeOffset date))
+            {
+                commits.Add(new PinCommit(fields[0], fields[1], fields[2], date));
+            }
+        }
+
+        return commits;
+    }
+
+    private async Task<bool> HasCommitAsync(string directory, string sha, CancellationToken cancellationToken)
+    {
+        GitResult result = await _runner.RunAsync(
+                _commandFactory.Create(directory, "cat-file", "-e", sha + "^{commit}"),
+                throwOnError: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsSuccess;
+    }
+
+    private async Task<int> CountCommitsAsync(string directory, IReadOnlyList<string> revisions, CancellationToken cancellationToken)
+    {
+        List<string> arguments = ["rev-list", "--count", .. revisions];
+
+        GitResult result = await _runner.RunAsync(_commandFactory.Create(directory, arguments), throwOnError: false, cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsSuccess && int.TryParse(result.TrimmedOutput, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int count)
+            ? count
+            : 0;
+    }
+
+    private async Task<IReadOnlyList<PinCommit>> ReadCommitsAsync(string directory, string range, CancellationToken cancellationToken)
+    {
+        GitResult result = await _runner.RunAsync(
+                _commandFactory.Create(
+                    directory,
+                    "log",
+                    $"--max-count={PinCommitsShown.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                    "--format=%h%x1f%s%x1f%an%x1f%aI",
+                    range,
+                    "--"),
+                throwOnError: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsSuccess ? ParsePinCommits(result.StandardOutput) : [];
     }
 
     /// <inheritdoc />
@@ -845,7 +1235,8 @@ public sealed class SubmoduleService : ISubmoduleService
                 {
                     run.Skip(new SubmoduleSkip(submodule.Path, SubmoduleSkipReason.UncommittedChanges, submodule.CheckedOutSha));
                 }
-                else if (!await IsOnAnyRefAsync(submodule, submodule.CheckedOutSha!, cancellationToken).ConfigureAwait(false))
+                else if (!run.LeavesUnreferencedCommits
+                    && !await IsOnAnyRefAsync(submodule, submodule.CheckedOutSha!, cancellationToken).ConfigureAwait(false))
                 {
                     run.Skip(new SubmoduleSkip(submodule.Path, SubmoduleSkipReason.CommitOnNoBranch, submodule.CheckedOutSha));
                 }
@@ -987,6 +1378,12 @@ public sealed class SubmoduleService : ISubmoduleService
         /// changed them (a follow), rather than all of them (an update).
         /// </summary>
         public bool FollowOnly { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether a submodule on a commit no ref contains is moved all the same —
+        /// an explicit discard, whose question said so.
+        /// </summary>
+        public bool LeavesUnreferencedCommits { get; init; }
 
         public RepositoryHandle Repository { get; }
 

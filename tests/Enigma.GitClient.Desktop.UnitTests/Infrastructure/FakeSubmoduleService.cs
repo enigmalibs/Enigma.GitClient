@@ -82,6 +82,51 @@ public sealed class FakeSubmoduleService : ISubmoduleService
     public Task<string?> ReadHeadAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
         => Task.FromResult(Heads.Count > 1 ? Heads.Dequeue() : Heads.Count == 1 ? Heads.Peek() : null);
 
+    /// <summary>Gets the pin changes <see cref="DescribePinChangeAsync"/> answers, by path.</summary>
+    public Dictionary<string, PinChange> PinChanges { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Gets or sets the staged pin changes every read answers.</summary>
+    public IReadOnlyList<StagedPin> StagedPins { get; set; } = [];
+
+    /// <summary>Gets or sets what every discard plan answers.</summary>
+    public IReadOnlyList<SubmoduleDiscard> DiscardPlans { get; set; } = [];
+
+    /// <summary>Gets the paths of every put-back asked for, oldest first.</summary>
+    public List<IReadOnlyCollection<string>> PutBacks { get; } = [];
+
+    /// <inheritdoc />
+    public Task<PinChange> DescribePinChangeAsync(
+        RepositoryHandle repository,
+        string path,
+        string? oldSha,
+        string? newSha,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(PinChanges.TryGetValue(path, out PinChange? change)
+            ? change
+            : new PinChange(path, oldSha ?? string.Empty, newSha ?? string.Empty, PinDirection.Unknown, [], 0, [], 0, "Not scripted."));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<StagedPin>> ReadStagedPinsAsync(RepositoryHandle repository, CancellationToken cancellationToken = default)
+        => Task.FromResult(StagedPins);
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<SubmoduleDiscard>> PlanDiscardAsync(
+        RepositoryHandle repository,
+        IReadOnlyCollection<string> paths,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(DiscardPlans);
+
+    /// <inheritdoc />
+    public Task<SubmoduleUpdateResult> PutBackAsync(
+        RepositoryHandle repository,
+        IReadOnlyCollection<string> paths,
+        IProgress<SubmoduleUpdateProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        PutBacks.Add(new List<string>(paths));
+        return Task.FromResult(new SubmoduleUpdateResult([.. paths], [], []));
+    }
+
     /// <summary>Gets or sets the superproject every read answers, or <see langword="null"/> for none.</summary>
     public string? Superproject { get; set; }
 
