@@ -428,6 +428,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE06    | Push guard for submodule commits         | DONE      | (in FEATURE-6693.md)      |
 | - PHASE07    | Pin conflicts on the conflict page       | DONE      | (in FEATURE-6693.md)      |
 | BUG-FACC     | App crashes at startup: DI cycle         | DONE      | docs/plan/BUG-FACC.md     |
+| FEATURE-9C3D | Release 6.19.0                           | TODO      | docs/plan/FEATURE-9C3D.md |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
