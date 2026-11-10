@@ -460,6 +460,48 @@ public sealed class SyncParsingTests
     }
 
     [Fact]
+    public void BuildPushArguments_ChecksTheSubmodules_OnEveryPushButADelete()
+    {
+        Assert.Contains("--recurse-submodules=check", SyncService.BuildPushArguments(new PushRequest { Branch = "main" }));
+        Assert.Contains("--recurse-submodules=check", SyncService.BuildPushArguments(new PushRequest { Branch = "main", ForceWithLease = true }));
+        Assert.Contains("--recurse-submodules=check", SyncService.BuildPushArguments(new PushRequest { Branch = "main", SetUpstream = true }));
+        Assert.DoesNotContain("--recurse-submodules=check", SyncService.BuildPushArguments(new PushRequest { Branch = "old", Delete = true }));
+    }
+
+    [Fact]
+    public void AUnpushedSubmoduleRefusal_MapsToItsKind_WithThePaths()
+    {
+        const string transcript =
+            "The following submodule paths contain changes that can\n" +
+            "not be found on any remote:\n" +
+            "  libs/Common\n" +
+            "  vendor/json lib\n" +
+            "\n" +
+            "Please try\n" +
+            "\n" +
+            "\tgit push --recurse-submodules=on-demand\n" +
+            "\n" +
+            "or cd to the path and use\n" +
+            "\n" +
+            "\tgit push\n" +
+            "\n" +
+            "to push them to a remote.\n" +
+            "\n" +
+            "fatal: Aborting.\n";
+
+        SyncFailure failure = SyncErrorMapper.Map(transcript);
+
+        Assert.Equal(SyncFailureKind.UnpushedSubmodule, failure.Kind);
+        Assert.Equal(["libs/Common", "vendor/json lib"], failure.SubmodulePaths);
+        Assert.Contains("2 submodules", failure.Message, StringComparison.Ordinal);
+        Assert.True(failure.IsRecoverableLocally);
+    }
+
+    [Fact]
+    public void ParseUnpushedSubmodules_ReadsNothingFromAnotherRefusal()
+        => Assert.Empty(SyncErrorMapper.ParseUnpushedSubmodules("! [rejected] main -> main (non-fast-forward)\n"));
+
+    [Fact]
     public void BuildPushArguments_DefaultsToOrigin()
         => Assert.Contains("origin", SyncService.BuildPushArguments(new PushRequest()));
 
@@ -468,7 +510,7 @@ public sealed class SyncParsingTests
     {
         List<string> arguments = SyncService.BuildPushTagArguments("origin", "1.0.0");
 
-        Assert.Equal(["push", "--progress", "origin", "refs/tags/1.0.0:refs/tags/1.0.0"], arguments);
+        Assert.Equal(["push", "--progress", "--recurse-submodules=check", "origin", "refs/tags/1.0.0:refs/tags/1.0.0"], arguments);
         Assert.DoesNotContain(arguments, argument => argument.StartsWith('+'));
         Assert.DoesNotContain("--force", arguments);
         Assert.DoesNotContain("--tags", arguments);

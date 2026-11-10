@@ -425,7 +425,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03    | Submodules follow the pin                | DONE        | (in FEATURE-6693.md)      |
 | - PHASE04    | Working inside a submodule               | DONE        | (in FEATURE-6693.md)      |
 | - PHASE05    | Pin changes: diff, guard, discard        | DONE        | (in FEATURE-6693.md)      |
-| - PHASE06    | Push guard for submodule commits         | TODO        | (in FEATURE-6693.md)      |
+| - PHASE06    | Push guard for submodule commits         | DONE        | (in FEATURE-6693.md)      |
 | - PHASE07    | Pin conflicts on the conflict page       | TODO        | (in FEATURE-6693.md)      |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in

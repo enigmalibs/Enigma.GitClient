@@ -85,6 +85,9 @@ Two things matter more than everything else in this app:
   and lists the commits; its line in the working changes says what it holds and opens it from its
   menu. A commit that would move a submodule back asks first; *Discard* puts a submodule back on its
   commit, after saying so — and refuses when the submodule has uncommitted changes of its own
+- A push never publishes a submodule commit that is on no remote of its submodule — whatever
+  `push.recurseSubmodules` says: it offers to push the submodule first (on its branch, where its
+  profile may push), then the repository; a submodule on no branch is named, with a way to open it
 - Every local branch says where it stands: an arrow and a count for the commits to push and to
   pull, and whether the branch is on a remote at all
 - Select a branch, tag or remote in its list, and drag one branch onto another to merge them: the

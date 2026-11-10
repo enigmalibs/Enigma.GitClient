@@ -258,7 +258,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE06 — Push guard for submodule commits
 
 **Branch:** `feature/feature-6693-phase06-push-guard`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 

@@ -316,6 +316,13 @@ public sealed class SyncService : ISyncService
 
         List<string> arguments = ["push", "--progress"];
 
+        // Never a pin whose commit no remote of its submodule has — whatever push.recurseSubmodules
+        // says. A delete records nothing.
+        if (!request.Delete)
+        {
+            arguments.Add(RecurseSubmodulesCheck);
+        }
+
         if (request.SetUpstream && !request.Delete)
         {
             arguments.Add("--set-upstream");
@@ -391,8 +398,13 @@ public sealed class SyncService : ISyncService
             throw new ArgumentException("A remote's name cannot start with a dash.", nameof(remote));
         }
 
-        return ["push", "--progress", remote, $"refs/tags/{tag}:refs/tags/{tag}"];
+        return ["push", "--progress", RecurseSubmodulesCheck, remote, $"refs/tags/{tag}:refs/tags/{tag}"];
     }
+
+    /// <summary>
+    /// The option that has git refuse a push recording submodule commits no remote of the submodule has.
+    /// </summary>
+    public const string RecurseSubmodulesCheck = "--recurse-submodules=check";
 
     /// <inheritdoc />
     public Task FetchAsync(
