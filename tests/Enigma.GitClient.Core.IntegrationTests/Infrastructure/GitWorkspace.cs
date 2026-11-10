@@ -108,6 +108,18 @@ public sealed class GitWorkspace : IAsyncDisposable
     }
 
     /// <summary>
+    /// Lets git clone a submodule from a folder of this workspace.
+    /// </summary>
+    /// <remarks>
+    /// Since git 2.38.1 a submodule is not cloned from a local path unless <c>protocol.file.allow</c> is
+    /// <c>always</c> — a guard against a repository that points a submodule at a folder of the victim's
+    /// machine. The tests' submodules all live in the workspace, so the workspace's own global file
+    /// allows it; the product never sets it.
+    /// </remarks>
+    public void AllowLocalSubmodules()
+        => File.AppendAllText(_environment["GIT_CONFIG_GLOBAL"], "[protocol \"file\"]\n\tallow = always\n");
+
+    /// <summary>
     /// Creates an empty, non-repository directory inside the workspace.
     /// </summary>
     /// <param name="name">The directory name.</param>

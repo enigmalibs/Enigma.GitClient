@@ -50,6 +50,18 @@ public static class GitArgumentVector
     /// <returns>The sub-command, or <see langword="null"/> when the vector holds only options.</returns>
     public static string? FindVerb(IReadOnlyList<string> arguments)
     {
+        int index = FindVerbIndex(arguments);
+
+        return index < 0 ? null : arguments[index];
+    }
+
+    /// <summary>
+    /// Finds where the sub-command sits in an argument vector, skipping git's global options.
+    /// </summary>
+    /// <param name="arguments">The argument vector.</param>
+    /// <returns>The sub-command's index, or -1 when the vector holds only options.</returns>
+    public static int FindVerbIndex(IReadOnlyList<string> arguments)
+    {
         ArgumentNullException.ThrowIfNull(arguments);
 
         for (int index = 0; index < arguments.Count; index++)
@@ -63,7 +75,7 @@ public static class GitArgumentVector
 
             if (argument[0] != '-')
             {
-                return argument;
+                return index;
             }
 
             if (OptionsWithSeparateValue.Contains(argument))
@@ -78,7 +90,7 @@ public static class GitArgumentVector
             _ = StandaloneOptions.Contains(argument);
         }
 
-        return null;
+        return -1;
     }
 
     /// <summary>

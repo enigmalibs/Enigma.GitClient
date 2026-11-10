@@ -44,6 +44,39 @@ public sealed class ForbiddenGitOperationsTests
         => Assert.Throws<NotSupportedException>(() => ForbiddenGitOperations.EnsureAllowed(Split(commandLine)));
 
     [Theory]
+    [InlineData("submodule update --rebase")]
+    [InlineData("submodule update --init --rebase -- libs/Common")]
+    [InlineData("submodule update -r")]
+    [InlineData("submodule --quiet update --rebase")]
+    [InlineData("-c color.ui=false submodule update --recursive --rebase")]
+    public void EnsureAllowed_RejectsASubmoduleUpdateThatWouldRebase(string commandLine)
+    {
+        NotSupportedException exception =
+            Assert.Throws<NotSupportedException>(() => ForbiddenGitOperations.EnsureAllowed(Split(commandLine)));
+
+        Assert.Contains("submodule update --rebase", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("-c submodule.libs/Common.update=rebase submodule update")]
+    [InlineData("-c submodule.Common.update=REBASE submodule update --init")]
+    [InlineData("-c submodule.a.b.update=rebase status")]
+    public void EnsureAllowed_RejectsConfigurationThatWouldRebaseASubmodule(string commandLine)
+        => Assert.Throws<NotSupportedException>(() => ForbiddenGitOperations.EnsureAllowed(Split(commandLine)));
+
+    [Theory]
+    [InlineData("submodule update --init --checkout --progress -- libs/Common")]
+    [InlineData("submodule update --init --recursive --checkout")]
+    [InlineData("submodule update --checkout -- --rebase")]
+    [InlineData("submodule status --recursive")]
+    [InlineData("submodule foreach --rebase")]
+    [InlineData("-c submodule.Common.update=checkout submodule update")]
+    [InlineData("-c submodule.Common.update=merge submodule update")]
+    [InlineData("-c submodule.recurse=false checkout main")]
+    public void EnsureAllowed_AllowsTheSubmoduleCommandsThatDoNotRebase(string commandLine)
+        => ForbiddenGitOperations.EnsureAllowed(Split(commandLine));
+
+    [Theory]
     [InlineData("pull --no-rebase")]
     [InlineData("-c pull.rebase=false pull --no-rebase")]
     [InlineData("log --oneline")]

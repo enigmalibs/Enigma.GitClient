@@ -1,6 +1,6 @@
 # FEATURE-6693 — Submodule support
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** FEATURE
 **Branch:** one per phase, see below
 **Run:** feature/2026-11-09-feature-6693
@@ -98,7 +98,7 @@ shallow/sparse submodule options; a release item (the user releases separately).
 ## PHASE01 — Read and update submodules in Core
 
 **Branch:** `feature/feature-6693-phase01-submodule-service`
-**Status:** TODO
+**Status:** DONE
 
 ### Steps
 
