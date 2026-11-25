@@ -199,6 +199,59 @@ public sealed class AtomicFileTests : IDisposable
         Assert.Equal([Target], Directory.GetFiles(_root));
     }
 
+    [Fact]
+    public void WriteAllText_WithAnEncodingThatHasAByteOrderMark_WritesIt()
+    {
+        AtomicFile.WriteAllText(Target, "x", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+        Assert.Equal([0xEF, 0xBB, 0xBF, (byte)'x'], File.ReadAllBytes(Target));
+    }
+
+    [Fact]
+    public void WriteAllBytes_ReplacesWhatWasThere_AndLeavesNothingBeside()
+    {
+        File.WriteAllBytes(Target, [1, 2, 3, 4, 5]);
+
+        AtomicFile.WriteAllBytes(Target, [9, 8]);
+
+        Assert.Equal([9, 8], File.ReadAllBytes(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
+    [Fact]
+    public void WriteAllBytes_WithAMode_CreatesTheFileOwnerOnly_EvenOverAWiderOne()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no file mode; the profile's ACL protects the file there.");
+
+        if (!OperatingSystem.IsWindows())
+        {
+            File.WriteAllBytes(Target, [1]);
+            File.SetUnixFileMode(Target, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+            AtomicFile.WriteAllBytes(Target, [2], UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(Target));
+            Assert.Equal([2], File.ReadAllBytes(Target));
+        }
+    }
+
+    [Fact]
+    public void WriteAllBytes_AReplaceThatFails_LeavesThePreviousFileWhole()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to replace a file another handle holds.");
+
+        File.WriteAllBytes(Target, [1, 2, 3]);
+
+        using (OpenLikeAReader())
+        {
+            Assert.Throws<UnauthorizedAccessException>(() => AtomicFile.WriteAllBytes(Target, [7]));
+        }
+
+        // The write that failed changed nothing: the previous key, or list, is still whole.
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
     /// <summary>
     /// Opens the target the way <see cref="File.ReadAllText(string)"/> does: shared for reading only,
     /// which is what makes Windows refuse to replace it.

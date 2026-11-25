@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -407,6 +408,20 @@ public sealed class TokenStoreTests : IDisposable
         // A fresh key: the one the refusing store could not open is gone.
         Assert.NotEqual(oldKey, File.ReadAllBytes(KeyFile));
         Assert.Equal("typed again", (await _store.TryGetAsync("host:one", TestContext.Current.CancellationToken))!.Reveal());
+    }
+
+    [Fact]
+    public async Task TheKeyAndTheSecrets_AreReplacedInOneStep_LeavingNothingBeside()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken);
+
+        // Written through a temporary file that is moved into place: no partial file, and no
+        // temporary left behind once it has been.
+        Assert.Equal(
+            [TokenFile, KeyFile],
+            Directory.GetFiles(_root).Order(StringComparer.Ordinal));
+        Assert.Equal("second", (await _store.TryGetAsync("host:two", TestContext.Current.CancellationToken))!.Reveal());
     }
 
     [Fact]

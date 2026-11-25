@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -355,24 +354,10 @@ public sealed class HostAccountService : IHostAccountService
         string file = _paths.GetConfigurationFile(FileName);
         string json = JsonSerializer.Serialize(new StoredDocument(CurrentVersion, accounts), SerializerOptions);
 
-        if (OperatingSystem.IsWindows())
-        {
-            File.WriteAllText(file, json);
-            return;
-        }
-
-        // No secrets in here, but it still names the instances a user connects to, which is theirs.
-        using FileStream stream = new(
-            file,
-            new FileStreamOptions
-            {
-                Mode = FileMode.Create,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            });
-
-        stream.Write(Encoding.UTF8.GetBytes(json));
+        // In one step: a write cut short would leave a truncated list, read as no accounts at all.
+        // No secrets in here, but it still names the instances a user connects to, which is theirs —
+        // readable by its owner only, outside Windows.
+        AtomicFile.WriteAllText(file, json, encoding: null, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
 
     /// <summary>

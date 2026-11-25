@@ -431,7 +431,7 @@ completion records live in `docs/done/<ID>.md`.
 | FEATURE-9C3D     | Release 6.19.0                           | DONE        | docs/plan/FEATURE-9C3D.md     |
 | CODE-REVIEW-6E56 | Fixes from review 2026-11-19             | IN PROGRESS | docs/plan/CODE-REVIEW-6E56.md |
 | - PHASE01        | [High] SEC-01 System programs by path    | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE02        | [High] SEC-02 Atomic token and key files | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE02        | [High] SEC-02 Atomic token and key files | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE03        | [High] EXC-01 Corrupt accounts backed up | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE04        | [High] SOLID-01 No service locator       | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE05        | [High] TEST-01 Desktop suite on Windows  | ABANDONED   | (in CODE-REVIEW-6E56.md)      |

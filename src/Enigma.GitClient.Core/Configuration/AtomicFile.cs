@@ -43,7 +43,33 @@ public static class AtomicFile
     /// <param name="path">The file to replace or create.</param>
     /// <param name="contents">What it must contain.</param>
     /// <param name="encoding">The encoding to write it in; UTF-8 without a byte-order mark when omitted.</param>
-    public static void WriteAllText(string path, string contents, Encoding? encoding = null)
+    /// <param name="unixCreateMode">
+    /// The mode the file is created with outside Windows — <c>0600</c> for a file that holds or names
+    /// secrets — or <see langword="null"/> for the process's default. Ignored on Windows.
+    /// </param>
+    public static void WriteAllText(string path, string contents, Encoding? encoding = null, UnixFileMode? unixCreateMode = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(contents);
+
+        WriteAllBytes(path, Encode(contents, encoding), unixCreateMode);
+    }
+
+    /// <summary>
+    /// Writes a binary file atomically.
+    /// </summary>
+    /// <param name="path">The file to replace or create.</param>
+    /// <param name="contents">What it must contain.</param>
+    /// <param name="unixCreateMode">
+    /// The mode the file is created with outside Windows, or <see langword="null"/> for the process's
+    /// default. Ignored on Windows.
+    /// </param>
+    /// <remarks>
+    /// The mode is the temporary file's from the moment it exists, so the file that is moved into place
+    /// is never readable by anyone else — not even for the instant between creating it and tightening
+    /// it.
+    /// </remarks>
+    public static void WriteAllBytes(string path, byte[] contents, UnixFileMode? unixCreateMode = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(contents);
@@ -52,7 +78,11 @@ public static class AtomicFile
 
         try
         {
-            File.WriteAllText(temporary, contents, encoding ?? new UTF8Encoding(false));
+            using (FileStream stream = new(temporary, TemporaryOptions(unixCreateMode, FileOptions.None)))
+            {
+                stream.Write(contents);
+            }
+
             Replace(temporary, path);
         }
         finally
@@ -82,8 +112,12 @@ public static class AtomicFile
 
         try
         {
-            await File.WriteAllTextAsync(temporary, contents, encoding ?? new UTF8Encoding(false), cancellationToken)
-                .ConfigureAwait(false);
+            FileStream stream = new(temporary, TemporaryOptions(unixCreateMode: null, FileOptions.Asynchronous));
+
+            await using (stream.ConfigureAwait(false))
+            {
+                await stream.WriteAsync(Encode(contents, encoding), cancellationToken).ConfigureAwait(false);
+            }
 
             await ReplaceAsync(temporary, path, cancellationToken).ConfigureAwait(false);
         }
@@ -134,6 +168,41 @@ public static class AtomicFile
     private static bool IsHeldOpen(Exception exception)
         => OperatingSystem.IsWindows()
             && exception is UnauthorizedAccessException or IOException { HResult: SharingViolation or LockViolation };
+
+    /// <summary>
+    /// The text's bytes, with the encoding's byte-order mark when it has one — what
+    /// <see cref="File.WriteAllText(string, string, Encoding)"/> would have written.
+    /// </summary>
+    private static byte[] Encode(string contents, Encoding? encoding)
+    {
+        Encoding chosen = encoding ?? new UTF8Encoding(false);
+        byte[] preamble = chosen.GetPreamble();
+        byte[] text = chosen.GetBytes(contents);
+
+        return preamble.Length == 0 ? text : [.. preamble, .. text];
+    }
+
+    /// <summary>
+    /// How the temporary file is opened: created new, by this writer alone, with the mode it must end
+    /// up with.
+    /// </summary>
+    private static FileStreamOptions TemporaryOptions(UnixFileMode? unixCreateMode, FileOptions options)
+    {
+        FileStreamOptions created = new()
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            Options = options,
+        };
+
+        if (!OperatingSystem.IsWindows() && unixCreateMode is { } mode)
+        {
+            created.UnixCreateMode = mode;
+        }
+
+        return created;
+    }
 
     /// <summary>
     /// A name beside the target that no other writer — in this process or another — will pick.

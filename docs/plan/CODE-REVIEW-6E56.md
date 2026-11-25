@@ -80,7 +80,7 @@ Locations: `Desktop/Services/SystemInterop.cs:122`, `:207`, `:210`, `Core/Git/Gi
 ## PHASE02 — [High] SEC-02 Atomic token and key files
 
 **Branch:** `review/code-review-6e56-phase02-atomic-secret-files`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `Core/Security/TokenStore.cs:657`, `:663-673`, `:709`, `:713-723`,
 `Core/Hosting/HostAccountService.cs:360`, `:365-375`.
