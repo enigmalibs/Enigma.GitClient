@@ -614,7 +614,7 @@ Location: `HistoryPageViewModel.cs:132`, the branch-badge and tag commands.
 ## PHASE25 — [Medium] SOLID-02 History row commands
 
 **Branch:** `review/code-review-6e56-phase25-history-row-commands`
-**Status:** TODO
+**Status:** DONE
 
 Location: `HistoryPageViewModel.cs`, the reset, revert, squash, stash, discard and worktree-here
 commands.

@@ -36,27 +36,18 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// which is the query's own default scope, with every parent of every merge followed: there is no
 /// switch to narrow it to the current branch or to first parents.
 /// </remarks>
-public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, IDisposable
+public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, IDisposable
 {
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
-    private readonly IBranchOperations _branchOperations;
-    private readonly IWorktreeOperations _worktreeOperations;
     private readonly IRemoteTags _remoteTags;
-    private readonly ICheckoutOperations _checkoutOperations;
-    private readonly IResetOperations _resetOperations;
-    private readonly IRevertOperations _revertOperations;
-    private readonly ISquashOperations _squashOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
     private readonly IHiddenBranches _hidden;
     private readonly IStashService _stashes;
-    private readonly IStashOperations _stashOperations;
     private readonly ISystemInterop _interop;
-    private readonly ICommitDetailsDialogService _details;
-    private readonly IDiscardOperations _discards;
     private bool _absoluteDates;
 
     // What the panel's files are compared against, and the row whose files they are — set together,
@@ -112,16 +103,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
     /// <param name="workingTree">Answers whether there is anything uncommitted.</param>
     /// <param name="diffs">Reads what the selected commit touched.</param>
     /// <param name="infoBar">Reports a failure the user can act on.</param>
-    /// <param name="worktreeOperations">Creates a worktree on a new branch from a line or a branch, dialog and all.</param>
-    /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
-    /// <param name="revertOperations">Records a commit undoing a line's commit on the branch that is checked out.</param>
-    /// <param name="squashOperations">Squashes the commits since the squash base onto a new branch.</param>
+    /// <param name="commitActions">What a line's own menu does with its commit.</param>
+    /// <param name="stashActions">Stashes, applies, pops and drops, and throws the uncommitted work away.</param>
     /// <param name="branchActions">What a branch badge's menu does, and the drop of one badge on another.</param>
     /// <param name="tagActions">Creates a tag on a line; pushes and deletes one from its badge.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
-    /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
-    /// <param name="discards">Throws the uncommitted work away, from the uncommitted line.</param>
     /// <param name="remoteTags">Which tags the remote has, which the tag badges' clouds show.</param>
     /// <param name="workingTreePanel">What the details panel holds for the uncommitted line.</param>
     /// <param name="diffViewers">
@@ -135,12 +122,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         IWorkingTreeProbe workingTree,
         IDiffService diffs,
         ISystemInterop interop,
-        IBranchOperations branchOperations,
-        IWorktreeOperations worktreeOperations,
-        ICheckoutOperations checkoutOperations,
-        IResetOperations resetOperations,
-        IRevertOperations revertOperations,
-        ISquashOperations squashOperations,
+        HistoryCommitActions commitActions,
+        HistoryStashActions stashActions,
         HistoryBranchActions branchActions,
         HistoryTagActions tagActions,
         IHostLinkService links,
@@ -150,9 +133,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         IToolDialogService tools,
         IHiddenBranches hidden,
         IStashService stashes,
-        IStashOperations stashOperations,
-        ICommitDetailsDialogService details,
-        IDiscardOperations discards,
         IRemoteTags remoteTags,
         WorkingTreePanelViewModel workingTreePanel,
         ILogger<HistoryPageViewModel> logger)
@@ -162,12 +142,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         ArgumentNullException.ThrowIfNull(workingTree);
         ArgumentNullException.ThrowIfNull(diffs);
         ArgumentNullException.ThrowIfNull(interop);
-        ArgumentNullException.ThrowIfNull(branchOperations);
-        ArgumentNullException.ThrowIfNull(worktreeOperations);
-        ArgumentNullException.ThrowIfNull(checkoutOperations);
-        ArgumentNullException.ThrowIfNull(resetOperations);
-        ArgumentNullException.ThrowIfNull(revertOperations);
-        ArgumentNullException.ThrowIfNull(squashOperations);
+        ArgumentNullException.ThrowIfNull(commitActions);
+        ArgumentNullException.ThrowIfNull(stashActions);
         ArgumentNullException.ThrowIfNull(branchActions);
         ArgumentNullException.ThrowIfNull(tagActions);
         ArgumentNullException.ThrowIfNull(links);
@@ -177,9 +153,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(hidden);
         ArgumentNullException.ThrowIfNull(stashes);
-        ArgumentNullException.ThrowIfNull(stashOperations);
-        ArgumentNullException.ThrowIfNull(details);
-        ArgumentNullException.ThrowIfNull(discards);
         ArgumentNullException.ThrowIfNull(remoteTags);
         ArgumentNullException.ThrowIfNull(workingTreePanel);
         ArgumentNullException.ThrowIfNull(logger);
@@ -189,22 +162,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         _diffs = diffs;
 
         Diff = diffViewers();
-        _branchOperations = branchOperations;
-        _worktreeOperations = worktreeOperations;
-        _checkoutOperations = checkoutOperations;
-        _resetOperations = resetOperations;
-        _revertOperations = revertOperations;
-        _squashOperations = squashOperations;
         _links = links;
         _settings = settings;
         _tools = tools;
         _hidden = hidden;
         _hidden.Changed += (_, _) => OnHiddenBranchesChanged();
         _stashes = stashes;
-        _stashOperations = stashOperations;
         _interop = interop;
-        _details = details;
-        _discards = discards;
 
         // The remote answers after the lines are drawn — and again after every fetch: the tags'
         // clouds follow it in place, without redrawing the history.
@@ -237,55 +201,35 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
 
         ClearSquashBaseCommand = new RelayCommand(() => SquashBase = null, () => SquashBase is not null);
 
+        HistoryCommitCommands commits = commitActions.CreateCommands(this, ClearSquashBaseCommand);
+        HistoryStashActionCommands stash = stashActions.CreateCommands(this, () => HasUncommittedChanges);
         HistoryTagCommands tags = tagActions.CreateCommands(this);
 
-        // A stash is not a commit anyone builds on, so it is no base; the squash itself is offered only
-        // where the base is on the line's first-parent line, which the loaded lines answer at once.
-        SquashCommands = new HistorySquashCommands(
-            new RelayCommand<CommitRowViewModel>(OnSetSquashBase, row => row is { Commit: not null, IsStash: false }),
-            ClearSquashBaseCommand,
-            new AsyncRelayCommand<HistorySquashRequest>(
-                OnSquashAsync,
-                request => request is { Row: { Commit: not null, IsStash: false } row } && MeasureSquash(row, request.Base) is not null),
-            () => SquashBase,
-            row => SquashBase is { } squashBase ? MeasureSquash(row, squashBase) : null);
+        SquashCommands = commits.Squash;
 
         RowCommands = new HistoryRowCommands(
-            new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
-            new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
+            commits.CreateBranchHere,
+            commits.Checkout,
             tags.CreateHere,
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName,
             BranchCommands,
-
-            // Soft back onto the commit HEAD is already at would do nothing; hard there is how the
-            // uncommitted work is thrown away, so it stays.
-            new AsyncRelayCommand<HistoryResetRequest>(
-                request => OnResetAsync(request, ResetMode.Soft),
-                request => request is { Row: { Commit: not null, IsHead: false } }),
-            new AsyncRelayCommand<HistoryResetRequest>(
-                request => OnResetAsync(request, ResetMode.Hard),
-                request => request?.Row.Commit is not null),
+            commits.ResetSoft,
+            commits.ResetHard,
             () => RepositoryContext.Head is { IsDetached: false, IsUnborn: false } head ? head.BranchName : null,
-            new HistoryStashCommands(
-                new AsyncRelayCommand<CommitRowViewModel>(_ => OnStashAsync(), row => row is { IsUncommitted: true }),
-                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.ApplyAsync), IsStashLine),
-                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.PopAsync), IsStashLine),
-                new AsyncRelayCommand<CommitRowViewModel>(row => OnStashLineAsync(row, _stashOperations.DropAsync), IsStashLine)),
+            stash.Lines,
             CopyCommand,
-            ShowDetails: new AsyncRelayCommand<CommitRowViewModel>(OnShowDetailsAsync, row => row?.Commit is not null),
-            DiscardUncommitted: new AsyncRelayCommand<CommitRowViewModel>(
-                _ => OnDiscardUncommittedAsync(),
-                row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted),
+            ShowDetails: commits.ShowDetails,
+            DiscardUncommitted: stash.DiscardUncommitted,
             PushTag: tags.Push,
             DeleteTag: tags.Delete,
             DeleteRemoteTag: tags.DeleteRemote,
-            Revert: new AsyncRelayCommand<CommitRowViewModel>(OnRevertAsync, HasCommit),
-            CreateWorktreeHere: new AsyncRelayCommand<CommitRowViewModel>(OnCreateWorktreeHereAsync, HasCommit),
+            Revert: commits.Revert,
+            CreateWorktreeHere: commits.CreateWorktreeHere,
             Squash: SquashCommands);
 
-        StashCommand = new AsyncRelayCommand(OnStashAsync, () => HasUncommittedChanges);
+        StashCommand = stash.Stash;
 
         // "Merge" records a merge commit even when a fast-forward would do; "fast-forward only" beside
         // it is how a branch is moved without one — the two items of the drop menu.
@@ -311,7 +255,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
 
         CloseDiffViewCommand = new RelayCommand(() => IsDiffViewOpen = false);
         CloseDetailsPanelCommand = new RelayCommand(() => SelectedRow = null);
-        ShowCommitDetailsCommand = new AsyncRelayCommand(() => OnShowDetailsAsync(DetailsRow), () => DetailsRow?.Commit is not null);
+        ShowCommitDetailsCommand = new AsyncRelayCommand(() => commits.ShowDetails.ExecuteAsync(DetailsRow), () => DetailsRow?.Commit is not null);
         LoadMoreCommand = new AsyncRelayCommand(OnLoadMoreAsync, () => HasMore && IsNotBusy);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
         NextMatchCommand = new RelayCommand(() => GoToMatch(forward: true), () => MatchCount > 0);
@@ -838,6 +782,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
     /// which is what there is to stash.
     /// </summary>
     public bool HasUncommittedChanges => Rows.Count > 0 && Rows[0].IsUncommitted;
+
+    /// <inheritdoc />
+    IReadOnlyList<CommitRowViewModel> IHistoryRowHost.Rows => Rows;
 
     /// <summary>
     /// Gets the command that copies a hash or a name to the clipboard, which the line's and the
@@ -2252,32 +2199,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
 
     // ---------------------------------------------------------------- the row's own menu
 
-    private async Task OnCreateBranchHereAsync(CommitRowViewModel? row)
-    {
-        if (row?.Commit is null)
-        {
-            return;
-        }
-
-        if (await _branchOperations.CreateAsync(row.Sha, row.ShortSha).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnCreateWorktreeHereAsync(CommitRowViewModel? row)
-    {
-        if (row?.Commit is null)
-        {
-            return;
-        }
-
-        if (await _worktreeOperations.CreateAsync(row.Sha, row.ShortSha).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
     /// <summary>
     /// Draws every loaded tag badge with what the remote now says, and measures the Refs column again:
     /// a cloud makes a badge wider.
@@ -2371,140 +2292,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         IsDiffViewOpen = true;
     }
 
-    private async Task OnCheckoutCommitAsync(CommitRowViewModel? row)
-    {
-        if (row?.Commit is null)
-        {
-            return;
-        }
-
-        if (await _checkoutOperations.CheckoutAsync(row.Sha, row.ShortSha, detach: true).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Moves the branch the menu named to a line's commit, and re-reads the history when it moved.
-    /// </summary>
-    private async Task OnResetAsync(HistoryResetRequest? request, ResetMode mode)
-    {
-        if (request?.Row is not { Commit: not null } row)
-        {
-            return;
-        }
-
-        if (await _resetOperations.ResetAsync(row.Sha, row.ShortSha, request.Branch, mode).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Records a commit undoing a line's commit on the branch that is checked out, and re-reads the
-    /// history when one was recorded.
-    /// </summary>
-    private async Task OnRevertAsync(CommitRowViewModel? row)
-    {
-        if (row?.Commit is not { } commit)
-        {
-            return;
-        }
-
-        if (await _revertOperations.RevertAsync(row.Sha, row.ShortSha, row.Subject, commit.IsMerge).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private void OnSetSquashBase(CommitRowViewModel? row)
-    {
-        if (row is { Commit: not null, IsStash: false })
-        {
-            SquashBase = new SquashBase(row.Sha, row.ShortSha, row.Subject);
-        }
-    }
-
-    /// <summary>
-    /// Squashes everything since the base up to a line onto a new branch, then shows the result: the
-    /// history is read again and the squash commit selected. The base has served its squash and is
-    /// forgotten.
-    /// </summary>
-    private async Task OnSquashAsync(HistorySquashRequest? request)
-    {
-        if (request is not { Row: { Commit: not null } row, Base: { } squashBase })
-        {
-            return;
-        }
-
-        SquashCandidate candidate = new(
-            new SquashEnd(squashBase.Sha, squashBase.ShortSha, squashBase.Subject),
-            new SquashEnd(row.Sha, row.ShortSha, row.Subject),
-            LocalBranchesAt(row),
-            row.IsHead);
-
-        if (await _squashOperations.SquashAsync(candidate).ConfigureAwait(true) is not { } commit)
-        {
-            return;
-        }
-
-        SquashBase = null;
-
-        await ReloadAsync().ConfigureAwait(true);
-        await RevealAsync(commit).ConfigureAwait(true);
-    }
-
-    /// <summary>
-    /// Measures the range from a base to a line among the loaded lines, as the menu counts it.
-    /// </summary>
-    private SquashRangeMeasure? MeasureSquash(CommitRowViewModel row, SquashBase squashBase)
-    {
-        if (row.Commit is null)
-        {
-            return null;
-        }
-
-        List<GitCommit> loaded = new(Rows.Count);
-
-        foreach (CommitRowViewModel line in Rows)
-        {
-            if (line.Commit is { } commit)
-            {
-                loaded.Add(commit);
-            }
-        }
-
-        return SquashRange.Measure(loaded, squashBase.Sha, row.Sha);
-    }
-
-    /// <summary>
-    /// The local branches that end at a line, the checked-out one first: the squash dialog names the
-    /// new branch after the first, and says it keeps its commits.
-    /// </summary>
-    private static List<string> LocalBranchesAt(CommitRowViewModel row)
-    {
-        List<string> names = [];
-
-        foreach (HistoryBranchViewModel branch in row.Branches)
-        {
-            if (branch.IsRemote)
-            {
-                continue;
-            }
-
-            if (branch.IsCurrent)
-            {
-                names.Insert(0, branch.Name);
-            }
-            else
-            {
-                names.Add(branch.Name);
-            }
-        }
-
-        return names;
-    }
-
     /// <summary>
     /// Forgets the squash base once a finished reload no longer lists its commit — its branch deleted
     /// or hidden, or the history read again from the top past where it was.
@@ -2553,44 +2340,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, I
         StashCommand.NotifyCanExecuteChanged();
     }
 
-    /// <summary>
-    /// Shows a line's commit in the details dialog. The uncommitted line has none, and shows nothing.
-    /// </summary>
-    private async Task OnShowDetailsAsync(CommitRowViewModel? row)
-    {
-        if (row?.Commit is { } commit)
-        {
-            await _details.ShowAsync(commit).ConfigureAwait(true);
-        }
-    }
-
     // ---------------------------------------------------------------- the stash
-
-    private static bool IsStashLine(CommitRowViewModel? row) => row?.Stash is not null;
-
-    private async Task OnStashAsync()
-    {
-        if (await _stashOperations.StashAsync().ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnDiscardUncommittedAsync()
-    {
-        if (await _discards.DiscardUncommittedAsync().ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnStashLineAsync(CommitRowViewModel? row, Func<StashEntry, Task<bool>> operation)
-    {
-        if (row?.Stash is { } entry && await operation(entry).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
 
     /// <summary>
     /// Takes the stored history and graph preferences on, at startup and whenever they change.

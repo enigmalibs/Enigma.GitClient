@@ -141,6 +141,8 @@ public static class ServiceCollectionExtensions
             services.AddTransient<SettingsPageView>();
 
             services.AddSingleton<RepositoriesPageViewModel>();
+            services.AddSingleton<HistoryCommitActions>();
+            services.AddSingleton<HistoryStashActions>();
             services.AddSingleton<HistoryBranchActions>();
             services.AddSingleton<HistoryTagActions>();
             services.AddSingleton<HistoryPageViewModel>();
