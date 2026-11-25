@@ -635,7 +635,7 @@ commands.
 ## PHASE26 — [Medium] SOLID-03 History search, stash
 
 **Branch:** `review/code-review-6e56-phase26-history-search-stash`
-**Status:** TODO
+**Status:** DONE
 
 Location: `HistoryPageViewModel.cs:40`, the search and the stash folding.
 

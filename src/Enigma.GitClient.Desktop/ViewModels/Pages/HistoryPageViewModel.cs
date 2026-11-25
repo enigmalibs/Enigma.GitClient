@@ -87,13 +87,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
     private bool _drawnWithoutState;
     private bool _walkedWithoutState;
 
-    // The stash as the last reload read it, by the commit each entry is recorded as, and the other
-    // commits git records an entry with — its index and its untracked files — found as the pages
-    // arrive. A stash is drawn as one line, as GitKraken draws it: those commits are git's
-    // bookkeeping, not history anyone made.
-    private IReadOnlyList<StashEntry> _stashList = [];
-    private Dictionary<string, StashEntry> _stashBySha = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _stashHelpers = new(StringComparer.Ordinal);
+    // The stash as the last reload read it, and the commits git records its entries with, which the
+    // history draws as one line per entry.
+    private readonly StashFolding _stash = new();
 
     /// <summary>
     /// Initialises a new instance.
@@ -350,58 +346,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
     /// elsewhere — and the arrows beside it are how to get to one (<see cref="NextMatchCommand"/>).
     /// </para>
     /// </remarks>
-    public string MatchSummary
-    {
-        get
-        {
-            if (!HasSearch)
-            {
-                return string.Empty;
-            }
-
-            if (MatchCount == 0)
-            {
-                return "no match";
-            }
-
-            int position = MatchPosition;
-            string current = position > 0 ? position.ToString(CultureInfo.CurrentCulture) : "–";
-
-            return $"match {current}/{MatchCount.ToString(CultureInfo.CurrentCulture)}";
-        }
-    }
+    public string MatchSummary => HistorySearch.Summarise(HasSearch, MatchCount, MatchPosition);
 
     /// <summary>
     /// Gets the selected line's place among the lines the search found, counted from 1 down the list;
     /// 0 when the selected line is not one of them.
     /// </summary>
-    public int MatchPosition
-    {
-        get
-        {
-            if (SelectedRow is not { IsSearchMatch: true } selected)
-            {
-                return 0;
-            }
-
-            int position = 0;
-
-            foreach (CommitRowViewModel row in Rows)
-            {
-                if (row.IsSearchMatch)
-                {
-                    position++;
-
-                    if (ReferenceEquals(row, selected))
-                    {
-                        return position;
-                    }
-                }
-            }
-
-            return 0;
-        }
-    }
+    public int MatchPosition => HistorySearch.PositionOf(Rows, SelectedRow);
 
     /// <summary>
     /// Gets or sets the row the user has selected, which the rest of the shell follows.
@@ -1061,7 +1012,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
             IReadOnlyList<StashEntry> stashes = await ReadStashesAsync(repository, RepositoryContext.RepositoryLifetime)
                 .ConfigureAwait(true);
 
-            moved = !stashes.Select(entry => entry.Sha).SequenceEqual(_stashList.Select(entry => entry.Sha), StringComparer.Ordinal);
+            moved = _stash.HasMoved(stashes);
         }
 
         bool dirty = await HasUncommittedWorkAsync(repository, readPanel: !workingTreeRead, RepositoryContext.RepositoryLifetime)
@@ -1248,7 +1199,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
         HasMore = false;
         RefColumnWidth = 0;
         _drawnWithoutState = false;
-        _stashHelpers.Clear();
+        _stash.ForgetHelpers();
 
         NotifyEmptyState();
 
@@ -1503,7 +1454,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
 
             if (stashes is not null)
             {
-                UseStashes(stashes);
+                _stash.Use(stashes);
             }
 
             // The hidden branches are read as each page is asked for, not kept in the query: a page
@@ -1515,7 +1466,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
             CommitLogQuery query = _query with
             {
                 ExcludedRefs = [.. ExcludedRefs()],
-                IncludedRevisions = [.. _stashList.Select(entry => entry.Sha)],
+                IncludedRevisions = [.. _stash.Entries.Select(entry => entry.Sha)],
             };
 
             CommitLogPage page = await _reader
@@ -1601,7 +1552,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
     private void AppendPage(CommitLogPage page, bool withWorkingTree)
     {
         RefDecorationIndex decorations = RepositoryContext.Decorations;
-        IReadOnlyList<GitCommit> commits = FoldStashes(page.Commits, decorations);
+        IReadOnlyList<GitCommit> commits = _stash.Fold(page.Commits, decorations);
 
         List<GraphCommitInput> inputs = new(commits.Count + 1);
 
@@ -1656,12 +1607,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
             rows.Add(new CommitRowViewModel(
                 commit,
                 layout.Rows[first + index],
-                WithoutStashRef(WithoutHidden(decorations.GetRefs(commit.Sha), excluded)),
+                StashFolding.WithoutStashRef(WithoutHidden(decorations.GetRefs(commit.Sha), excluded)),
                 string.Equals(commit.Sha, headSha, StringComparison.Ordinal),
                 now,
                 RowCommands,
                 _absoluteDates,
-                _stashBySha.GetValueOrDefault(commit.Sha),
+                _stash.EntryAt(commit.Sha),
                 WorktreeTipOf,
                 _remoteTags.RemoteOf));
         }
@@ -1694,81 +1645,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
             _logger.LogWarning(exception, "The stash of {Repository} could not be read", repository.WorkTreePath);
             return [];
         }
-    }
-
-    private void UseStashes(IReadOnlyList<StashEntry> stashes)
-    {
-        _stashList = stashes;
-        _stashBySha = new Dictionary<string, StashEntry>(StringComparer.Ordinal);
-
-        foreach (StashEntry entry in stashes)
-        {
-            _stashBySha.TryAdd(entry.Sha, entry);
-        }
-    }
-
-    /// <summary>
-    /// A page's commits as the graph draws them: each stash entry is one commit off the commit it was
-    /// made on, and the commits git records it with besides — its index, its untracked files — are
-    /// not lines of their own.
-    /// </summary>
-    /// <remarks>
-    /// git records a stash as a merge of the commit it was made on, a commit of the index and, with
-    /// untracked files, a root commit holding them. The log always reads a commit before its parents,
-    /// so an entry is met before those commits are, whichever page they fall on. One that a reference
-    /// happens to point at is kept: that reference's badge has to be drawn somewhere.
-    /// </remarks>
-    private IReadOnlyList<GitCommit> FoldStashes(IReadOnlyList<GitCommit> commits, RefDecorationIndex decorations)
-    {
-        if (_stashBySha.Count == 0 && _stashHelpers.Count == 0)
-        {
-            return commits;
-        }
-
-        List<GitCommit> folded = new(commits.Count);
-
-        foreach (GitCommit commit in commits)
-        {
-            if (_stashBySha.ContainsKey(commit.Sha))
-            {
-                for (int parent = 1; parent < commit.ParentShas.Count; parent++)
-                {
-                    _stashHelpers.Add(commit.ParentShas[parent]);
-                }
-
-                folded.Add(commit.ParentShas.Count > 1
-                    ? new GitCommit(commit.Sha, [commit.ParentShas[0]], commit.Author, commit.Committer, commit.Subject, commit.Body)
-                    : commit);
-
-                continue;
-            }
-
-            if (_stashHelpers.Contains(commit.Sha) && decorations.GetRefs(commit.Sha).Count == 0)
-            {
-                continue;
-            }
-
-            folded.Add(commit);
-        }
-
-        return folded;
-    }
-
-    /// <summary>
-    /// A row's badges without <c>refs/stash</c>: every stash line carries a badge naming its own entry,
-    /// the newest included.
-    /// </summary>
-    private static IReadOnlyList<GitRef> WithoutStashRef(IReadOnlyList<GitRef> refs)
-    {
-        foreach (GitRef reference in refs)
-        {
-            if (reference.Kind == GitRefKind.Stash)
-            {
-                return [.. refs.Where(candidate => candidate.Kind != GitRefKind.Stash)];
-            }
-        }
-
-        return refs;
     }
 
     /// <summary>
@@ -1909,21 +1785,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
     /// </remarks>
     private void MarkMatches()
     {
-        string search = SearchText.Trim();
-        int found = 0;
-
-        foreach (CommitRowViewModel row in Rows)
-        {
-            bool matches = search.Length > 0 && row.Matches(search);
-            row.IsSearchMatch = matches;
-
-            if (matches)
-            {
-                found++;
-            }
-        }
-
-        MatchCount = found;
+        MatchCount = HistorySearch.Mark(Rows, SearchText);
 
         OnPropertyChanged(nameof(HasSearch));
         NotifyMatchPosition();
@@ -1938,27 +1800,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRowHost, I
     /// <param name="forward">Down the list when <see langword="true"/>, up it otherwise.</param>
     private void GoToMatch(bool forward)
     {
-        int count = Rows.Count;
-
-        if (count == 0 || MatchCount == 0)
+        if (MatchCount > 0 && HistorySearch.Next(Rows, SelectedRow, forward) is { } next)
         {
-            return;
-        }
-
-        // From the selected line; with none, from just above the first line going down, or just below
-        // the last going up, so the first step lands on the first or the last line.
-        int selected = SelectedRow is { } row ? Rows.IndexOf(row) : -1;
-        int origin = selected >= 0 ? selected : forward ? -1 : count;
-
-        for (int step = 1; step <= count; step++)
-        {
-            int index = (((forward ? origin + step : origin - step) % count) + count) % count;
-
-            if (Rows[index].IsSearchMatch)
-            {
-                SelectedRow = Rows[index];
-                return;
-            }
+            SelectedRow = next;
         }
     }
 
