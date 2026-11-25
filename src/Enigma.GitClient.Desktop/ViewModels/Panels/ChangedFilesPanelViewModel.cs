@@ -339,7 +339,7 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
 /// The panel listing what a change touched, as a flat list or as a tree — the user's choice, which
 /// the specification asks for explicitly.
 /// </summary>
-public sealed class ChangedFilesPanelViewModel : ViewModelBase
+public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
 {
     /// <summary>
     /// How many files a change may touch before the tree stops opening itself.
@@ -412,7 +412,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         if (_settings is not null)
         {
             Apply(_settings.Current);
-            _settings.Changed += (_, e) => Apply(e.Settings);
+            _settings.Changed += OnSettingsChanged;
         }
 
         OpenOnHostCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
@@ -1127,6 +1127,20 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// Takes the stored file-list preferences on, at startup and whenever they change.
     /// </summary>
     /// <param name="settings">The preferences.</param>
+    /// <summary>
+    /// Stops following the settings. The panel's owner calls it when the panel goes: the settings
+    /// outlive every panel built on them (SOLID-04).
+    /// </summary>
+    public void Dispose()
+    {
+        if (_settings is not null)
+        {
+            _settings.Changed -= OnSettingsChanged;
+        }
+    }
+
+    private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e) => Apply(e.Settings);
+
     private void Apply(AppSettings settings)
     {
         ViewMode = settings.FilesView == FilesView.Tree ? ChangedFilesViewMode.Tree : ChangedFilesViewMode.List;

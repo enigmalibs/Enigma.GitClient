@@ -172,6 +172,12 @@ public static class ServiceCollectionExtensions
             services.AddTransient<DiffViewerViewModel>();
             services.AddTransient<DiffViewerView>();
 
+            // How a singleton gets a viewer of its own: built outside the container's tracking, so the
+            // owner — which disposes it — is the only thing holding it (SOLID-04). Resolved from the root
+            // provider instead, every viewer would stay referenced by the container until the end.
+            services.AddSingleton<Func<DiffViewerViewModel>>(
+                provider => () => ActivatorUtilities.CreateInstance<DiffViewerViewModel>(provider));
+
             return services;
         }
     }

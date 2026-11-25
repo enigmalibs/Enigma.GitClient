@@ -238,7 +238,11 @@ public sealed class DiffRowViewModel
 /// <summary>
 /// The diff viewer: the patch for one file of one comparison, rendered unified or side by side.
 /// </summary>
-public sealed class DiffViewerViewModel : ViewModelBase
+/// <remarks>
+/// It follows the settings for as long as it lives, and lets go of them when disposed: a viewer is
+/// built per consumer, and the settings outlive every one of them (SOLID-04).
+/// </remarks>
+public sealed class DiffViewerViewModel : ViewModelBase, IDisposable
 {
     /// <summary>
     /// The context-line count that means "the whole file". git takes any number; this one is past
@@ -321,8 +325,15 @@ public sealed class DiffViewerViewModel : ViewModelBase
         // Last, and not before the commands: taking the stored preferences on sets ViewMode, whose
         // setter now tells the expand commands their answer changed.
         Apply(_settings.Current);
-        _settings.Changed += (_, e) => Apply(e.Settings);
+        _settings.Changed += OnSettingsChanged;
     }
+
+    /// <summary>
+    /// Stops following the settings. The viewer's owner calls it when the viewer goes.
+    /// </summary>
+    public void Dispose() => _settings.Changed -= OnSettingsChanged;
+
+    private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e) => Apply(e.Settings);
 
     /// <summary>
     /// Raised once a patch — or the absence of one — has reached the rows.

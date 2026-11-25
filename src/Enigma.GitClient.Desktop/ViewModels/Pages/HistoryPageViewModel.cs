@@ -37,7 +37,7 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// which is the query's own default scope, with every parent of every merge followed: there is no
 /// switch to narrow it to the current branch or to first parents.
 /// </remarks>
-public sealed class HistoryPageViewModel : PageViewModelBase
+public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
 {
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
@@ -128,6 +128,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// <param name="discards">Throws the uncommitted work away, from the uncommitted line.</param>
     /// <param name="remoteTags">Which tags the remote has, which the tag badges' clouds show.</param>
     /// <param name="workingTreePanel">What the details panel holds for the uncommitted line.</param>
+    /// <param name="diffViewers">
+    /// Builds the page's own diff viewer: one per consumer, owned and disposed by this page, so it is
+    /// asked for through a factory rather than captured by this singleton's constructor.
+    /// </param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public HistoryPageViewModel(
         IRepositoryContext repositoryContext,
@@ -146,7 +150,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ISyncOperations syncOperations,
         IHostLinkService links,
         ISettingsService settings,
-        DiffViewerViewModel diff,
+        Func<DiffViewerViewModel> diffViewers,
         IInfoBarService infoBar,
         IToolDialogService tools,
         IHiddenBranches hidden,
@@ -174,7 +178,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(syncOperations);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(diff);
+        ArgumentNullException.ThrowIfNull(diffViewers);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(hidden);
@@ -190,7 +194,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase
         _workingTree = workingTree;
         _diffs = diffs;
 
-        Diff = diff;
+        Diff = diffViewers();
         _branchOperations = branchOperations;
         _worktreeOperations = worktreeOperations;
         _tagOperations = tagOperations;
@@ -714,6 +718,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase
     /// Gets the diff viewer showing the file selected in <see cref="Files"/>.
     /// </summary>
     public DiffViewerViewModel Diff { get; }
+
+    /// <summary>
+    /// Lets go of the diff viewer and the changed-files list the page built, which follow the settings
+    /// until they are disposed.
+    /// </summary>
+    public void Dispose()
+    {
+        Diff.Dispose();
+        Files.Dispose();
+    }
 
     /// <summary>
     /// Gets the commands every row's context menu runs.

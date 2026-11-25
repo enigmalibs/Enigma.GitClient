@@ -288,7 +288,7 @@ Locations: `Core/Git/GitProcessRunner.cs:90-129`, `:195-223`, `:225-254`.
 ## PHASE11 — [Medium] SOLID-04 Diff viewer lifetime
 
 **Branch:** `review/code-review-6e56-phase11-diff-viewer-lifetime`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `ServiceCollectionExtensions.cs:160`, `HistoryPageViewModel.cs:149`,
 `DiffViewerViewModel.cs:324`, `ChangedFilesPanelViewModel.cs:408`.
