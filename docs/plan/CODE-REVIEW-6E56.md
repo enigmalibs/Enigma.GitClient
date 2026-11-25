@@ -1,6 +1,6 @@
 # CODE-REVIEW-6E56 — Fixes from review 2026-11-19
 
-**Status:** TODO
+**Status:** IN PROGRESS
 **Type:** CODE-REVIEW
 **Branch:** one per phase, see below
 **Run:** review/2026-11-19-solution-review-fixes
@@ -49,7 +49,7 @@ repeats only what a phase needs to be built and checked.
 ## PHASE01 — [High] SEC-01 System programs by path
 
 **Branch:** `review/code-review-6e56-phase01-system-programs-by-path`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `Desktop/Services/SystemInterop.cs:122`, `:207`, `:210`, `Core/Git/GitExecutable.cs:81`.
 
