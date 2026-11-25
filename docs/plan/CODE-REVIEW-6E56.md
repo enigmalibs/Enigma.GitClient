@@ -206,7 +206,7 @@ Locations: `ChangedFilesPanelViewModel.cs:1085-1093`, `SystemInterop.cs:112`.
 ## PHASE07 — [Medium] TEST-02 Token test on Windows
 
 **Branch:** `review/code-review-6e56-phase07-token-test-windows`
-**Status:** TODO
+**Status:** DONE
 
 Location: `tests/Enigma.GitClient.Core.UnitTests/Security/TokenStoreTests.cs:398-410`.
 
