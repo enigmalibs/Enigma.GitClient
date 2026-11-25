@@ -443,7 +443,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE11        | [Medium] SOLID-04 Diff viewer lifetime   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE12        | [Medium] ASYNC-02 Hosted refresh loops   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE13        | [Medium] LOG-01 Rolling log file         | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE14        | [Medium] PERF-03 Validation off UI       | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE14        | [Medium] PERF-03 Validation off UI       | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE15        | [Medium] PERF-01 Bulk collection refills | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE16        | [Medium] PERF-02 Folded conflict context | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE17        | [Medium] TEST-03 No fixed test delays    | TODO        | (in CODE-REVIEW-6E56.md)      |

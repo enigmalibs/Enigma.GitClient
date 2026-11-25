@@ -632,7 +632,15 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 "Create")
             .ConfigureAwait(true);
 
-        if (result != DialogResult.Primary || !model.IsValid)
+        if (result != DialogResult.Primary)
+        {
+            return;
+        }
+
+        // The disk check of the last change may still be pending: its answer decides, not the button.
+        await model.ValidateNowAsync().ConfigureAwait(true);
+
+        if (!model.IsValid)
         {
             return;
         }
@@ -744,7 +752,15 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
                 "Clone")
             .ConfigureAwait(true);
 
-        if (result != DialogResult.Primary || !model.IsValid)
+        if (result != DialogResult.Primary)
+        {
+            return;
+        }
+
+        // The disk check of the last change may still be pending: its answer decides, not the button.
+        await model.ValidateNowAsync().ConfigureAwait(true);
+
+        if (!model.IsValid)
         {
             return;
         }

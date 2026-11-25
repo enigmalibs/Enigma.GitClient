@@ -364,7 +364,7 @@ Location: `Desktop/App.axaml.cs:137-148`.
 ## PHASE14 — [Medium] PERF-03 Validation off UI
 
 **Branch:** `review/code-review-6e56-phase14-dialog-validation`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `CloneRepositoryDialogViewModel.cs:161-165`, `InitRepositoryDialogViewModel.cs:114-118`.
 
