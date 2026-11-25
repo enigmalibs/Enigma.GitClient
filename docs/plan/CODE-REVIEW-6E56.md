@@ -566,7 +566,7 @@ Location: `Core/Submodules/SubmoduleService.cs:228` (1,475 lines).
 ## PHASE23 — [Medium] SOLID-02 Shared clone flow
 
 **Branch:** `review/code-review-6e56-phase23-shared-clone-flow`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `RepositoriesPageViewModel.cs:106`, `ProfilesPageViewModel.cs:205`.
 

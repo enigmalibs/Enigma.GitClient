@@ -66,6 +66,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<WindowHostBinder>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
+            services.AddSingleton<IRepositoryCloner, RepositoryCloner>();
+
             // The launcher reaches the window service only when it launches, through a factory: taking
             // it in its constructor closes a cycle through the operations that launch (BUG-FACC).
             services.AddSingleton<Func<IAppWindows>>(provider => provider.GetRequiredService<IAppWindows>);

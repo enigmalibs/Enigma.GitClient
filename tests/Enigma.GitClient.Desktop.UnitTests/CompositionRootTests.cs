@@ -235,6 +235,31 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
+    public void NoPageViewModel_TakesAnotherPagesViewModel()
+    {
+        // A page that needs another page's work takes the service that does it (CODE-REVIEW-6E56
+        // SOLID-02): the profiles page clones through IRepositoryCloner, not the repositories page.
+        Type page = typeof(PageViewModelBase);
+        IEnumerable<string> offenders = typeof(App).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract && page.IsAssignableFrom(type))
+            .SelectMany(type => type.GetConstructors()
+                .SelectMany(constructor => constructor.GetParameters())
+                .Where(parameter => page.IsAssignableFrom(parameter.ParameterType))
+                .Select(parameter => $"{type.Name} takes {parameter.ParameterType.Name}"));
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void TheCloner_IsOneSharedService()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.IsType<RepositoryCloner>(provider.GetRequiredService<IRepositoryCloner>());
+        Assert.Same(provider.GetRequiredService<IRepositoryCloner>(), provider.GetRequiredService<IRepositoryCloner>());
+    }
+
+    [Fact]
     public void TheApplicationLogsToAFile_AndATestContainerNever()
     {
         // The descriptors only: a provider resolved here would aim at the developer's own

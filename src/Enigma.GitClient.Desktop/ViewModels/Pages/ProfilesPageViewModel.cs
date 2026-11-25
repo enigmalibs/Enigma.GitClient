@@ -170,7 +170,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     private readonly IHostLinkService _links;
     private readonly IHostRepositoryBrowser _browser;
     private readonly ITokenRecovery _recovery;
-    private readonly RepositoriesPageViewModel _repositories;
+    private readonly IRepositoryCloner _cloner;
     private readonly IContentDialogService _dialogs;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IInfoBarService _infoBar;
@@ -191,7 +191,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="links">Learns which host the open repository is on again, once the accounts change.</param>
     /// <param name="browser">Lists an account's repositories in a dialog.</param>
     /// <param name="recovery">Offers the reset when the stored tokens cannot be read.</param>
-    /// <param name="repositories">Runs a clone, with its progress and its cancel.</param>
+    /// <param name="cloner">Runs a clone, with its progress and its cancel.</param>
     /// <param name="dialogs">Raises the profile and account dialogs and the confirmations.</param>
     /// <param name="folderDialogs">Raises the folder picker the profile dialog chooses a base directory in.</param>
     /// <param name="infoBar">Reports what happened.</param>
@@ -209,7 +209,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IHostLinkService links,
         IHostRepositoryBrowser browser,
         ITokenRecovery recovery,
-        RepositoriesPageViewModel repositories,
+        IRepositoryCloner cloner,
         IContentDialogService dialogs,
         IFolderDialogService folderDialogs,
         IInfoBarService infoBar,
@@ -227,7 +227,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(browser);
         ArgumentNullException.ThrowIfNull(recovery);
-        ArgumentNullException.ThrowIfNull(repositories);
+        ArgumentNullException.ThrowIfNull(cloner);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
@@ -244,7 +244,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         _links = links;
         _browser = browser;
         _recovery = recovery;
-        _repositories = repositories;
+        _cloner = cloner;
         _dialogs = dialogs;
         _folderDialogs = folderDialogs;
         _infoBar = infoBar;
@@ -1459,10 +1459,10 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             }
         }
 
-        await _repositories.RunCloneAsync(new CloneRequest
+        await _cloner.RunCloneAsync(new CloneRequest
         {
             Url = picked.CloneUrl,
-            ParentDirectory = _repositories.CloneParentDirectory(owner),
+            ParentDirectory = _cloner.CloneParentDirectory(owner),
             DirectoryName = CloneRequest.DeriveDirectoryName(picked.CloneUrl),
             Account = row.Account,
         }).ConfigureAwait(true);

@@ -48,11 +48,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IProfileSelection _selection;
     private readonly IGitIdentityService _identity;
     private readonly IBulkLocalIdentityService _bulkIdentity;
-    private readonly ISettingsService _settings;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IFileDialogService _fileDialogs;
     private readonly IContentDialogService _dialogs;
-    private readonly IOverlayService _overlay;
+    private readonly IRepositoryCloner _cloner;
     private readonly IInfoBarService _infoBar;
     private readonly IRepositoryOpener _opener;
     private readonly IAppWindows _windows;
@@ -67,7 +66,6 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     // The selected profile's whole list, in the stored order; Repositories shows what the filter keeps.
     private IReadOnlyList<ListedRepository> _all = [];
 
-    private CancellationTokenSource? _cloneCancellation;
     private bool _showingProfiles;
 
     // The identity writes the picker starts, one after the other: two git config writes at once
@@ -87,11 +85,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// its own.
     /// </param>
     /// <param name="bulkIdentity">Gives the profile's identity to every repository on its list.</param>
-    /// <param name="settings">Remembers where the last clone was made.</param>
     /// <param name="folderDialogs">Raises the folder picker.</param>
     /// <param name="fileDialogs">Raises the file picker a repository's icon is chosen in.</param>
     /// <param name="dialogs">Shows the clone and create dialogs.</param>
-    /// <param name="overlay">Shows clone progress.</param>
+    /// <param name="cloner">Runs a clone, with its progress and its cancel, and offers the identity to a new repository.</param>
     /// <param name="infoBar">Reports outcomes.</param>
     /// <param name="opener">Opens a repository by path, the same way the command line does.</param>
     /// <param name="windows">Swaps this window for the repository window once a repository is open.</param>
@@ -112,11 +109,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IProfileSelection selection,
         IGitIdentityService identity,
         IBulkLocalIdentityService bulkIdentity,
-        ISettingsService settings,
         IFolderDialogService folderDialogs,
         IFileDialogService fileDialogs,
         IContentDialogService dialogs,
-        IOverlayService overlay,
+        IRepositoryCloner cloner,
         IInfoBarService infoBar,
         IRepositoryOpener opener,
         IAppWindows windows,
@@ -135,11 +131,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(bulkIdentity);
-        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(fileDialogs);
         ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(overlay);
+        ArgumentNullException.ThrowIfNull(cloner);
         ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(opener);
         ArgumentNullException.ThrowIfNull(windows);
@@ -157,11 +152,10 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _selection = selection;
         _identity = identity;
         _bulkIdentity = bulkIdentity;
-        _settings = settings;
         _folderDialogs = folderDialogs;
         _fileDialogs = fileDialogs;
         _dialogs = dialogs;
-        _overlay = overlay;
+        _cloner = cloner;
         _infoBar = infoBar;
         _opener = opener;
         _windows = windows;
@@ -187,7 +181,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         UseProfileIdentityEverywhereCommand = new AsyncRelayCommand(
             OnUseProfileIdentityEverywhereAsync,
             () => IsNotBusy && SelectedProfile is { HasIdentity: true } && HasRepositories);
-        CancelCloneCommand = new RelayCommand(OnCancelClone);
+        CancelCloneCommand = new RelayCommand(cloner.CancelClone);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty, () => SearchText.Length > 0);
         OpenAboutCommand = new AsyncRelayCommand(_about.ShowAsync);
         ToggleThemeCommand = new RelayCommand(_theme.Toggle);
@@ -655,7 +649,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
                 // Asked before the first commit, so that it is already made as the identity the
                 // repository keeps.
-                await OfferGlobalIdentityAsync(repository, "repository").ConfigureAwait(true);
+                await _cloner.OfferGlobalIdentityAsync(repository, "repository").ConfigureAwait(true);
 
                 // The first commit is a README holding the repository's name. A commit that fails —
                 // no name and email configured, most often — leaves a real repository all the same,
@@ -768,7 +762,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     }
 
     /// <summary>
-    /// Runs a clone with the progress overlay and a working cancel.
+    /// Runs a clone with the progress overlay and a working cancel (<see cref="IRepositoryCloner"/>), and
+    /// shows the list as it then stands.
     /// </summary>
     /// <param name="request">What to clone.</param>
     /// <returns><see langword="true"/> when the clone finished and the repository was opened.</returns>
@@ -776,140 +771,22 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        using CancellationTokenSource cancellation = new();
-        _cloneCancellation = cancellation;
-
-        ProgressOverlayCard card = new()
-        {
-            Title = $"Cloning {CloneRequest.DeriveDirectoryName(request.Url)}",
-            Message = "Starting…",
-            IsIndeterminate = true,
-            CancelCommand = CancelCloneCommand,
-        };
-
-        Progress<CloneProgress> progress = new(card.Apply);
-
-        await _overlay.ShowAsync(card).ConfigureAwait(true);
-        bool overlayShown = true;
         IsBusy = true;
 
         try
         {
-            RepositoryHandle repository = await _repositories
-                .CloneAsync(request, progress, cancellation.Token)
-                .ConfigureAwait(true);
+            bool cloned = await _cloner.RunCloneAsync(request).ConfigureAwait(true);
 
-            // Only once it has worked: a clone that failed says nothing about where the next one goes.
-            _settings.Update(current => current with
+            if (cloned)
             {
-                CloneParentDirectory = System.IO.Path.GetFullPath(request.ParentDirectory),
-            });
+                await ReloadListAsync().ConfigureAwait(true);
+            }
 
-            // The progress is over, and the overlay is drawn above the dialogs: it goes before the
-            // question is asked.
-            await _overlay.HideAsync().ConfigureAwait(true);
-            overlayShown = false;
-
-            await OfferGlobalIdentityAsync(repository, "clone").ConfigureAwait(true);
-
-            await RepositoryContext.OpenAsync(repository).ConfigureAwait(true);
-            await AddToListAsync(repository).ConfigureAwait(true);
-
-            Report("Clone finished", $"{repository.Name} is ready.", InfoBarSeverity.Success);
-
-            _windows.ShowRepository();
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            Report("Clone cancelled", "Nothing was left behind.", InfoBarSeverity.Info);
-            return false;
-        }
-        catch (Exception exception) when (exception is GitCommandException or ArgumentException or InvalidOperationException)
-        {
-            _logger.LogError(exception, "Cloning {Url} failed", ArgumentRedactor.Redact(request.Url));
-            Report("The clone failed", exception.Message, InfoBarSeverity.Error);
-            return false;
+            return cloned;
         }
         finally
         {
             IsBusy = false;
-            _cloneCancellation = null;
-
-            // Always: an overlay left open makes the whole window unusable.
-            if (overlayShown)
-            {
-                await _overlay.HideAsync().ConfigureAwait(true);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Asks whether a new clone or repository should commit as the global identity whatever it later
-    /// becomes, and writes it into the repository's own configuration when told to.
-    /// </summary>
-    /// <param name="repository">The clone or the new repository.</param>
-    /// <param name="what">What the repository is to the reader: <c>clone</c> or <c>repository</c>.</param>
-    /// <returns>A task that completes once the question is answered and the answer applied.</returns>
-    /// <remarks>
-    /// Nothing is asked without a complete global identity — there is nothing to copy — and nothing is
-    /// written unless the reader says so. A write that fails leaves the repository as git made it, and
-    /// says so. Names and emails are never logged.
-    /// </remarks>
-    private async Task OfferGlobalIdentityAsync(RepositoryHandle repository, string what)
-    {
-        GitIdentity global;
-
-        try
-        {
-            global = (await _identity.GetGlobalAsync().ConfigureAwait(true)).Normalised();
-        }
-        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException)
-        {
-            _logger.LogWarning(
-                "Reading the global git identity for a new {What} failed ({Kind})",
-                what,
-                exception.GetType().Name);
-            return;
-        }
-
-        if (!global.IsComplete)
-        {
-            return;
-        }
-
-        DialogResult answer = await _dialogs.ShowAsync(dialog =>
-        {
-            dialog.Title = "Use your identity in this repository";
-            dialog.Content =
-                $"Make {global} the name and email of {repository.Name}?\n\n"
-                + "They are written to the repository's own configuration, so its commits are made as "
-                + "them whatever the global identity becomes later.";
-            dialog.PrimaryButtonText = "Use it";
-            dialog.CloseButtonText = "Not now";
-            dialog.DefaultButton = DefaultButton.Primary;
-        }).ConfigureAwait(true);
-
-        if (answer != DialogResult.Primary)
-        {
-            return;
-        }
-
-        try
-        {
-            await _identity.SetLocalAsync(repository, global).ConfigureAwait(true);
-        }
-        catch (Exception exception) when (exception is GitCommandException or GitNotFoundException or ArgumentException)
-        {
-            _logger.LogWarning(
-                "Writing the global git identity into a new {What} failed ({Kind})",
-                what,
-                exception.GetType().Name);
-
-            Report(
-                $"The {what} has no identity of its own",
-                $"{repository.Name} commits with the global identity. {ProfilesPageViewModel.Describe(exception)}",
-                InfoBarSeverity.Warning);
         }
     }
 
@@ -1080,8 +957,6 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private static string NowCommit(int count)
         => count == 1 ? "1 repository now commits" : $"{count} repositories now commit";
-
-    private void OnCancelClone() => _cloneCancellation?.Cancel();
 
     /// <summary>
     /// Shows a dialog whose primary button follows a ViewModel's validation.
@@ -1307,60 +1182,11 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         OnPropertyChanged(nameof(HasNoMatch));
     }
 
-    /// <summary>
-    /// Where the next clone is created unless the user says otherwise: the base directory of the
-    /// profile it is for, then the directory the last clone was made in, then the home folder — each
-    /// only while it exists.
-    /// </summary>
-    /// <param name="profile">
-    /// The profile the clone is for — the one selected on this page, or the one whose integration it
-    /// comes from; <see langword="null"/> for none.
-    /// </param>
-    /// <returns>The absolute directory path.</returns>
-    /// <remarks>
-    /// Public because the profiles page clones from a repository the user picked on a host, with no
-    /// dialog to choose a directory in: that clone is the next clone as much as the dialog's is. A
-    /// directory set on purpose for the profile comes before one remembered for every profile; a
-    /// directory that has gone — a drive unplugged, a folder removed — is not offered.
-    /// </remarks>
-    public string CloneParentDirectory(IdentityProfile? profile = null)
-    {
-        if (BaseDirectoryOf(profile) is { } baseDirectory)
-        {
-            return baseDirectory;
-        }
+    /// <inheritdoc cref="IRepositoryCloner.CloneParentDirectory"/>
+    public string CloneParentDirectory(IdentityProfile? profile = null) => _cloner.CloneParentDirectory(profile);
 
-        string remembered = _settings.Current.CloneParentDirectory;
+    /// <inheritdoc cref="RepositoryCloner.BaseDirectoryOf"/>
+    public static string? BaseDirectoryOf(IdentityProfile? profile) => RepositoryCloner.BaseDirectoryOf(profile);
 
-        return remembered.Length > 0 && System.IO.Directory.Exists(remembered)
-            ? remembered
-            : DefaultParentDirectory();
-    }
-
-    /// <summary>
-    /// The directory a profile's repositories live in, while it is a full path to a directory that
-    /// exists; <see langword="null"/> otherwise, which is the same as the profile naming none.
-    /// </summary>
-    /// <param name="profile">The profile, or <see langword="null"/>.</param>
-    /// <returns>The directory, or <see langword="null"/>.</returns>
-    public static string? BaseDirectoryOf(IdentityProfile? profile)
-    {
-        string directory = profile?.BaseDirectory?.Trim() ?? string.Empty;
-
-        return directory.Length > 0
-            && System.IO.Path.IsPathFullyQualified(directory)
-            && System.IO.Directory.Exists(directory)
-                ? directory
-                : null;
-    }
-
-    /// <summary>
-    /// Where a new repository is created, and a clone when none has been made yet.
-    /// </summary>
-    /// <returns>The absolute directory path.</returns>
-    private static string DefaultParentDirectory()
-    {
-        string documents = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return documents.Length == 0 ? Environment.CurrentDirectory : documents;
-    }
+    private static string DefaultParentDirectory() => RepositoryCloner.DefaultParentDirectory();
 }
