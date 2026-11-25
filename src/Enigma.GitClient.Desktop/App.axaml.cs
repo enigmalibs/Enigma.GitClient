@@ -58,7 +58,6 @@ public partial class App : Application
             UnhandledExceptionHooks.InstallDispatcher();
 
             IHost host = BuildHost();
-            host.Start();
             _host = host;
 
             IServiceProvider services = host.Services;
@@ -78,9 +77,10 @@ public partial class App : Application
             settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);
             settings.Changed += (_, e) => DiffTypography.Apply(e.Settings);
 
-            // Nothing asks for the watcher: it follows the repository context on its own, from here
-            // on, and the host's disposal at exit lets go of what it watches.
-            services.GetRequiredService<IRepositoryWatcher>();
+            // Then the host, which starts the hosted services — the automatic refresh and the
+            // file-system watcher — on this thread, with the settings already read: their loops run on
+            // the UI thread's context, and stop with the host at exit.
+            host.Start();
 
             // The start window, or — for a path on the command line — the repository window. The
             // last window to close ends the application, which is what lets one window hand over to

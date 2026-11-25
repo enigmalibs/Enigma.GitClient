@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Desktop.Services;
@@ -98,7 +99,11 @@ public interface IAutoRefreshService
 /// <summary>
 /// Default <see cref="IAutoRefreshService"/>.
 /// </summary>
-public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
+/// <remarks>
+/// A hosted service: the host starts it — once the settings have been read — and stops it at exit.
+/// Nothing runs from its constructor (ASYNC-02).
+/// </remarks>
+public sealed class AutoRefreshService : IAutoRefreshService, IHostedService, IDisposable
 {
     private readonly IRepositoryContext _context;
     private readonly ISyncOperations _sync;
@@ -112,10 +117,11 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
 
     private CancellationTokenSource? _loop;
     private TimeSpan _interval;
+    private bool _started;
     private bool _disposed;
 
     /// <summary>
-    /// Initialises a new instance, and starts at once if a repository is already open.
+    /// Initialises a new instance. Nothing is scheduled until the host starts it.
     /// </summary>
     /// <param name="context">The repository to refresh.</param>
     /// <param name="sync">Fetches quietly.</param>
@@ -140,11 +146,6 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
         _settings = settings;
         _time = time;
         _logger = logger;
-
-        _context.RepositoryChanged += OnRepositoryChanged;
-        _settings.Changed += OnSettingsChanged;
-
-        Reschedule();
     }
 
     /// <inheritdoc />
@@ -247,6 +248,52 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Starts following the repository and the setting, and schedules the loop if a repository is
+    /// already open. Started once; a second start does nothing.
+    /// </summary>
+    /// <param name="cancellationToken">Unused: starting only subscribes and schedules.</param>
+    /// <returns>A completed task.</returns>
+    /// <remarks>
+    /// The host starts it on the thread that starts the host — the UI thread, in the application — so
+    /// the loop runs on that context and everything it publishes lands where bindings expect it.
+    /// </remarks>
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (_started || _disposed)
+        {
+            return Task.CompletedTask;
+        }
+
+        _started = true;
+
+        _context.RepositoryChanged += OnRepositoryChanged;
+        _settings.Changed += OnSettingsChanged;
+
+        _logger.LogDebug("The automatic refresh started");
+
+        Reschedule();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Stops following the repository and the setting, and cancels the loop.
+    /// </summary>
+    /// <param name="cancellationToken">Unused: stopping only cancels.</param>
+    /// <returns>A completed task.</returns>
+    /// <remarks>
+    /// The loop is cancelled, not awaited. It resumes on the UI thread, and the host is stopped from the
+    /// UI thread at exit, when no message pump remains to run that continuation: waiting for it there
+    /// would never return. Cancelled, the loop ends at its next resumption and lets go of its timer.
+    /// </remarks>
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        Shutdown();
+
+        return Task.CompletedTask;
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -257,9 +304,23 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
 
         _disposed = true;
 
+        Shutdown();
+    }
+
+    private void Shutdown()
+    {
+        if (!_started)
+        {
+            return;
+        }
+
+        _started = false;
+
         _context.RepositoryChanged -= OnRepositoryChanged;
         _settings.Changed -= OnSettingsChanged;
         Stop();
+
+        _logger.LogDebug("The automatic refresh stopped");
     }
 
     private void OnRepositoryChanged(object? sender, RepositoryChangedEventArgs e) => Reschedule();
@@ -284,7 +345,7 @@ public sealed class AutoRefreshService : IAutoRefreshService, IDisposable
 
         _interval = IntervalOf(_settings.Current);
 
-        if (_disposed || _interval <= TimeSpan.Zero || !_context.IsRepositoryOpen)
+        if (_disposed || !_started || _interval <= TimeSpan.Zero || !_context.IsRepositoryOpen)
         {
             return;
         }

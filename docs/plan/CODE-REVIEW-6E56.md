@@ -311,7 +311,7 @@ Locations: `ServiceCollectionExtensions.cs:160`, `HistoryPageViewModel.cs:149`,
 ## PHASE12 — [Medium] ASYNC-02 Hosted refresh loops
 
 **Branch:** `review/code-review-6e56-phase12-hosted-refresh-loops`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `AutoRefreshService.cs:147`, `:295`, `RepositoryWatcher.cs:126`, `:195`, `App.axaml.cs:82`.
 

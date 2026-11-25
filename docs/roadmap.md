@@ -441,7 +441,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE09        | [Medium] ASYNC-01 No blocking at startup | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE10        | [Medium] SOLID-05 One git run sequence   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE11        | [Medium] SOLID-04 Diff viewer lifetime   | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE12        | [Medium] ASYNC-02 Hosted refresh loops   | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE12        | [Medium] ASYNC-02 Hosted refresh loops   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE13        | [Medium] LOG-01 Rolling log file         | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE14        | [Medium] PERF-03 Validation off UI       | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE15        | [Medium] PERF-01 Bulk collection refills | TODO        | (in CODE-REVIEW-6E56.md)      |

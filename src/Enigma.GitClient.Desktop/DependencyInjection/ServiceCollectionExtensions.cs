@@ -83,12 +83,19 @@ public static class ServiceCollectionExtensions
 
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);
-            services.AddSingleton<IAutoRefreshService, AutoRefreshService>();
+
+            // The two background loops are hosted services: the host starts them and stops them, and
+            // their callers keep the same instance through the interface (ASYNC-02).
+            services.AddSingleton<AutoRefreshService>();
+            services.AddSingleton<IAutoRefreshService>(provider => provider.GetRequiredService<AutoRefreshService>());
+            services.AddHostedService(provider => provider.GetRequiredService<AutoRefreshService>());
             services.AddSingleton<IRemoteTags, RemoteTags>();
 
             // The file-system watcher, on top of it: what changes on disk is refreshed within a second.
             services.AddSingleton<IRepositoryEventSource, FileSystemRepositoryEventSource>();
-            services.AddSingleton<IRepositoryWatcher, RepositoryWatcher>();
+            services.AddSingleton<RepositoryWatcher>();
+            services.AddSingleton<IRepositoryWatcher>(provider => provider.GetRequiredService<RepositoryWatcher>());
+            services.AddHostedService(provider => provider.GetRequiredService<RepositoryWatcher>());
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IWorktreeGuard, WorktreeGuard>();
             services.AddSingleton<IBranchOperations, BranchOperations>();

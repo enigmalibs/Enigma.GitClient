@@ -374,6 +374,10 @@ public sealed class RepositoryWatcherTests
                 Source,
                 services.Clock,
                 Logger);
+
+            // As the application's host does: nothing is watched until it is started (ASYNC-02). The
+            // start subscribes and schedules, synchronously.
+            Watcher.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
 
         public TestServices Services { get; }

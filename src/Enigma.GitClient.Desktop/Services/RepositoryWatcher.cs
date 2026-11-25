@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Repositories;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Desktop.Services;
@@ -52,8 +53,12 @@ public interface IRepositoryWatcher
 /// application — exactly as <see cref="AutoRefreshService"/>'s does, so everything it publishes lands
 /// where bindings expect it.
 /// </para>
+/// <para>
+/// A hosted service: the host starts it — once the settings have been read — and stops it at exit.
+/// Nothing runs from its constructor (ASYNC-02).
+/// </para>
 /// </remarks>
-public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
+public sealed class RepositoryWatcher : IRepositoryWatcher, IHostedService, IDisposable
 {
     /// <summary>How long nothing must change before a refresh runs.</summary>
     public static readonly TimeSpan QuietPeriod = TimeSpan.FromMilliseconds(300);
@@ -76,6 +81,7 @@ public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
 
     private Session? _session;
     private bool _enabled;
+    private bool _started;
     private bool _disposed;
 
     // When the last of the application's own writes ended, as a TimeProvider timestamp; zero before
@@ -87,7 +93,7 @@ public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
     private int _warned;
 
     /// <summary>
-    /// Initialises a new instance, and starts watching at once if a repository is already open.
+    /// Initialises a new instance. Nothing is watched until the host starts it.
     /// </summary>
     /// <param name="context">The repository to watch, and the one place its writes are made.</param>
     /// <param name="refresh">Refreshes what changed, one refresh at a time with the periodic one.</param>
@@ -116,18 +122,57 @@ public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
         _source = source;
         _time = time;
         _logger = logger;
+    }
 
-        _enabled = settings.Current.WatchFileSystem;
+    /// <inheritdoc />
+    public bool IsWatching => _session?.IsWatching == true;
+
+    /// <summary>
+    /// Starts following the repository, its writes and the setting, and watches at once if a repository
+    /// is already open. Started once; a second start does nothing.
+    /// </summary>
+    /// <param name="cancellationToken">Unused: starting only subscribes and schedules.</param>
+    /// <returns>A completed task.</returns>
+    /// <remarks>
+    /// The host starts it on the thread that starts the host — the UI thread, in the application — and
+    /// the watch's loop runs on that context.
+    /// </remarks>
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (_started || _disposed)
+        {
+            return Task.CompletedTask;
+        }
+
+        _started = true;
+        _enabled = _settings.Current.WatchFileSystem;
 
         _context.RepositoryChanged += OnRepositoryChanged;
         _context.WriteEnded += OnWriteEnded;
         _settings.Changed += OnSettingsChanged;
 
+        _logger.LogDebug("The file-system watcher started");
+
         Reschedule();
+
+        return Task.CompletedTask;
     }
 
-    /// <inheritdoc />
-    public bool IsWatching => _session?.IsWatching == true;
+    /// <summary>
+    /// Stops following the repository and the setting, and ends the watch.
+    /// </summary>
+    /// <param name="cancellationToken">Unused: stopping only cancels.</param>
+    /// <returns>A completed task.</returns>
+    /// <remarks>
+    /// The watch's loop is cancelled, not awaited: it resumes on the UI thread, and the host is stopped
+    /// from the UI thread at exit, when no message pump remains to run that continuation.
+    /// </remarks>
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        Shutdown();
+
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc />
     public void Dispose()
@@ -139,11 +184,25 @@ public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
 
         _disposed = true;
 
+        Shutdown();
+    }
+
+    private void Shutdown()
+    {
+        if (!_started)
+        {
+            return;
+        }
+
+        _started = false;
+
         _context.RepositoryChanged -= OnRepositoryChanged;
         _context.WriteEnded -= OnWriteEnded;
         _settings.Changed -= OnSettingsChanged;
 
         Stop();
+
+        _logger.LogDebug("The file-system watcher stopped");
     }
 
     private void OnRepositoryChanged(object? sender, RepositoryChangedEventArgs e) => Reschedule();
@@ -184,7 +243,7 @@ public sealed class RepositoryWatcher : IRepositoryWatcher, IDisposable
     {
         Stop();
 
-        if (_disposed || !_enabled || _context.Repository is not { } repository)
+        if (_disposed || !_started || !_enabled || _context.Repository is not { } repository)
         {
             return;
         }

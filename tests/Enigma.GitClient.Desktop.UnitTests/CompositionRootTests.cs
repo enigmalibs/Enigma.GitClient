@@ -12,6 +12,7 @@ using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -69,6 +70,29 @@ public sealed class CompositionRootTests
             .Except(factories);
 
         Assert.Empty(locators);
+    }
+
+    [Fact]
+    public void TheBackgroundLoops_AreHostedServices_SharedWithTheirCallers()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        // The host starts and stops them (ASYNC-02), and the instance it starts is the one every caller
+        // of the interface talks to.
+        IHostedService[] hosted = [.. provider.GetServices<IHostedService>()];
+
+        Assert.Contains(hosted, service => ReferenceEquals(service, provider.GetRequiredService<IAutoRefreshService>()));
+        Assert.Contains(hosted, service => ReferenceEquals(service, provider.GetRequiredService<IRepositoryWatcher>()));
+    }
+
+    [Fact]
+    public void TheBackgroundLoops_StartNothingWhenBuilt()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        // Built is not started: no constructor schedules work any more.
+        Assert.False(provider.GetRequiredService<IAutoRefreshService>().IsRunning);
+        Assert.False(provider.GetRequiredService<IRepositoryWatcher>().IsWatching);
     }
 
     [Theory]

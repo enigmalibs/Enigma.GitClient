@@ -144,7 +144,7 @@ public sealed class RepositoryWatcherIntegrationTests
         // The window's view model is what hands every refresh to the history.
         _ = services.Get<MainWindowViewModel>();
         HistoryPageViewModel history = services.Get<HistoryPageViewModel>();
-        IRepositoryWatcher watcher = services.Get<IRepositoryWatcher>();
+        IRepositoryWatcher watcher = services.Started<IRepositoryWatcher>();
 
         List<AutoRefreshResult> refreshes = [];
         services.Get<IAutoRefreshService>().Refreshed += (_, result) => refreshes.Add(result);
