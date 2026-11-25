@@ -725,7 +725,8 @@ public sealed class DiffTextEditor : TextEditor
     /// </summary>
     private ICommand? BandCommandAt(Point point)
         => RowAt(point) is { } row
-            && Rows![row] is { IsHunkHeader: true, ExpandContextCommand: { } command }
+            && Rows is { } rows
+            && rows[row] is { IsHunkHeader: true, ExpandContextCommand: { } command }
             && command.CanExecute(null)
                 ? command
                 : null;

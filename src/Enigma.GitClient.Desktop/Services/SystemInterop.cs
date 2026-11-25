@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
+using Enigma.GitClient.Core.Git;
 
 namespace Enigma.GitClient.Desktop.Services;
 
@@ -23,6 +24,32 @@ internal enum DesktopPlatform
 
     /// <summary>Linux and the other Unix desktops: whichever emulator is there.</summary>
     Linux,
+}
+
+/// <summary>
+/// Where the programs the client starts are looked for: the Windows folders the system programs live
+/// in, and the <c>PATH</c> for everything else.
+/// </summary>
+/// <param name="System">The Windows system folder (<c>System32</c>), which has <c>cmd.exe</c>.</param>
+/// <param name="Windows">The Windows folder, which has <c>explorer.exe</c>.</param>
+/// <param name="WindowsApps">The per-user folder of app execution aliases, which has <c>wt.exe</c>.</param>
+/// <param name="SearchPath">The <c>PATH</c>, for every other program.</param>
+internal sealed record ProgramFolders(string? System, string? Windows, string? WindowsApps, string? SearchPath)
+{
+    /// <summary>
+    /// Gets the folders of the machine the client runs on.
+    /// </summary>
+    /// <returns>The folders; the Windows ones are empty elsewhere.</returns>
+    public static ProgramFolders Current()
+    {
+        string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        return new ProgramFolders(
+            Environment.SystemDirectory,
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            localApplicationData.Length > 0 ? Path.Combine(localApplicationData, "Microsoft", "WindowsApps") : null,
+            Environment.GetEnvironmentVariable("PATH"));
+    }
 }
 
 /// <summary>
@@ -44,7 +71,8 @@ public interface ISystemInterop
     Task CopyTextAsync(string text);
 
     /// <summary>
-    /// Opens a file or a directory with whatever the desktop has associated with it.
+    /// Opens a file or a directory with whatever the desktop has associated with it — except a file
+    /// that would run (<see cref="RunnableFiles"/>), which is shown in the file manager instead.
     /// </summary>
     /// <param name="path">The absolute path to open.</param>
     /// <returns><see langword="true"/> when something was launched.</returns>
@@ -72,7 +100,8 @@ public interface ISystemInterop
     /// <summary>
     /// Opens a terminal in a directory: Windows Terminal, or the command prompt where it is not
     /// installed, on Windows; Terminal on macOS; on Linux the emulator <c>$TERMINAL</c> names, else the
-    /// first of the usual ones that is there.
+    /// first of the usual ones that is there. Each is started by its full path, never looked up in the
+    /// directory.
     /// </summary>
     /// <param name="directory">The absolute path of the directory the terminal starts in.</param>
     /// <returns><see langword="true"/> when a terminal was launched.</returns>
@@ -107,6 +136,13 @@ public sealed class SystemInterop : ISystemInterop
             return Task.FromResult(false);
         }
 
+        // Opening a program, a script or a shortcut runs it. Whatever asked, the desktop is only asked
+        // to show it: the caller's own gate is not the only one (SEC-03).
+        if (File.Exists(path) && RunnableFiles.IsRunnable(path))
+        {
+            return RevealPathAsync(path);
+        }
+
         // UseShellExecute is what makes this one call work on all three platforms: it goes through
         // ShellExecute on Windows, "open" on macOS and the freedesktop handler on Linux.
         return Task.FromResult(Launch(new ProcessStartInfo(path) { UseShellExecute = true }));
@@ -119,7 +155,12 @@ public sealed class SystemInterop : ISystemInterop
 
         if (OperatingSystem.IsWindows())
         {
-            ProcessStartInfo windows = new("explorer.exe") { UseShellExecute = false };
+            if (Locate("explorer.exe", DesktopPlatform.Windows, ProgramFolders.Current(), File.Exists) is not { } explorer)
+            {
+                return Task.FromResult(false);
+            }
+
+            ProcessStartInfo windows = new(explorer) { UseShellExecute = false };
 
             // "/select," takes the path as one argument with no space after the comma; the argument
             // list keeps it quoted correctly whatever the path contains.
@@ -130,7 +171,12 @@ public sealed class SystemInterop : ISystemInterop
 
         if (OperatingSystem.IsMacOS())
         {
-            ProcessStartInfo mac = new("open") { UseShellExecute = false };
+            if (Locate("open", DesktopPlatform.MacOS, ProgramFolders.Current(), File.Exists) is not { } open)
+            {
+                return Task.FromResult(false);
+            }
+
+            ProcessStartInfo mac = new(open) { UseShellExecute = false };
             mac.ArgumentList.Add("-R");
             mac.ArgumentList.Add(path);
 
@@ -176,8 +222,15 @@ public sealed class SystemInterop : ISystemInterop
             ? DesktopPlatform.Windows
             : OperatingSystem.IsMacOS() ? DesktopPlatform.MacOS : DesktopPlatform.Linux;
 
-        // The first that starts: one that is not installed fails to launch, and the next is tried.
-        foreach (ProcessStartInfo candidate in TerminalCandidates(platform, directory, Environment.GetEnvironmentVariable("TERMINAL")))
+        ProgramFolders folders = ProgramFolders.Current();
+
+        // The first that starts: one that is not installed is not a candidate, and one that fails to
+        // launch hands over to the next.
+        foreach (ProcessStartInfo candidate in TerminalCandidates(
+                     platform,
+                     directory,
+                     Environment.GetEnvironmentVariable("TERMINAL"),
+                     program => Locate(program, platform, folders, File.Exists)))
         {
             if (Launch(candidate))
             {
@@ -194,37 +247,63 @@ public sealed class SystemInterop : ISystemInterop
     /// <param name="platform">The desktop the client runs on.</param>
     /// <param name="directory">The directory the terminal starts in.</param>
     /// <param name="terminal">What <c>$TERMINAL</c> says, which Linux tries first.</param>
-    /// <returns>How to start each one; the directory goes in an argument of its own, never a command line.</returns>
-    internal static IReadOnlyList<ProcessStartInfo> TerminalCandidates(DesktopPlatform platform, string directory, string? terminal)
+    /// <param name="locate">
+    /// Finds a program's full path, or answers <see langword="null"/> when it is not installed —
+    /// <see cref="Locate"/>, or a test's stand-in. A program that is not found is not a candidate.
+    /// </param>
+    /// <returns>
+    /// How to start each one, always by its full path; the directory goes in an argument of its own,
+    /// never a command line.
+    /// </returns>
+    internal static IReadOnlyList<ProcessStartInfo> TerminalCandidates(
+        DesktopPlatform platform,
+        string directory,
+        string? terminal,
+        Func<string, string?> locate)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        ArgumentNullException.ThrowIfNull(locate);
 
         List<ProcessStartInfo> candidates = [];
+
+        void Add(string program, params string[] arguments)
+        {
+            if (locate(program) is { } path)
+            {
+                candidates.Add(Started(path, directory, arguments));
+            }
+        }
 
         switch (platform)
         {
             case DesktopPlatform.Windows:
-                candidates.Add(Started("wt.exe", directory, "-d", directory));
+                Add("wt.exe", "-d", directory);
 
-                // Through the shell, so the command prompt gets a console window of its own.
-                candidates.Add(new ProcessStartInfo("cmd.exe") { UseShellExecute = true, WorkingDirectory = directory });
+                // Through the shell, so the command prompt gets a console window of its own — and by
+                // its full path: through the shell, the working directory is also where a bare name is
+                // looked for, and the working directory is the repository.
+                if (locate("cmd.exe") is { } commandPrompt)
+                {
+                    candidates.Add(new ProcessStartInfo(commandPrompt) { UseShellExecute = true, WorkingDirectory = directory });
+                }
+
                 break;
 
             case DesktopPlatform.MacOS:
-                candidates.Add(Started("open", directory, "-a", "Terminal", directory));
+                Add("open", "-a", "Terminal", directory);
                 break;
 
             default:
                 if (!string.IsNullOrWhiteSpace(terminal))
                 {
-                    candidates.Add(Started(terminal.Trim(), directory));
+                    Add(terminal.Trim());
                 }
 
-                candidates.Add(Started("x-terminal-emulator", directory));
-                candidates.Add(Started("gnome-terminal", directory, $"--working-directory={directory}"));
-                candidates.Add(Started("konsole", directory, "--workdir", directory));
-                candidates.Add(Started("xfce4-terminal", directory, $"--working-directory={directory}"));
-                candidates.Add(Started("xterm", directory));
+                Add("x-terminal-emulator");
+                Add("gnome-terminal", $"--working-directory={directory}");
+                Add("konsole", "--workdir", directory);
+                Add("xfce4-terminal", $"--working-directory={directory}");
+                Add("xterm");
                 break;
         }
 
@@ -232,9 +311,69 @@ public sealed class SystemInterop : ISystemInterop
     }
 
     /// <summary>
+    /// Finds the full path of a program the client starts.
+    /// </summary>
+    /// <param name="program">The program: a file name, or a full path (what <c>$TERMINAL</c> may say).</param>
+    /// <param name="platform">The desktop the client runs on.</param>
+    /// <param name="folders">Where to look.</param>
+    /// <param name="fileExists">Says whether a file exists.</param>
+    /// <returns>The program's full path, or <see langword="null"/> when it is not there.</returns>
+    /// <remarks>
+    /// A program is never started by its bare name. The operating system would look for it in the
+    /// current directory first — and, through the shell on Windows, in the working directory — which is
+    /// often a repository: content somebody else wrote, where a <c>cmd.exe</c> committed at the root
+    /// would run in place of the real one. The Windows system programs come from the folders Windows
+    /// keeps them in; everything else from the fully qualified directories of the <c>PATH</c>.
+    /// </remarks>
+    internal static string? Locate(string program, DesktopPlatform platform, ProgramFolders folders, Func<string, bool> fileExists)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(program);
+        ArgumentNullException.ThrowIfNull(folders);
+        ArgumentNullException.ThrowIfNull(fileExists);
+
+        if (Path.IsPathFullyQualified(program))
+        {
+            return fileExists(program) ? program : null;
+        }
+
+        // A relative path with a folder in it is relative to the current directory: the very lookup
+        // this exists to avoid.
+        if (program.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            || program.Contains(Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (platform == DesktopPlatform.Windows)
+        {
+            string? folder = program.ToUpperInvariant() switch
+            {
+                "CMD.EXE" => folders.System,
+                "EXPLORER.EXE" => folders.Windows,
+                "WT.EXE" => folders.WindowsApps,
+                _ => null,
+            };
+
+            if (folder is not null)
+            {
+                if (!Path.IsPathFullyQualified(folder))
+                {
+                    return null;
+                }
+
+                string candidate = Path.Combine(folder, program);
+
+                return fileExists(candidate) ? candidate : null;
+            }
+        }
+
+        return ExecutableSearch.FindOnPath(program, folders.SearchPath, fileExists);
+    }
+
+    /// <summary>
     /// A program started directly — no shell between it and its arguments — in a directory.
     /// </summary>
-    private static ProcessStartInfo Started(string program, string directory, params string[] arguments)
+    private static ProcessStartInfo Started(string program, string directory, string[] arguments)
     {
         ProcessStartInfo startInfo = new(program) { UseShellExecute = false, WorkingDirectory = directory };
 

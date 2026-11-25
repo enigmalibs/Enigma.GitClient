@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
@@ -11,6 +12,7 @@ using Enigma.GitClient.Desktop.ViewModels;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
 using Enigma.GitClient.Desktop.ViewModels.Panels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -44,6 +46,67 @@ public sealed class CompositionRootTests
         using ServiceProvider provider = BuildProvider();
 
         Assert.NotNull(provider);
+    }
+
+    [Fact]
+    public void OnlyTheFactories_TakeTheContainer()
+    {
+        // A class that asks for the container no longer says what it needs (SOLID-01): the ones that
+        // build windows, pages and tool dialogs by type are factories, and nothing else is.
+        Type[] factories =
+        [
+            typeof(AppWindows),
+            typeof(ToolDialogService),
+            typeof(Navigation.ContainerPageFactory),
+            typeof(Navigation.ShellNavigation),
+            typeof(Navigation.StartNavigation),
+        ];
+
+        // The application's own types: the XAML compiler's generated context takes a provider of its own.
+        IEnumerable<Type> locators = typeof(App).Assembly.GetTypes()
+            .Where(type => type.Namespace?.StartsWith("Enigma.GitClient.Desktop", StringComparison.Ordinal) == true)
+            .Where(type => type.GetConstructors().Any(constructor =>
+                constructor.GetParameters().Any(parameter => parameter.ParameterType == typeof(IServiceProvider))))
+            .Except(factories);
+
+        Assert.Empty(locators);
+    }
+
+    [Fact]
+    public void TheBackgroundLoops_AreHostedServices_SharedWithTheirCallers()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        // The host starts and stops them (ASYNC-02), and the instance it starts is the one every caller
+        // of the interface talks to.
+        IHostedService[] hosted = [.. provider.GetServices<IHostedService>()];
+
+        Assert.Contains(hosted, service => ReferenceEquals(service, provider.GetRequiredService<IAutoRefreshService>()));
+        Assert.Contains(hosted, service => ReferenceEquals(service, provider.GetRequiredService<IRepositoryWatcher>()));
+    }
+
+    [Fact]
+    public void TheBackgroundLoops_StartNothingWhenBuilt()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        // Built is not started: no constructor schedules work any more.
+        Assert.False(provider.GetRequiredService<IAutoRefreshService>().IsRunning);
+        Assert.False(provider.GetRequiredService<IRepositoryWatcher>().IsWatching);
+    }
+
+    [Theory]
+    [InlineData(typeof(Func<IAppWindows>))]
+    [InlineData(typeof(Func<Views.Dialogs.CloneRepositoryDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.InitRepositoryDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.AddHostAccountDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.HostRepositoriesDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.IdentityProfileDialogView>))]
+    public void Container_ResolvesEveryViewFactory(Type factoryType)
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.IsAssignableFrom<Delegate>(provider.GetRequiredService(factoryType));
     }
 
     [Theory]
@@ -169,5 +232,109 @@ public sealed class CompositionRootTests
 
         Assert.NotNull(host.Services.GetRequiredService<IRepositoryContext>());
         Assert.NotNull(host.Services.GetRequiredService<IGitEnvironment>());
+    }
+
+    [Fact]
+    public void NoPageViewModel_TakesAnotherPagesViewModel()
+    {
+        // A page that needs another page's work takes the service that does it (CODE-REVIEW-6E56
+        // SOLID-02): the profiles page clones through IRepositoryCloner, not the repositories page.
+        Type page = typeof(PageViewModelBase);
+        IEnumerable<string> offenders = typeof(App).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract && page.IsAssignableFrom(type))
+            .SelectMany(type => type.GetConstructors()
+                .SelectMany(constructor => constructor.GetParameters())
+                .Where(parameter => page.IsAssignableFrom(parameter.ParameterType))
+                .Select(parameter => $"{type.Name} takes {parameter.ParameterType.Name}"));
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void TheHistorysRefActions_AreItsCollaborators_AndItNoLongerTakesTheirOperations()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.Same(provider.GetRequiredService<HistoryBranchActions>(), provider.GetRequiredService<HistoryBranchActions>());
+        Assert.Same(provider.GetRequiredService<HistoryTagActions>(), provider.GetRequiredService<HistoryTagActions>());
+
+        Type[] taken = [.. typeof(HistoryPageViewModel).GetConstructors().Single().GetParameters().Select(parameter => parameter.ParameterType)];
+
+        Assert.Contains(typeof(HistoryBranchActions), taken);
+        Assert.Contains(typeof(HistoryTagActions), taken);
+        Assert.DoesNotContain(typeof(ITagOperations), taken);
+        Assert.DoesNotContain(typeof(IBranchDropOperations), taken);
+        Assert.DoesNotContain(typeof(ISyncOperations), taken);
+    }
+
+    [Fact]
+    public void TheHistorysRowActions_AreItsCollaborators_AndItNoLongerTakesTheirOperations()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.Same(provider.GetRequiredService<HistoryCommitActions>(), provider.GetRequiredService<HistoryCommitActions>());
+        Assert.Same(provider.GetRequiredService<HistoryStashActions>(), provider.GetRequiredService<HistoryStashActions>());
+
+        Type[] taken = [.. typeof(HistoryPageViewModel).GetConstructors().Single().GetParameters().Select(parameter => parameter.ParameterType)];
+
+        Assert.Contains(typeof(HistoryCommitActions), taken);
+        Assert.Contains(typeof(HistoryStashActions), taken);
+
+        foreach (Type moved in new[]
+        {
+            typeof(IBranchOperations), typeof(IWorktreeOperations), typeof(ICheckoutOperations), typeof(IResetOperations),
+            typeof(IRevertOperations), typeof(ISquashOperations), typeof(IStashOperations), typeof(IDiscardOperations),
+            typeof(ICommitDetailsDialogService),
+        })
+        {
+            Assert.DoesNotContain(moved, taken);
+        }
+    }
+
+    [Fact]
+    public void TheProfilesPage_ShowsTheAccountsSingleton_AndNoLongerTakesWhatTheyUse()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        ProfilesPageViewModel page = provider.GetRequiredService<ProfilesPageViewModel>();
+
+        Assert.Same(provider.GetRequiredService<HostAccountsViewModel>(), page.Accounts);
+
+        Type[] taken = [.. typeof(ProfilesPageViewModel).GetConstructors().Single().GetParameters().Select(parameter => parameter.ParameterType)];
+
+        Assert.Contains(typeof(HostAccountsViewModel), taken);
+
+        foreach (Type moved in new[]
+        {
+            typeof(Core.Hosting.IHostAccountService), typeof(Core.Hosting.IHostProviderRegistry), typeof(IHostLinkService),
+            typeof(IHostRepositoryBrowser), typeof(ITokenRecovery), typeof(IRepositoryCloner),
+            typeof(Func<Views.Dialogs.AddHostAccountDialogView>),
+        })
+        {
+            Assert.DoesNotContain(moved, taken);
+        }
+    }
+
+    [Fact]
+    public void TheCloner_IsOneSharedService()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.IsType<RepositoryCloner>(provider.GetRequiredService<IRepositoryCloner>());
+        Assert.Same(provider.GetRequiredService<IRepositoryCloner>(), provider.GetRequiredService<IRepositoryCloner>());
+    }
+
+    [Fact]
+    public void TheApplicationLogsToAFile_AndATestContainerNever()
+    {
+        // The descriptors only: a provider resolved here would aim at the developer's own
+        // configuration directory.
+        ServiceCollection application = new();
+        application.AddLogging(App.ConfigureLogging);
+        ServiceCollection services = new();
+        App.ConfigureServices(services);
+
+        Assert.Contains(application, descriptor => descriptor.ServiceType == typeof(ILoggerProvider) && descriptor.ImplementationType == typeof(FileLoggerProvider));
+        Assert.DoesNotContain(services, descriptor => descriptor.ImplementationType == typeof(FileLoggerProvider));
     }
 }

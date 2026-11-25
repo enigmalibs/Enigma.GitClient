@@ -637,9 +637,9 @@ public sealed class ConflictService : IConflictService
             {
                 // A pin takes the side's commit; a submodule added or removed on one side is left for
                 // a terminal, as the page says.
-                if (file.IsPinConflict)
+                if (file is { IsPinConflict: true, OursSha: { } ours, TheirsSha: { } theirs })
                 {
-                    await ResolveSubmoduleAsync(repository, file.Path, side == ConflictSide.Ours ? file.OursSha! : file.TheirsSha!, cancellationToken)
+                    await ResolveSubmoduleAsync(repository, file.Path, side == ConflictSide.Ours ? ours : theirs, cancellationToken)
                         .ConfigureAwait(false);
 
                     resolved.Add(file.Path);

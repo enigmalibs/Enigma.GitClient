@@ -156,7 +156,7 @@ public sealed class AtomicFileTests : IDisposable
         using (OpenLikeAReader())
         {
             writing = Task.Run(() => AtomicFile.WriteAllText(Target, "new"), TestContext.Current.CancellationToken);
-            await Task.Delay(50, TestContext.Current.CancellationToken);
+            await WriterReachesTheTargetAsync(writing, "new".Length);
         }
 
         await writing;
@@ -174,7 +174,7 @@ public sealed class AtomicFileTests : IDisposable
         using (OpenLikeAReader())
         {
             writing = AtomicFile.WriteAllTextAsync(Target, "new", null, TestContext.Current.CancellationToken);
-            await Task.Delay(50, TestContext.Current.CancellationToken);
+            await WriterReachesTheTargetAsync(writing, "new".Length);
         }
 
         await writing;
@@ -199,9 +199,103 @@ public sealed class AtomicFileTests : IDisposable
         Assert.Equal([Target], Directory.GetFiles(_root));
     }
 
+    [Fact]
+    public void WriteAllText_WithAnEncodingThatHasAByteOrderMark_WritesIt()
+    {
+        AtomicFile.WriteAllText(Target, "x", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+        Assert.Equal([0xEF, 0xBB, 0xBF, (byte)'x'], File.ReadAllBytes(Target));
+    }
+
+    [Fact]
+    public void WriteAllBytes_ReplacesWhatWasThere_AndLeavesNothingBeside()
+    {
+        File.WriteAllBytes(Target, [1, 2, 3, 4, 5]);
+
+        AtomicFile.WriteAllBytes(Target, [9, 8]);
+
+        Assert.Equal([9, 8], File.ReadAllBytes(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
+    [Fact]
+    public void WriteAllBytes_WithAMode_CreatesTheFileOwnerOnly_EvenOverAWiderOne()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no file mode; the profile's ACL protects the file there.");
+
+        if (!OperatingSystem.IsWindows())
+        {
+            File.WriteAllBytes(Target, [1]);
+            File.SetUnixFileMode(Target, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+            AtomicFile.WriteAllBytes(Target, [2], UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(Target));
+            Assert.Equal([2], File.ReadAllBytes(Target));
+        }
+    }
+
+    [Fact]
+    public void WriteAllBytes_AReplaceThatFails_LeavesThePreviousFileWhole()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to replace a file another handle holds.");
+
+        File.WriteAllBytes(Target, [1, 2, 3]);
+
+        using (OpenLikeAReader())
+        {
+            Assert.Throws<UnauthorizedAccessException>(() => AtomicFile.WriteAllBytes(Target, [7]));
+        }
+
+        // The write that failed changed nothing: the previous key, or list, is still whole.
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(Target));
+        Assert.Equal([Target], Directory.GetFiles(_root));
+    }
+
     /// <summary>
     /// Opens the target the way <see cref="File.ReadAllText(string)"/> does: shared for reading only,
     /// which is what makes Windows refuse to replace it.
     /// </summary>
     private FileStream OpenLikeAReader() => new(Target, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    /// <summary>
+    /// Waits for the writer to reach the held file: its temporary file written in full and closed,
+    /// after which the only thing left for it to do is to move it over the target. Or the write already
+    /// over, which is what happens outside Windows, where a file held open is renamed over all the
+    /// same. The writer's own progress, not a guess at how long it takes.
+    /// </summary>
+    private async Task WriterReachesTheTargetAsync(Task writing, int length)
+    {
+        while (!writing.IsCompleted && !HasAWrittenTemporary(length))
+        {
+            await Task.Delay(1, TestContext.Current.CancellationToken);
+        }
+    }
+
+    private bool HasAWrittenTemporary(int length)
+    {
+        foreach (string path in Directory.EnumerateFiles(_root, "*.tmp"))
+        {
+            try
+            {
+                // The writer creates its temporary file unshared, so this opens only once it has closed
+                // it. Shared for deletion: the look never stands in the way of the move.
+                using FileStream look = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+                if (look.Length == length)
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+                // Still being written, or moved away in the meantime.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return false;
+    }
 }

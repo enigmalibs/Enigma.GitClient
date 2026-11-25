@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Enigma.GitClient.Core.Git;
 
 /// <summary>
@@ -16,5 +18,5 @@ public interface IGitExecutable
     /// </summary>
     /// <param name="path">The resolved path when resolution succeeded.</param>
     /// <returns><see langword="true"/> when a git executable was located.</returns>
-    bool TryResolve(out string? path);
+    bool TryResolve([NotNullWhen(true)] out string? path);
 }

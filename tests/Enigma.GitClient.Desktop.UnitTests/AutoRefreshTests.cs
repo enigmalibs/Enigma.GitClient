@@ -992,7 +992,7 @@ public sealed class AutoRefreshTests
 
             ProfilesPageViewModel page = services.Get<ProfilesPageViewModel>();
             await page.OnAppearingAsync();
-            await page.ConnectAsync(page.Profiles[0], new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
+            await page.Accounts.ConnectAsync(page.Profiles[0], new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
             {
                 InstanceUrl = "https://github.com",
                 Token = "ghp_token",

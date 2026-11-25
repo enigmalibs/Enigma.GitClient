@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Identity;
@@ -8,6 +9,7 @@ using Enigma.GitClient.Core.Worktrees;
 using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Desktop.UnitTests.Infrastructure;
@@ -127,7 +129,38 @@ public sealed class TestServices : IDisposable
 
         configure?.Invoke(services);
 
-        return new TestServices(services.BuildServiceProvider(), root);
+        ServiceProvider provider = services.BuildServiceProvider();
+
+        // A test's container has no host to start the hosted services, so it starts the automatic
+        // refresh itself, as the application's host does: it runs on the manual clock above, inert until
+        // a test moves it. The file-system watcher is left stopped — it would watch every repository a
+        // test makes — and a test about it starts it with Started<IRepositoryWatcher>() (ASYNC-02).
+        if (provider.GetService<IAutoRefreshService>() is IHostedService refresh)
+        {
+            refresh.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        return new TestServices(provider, root);
+    }
+
+    /// <summary>
+    /// Resolves a service and, when it is one of the application's hosted services, starts it — what
+    /// the application's host does at startup.
+    /// </summary>
+    /// <typeparam name="TService">The service type.</typeparam>
+    /// <returns>The resolved, started service.</returns>
+    public TService Started<TService>()
+        where TService : notnull
+    {
+        TService service = Get<TService>();
+
+        // The hosted services start synchronously, and a second start does nothing.
+        if (service is IHostedService hosted)
+        {
+            hosted.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        return service;
     }
 
     /// <summary>

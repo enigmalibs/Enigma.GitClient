@@ -285,15 +285,26 @@ public sealed class UnhandledErrorPolicy
         Exception meaningful = exception;
 
         // Wrappers say "one or more errors occurred" or "an invocation threw": the one inside says what.
-        while (meaningful is AggregateException { InnerExceptions.Count: 1 } or TargetInvocationException { InnerException: not null })
+        while (Wrapped(meaningful) is { } inner)
         {
-            meaningful = meaningful.InnerException!;
+            meaningful = inner;
         }
 
         string message = ArgumentRedactor.Redact(meaningful.Message).Trim();
 
         return message.Length > 0 ? message : meaningful.GetType().Name;
     }
+
+    /// <summary>
+    /// The one exception a wrapper carries, or <see langword="null"/> for an exception that is not a
+    /// wrapper of exactly one.
+    /// </summary>
+    private static Exception? Wrapped(Exception exception) => exception switch
+    {
+        AggregateException { InnerExceptions: [var only] } => only,
+        TargetInvocationException { InnerException: { } inner } => inner,
+        _ => null,
+    };
 
     /// <summary>
     /// Builds the details of an exception for a bug report: for it and every exception inside it, the

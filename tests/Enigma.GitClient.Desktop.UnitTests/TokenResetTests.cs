@@ -65,7 +65,7 @@ public sealed class TokenResetTests
         => page.Profiles.Single(row => row.Label == label);
 
     private static Task ConnectAsync(TestServices services, ProfilesPageViewModel page, string profile = "Work", string token = "ghp_token", string displayName = "")
-        => page.ConnectAsync(
+        => page.Accounts.ConnectAsync(
             Profile(page, profile),
             new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
             {
@@ -248,7 +248,7 @@ public sealed class TokenResetTests
             RecordingAppWindows windows = new();
             ScriptedContentDialogService dialogs = new();
             RecordingTokenRecovery recovery = new();
-            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
+            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new FixedAppPaths(Path.Combine(Path.GetTempPath(), "enigma-config")), new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
             windows.SetCurrentWindow(new StartWindow());
             dialogs.Script(DialogResult.Primary);
 
@@ -274,7 +274,7 @@ public sealed class TokenResetTests
             RecordingAppWindows windows = new();
             ScriptedContentDialogService dialogs = new();
             RecordingTokenRecovery recovery = new();
-            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
+            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new FixedAppPaths(Path.Combine(Path.GetTempPath(), "enigma-config")), new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
             windows.SetCurrentWindow(new StartWindow());
             dialogs.Script(DialogResult.Primary);
 

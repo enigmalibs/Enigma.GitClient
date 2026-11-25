@@ -10,8 +10,7 @@
 
     <StackPanel Spacing="4" IsVisible="{Binding HasChoice}">
       <TextBlock Text="Host"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <ComboBox ItemsSource="{Binding Providers}"
                 SelectedItem="{Binding SelectedProvider, Mode=TwoWay}"
                 IsEnabled="{Binding CanChooseInstance}"
@@ -27,8 +26,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Instance"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding InstanceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                IsReadOnly="{Binding !CanChooseInstance}"
                PlaceholderText="https://github.com"
@@ -41,8 +39,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="{Binding TokenLabel}"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding Token, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PasswordChar="•"
                AutomationProperties.Name="Personal access token" />
@@ -54,8 +51,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Name (optional)"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PlaceholderText="Work, personal, …"
                AutomationProperties.Name="Account name" />
@@ -67,9 +63,7 @@
       <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
                Foreground="{DynamicResource EnigmaErrorBrush}" />
       <TextBlock Text="{Binding ValidationMessage}"
-                 FontSize="12"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+                 Classes="validation" />
     </StackPanel>
   </StackPanel>
 </UserControl>

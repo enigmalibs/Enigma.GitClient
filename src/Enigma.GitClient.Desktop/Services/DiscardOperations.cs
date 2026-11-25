@@ -40,7 +40,7 @@ public sealed class DiscardOperations : IDiscardOperations
     private readonly IStatusService _status;
     private readonly IStagingService _staging;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<DiscardOperations> _logger;
 
     /// <summary>
@@ -49,29 +49,26 @@ public sealed class DiscardOperations : IDiscardOperations
     /// <param name="context">The open repository.</param>
     /// <param name="status">Says how many files the question is about.</param>
     /// <param name="staging">Throws the work away.</param>
-    /// <param name="dialogs">Asks first.</param>
-    /// <param name="infoBar">Says how it went.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Records what failed.</param>
     public DiscardOperations(
         IRepositoryContext context,
         IStatusService status,
         IStagingService staging,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<DiscardOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(status);
         ArgumentNullException.ThrowIfNull(staging);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _status = status;
         _staging = staging;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -110,13 +107,13 @@ public sealed class DiscardOperations : IDiscardOperations
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Reading the working tree before discarding failed");
-            _infoBar.Notify("Could not discard the changes", FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report("Could not discard the changes", OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
             return false;
         }
 
         if (files == 0)
         {
-            _infoBar.Notify("Nothing to discard", "There are no uncommitted changes.", InfoBarSeverity.Info);
+            _feedback.Report("Nothing to discard", "There are no uncommitted changes.", InfoBarSeverity.Info);
             return false;
         }
 
@@ -142,11 +139,11 @@ public sealed class DiscardOperations : IDiscardOperations
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Discarding the uncommitted changes failed");
-            _infoBar.Notify("Could not discard the changes", FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report("Could not discard the changes", OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
             return false;
         }
 
-        _infoBar.Notify("Changes discarded", "The working tree is back to the last commit.", InfoBarSeverity.Success);
+        _feedback.Report("Changes discarded", "The working tree is back to the last commit.", InfoBarSeverity.Success);
 
         return true;
     }
@@ -174,18 +171,4 @@ public sealed class DiscardOperations : IDiscardOperations
 
     private static string Count(int files)
         => files == 1 ? "1 file" : $"{files.ToString(CultureInfo.CurrentCulture)} files";
-
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
-    }
 }

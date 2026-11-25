@@ -330,9 +330,9 @@ public sealed class DiffLineText : Control
             formatted.MaxTextWidth = wrapWidth;
         }
 
-        if (ShowWhitespace && WhitespaceBrush is not null)
+        if (ShowWhitespace && WhitespaceBrush is { } whitespace)
         {
-            DimWhitespace(formatted);
+            DimWhitespace(formatted, whitespace);
         }
 
         _formatted = formatted;
@@ -340,9 +340,8 @@ public sealed class DiffLineText : Control
         return formatted;
     }
 
-    private void DimWhitespace(FormattedText formatted)
+    private void DimWhitespace(FormattedText formatted, IBrush brush)
     {
-        IBrush brush = WhitespaceBrush!;
         int run = -1;
 
         for (int index = 0; index <= _expanded.Length; index++)

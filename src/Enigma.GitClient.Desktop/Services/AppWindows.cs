@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
 using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -103,6 +102,9 @@ public interface IAppWindows
 public sealed class AppWindows : IAppWindows
 {
     private readonly IServiceProvider _services;
+    private readonly WindowHostBinder _hosts;
+    private readonly IInfoBarService _infoBar;
+    private readonly IContentDialogService _dialogs;
     private readonly IRepositoryOpener _opener;
     private readonly IGitEnvironment _git;
     private readonly IWindowPlacer _placer;
@@ -120,7 +122,13 @@ public sealed class AppWindows : IAppWindows
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
-    /// <param name="services">Builds the windows, which are transient, and their ViewModels.</param>
+    /// <param name="services">
+    /// Builds the windows, which are transient, and their ViewModels: the one thing it is asked for, as a
+    /// window factory.
+    /// </param>
+    /// <param name="hosts">Hands each window's hosts to the services that draw into them.</param>
+    /// <param name="infoBar">Says when the folder on the command line could not be opened.</param>
+    /// <param name="dialogs">Says when git is not usable.</param>
     /// <param name="opener">Opens the repository a command-line path points at.</param>
     /// <param name="git">Probes the host's git installation once, when the first window opens.</param>
     /// <param name="placer">Finds the screen a window is on, and puts the next window on it.</param>
@@ -128,6 +136,9 @@ public sealed class AppWindows : IAppWindows
     /// <param name="logger">Receives startup failures.</param>
     public AppWindows(
         IServiceProvider services,
+        WindowHostBinder hosts,
+        IInfoBarService infoBar,
+        IContentDialogService dialogs,
         IRepositoryOpener opener,
         IGitEnvironment git,
         IWindowPlacer placer,
@@ -135,6 +146,9 @@ public sealed class AppWindows : IAppWindows
         ILogger<AppWindows> logger)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(hosts);
+        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(opener);
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(placer);
@@ -142,6 +156,9 @@ public sealed class AppWindows : IAppWindows
         ArgumentNullException.ThrowIfNull(logger);
 
         _services = services;
+        _hosts = hosts;
+        _infoBar = infoBar;
+        _dialogs = dialogs;
         _opener = opener;
         _git = git;
         _placer = placer;
@@ -228,8 +245,7 @@ public sealed class AppWindows : IAppWindows
 
         if (failure is not null)
         {
-            _services.GetRequiredService<IInfoBarService>()
-                .Notify("Cannot open that folder", $"{path}: {failure}", InfoBarSeverity.Warning);
+            _infoBar.Notify("Cannot open that folder", $"{path}: {failure}", InfoBarSeverity.Warning);
         }
     }
 
@@ -259,7 +275,7 @@ public sealed class AppWindows : IAppWindows
 
         window.DataContext = _services.GetRequiredService(viewModelType);
 
-        RegisterHosts(window);
+        _hosts.Bind(window);
 
         CurrentWindow = window;
         Current = kind;
@@ -367,28 +383,6 @@ public sealed class AppWindows : IAppWindows
     }
 
     /// <summary>
-    /// Hands a window's overlay hosts and its storage provider to the services that draw into them.
-    /// </summary>
-    /// <param name="window">The window about to be shown.</param>
-    private void RegisterHosts(Window window)
-    {
-        if (window is IHostWindow hosts)
-        {
-            _services.GetRequiredService<IContentDialogService>().RegisterHost(hosts.DialogHost);
-            _services.GetRequiredService<IOverlayService>().RegisterHost(hosts.OverlayHost);
-            _services.GetRequiredService<IInfoBarService>().RegisterHost(hosts.InfoBarHost);
-        }
-
-        if (window is IToolDialogHostWindow tools)
-        {
-            _services.GetRequiredService<IToolDialogService>().RegisterHost(tools.ToolDialogHost);
-        }
-
-        _services.GetRequiredService<IFileDialogService>().SetStorageProvider(window.StorageProvider);
-        _services.GetRequiredService<IFolderDialogService>().SetStorageProvider(window.StorageProvider);
-    }
-
-    /// <summary>
     /// A UI event handler that hands straight over to a Task-returning method; a failure goes to the
     /// safety net rather than through an <c>async void</c> (BUG-9DE3).
     /// </summary>
@@ -418,7 +412,7 @@ public sealed class AppWindows : IAppWindows
 
         _logger.LogError("git is not usable: {Message}", availability.Message);
 
-        await _services.GetRequiredService<IContentDialogService>().ShowAsync(dialog =>
+        await _dialogs.ShowAsync(dialog =>
         {
             dialog.Title = "git is required";
             dialog.Content = availability.Message
@@ -428,7 +422,7 @@ public sealed class AppWindows : IAppWindows
             dialog.IconData = PhosphorIconSet.Instance
                 .GetGlyph(PhosphorIcon.Warning, PhosphorWeight.Regular)
                 .ToGeometry();
-            dialog.IconBrush = new SolidColorBrush(Color.Parse("#E8A33D"));
+            dialog.IconBrush = ThemeBrushes.Warning;
             dialog.CloseButtonText = "Close";
         }).ConfigureAwait(true);
     }

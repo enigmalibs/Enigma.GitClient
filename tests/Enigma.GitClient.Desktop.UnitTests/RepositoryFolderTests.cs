@@ -321,14 +321,23 @@ public sealed class RepositoryFolderTests
 
     private static string[] Arguments(ProcessStartInfo startInfo) => [.. startInfo.ArgumentList];
 
+    // A folder that is rooted on whichever platform the tests run on, standing in for where a program
+    // is installed.
+    private static readonly string Installed = Path.Combine(Path.GetTempPath(), "installed");
+
+    // Every program is found, in the stand-in folder: the order and the arguments are the question.
+    private static string? InstalledEverywhere(string program) => Path.Combine(Installed, program);
+
     [Fact]
     public void OnWindows_WindowsTerminalIsTried_ThenTheCommandPrompt()
     {
         const string directory = @"C:\src\a repository";
 
-        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(DesktopPlatform.Windows, directory, terminal: null);
+        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(DesktopPlatform.Windows, directory, terminal: null, InstalledEverywhere);
 
-        Assert.Equal(["wt.exe", "cmd.exe"], candidates.Select(candidate => candidate.FileName));
+        Assert.Equal(
+            [Path.Combine(Installed, "wt.exe"), Path.Combine(Installed, "cmd.exe")],
+            candidates.Select(candidate => candidate.FileName));
 
         // The directory is one argument, spaces and all: nothing is parsed by a shell.
         Assert.Equal(["-d", directory], Arguments(candidates[0]));
@@ -339,14 +348,89 @@ public sealed class RepositoryFolderTests
         Assert.Equal(directory, candidates[1].WorkingDirectory);
     }
 
+    [Theory]
+    [InlineData("Windows")]
+    [InlineData("MacOS")]
+    [InlineData("Linux")]
+    public void EveryTerminal_IsStartedByItsFullPath(string desktop)
+    {
+        DesktopPlatform platform = Enum.Parse<DesktopPlatform>(desktop);
+
+        // A repository can carry a cmd.exe at its root, and the working directory is the repository:
+        // a bare name would be looked for there (SEC-01).
+        ProgramFolders folders = new(
+            System: Path.Combine(Installed, "System32"),
+            Windows: Path.Combine(Installed, "Windows"),
+            WindowsApps: Path.Combine(Installed, "WindowsApps"),
+            SearchPath: Path.Combine(Installed, "bin"));
+
+        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(
+            platform,
+            Path.Combine(Installed, "a repository"),
+            terminal: "kitty",
+            program => SystemInterop.Locate(program, platform, folders, _ => true));
+
+        Assert.NotEmpty(candidates);
+        Assert.All(candidates, candidate => Assert.True(Path.IsPathFullyQualified(candidate.FileName), candidate.FileName));
+    }
+
+    [Fact]
+    public void OnWindows_TheCommandPromptComesFromTheSystemFolder_AndWindowsTerminalFromTheAppAliases()
+    {
+        string system = Path.Combine(Installed, "System32");
+        string apps = Path.Combine(Installed, "WindowsApps");
+        ProgramFolders folders = new(system, Path.Combine(Installed, "Windows"), apps, SearchPath: null);
+
+        Assert.Equal(Path.Combine(system, "cmd.exe"), SystemInterop.Locate("cmd.exe", DesktopPlatform.Windows, folders, _ => true));
+        Assert.Equal(Path.Combine(apps, "wt.exe"), SystemInterop.Locate("wt.exe", DesktopPlatform.Windows, folders, _ => true));
+        Assert.Equal(
+            Path.Combine(Installed, "Windows", "explorer.exe"),
+            SystemInterop.Locate("explorer.exe", DesktopPlatform.Windows, folders, _ => true));
+    }
+
+    [Fact]
+    public void AProgramThatIsNotInstalled_IsNotACandidate()
+    {
+        ProgramFolders folders = new(Path.Combine(Installed, "System32"), null, Path.Combine(Installed, "WindowsApps"), SearchPath: null);
+        string commandPrompt = Path.Combine(Installed, "System32", "cmd.exe");
+
+        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(
+            DesktopPlatform.Windows,
+            Path.Combine(Installed, "a repository"),
+            terminal: null,
+            program => SystemInterop.Locate(program, DesktopPlatform.Windows, folders, path => path == commandPrompt));
+
+        ProcessStartInfo only = Assert.Single(candidates);
+        Assert.Equal(commandPrompt, only.FileName);
+    }
+
+    [Theory]
+    [InlineData(".")]
+    [InlineData("relative")]
+    public void APathEntryThatIsNotFullyQualified_IsNeverSearched(string entry)
+    {
+        // "." is the current directory under another name, and so is any relative entry.
+        ProgramFolders folders = new(null, null, null, SearchPath: entry);
+
+        Assert.Null(SystemInterop.Locate("xterm", DesktopPlatform.Linux, folders, _ => true));
+    }
+
+    [Fact]
+    public void ARelativePathWithAFolder_IsNeverLocated()
+    {
+        ProgramFolders folders = new(null, null, null, SearchPath: Path.Combine(Installed, "bin"));
+
+        Assert.Null(SystemInterop.Locate(Path.Combine("tools", "term"), DesktopPlatform.Linux, folders, _ => true));
+    }
+
     [Fact]
     public void OnMacOS_TerminalIsOpenedOnTheDirectory()
     {
         const string directory = "/Users/ada/a repository";
 
-        ProcessStartInfo candidate = Assert.Single(SystemInterop.TerminalCandidates(DesktopPlatform.MacOS, directory, terminal: null));
+        ProcessStartInfo candidate = Assert.Single(SystemInterop.TerminalCandidates(DesktopPlatform.MacOS, directory, terminal: null, InstalledEverywhere));
 
-        Assert.Equal("open", candidate.FileName);
+        Assert.Equal(Path.Combine(Installed, "open"), candidate.FileName);
         Assert.Equal(["-a", "Terminal", directory], Arguments(candidate));
     }
 
@@ -355,10 +439,10 @@ public sealed class RepositoryFolderTests
     {
         const string directory = "/home/ada/a repository";
 
-        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(DesktopPlatform.Linux, directory, terminal: "kitty");
+        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(DesktopPlatform.Linux, directory, terminal: "kitty", InstalledEverywhere);
 
         Assert.Equal(
-            ["kitty", "x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm"],
+            new[] { "kitty", "x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "xterm" }.Select(name => Path.Combine(Installed, name)),
             candidates.Select(candidate => candidate.FileName));
 
         // Every one starts in the directory, and is told it where it takes an option for it.
@@ -379,9 +463,9 @@ public sealed class RepositoryFolderTests
     [InlineData("   ")]
     public void OnLinux_WithoutATerminalNamed_TheUsualOnesAreTried(string? terminal)
     {
-        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(DesktopPlatform.Linux, "/src/x", terminal);
+        IReadOnlyList<ProcessStartInfo> candidates = SystemInterop.TerminalCandidates(DesktopPlatform.Linux, "/src/x", terminal, InstalledEverywhere);
 
-        Assert.Equal("x-terminal-emulator", candidates[0].FileName);
+        Assert.Equal(Path.Combine(Installed, "x-terminal-emulator"), candidates[0].FileName);
         Assert.Equal(5, candidates.Count);
     }
 }

@@ -293,6 +293,10 @@ public sealed class FileTokenStore : ITokenStore
     private const int NonceSize = 12;
     private const int TagSize = 16;
 
+    // The key and the secrets are readable by their owner only, outside Windows; DPAPI and the user's
+    // profile protect them there.
+    private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         WriteIndented = true,
@@ -650,28 +654,16 @@ public sealed class FileTokenStore : ITokenStore
             "The key the stored tokens were sealed with is missing, so they cannot be read. "
             + "Remove them and sign in again.");
 
+    /// <summary>
+    /// Writes the key in one step: a write cut short — a crash, a kill, a full disk — leaves the
+    /// previous key whole rather than a truncated one, which would make every stored token unreadable.
+    /// </summary>
+    /// <remarks>
+    /// Created with the right mode rather than tightened afterwards: between the two there would be a
+    /// window in which the key is readable by others.
+    /// </remarks>
     private static void WriteKeyFile(string path, byte[] contents)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            File.WriteAllBytes(path, contents);
-            return;
-        }
-
-        // Created with the right mode rather than tightened afterwards: between the two there is a
-        // window in which the key is world-readable.
-        using FileStream stream = new(
-            path,
-            new FileStreamOptions
-            {
-                Mode = FileMode.Create,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            });
-
-        stream.Write(contents);
-    }
+        => AtomicFile.WriteAllBytes(path, contents, OwnerOnly);
 
     private Dictionary<string, StoredEntry> Read()
     {
@@ -704,23 +696,9 @@ public sealed class FileTokenStore : ITokenStore
         string file = _paths.GetConfigurationFile(FileName);
         string json = JsonSerializer.Serialize(new StoredDocument(CurrentVersion, entries), SerializerOptions);
 
-        if (OperatingSystem.IsWindows())
-        {
-            File.WriteAllText(file, json);
-            return;
-        }
-
-        using FileStream stream = new(
-            file,
-            new FileStreamOptions
-            {
-                Mode = FileMode.Create,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            });
-
-        stream.Write(Encoding.UTF8.GetBytes(json));
+        // In one step, as the key is: another instance reading meanwhile sees the old file or the new
+        // one, never half of either.
+        AtomicFile.WriteAllText(file, json, encoding: null, OwnerOnly);
     }
 
     /// <summary>

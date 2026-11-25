@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using Enigma.GitClient.Core.Screens;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Desktop.Services;
@@ -33,33 +32,34 @@ public interface IInstanceLauncher
 /// Default <see cref="IInstanceLauncher"/>: runs this very executable again.
 /// </summary>
 /// <remarks>
-/// The window service is looked up when a launch asks, never taken in the constructor (BUG-FACC). It sits
-/// at the top of the graph — it builds the repository opener, which builds the automatic refresh and,
-/// through it, the sync operations — and those operations launch instances: taking it here closes a
-/// cycle the container refuses to build, and the application dies before its first window.
+/// The window service is obtained through a factory when a launch asks, never taken in the constructor
+/// (BUG-FACC). It sits at the top of the graph — it builds the repository opener, which builds the
+/// automatic refresh and, through it, the sync operations — and those operations launch instances:
+/// taking it here closes a cycle the container refuses to build, and the application dies before its
+/// first window. The factory says so in the constructor, where a lookup in the container hid it.
 /// </remarks>
 public sealed class InstanceLauncher : IInstanceLauncher
 {
-    private readonly IServiceProvider _services;
+    private readonly Func<IAppWindows> _windows;
     private readonly IWindowPlacer _placer;
     private readonly ILogger<InstanceLauncher> _logger;
 
     /// <summary>
     /// Initialises a new instance.
     /// </summary>
-    /// <param name="services">
+    /// <param name="windows">
     /// Supplies, when a launch asks, the <see cref="IAppWindows"/> that knows the window on screen, whose
     /// screen the new instance opens on.
     /// </param>
     /// <param name="placer">Finds that window's screen.</param>
     /// <param name="logger">Receives a start that failed.</param>
-    public InstanceLauncher(IServiceProvider services, IWindowPlacer placer, ILogger<InstanceLauncher> logger)
+    public InstanceLauncher(Func<IAppWindows> windows, IWindowPlacer placer, ILogger<InstanceLauncher> logger)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(windows);
         ArgumentNullException.ThrowIfNull(placer);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _services = services;
+        _windows = windows;
         _placer = placer;
         _logger = logger;
     }
@@ -67,7 +67,7 @@ public sealed class InstanceLauncher : IInstanceLauncher
     /// <inheritdoc />
     public bool Launch(string? repositoryPath = null)
     {
-        IAppWindows windows = _services.GetRequiredService<IAppWindows>();
+        IAppWindows windows = _windows();
 
         // The window asking is the one on screen: a tile's or a worktree's "open in a new window" is
         // clicked in it, and the new instance opens where the reader is looking.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Enigma.GitClient.Core.Git;
 
 namespace Enigma.GitClient.Core.Submodules;
 
@@ -185,5 +186,211 @@ public static class SubmoduleOutputParser
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Reads the gitlinks <c>git diff --raw -z</c> reports as changed, with both sides.
+    /// </summary>
+    /// <param name="output">What git printed.</param>
+    /// <returns>The path, the old commit and the new one — empty for a side without the submodule.</returns>
+    public static IReadOnlyList<(string Path, string OldSha, string NewSha)> ParseChangedGitlinkEntries(string? output)
+    {
+        List<(string, string, string)> entries = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return entries;
+        }
+
+        string[] fields = output.Split('\0');
+
+        for (int index = 0; index + 1 < fields.Length; index++)
+        {
+            string header = fields[index];
+
+            if (!header.StartsWith(':'))
+            {
+                continue;
+            }
+
+            string[] parts = header[1..].Split(' ');
+            string path = fields[++index];
+
+            if (parts.Length < 4 || (parts[0] != SubmoduleOutputParser.GitlinkMode && parts[1] != SubmoduleOutputParser.GitlinkMode))
+            {
+                continue;
+            }
+
+            entries.Add((path, OrEmpty(parts[0], parts[2]), OrEmpty(parts[1], parts[3])));
+        }
+
+        return entries;
+
+        static string OrEmpty(string mode, string sha)
+            => mode == SubmoduleOutputParser.GitlinkMode && sha.Trim('0').Length > 0 ? sha : string.Empty;
+    }
+
+    /// <summary>
+    /// Reads the gitlinks of <c>git ls-tree -z</c>'s output, with the commit each records.
+    /// </summary>
+    /// <param name="output">What git printed.</param>
+    /// <returns>The path and the commit of each submodule, in git's order.</returns>
+    public static IReadOnlyList<(string Path, string Sha)> ParseTreeGitlinkEntries(string? output)
+    {
+        List<(string, string)> entries = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return entries;
+        }
+
+        foreach (string record in output.Split('\0'))
+        {
+            int tab = record.IndexOf('\t');
+
+            if (tab < 0 || !record.StartsWith(SubmoduleOutputParser.GitlinkMode + " ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string[] fields = record[..tab].Split(' ');
+
+            if (fields.Length == 3 && SubmoduleOutputParser.IsObjectName(fields[2]))
+            {
+                entries.Add((record[(tab + 1)..], fields[2]));
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>
+    /// Reads <c>git log --format=%h%x1f%s%x1f%an%x1f%aI</c>'s records.
+    /// </summary>
+    /// <param name="output">What git printed, one commit per line.</param>
+    /// <returns>The commits.</returns>
+    public static IReadOnlyList<PinCommit> ParsePinCommits(string? output)
+    {
+        List<PinCommit> commits = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return commits;
+        }
+
+        foreach (string line in output.Split('\n'))
+        {
+            string[] fields = line.TrimEnd('\r').Split('\u001f');
+
+            if (fields.Length == 4 && DateTimeOffset.TryParse(fields[3], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTimeOffset date))
+            {
+                commits.Add(new PinCommit(fields[0], fields[1], fields[2], date));
+            }
+        }
+
+        return commits;
+    }
+
+    /// <summary>
+    /// Reads the paths of the gitlinks <c>git diff-tree -r --no-renames -z</c> reports as changed.
+    /// </summary>
+    /// <param name="output">
+    /// What git printed: for each change, <c>:&lt;old mode&gt; &lt;new mode&gt; &lt;old&gt; &lt;new&gt;
+    /// &lt;status&gt;</c>, a NUL, the path and a NUL.
+    /// </param>
+    /// <returns>The paths where either side is a submodule (mode <c>160000</c>), in git's order.</returns>
+    public static IReadOnlyList<string> ParseChangedGitlinks(string? output)
+    {
+        List<string> paths = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return paths;
+        }
+
+        string[] fields = output.Split('\0');
+
+        for (int index = 0; index + 1 < fields.Length; index++)
+        {
+            string header = fields[index];
+
+            if (!header.StartsWith(':'))
+            {
+                continue;
+            }
+
+            string[] parts = header.Substring(1).Split(' ');
+            string path = fields[++index];
+
+            if (parts.Length >= 2 && (parts[0] == SubmoduleOutputParser.GitlinkMode || parts[1] == SubmoduleOutputParser.GitlinkMode))
+            {
+                paths.Add(path);
+            }
+        }
+
+        return paths;
+    }
+
+    /// <summary>
+    /// Reads the paths of the gitlinks in <c>git ls-tree -r -z</c>'s output.
+    /// </summary>
+    /// <param name="output">What git printed: <c>&lt;mode&gt; &lt;type&gt; &lt;object&gt;</c>, a tab and the path, per NUL-ended record.</param>
+    /// <returns>The submodules' paths, in git's order.</returns>
+    public static IReadOnlyList<string> ParseGitlinksInTree(string? output)
+    {
+        List<string> paths = [];
+
+        if (string.IsNullOrEmpty(output))
+        {
+            return paths;
+        }
+
+        foreach (string record in output.Split('\0'))
+        {
+            int tab = record.IndexOf('\t');
+
+            if (tab > 0 && record.StartsWith(SubmoduleOutputParser.GitlinkMode + " ", StringComparison.Ordinal))
+            {
+                paths.Add(record.Substring(tab + 1));
+            }
+        }
+
+        return paths;
+    }
+
+    /// <summary>
+    /// Summarises what git wrote while failing to update a submodule: its errors, or else its last line
+    /// — never the progress chatter before them.
+    /// </summary>
+    /// <param name="standardError">Everything git wrote to standard error.</param>
+    /// <returns>The message, with any credential redacted.</returns>
+    public static string SummariseFailure(string? standardError)
+    {
+        if (string.IsNullOrWhiteSpace(standardError))
+        {
+            return "git could not update it.";
+        }
+
+        List<string> errors = [];
+        string last = string.Empty;
+
+        foreach (string raw in standardError.Split('\n', '\r'))
+        {
+            string line = raw.Trim();
+
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            last = line;
+
+            if (line.StartsWith("fatal:", StringComparison.Ordinal) || line.StartsWith("error:", StringComparison.Ordinal))
+            {
+                errors.Add(line);
+            }
+        }
+
+        return ArgumentRedactor.Redact(errors.Count > 0 ? string.Join(Environment.NewLine, errors) : last);
     }
 }

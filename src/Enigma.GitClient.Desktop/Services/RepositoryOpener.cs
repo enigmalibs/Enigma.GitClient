@@ -78,9 +78,8 @@ public sealed class RepositoryOpener : IRepositoryOpener
 
         RepositoryDiscoveryResult discovery = await _repositories.OpenAsync(path, cancellationToken).ConfigureAwait(true);
 
-        if (discovery.IsFound)
+        if (discovery is { IsFound: true, Repository: { } repository })
         {
-            RepositoryHandle repository = discovery.Repository!;
 
             await _context.OpenAsync(repository, cancellationToken).ConfigureAwait(true);
             ProfileChoice choice = await _selection.LoadAsync(cancellationToken).ConfigureAwait(true);

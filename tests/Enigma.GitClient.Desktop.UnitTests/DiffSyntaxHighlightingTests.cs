@@ -79,14 +79,15 @@ public sealed class DiffSyntaxHighlightingTests
     [Fact]
     public void AnUnknownExtension_StaysPlain()
     {
-        _fixture.RunAsync(async () =>
+        _fixture.Run(() =>
         {
             using Themed themed = new(ThemeVariant.Dark);
             (DiffTextEditor editor, Window window) = Show("notes.unknown-extension");
 
+            // No grammar, so no tokenizer was started: nothing is left to colour the text later, and
+            // what the settled editor shows is final.
             Assert.Null(editor.Highlighting!.Scope);
 
-            await Task.Delay(100);
             Settle(window);
 
             Color plain = Assert.IsAssignableFrom<ISolidColorBrush>(editor.Foreground).Color;

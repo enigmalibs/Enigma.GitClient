@@ -29,11 +29,22 @@
     <DataTemplate x:Key="ConflictRegion" x:DataType="vm:ConflictRegionViewModel">
       <Panel>
 
-        <!-- Text both sides agree on: context, drawn the way the diff viewer draws context. -->
-        <ItemsControl ItemsSource="{Binding StableLines}"
-                      ItemTemplate="{StaticResource ConflictLine}"
-                      Margin="8,0"
-                      IsVisible="{Binding IsStable}" />
+        <!-- Text both sides agree on: context, drawn the way the diff viewer draws context. A long
+             stretch shows only the lines next to the conflicts, and folds the rest behind a row
+             that brings it back: the lines are built when they are shown, not before. -->
+        <StackPanel Margin="8,0" IsVisible="{Binding IsStable}">
+          <ItemsControl ItemsSource="{Binding StableLines}"
+                        ItemTemplate="{StaticResource ConflictLine}" />
+          <Button Classes="conflictfold"
+                  IsVisible="{Binding IsFolded}"
+                  Command="{Binding ExpandCommand}"
+                  ToolTip.Tip="Show the unchanged lines"
+                  AutomationProperties.Name="{Binding FoldedText, StringFormat='Show {0}'}">
+            <TextBlock Text="{Binding FoldedText}" />
+          </Button>
+          <ItemsControl ItemsSource="{Binding StableTailLines}"
+                        ItemTemplate="{StaticResource ConflictLine}" />
+        </StackPanel>
 
         <Border Classes="conflictcard" IsVisible="{Binding IsConflicted}">
           <DockPanel>
@@ -251,8 +262,7 @@
         <TextBlock Grid.Column="1"
                    Text="{Binding Progress}"
                    VerticalAlignment="Center"
-                   FontSize="12"
-                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                   Classes="fieldlabel" />
 
         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
 

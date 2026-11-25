@@ -73,7 +73,7 @@ public sealed class TagOperations : ITagOperations
     private readonly ITagService _tags;
     private readonly IPushGuard _pushGuard;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<TagOperations> _logger;
 
     /// <summary>
@@ -82,29 +82,26 @@ public sealed class TagOperations : ITagOperations
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="tags">Performs the tag operations.</param>
     /// <param name="pushGuard">Says whether the repository's profile may push to the remote.</param>
-    /// <param name="dialogs">Raises the form and the confirmation.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public TagOperations(
         IRepositoryContext context,
         ITagService tags,
         IPushGuard pushGuard,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<TagOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(tags);
         ArgumentNullException.ThrowIfNull(pushGuard);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _tags = tags;
         _pushGuard = pushGuard;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -218,7 +215,7 @@ public sealed class TagOperations : ITagOperations
         }
         else
         {
-            Report(outcome.Summarise("Deleted", "tag", "tags"));
+            _feedback.Report(outcome.Summarise("Deleted", "tag", "tags"));
         }
 
         return outcome.Deleted.Count > 0;
@@ -286,12 +283,12 @@ public sealed class TagOperations : ITagOperations
 
         if (items.Length > 1)
         {
-            Report(outcome.Summarise("Deleted", "tag", "tags", $" from \"{remote}\""));
+            _feedback.Report(outcome.Summarise("Deleted", "tag", "tags", $" from \"{remote}\""));
         }
         else if (outcome.Deleted.Count == 1)
         {
             // Nothing on screen changes — a remote's tags are not drawn — so the sentence is the proof.
-            Report("Deleted from the remote", $"\"{remote}\" no longer has the tag \"{items[0].Name}\".", InfoBarSeverity.Success);
+            _feedback.Report("Deleted from the remote", $"\"{remote}\" no longer has the tag \"{items[0].Name}\".", InfoBarSeverity.Success);
         }
         else
         {
@@ -323,7 +320,7 @@ public sealed class TagOperations : ITagOperations
         }
 
         (string title, string message) = SyncOperations.DescribeRefusal(permission);
-        Report(title, message, InfoBarSeverity.Warning);
+        _feedback.Report(title, message, InfoBarSeverity.Warning);
 
         return false;
     }
@@ -388,13 +385,13 @@ public sealed class TagOperations : ITagOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
+            _feedback.Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            Report(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(failureTitle, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -402,20 +399,6 @@ public sealed class TagOperations : ITagOperations
         }
 
         return false;
-    }
-
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
     }
 
     /// <summary>
@@ -443,13 +426,8 @@ public sealed class TagOperations : ITagOperations
     {
         if (outcome.NotDeleted.Count == 1)
         {
-            Report(title, outcome.NotDeleted[0].Reason, outcome.HasErrors ? InfoBarSeverity.Error : InfoBarSeverity.Warning);
+            _feedback.Report(title, outcome.NotDeleted[0].Reason, outcome.HasErrors ? InfoBarSeverity.Error : InfoBarSeverity.Warning);
         }
     }
 
-    private void Report((string Title, string Message, InfoBarSeverity Severity) note)
-        => Report(note.Title, note.Message, note.Severity);
-
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 }

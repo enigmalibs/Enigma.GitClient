@@ -345,8 +345,9 @@ public sealed class RepositoryListStore : IRepositoryListStore
                 lists[profileId] =
                 [
                     .. (entries ?? [])
-                        .Where(entry => entry is not null && !string.IsNullOrWhiteSpace(entry.Path))
-                        .Select(entry => entry! with { Name = entry!.Name ?? string.Empty }),
+                        .OfType<ListedRepository>()
+                        .Where(entry => !string.IsNullOrWhiteSpace(entry.Path))
+                        .Select(entry => entry with { Name = entry.Name ?? string.Empty }),
                 ];
             }
 

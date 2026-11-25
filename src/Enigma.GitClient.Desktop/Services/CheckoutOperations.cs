@@ -54,7 +54,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
     private readonly IBranchOperations _branches;
     private readonly IWorktreeGuard _worktreeGuard;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<CheckoutOperations> _logger;
 
     /// <summary>
@@ -66,8 +66,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
     /// <param name="probe">Answers whether there is anything uncommitted at all.</param>
     /// <param name="branches">Offers "create a branch here" instead of detaching.</param>
     /// <param name="worktreeGuard">Refuses a checkout of a branch another working tree has.</param>
-    /// <param name="dialogs">Raises the warnings and the questions.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public CheckoutOperations(
         IRepositoryContext context,
@@ -76,8 +75,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
         IWorkingTreeProbe probe,
         IBranchOperations branches,
         IWorktreeGuard worktreeGuard,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<CheckoutOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -86,8 +84,7 @@ public sealed class CheckoutOperations : ICheckoutOperations
         ArgumentNullException.ThrowIfNull(probe);
         ArgumentNullException.ThrowIfNull(branches);
         ArgumentNullException.ThrowIfNull(worktreeGuard);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
@@ -96,8 +93,8 @@ public sealed class CheckoutOperations : ICheckoutOperations
         _probe = probe;
         _branches = branches;
         _worktreeGuard = worktreeGuard;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -262,14 +259,14 @@ public sealed class CheckoutOperations : ICheckoutOperations
 
             if (result.Stashed)
             {
-                Report(
+                _feedback.Report(
                     "Changes stashed",
                     "Your uncommitted work is on the stash and can be restored from there.",
                     InfoBarSeverity.Info);
             }
             else if (result.IsDetached)
             {
-                Report(
+                _feedback.Report(
                     "HEAD is detached",
                     $"The repository is on {result.Head.DisplayName}. Create a branch before committing.",
                     InfoBarSeverity.Warning);
@@ -279,15 +276,15 @@ public sealed class CheckoutOperations : ICheckoutOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            Report($"Could not check out \"{name}\"", refusal.Message, InfoBarSeverity.Warning);
+            _feedback.Report($"Could not check out \"{name}\"", refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Checking out {Revision} failed", revision);
 
-            Report(
+            _feedback.Report(
                 $"Could not check out \"{name}\"",
-                FirstLine(exception.StandardError),
+                OperationFeedback.FirstLine(exception.StandardError),
                 InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
@@ -298,20 +295,4 @@ public sealed class CheckoutOperations : ICheckoutOperations
         return false;
     }
 
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
-    }
-
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 }

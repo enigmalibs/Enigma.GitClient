@@ -49,7 +49,7 @@ public sealed class ResetOperations : IResetOperations
     private readonly IResetService _reset;
     private readonly IDiffService _diffs;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<ResetOperations> _logger;
 
     /// <summary>
@@ -58,29 +58,26 @@ public sealed class ResetOperations : IResetOperations
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="reset">Performs the reset.</param>
     /// <param name="diffs">Lists the files a hard reset would take.</param>
-    /// <param name="dialogs">Raises the question before a hard reset.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public ResetOperations(
         IRepositoryContext context,
         IResetService reset,
         IDiffService diffs,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<ResetOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(reset);
         ArgumentNullException.ThrowIfNull(diffs);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _reset = reset;
         _diffs = diffs;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -101,7 +98,7 @@ public sealed class ResetOperations : IResetOperations
 
         if (Refuse(_context.Head, branch) is { } refusal)
         {
-            Report($"Could not reset \"{branch}\"", refusal, InfoBarSeverity.Warning);
+            _feedback.Report($"Could not reset \"{branch}\"", refusal, InfoBarSeverity.Warning);
             return false;
         }
 
@@ -116,7 +113,7 @@ public sealed class ResetOperations : IResetOperations
                 .RunExclusiveAsync((handle, token) => _reset.ResetAsync(handle, sha, mode, token))
                 .ConfigureAwait(true);
 
-            Report(
+            _feedback.Report(
                 $"\"{branch}\" reset to {target}",
                 mode == ResetMode.Soft
                     ? "Every change is kept, and staged: commit it again whenever you are ready."
@@ -127,15 +124,15 @@ public sealed class ResetOperations : IResetOperations
         }
         catch (GitOperationRefusedException exception)
         {
-            Report($"Could not reset \"{branch}\"", exception.Message, InfoBarSeverity.Warning);
+            _feedback.Report($"Could not reset \"{branch}\"", exception.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Resetting {Branch} to {Revision} failed", branch, sha);
 
-            Report(
+            _feedback.Report(
                 $"Could not reset \"{branch}\"",
-                FirstLine(exception.StandardError),
+                OperationFeedback.FirstLine(exception.StandardError),
                 InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
@@ -268,20 +265,4 @@ public sealed class ResetOperations : IResetOperations
             ? "1 file"
             : $"{files.ToString(CultureInfo.CurrentCulture)} files";
 
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
-    }
-
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 }

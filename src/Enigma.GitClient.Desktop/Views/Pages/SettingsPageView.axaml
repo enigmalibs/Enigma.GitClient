@@ -447,8 +447,7 @@
                     Margin="0,6,0,0">
               <TextBlock Text="{Binding ScopeStatement}"
                          TextWrapping="Wrap"
-                         FontSize="12"
-                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                         Classes="fieldlabel" />
             </Border>
 
             <!-- The dialog with the icon, the build and the credits: from here, because the start

@@ -54,7 +54,7 @@ public sealed class MergeOperations : IMergeOperations
     private readonly IRepositoryContext _context;
     private readonly IMergeService _merges;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<MergeOperations> _logger;
 
     /// <summary>
@@ -62,26 +62,23 @@ public sealed class MergeOperations : IMergeOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="merges">Performs the merge.</param>
-    /// <param name="dialogs">Raises the confirmation.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public MergeOperations(
         IRepositoryContext context,
         IMergeService merges,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<MergeOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(merges);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _merges = merges;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -256,5 +253,5 @@ public sealed class MergeOperations : IMergeOperations
     }
 
     private void Show(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
+        => _feedback.Report(title, message, severity);
 }

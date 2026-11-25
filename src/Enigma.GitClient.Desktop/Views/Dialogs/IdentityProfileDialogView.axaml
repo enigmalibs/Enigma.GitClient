@@ -9,8 +9,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Profile"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding Label, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PlaceholderText="Work, personal, …"
                AutomationProperties.Name="Profile name" />
@@ -18,8 +17,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Name"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PlaceholderText="Ada Lovelace"
                AutomationProperties.Name="Name git records" />
@@ -27,8 +25,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Email"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PlaceholderText="ada@example.com"
                AutomationProperties.Name="Email git records" />
@@ -41,8 +38,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Base directory"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
         <TextBox Grid.Column="0"
                  Text="{Binding BaseDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -71,9 +67,7 @@
       <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
                Foreground="{DynamicResource EnigmaErrorBrush}" />
       <TextBlock Text="{Binding ValidationMessage}"
-                 FontSize="12"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+                 Classes="validation" />
     </StackPanel>
   </StackPanel>
 </UserControl>

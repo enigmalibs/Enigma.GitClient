@@ -201,6 +201,14 @@ public sealed class UnhandledErrorPolicyTests
     }
 
     [Fact]
+    public void AWrapperOfSeveral_SaysItsOwnMessage()
+    {
+        AggregateException several = new("two things failed", new InvalidOperationException("one"), new InvalidOperationException("two"));
+
+        Assert.StartsWith("two things failed", UnhandledErrorPolicy.Summarise(several), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheDetails_HaveTheType_TheMessage_TheInnerExceptions_AndTheStack()
     {
         Exception error = Thrown(new InvalidOperationException("outer", Thrown(new ArgumentException("inner"))));

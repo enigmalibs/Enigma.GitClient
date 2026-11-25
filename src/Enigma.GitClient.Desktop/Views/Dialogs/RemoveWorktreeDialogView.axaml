@@ -45,8 +45,7 @@
                    TextWrapping="Wrap"
                    MaxWidth="412"
                    HorizontalAlignment="Left"
-                   FontSize="12"
-                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                   Classes="fieldlabel" />
         <ItemsControl Name="UnmergedCommitList" ItemsSource="{Binding UnmergedList}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="sys:String">

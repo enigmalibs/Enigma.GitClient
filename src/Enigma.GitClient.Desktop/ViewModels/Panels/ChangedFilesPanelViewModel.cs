@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -206,6 +206,13 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     public bool IsSubmodule => File?.IsSubmodule == true;
 
     /// <summary>
+    /// Gets a value indicating whether opening the file would run it — a program, a script, a
+    /// shortcut (<see cref="RunnableFiles"/>). Such a file has no "Open" on its menu: it is shown in the
+    /// file manager instead, since a commit's files are somebody else's content.
+    /// </summary>
+    public bool IsRunnable => !IsDirectory && RunnableFiles.IsRunnable(Path);
+
+    /// <summary>
     /// Gets what a submodule's line says of it — "other commit checked out, modified content" — or an
     /// empty string for any other line.
     /// </summary>
@@ -257,7 +264,7 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     /// <summary>
     /// Gets the full path a moved file came from, shown as the rename label's tooltip.
     /// </summary>
-    public string RenameSource => File?.IsRenamed == true ? File.OldPath! : string.Empty;
+    public string RenameSource => File is { IsRenamed: true, OldPath: { } oldPath } ? oldPath : string.Empty;
 
     /// <summary>
     /// Gets the rename arrow shown for a moved file.
@@ -271,16 +278,15 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     {
         get
         {
-            if (File?.IsRenamed != true)
+            if (File is not { IsRenamed: true, OldPath: { } oldPath } file)
             {
                 return string.Empty;
             }
 
-            string oldPath = File.OldPath!;
             int separator = oldPath.LastIndexOf('/');
             string oldDirectory = separator < 0 ? string.Empty : oldPath.Substring(0, separator);
 
-            return string.Equals(oldDirectory, File.DirectoryPath, StringComparison.Ordinal)
+            return string.Equals(oldDirectory, file.DirectoryPath, StringComparison.Ordinal)
                 ? $"← {oldPath.Substring(separator + 1)}"
                 : $"← {oldPath}";
         }
@@ -332,7 +338,7 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
 /// The panel listing what a change touched, as a flat list or as a tree — the user's choice, which
 /// the specification asks for explicitly.
 /// </summary>
-public sealed class ChangedFilesPanelViewModel : ViewModelBase
+public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
 {
     /// <summary>
     /// How many files a change may touch before the tree stops opening itself.
@@ -405,7 +411,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
         if (_settings is not null)
         {
             Apply(_settings.Current);
-            _settings.Changed += (_, e) => Apply(e.Settings);
+            _settings.Changed += OnSettingsChanged;
         }
 
         OpenOnHostCommand = new AsyncRelayCommand<ChangedFileNodeViewModel>(
@@ -508,7 +514,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// <summary>
     /// Gets the rows currently shown, in whichever shape the user picked.
     /// </summary>
-    public ObservableCollection<ChangedFileNodeViewModel> Nodes { get; } = [];
+    public RangeObservableCollection<ChangedFileNodeViewModel> Nodes { get; } = [];
 
     /// <summary>
     /// Gets or sets how the files are arranged. A tree until the preference says otherwise, which is
@@ -949,7 +955,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
             _expanded.Clear();
         }
 
-        Nodes.Clear();
+        List<ChangedFileNodeViewModel> nodes = [];
 
         if (ViewMode == ChangedFilesViewMode.List)
         {
@@ -958,7 +964,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
                 // The name alone. Two files of the same name in different directories are told
                 // apart by the row's tooltip, which is the whole path — a column repeating it on
                 // every row costs the name the width it needs to be read at all.
-                Nodes.Add(new ChangedFileNodeViewModel(this, file, file.Name));
+                nodes.Add(new ChangedFileNodeViewModel(this, file, file.Name));
             }
         }
         else
@@ -971,9 +977,11 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
 
             foreach (FileTreeNode node in tree)
             {
-                Nodes.Add(Convert(node, expand));
+                nodes.Add(Convert(node, expand));
             }
         }
+
+        Nodes.ReplaceWith(nodes);
 
         OnPropertyChanged(nameof(IsEmpty));
         ExpandAllCommand.NotifyCanExecuteChanged();
@@ -1011,9 +1019,9 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
 
     private ChangedFileNodeViewModel Convert(FileTreeNode node, bool expand)
     {
-        if (!node.IsDirectory)
+        if (node is { IsDirectory: false, Change: { } change })
         {
-            return new ChangedFileNodeViewModel(this, node.Change!, node.Name);
+            return new ChangedFileNodeViewModel(this, change, node.Name);
         }
 
         List<ChangedFileNodeViewModel> children = new(node.Children.Count);
@@ -1072,7 +1080,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// <summary>Gets the command that opens a submodule's line in a new window.</summary>
     public AsyncRelayCommand<ChangedFileNodeViewModel> OpenSubmoduleCommand { get; }
 
-    private bool CanReachOnDisk(ChangedFileNodeViewModel? node)
+    private bool CanReachOnDisk([NotNullWhen(true)] ChangedFileNodeViewModel? node)
         => node is { IsDirectory: false, IsDeleted: false } && WorkTreePath.Length > 0;
 
     private async Task OpenAsync(ChangedFileNodeViewModel? node, bool reveal)
@@ -1082,9 +1090,11 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
             return;
         }
 
-        string full = System.IO.Path.Combine(WorkTreePath, node!.Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        string full = System.IO.Path.Combine(WorkTreePath, node.Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
 
-        if (reveal)
+        // A file that would run is shown, never opened, whichever way the request came: from a commit,
+        // "open" would mean running whatever somebody else committed (SEC-03).
+        if (reveal || node.IsRunnable)
         {
             await _interop.RevealPathAsync(full);
         }
@@ -1118,6 +1128,20 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
     /// Takes the stored file-list preferences on, at startup and whenever they change.
     /// </summary>
     /// <param name="settings">The preferences.</param>
+    /// <summary>
+    /// Stops following the settings. The panel's owner calls it when the panel goes: the settings
+    /// outlive every panel built on them (SOLID-04).
+    /// </summary>
+    public void Dispose()
+    {
+        if (_settings is not null)
+        {
+            _settings.Changed -= OnSettingsChanged;
+        }
+    }
+
+    private void OnSettingsChanged(object? sender, SettingsChangedEventArgs e) => Apply(e.Settings);
+
     private void Apply(AppSettings settings)
     {
         ViewMode = settings.FilesView == FilesView.Tree ? ChangedFilesViewMode.Tree : ChangedFilesViewMode.List;

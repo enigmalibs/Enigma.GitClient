@@ -15,8 +15,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Message (optional)"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Name="MessageBox"
                Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PlaceholderText="What this work in progress is"

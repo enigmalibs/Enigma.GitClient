@@ -149,7 +149,7 @@
     <!-- The checked-out branch is the one piece of the row a reader looks for first. -->
     <Style Selector="^.head">
       <Setter Property="Background" Value="{DynamicResource RefBadgeHeadBrush}" />
-      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="{DynamicResource RefBadgeHeadForegroundBrush}" />
     </Style>
 
     <Style Selector="^.remote">
@@ -213,7 +213,7 @@
                      VerticalAlignment="Center"
                      FontSize="{TemplateBinding FontSize}"
                      FontWeight="SemiBold"
-                     Foreground="#12151A" />
+                     Foreground="{DynamicResource AuthorAvatarInitialsBrush}" />
         </Border>
       </ControlTemplate>
     </Setter>

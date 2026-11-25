@@ -286,9 +286,9 @@ public sealed class RepositoryContext : ObservableObject, IRepositoryContext, ID
             TResult result = await operation(repository, linked.Token).ConfigureAwait(true);
 
             // Before the refresh, so what is read and drawn next has the submodules where they end up.
-            if (mark is not null)
+            if (mark is not null && _follow is { } follow)
             {
-                await _follow!.AfterAsync(repository, mark, linked.Token).ConfigureAwait(true);
+                await follow.AfterAsync(repository, mark, linked.Token).ConfigureAwait(true);
             }
 
             if (refreshAfter)

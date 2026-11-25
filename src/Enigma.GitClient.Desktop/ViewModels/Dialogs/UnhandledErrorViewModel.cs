@@ -8,7 +8,7 @@ namespace Enigma.GitClient.Desktop.ViewModels.Dialogs;
 
 /// <summary>
 /// What the safety net's dialog says: that something went wrong and the application is still running,
-/// what went wrong, how many more errors came, and the details for a bug report.
+/// what went wrong, how many more errors came, where the log is, and the details for a bug report.
 /// </summary>
 /// <remarks>
 /// It follows its batch: an error counted into it while the dialog is open shows at once, in the count
@@ -25,7 +25,8 @@ public sealed class UnhandledErrorViewModel : ViewModelBase
     /// <param name="batch">The errors to show.</param>
     /// <param name="interop">Puts the details on the clipboard.</param>
     /// <param name="remedy">What fixes it, when the application knows, or <see langword="null"/>.</param>
-    public UnhandledErrorViewModel(UnhandledErrorBatch batch, ISystemInterop interop, string? remedy = null)
+    /// <param name="logDirectory">Where the log files are, or <see langword="null"/> to say nothing about them.</param>
+    public UnhandledErrorViewModel(UnhandledErrorBatch batch, ISystemInterop interop, string? remedy = null, string? logDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(interop);
@@ -33,6 +34,9 @@ public sealed class UnhandledErrorViewModel : ViewModelBase
         _batch = batch;
         _interop = interop;
         Remedy = remedy ?? string.Empty;
+        LogText = string.IsNullOrWhiteSpace(logDirectory)
+            ? string.Empty
+            : $"The log is kept in {logDirectory}, one file a day. Attach the most recent one to a bug report.";
 
         CopyDetailsCommand = new AsyncRelayCommand(OnCopyDetailsAsync);
 
@@ -61,6 +65,12 @@ public sealed class UnhandledErrorViewModel : ViewModelBase
         => _batch.More == 1
             ? "1 more error occurred."
             : $"{_batch.More.ToString(CultureInfo.CurrentCulture)} more errors occurred.";
+
+    /// <summary>Gets where the log files are, as a sentence, or an empty string.</summary>
+    public string LogText { get; }
+
+    /// <summary>Gets a value indicating whether the dialog says where the log files are.</summary>
+    public bool HasLogText => LogText.Length > 0;
 
     /// <summary>Gets the details of every error, for a bug report.</summary>
     public string Details => _batch.Details;
