@@ -11,6 +11,7 @@ using Enigma.GitClient.Desktop.Controls.Diff;
 using Enigma.GitClient.Desktop.DependencyInjection;
 using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -58,7 +59,6 @@ public partial class App : Application
             UnhandledExceptionHooks.InstallDispatcher();
 
             IHost host = BuildHost();
-            host.Start();
             _host = host;
 
             IServiceProvider services = host.Services;
@@ -69,17 +69,19 @@ public partial class App : Application
             desktop.ShutdownRequested += (_, _) => errors.ShutdownStarted();
 
             // Before the window: the theme is a preference, and a window that paints dark and then
-            // flips to light is a worse first impression than one that starts right.
+            // flips to light is a worse first impression than one that starts right. Read on this
+            // thread, never by blocking on a task: this is the UI thread, with its context installed.
             ISettingsService settings = services.GetRequiredService<ISettingsService>();
-            settings.LoadAsync().GetAwaiter().GetResult();
+            settings.Load();
             ApplyTheme(settings.Current.Theme);
             DiffTypography.Apply(settings.Current);
             settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);
             settings.Changed += (_, e) => DiffTypography.Apply(e.Settings);
 
-            // Nothing asks for the watcher: it follows the repository context on its own, from here
-            // on, and the host's disposal at exit lets go of what it watches.
-            services.GetRequiredService<IRepositoryWatcher>();
+            // Then the host, which starts the hosted services — the automatic refresh and the
+            // file-system watcher — on this thread, with the settings already read: their loops run on
+            // the UI thread's context, and stop with the host at exit.
+            host.Start();
 
             // The start window, or — for a path on the command line — the repository window. The
             // last window to close ends the application, which is what lets one window hand over to
@@ -140,11 +142,29 @@ public partial class App : Application
             ContentRootPath = AppContext.BaseDirectory,
         });
 
-        builder.Logging.SetMinimumLevel(LogLevel.Information);
-
+        ConfigureLogging(builder.Logging);
         ConfigureServices(builder.Services);
 
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Sets the application's logging up: <see cref="LogLevel.Information"/> unless the
+    /// configuration's <c>Logging</c> section says otherwise, and the log files.
+    /// </summary>
+    /// <param name="logging">The host's logging builder.</param>
+    /// <remarks>
+    /// The configuration is an <c>appsettings.json</c> beside the executable, read by the host
+    /// builder. The files are the one sink a user can reach: a WinExe's console goes nowhere, and no
+    /// debugger is attached in the field. They are set up here and not in
+    /// <see cref="ConfigureServices"/>, so a test container never writes log files.
+    /// </remarks>
+    internal static void ConfigureLogging(ILoggingBuilder logging)
+    {
+        ArgumentNullException.ThrowIfNull(logging);
+
+        logging.SetMinimumLevel(LogLevel.Information);
+        logging.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, FileLoggerProvider>());
     }
 
     /// <summary>

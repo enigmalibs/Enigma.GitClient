@@ -239,6 +239,20 @@
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
   </Style>
 
+  <!-- A form's field label, above or beside the field it names: every dialog and page form reads the
+       same, and a change to how labels look is made here once. -->
+  <Style Selector="TextBlock.fieldlabel">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!-- The line under a form that says why it cannot be confirmed yet. -->
+  <Style Selector="TextBlock.validation">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaErrorBrush}" />
+  </Style>
+
   <Style Selector="ei|Icon.dim">
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>
@@ -800,6 +814,20 @@
   <Style Selector="Border.conflictheader">
     <Setter Property="Background" Value="{DynamicResource EnigmaSurfaceBrush}" />
     <Setter Property="Padding" Value="10,5" />
+  </Style>
+
+  <!-- The agreed lines folded away between two conflicts: a band in the diff viewer's hunk colours,
+       across the whole width, so it reads as the same thing it is there. -->
+  <Style Selector="Button.conflictfold">
+    <Setter Property="Background" Value="{DynamicResource DiffHunkBandBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffHunkForegroundBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="Margin" Value="0,2" />
+    <Setter Property="FontSize" Value="11" />
   </Style>
 
   <Style Selector="Border.conflictside">

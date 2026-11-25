@@ -283,18 +283,18 @@
             BorderBrush="{DynamicResource EnigmaWarningBorderBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,8"
-            IsVisible="{Binding IsTokenStoreUnreadable}">
+            IsVisible="{Binding Accounts.IsTokenStoreUnreadable}">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
         <ei:Icon Grid.Column="0" Kind="Warning" Classes="row" VerticalAlignment="Center"
                  Foreground="{DynamicResource EnigmaWarningBrush}" />
         <TextBlock Grid.Column="1"
-                   Text="{Binding TokenStoreProblem}"
+                   Text="{Binding Accounts.TokenStoreProblem}"
                    VerticalAlignment="Center"
                    TextWrapping="Wrap"
                    Foreground="{DynamicResource EnigmaForegroundBrush}" />
         <Button Grid.Column="2"
                 Classes="toolbar"
-                Command="{Binding ResetStoredTokensCommand}"
+                Command="{Binding Accounts.ResetStoredTokensCommand}"
                 ToolTip.Tip="Delete every stored token, so each integration can be given its token again"
                 AutomationProperties.Name="Reset stored tokens">
           <TextBlock Text="Reset stored tokens" FontSize="12" />
@@ -316,8 +316,7 @@
             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="Name"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                           Classes="fieldlabel" />
                 <TextBox Text="{Binding GlobalName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          PlaceholderText="Ada Lovelace"
                          AutomationProperties.Name="Global name" />
@@ -325,8 +324,7 @@
 
               <StackPanel Grid.Column="1" Spacing="4">
                 <TextBlock Text="Email"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                           Classes="fieldlabel" />
                 <TextBox Text="{Binding GlobalEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          PlaceholderText="ada@example.com"
                          AutomationProperties.Name="Global email" />
@@ -339,9 +337,7 @@
               <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
                        Foreground="{DynamicResource EnigmaErrorBrush}" />
               <TextBlock Text="{Binding GlobalError}"
-                         FontSize="12"
-                         TextWrapping="Wrap"
-                         Foreground="{DynamicResource EnigmaErrorBrush}" />
+                         Classes="validation" />
             </StackPanel>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -415,7 +411,7 @@
                                        Description="Connected before integrations belonged to a profile. Until one is moved into a profile, no profile uses it"
                                        IconData="{ei:IconGeometry GlobeSimple}"
                                        IsExpanded="True"
-                                       IsVisible="{Binding HasEarlierIntegrations}">
+                                       IsVisible="{Binding Accounts.HasEarlierIntegrations}">
           <StackPanel Spacing="10">
             <TextBlock Text="Add a profile above to give these integrations one."
                        IsVisible="{Binding !HasProfiles}"
@@ -424,7 +420,7 @@
                        Foreground="{DynamicResource EnigmaForegroundTertiaryBrush}" />
 
             <ItemsControl Classes="integrations"
-                          ItemsSource="{Binding EarlierIntegrations}"
+                          ItemsSource="{Binding Accounts.EarlierIntegrations}"
                           ItemTemplate="{StaticResource IntegrationRow}"
                           AutomationProperties.Name="Earlier integrations" />
           </StackPanel>
@@ -441,8 +437,7 @@
             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
               <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="Name"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                           Classes="fieldlabel" />
                 <TextBox Text="{Binding LocalName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          PlaceholderText="Not set: the global name is used"
                          AutomationProperties.Name="This repository's name" />
@@ -450,8 +445,7 @@
 
               <StackPanel Grid.Column="1" Spacing="4">
                 <TextBlock Text="Email"
-                           FontSize="12"
-                           Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                           Classes="fieldlabel" />
                 <TextBox Text="{Binding LocalEmail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          PlaceholderText="Not set: the global email is used"
                          AutomationProperties.Name="This repository's email" />
@@ -464,9 +458,7 @@
               <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
                        Foreground="{DynamicResource EnigmaErrorBrush}" />
               <TextBlock Text="{Binding LocalError}"
-                         FontSize="12"
-                         TextWrapping="Wrap"
-                         Foreground="{DynamicResource EnigmaErrorBrush}" />
+                         Classes="validation" />
             </StackPanel>
 
             <TextBlock Text="{Binding LocalSummary}"

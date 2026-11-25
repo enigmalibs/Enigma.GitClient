@@ -166,7 +166,7 @@ public partial class BranchesPageView : UserControl
     /// </summary>
     private static readonly Cursor Carrying = new(StandardCursorType.DragMove);
 
-    private readonly DispatcherTimer _autoScroll;
+    private readonly EdgeAutoScroll _edgeScroll;
 
     private TreeViewItem? _highlighted;
 
@@ -185,7 +185,6 @@ public partial class BranchesPageView : UserControl
     private IPointer? _captured;
     private Cursor? _listCursor;
     private ScrollViewer? _listScroll;
-    private double _autoScrollBy;
 
     /// <summary>
     /// Initialises a new instance.
@@ -214,10 +213,7 @@ public partial class BranchesPageView : UserControl
 
         BranchTree.SelectionChanged += OnTreeSelectionChanged;
 
-        // A timer, because the pointer stops reporting while it is held still — and a branch held
-        // over the bottom of the list is exactly the gesture that has to keep scrolling.
-        _autoScroll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
-        _autoScroll.Tick += (_, _) => ScrollTowardsTheEdge();
+        _edgeScroll = new EdgeAutoScroll(ListScroll);
     }
 
     /// <summary>
@@ -425,7 +421,7 @@ public partial class BranchesPageView : UserControl
         TreeViewItem? container = RowUnder(e);
 
         Highlight(DropFor(container) is not null ? container : null);
-        FollowTheEdge(e);
+        _edgeScroll.Follow(e);
     }
 
     /// <summary>
@@ -513,7 +509,7 @@ public partial class BranchesPageView : UserControl
         _dragging = null;
 
         Highlight(null);
-        StopScrolling();
+        _edgeScroll.Stop();
 
         BranchTree.Cursor = _listCursor;
         _listCursor = null;
@@ -552,59 +548,6 @@ public partial class BranchesPageView : UserControl
     }
 
     // ---------------------------------------------------------------- scrolling while dragging
-
-    /// <summary>
-    /// Starts, steers or stops the scrolling that a drag held near an edge asks for.
-    /// </summary>
-    private void FollowTheEdge(PointerEventArgs e)
-    {
-        if (ListScroll() is not { } scroll)
-        {
-            StopScrolling();
-            return;
-        }
-
-        _autoScrollBy = BranchDragGesture.ScrollFor(e.GetPosition(scroll).Y, scroll.Viewport.Height);
-
-        if (_autoScrollBy == 0)
-        {
-            StopScrolling();
-            return;
-        }
-
-        if (!_autoScroll.IsEnabled)
-        {
-            _autoScroll.Start();
-        }
-    }
-
-    private void StopScrolling()
-    {
-        _autoScrollBy = 0;
-        _autoScroll.Stop();
-    }
-
-    /// <summary>
-    /// Moves the list by one tick's worth, and stops when there is nothing left that way.
-    /// </summary>
-    private void ScrollTowardsTheEdge()
-    {
-        if (ListScroll() is not { } scroll)
-        {
-            StopScrolling();
-            return;
-        }
-
-        double furthest = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-        double moved = Math.Clamp(scroll.Offset.Y + _autoScrollBy, 0, furthest);
-
-        if (moved == scroll.Offset.Y)
-        {
-            return;
-        }
-
-        scroll.Offset = new Vector(scroll.Offset.X, moved);
-    }
 
     /// <summary>
     /// The branches list's own scroll, once the list has a template to find one in.

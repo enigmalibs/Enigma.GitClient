@@ -63,8 +63,14 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IStartNavigation, StartNavigation>();
             services.AddSingleton<IScreenReader, AvaloniaScreenReader>();
             services.AddSingleton<IWindowPlacer, WindowPlacer>();
+            services.AddSingleton<WindowHostBinder>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
+            services.AddSingleton<IRepositoryCloner, RepositoryCloner>();
+
+            // The launcher reaches the window service only when it launches, through a factory: taking
+            // it in its constructor closes a cycle through the operations that launch (BUG-FACC).
+            services.AddSingleton<Func<IAppWindows>>(provider => provider.GetRequiredService<IAppWindows>);
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<IAboutDialogService, AboutDialogService>();
@@ -79,14 +85,22 @@ public static class ServiceCollectionExtensions
 
             // The automatic refresh measures its interval on this clock, which a test replaces.
             services.TryAddSingleton(TimeProvider.System);
-            services.AddSingleton<IAutoRefreshService, AutoRefreshService>();
+
+            // The two background loops are hosted services: the host starts them and stops them, and
+            // their callers keep the same instance through the interface (ASYNC-02).
+            services.AddSingleton<AutoRefreshService>();
+            services.AddSingleton<IAutoRefreshService>(provider => provider.GetRequiredService<AutoRefreshService>());
+            services.AddHostedService(provider => provider.GetRequiredService<AutoRefreshService>());
             services.AddSingleton<IRemoteTags, RemoteTags>();
 
             // The file-system watcher, on top of it: what changes on disk is refreshed within a second.
             services.AddSingleton<IRepositoryEventSource, FileSystemRepositoryEventSource>();
-            services.AddSingleton<IRepositoryWatcher, RepositoryWatcher>();
+            services.AddSingleton<RepositoryWatcher>();
+            services.AddSingleton<IRepositoryWatcher>(provider => provider.GetRequiredService<RepositoryWatcher>());
+            services.AddHostedService(provider => provider.GetRequiredService<RepositoryWatcher>());
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IWorktreeGuard, WorktreeGuard>();
+            services.AddSingleton<IOperationFeedback, OperationFeedback>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
             services.AddSingleton<ISubmoduleOperations, SubmoduleOperations>();
@@ -128,6 +142,10 @@ public static class ServiceCollectionExtensions
             services.AddTransient<SettingsPageView>();
 
             services.AddSingleton<RepositoriesPageViewModel>();
+            services.AddSingleton<HistoryCommitActions>();
+            services.AddSingleton<HistoryStashActions>();
+            services.AddSingleton<HistoryBranchActions>();
+            services.AddSingleton<HistoryTagActions>();
             services.AddSingleton<HistoryPageViewModel>();
             services.AddSingleton<BranchesPageViewModel>();
             services.AddSingleton<TagsPageViewModel>();
@@ -135,6 +153,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<WorktreesPageViewModel>();
             services.AddSingleton<SubmodulesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
+            services.AddSingleton<HostAccountsViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
 
@@ -155,10 +174,24 @@ public static class ServiceCollectionExtensions
             services.AddTransient<HostRepositoriesDialogView>();
             services.AddTransient<IdentityProfileDialogView>();
 
+            // The singletons that show those dialogs build each view through a factory: a fresh one per
+            // showing, and a constructor that says which views it shows.
+            services.AddSingleton<Func<CloneRepositoryDialogView>>(provider => provider.GetRequiredService<CloneRepositoryDialogView>);
+            services.AddSingleton<Func<InitRepositoryDialogView>>(provider => provider.GetRequiredService<InitRepositoryDialogView>);
+            services.AddSingleton<Func<AddHostAccountDialogView>>(provider => provider.GetRequiredService<AddHostAccountDialogView>);
+            services.AddSingleton<Func<HostRepositoriesDialogView>>(provider => provider.GetRequiredService<HostRepositoriesDialogView>);
+            services.AddSingleton<Func<IdentityProfileDialogView>>(provider => provider.GetRequiredService<IdentityProfileDialogView>);
+
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.
             services.AddTransient<DiffViewerViewModel>();
             services.AddTransient<DiffViewerView>();
+
+            // How a singleton gets a viewer of its own: built outside the container's tracking, so the
+            // owner — which disposes it — is the only thing holding it (SOLID-04). Resolved from the root
+            // provider instead, every viewer would stay referenced by the container until the end.
+            services.AddSingleton<Func<DiffViewerViewModel>>(
+                provider => () => ActivatorUtilities.CreateInstance<DiffViewerViewModel>(provider));
 
             return services;
         }

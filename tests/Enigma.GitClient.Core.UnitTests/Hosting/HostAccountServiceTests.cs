@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Hosting;
 using Enigma.GitClient.Core.Security;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Enigma.GitClient.Core.UnitTests.Hosting;
@@ -17,6 +19,7 @@ public sealed class HostAccountServiceTests : IDisposable
 {
     private readonly string _root;
     private readonly FileTokenStore _tokens;
+    private readonly RecordingLogger _log = new();
     private readonly HostAccountService _accounts;
 
     public HostAccountServiceTests()
@@ -25,7 +28,7 @@ public sealed class HostAccountServiceTests : IDisposable
 
         AppPaths paths = new(_root);
         _tokens = new FileTokenStore(paths, new PlatformDataKeyProtector());
-        _accounts = new HostAccountService(paths, _tokens);
+        _accounts = new HostAccountService(paths, _tokens, _log);
     }
 
     public void Dispose()
@@ -38,6 +41,68 @@ public sealed class HostAccountServiceTests : IDisposable
 
     private static HostAccount Account(HostKind kind = HostKind.GitHub, string uri = "https://github.com")
         => HostAccount.Create(kind, new Uri(uri), "someone", "Someone on GitHub");
+
+    private string AccountsFile => Path.Combine(_root, HostAccountService.FileName);
+
+    // ---------------------------------------------------------------- an unreadable list (EXC-01)
+
+    [Fact]
+    public async Task AnUnreadableList_ListsNoAccount_AndIsKeptAside_WithAWarning()
+    {
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(AccountsFile, "{ \"version\": 2, \"accounts\": [ { trunc", TestContext.Current.CancellationToken);
+
+        Assert.Empty(await _accounts.GetAllAsync(TestContext.Current.CancellationToken));
+
+        // What the file held is not lost: it is beside the list, named as unreadable.
+        string backup = Assert.IsType<string>(_accounts.BackupPath);
+        Assert.False(File.Exists(AccountsFile));
+        Assert.StartsWith("host-accounts.corrupt-", Path.GetFileName(backup), StringComparison.Ordinal);
+        Assert.Equal("{ \"version\": 2, \"accounts\": [ { trunc", await File.ReadAllTextAsync(backup, TestContext.Current.CancellationToken));
+
+        Assert.Contains(_log.Entries, entry => entry.Level == LogLevel.Warning && entry.Exception is System.Text.Json.JsonException);
+        Assert.Contains(_log.Entries, entry => entry.Message.Contains(backup, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AnAccountAddedAfterAnUnreadableList_WritesAFreshList_AndLeavesTheBackup()
+    {
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(AccountsFile, "not json at all", TestContext.Current.CancellationToken);
+
+        await _accounts.AddAsync(Account(), new SecretString("ghp_new"), TestContext.Current.CancellationToken);
+
+        Assert.Single(await _accounts.GetAllAsync(TestContext.Current.CancellationToken));
+        string backup = Assert.IsType<string>(_accounts.BackupPath);
+        Assert.Equal("not json at all", await File.ReadAllTextAsync(backup, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task AReadableList_IsNeverMovedAside()
+    {
+        await _accounts.AddAsync(Account(), new SecretString("ghp_one"), TestContext.Current.CancellationToken);
+
+        Assert.Single(await _accounts.GetAllAsync(TestContext.Current.CancellationToken));
+        Assert.Null(_accounts.BackupPath);
+        Assert.DoesNotContain(_log.Entries, entry => entry.Level >= LogLevel.Warning);
+    }
+
+    /// <summary>
+    /// Keeps what the service logged, for asserting that an unreadable list is said.
+    /// </summary>
+    private sealed class RecordingLogger : ILogger<HostAccountService>
+    {
+        public List<(LogLevel Level, string Message, Exception? Exception)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+            => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception), exception));
+    }
 
     [Fact]
     public async Task AddingAnAccountStoresItAndItsToken()
@@ -80,7 +145,7 @@ public sealed class HostAccountServiceTests : IDisposable
             TestContext.Current.CancellationToken);
 
         AppPaths paths = new(_root);
-        HostAccountService reopened = new(paths, new FileTokenStore(paths, new PlatformDataKeyProtector()));
+        HostAccountService reopened = new(paths, new FileTokenStore(paths, new PlatformDataKeyProtector()), NullLogger<HostAccountService>.Instance);
 
         IReadOnlyList<HostAccount> stored = await reopened.GetAllAsync(TestContext.Current.CancellationToken);
 
@@ -170,7 +235,7 @@ public sealed class HostAccountServiceTests : IDisposable
         await _accounts.AddAsync(account, new SecretString("one"), TestContext.Current.CancellationToken);
 
         AppPaths paths = new(_root);
-        HostAccount stored = Assert.Single(await new HostAccountService(paths, new FileTokenStore(paths, new PlatformDataKeyProtector()))
+        HostAccount stored = Assert.Single(await new HostAccountService(paths, new FileTokenStore(paths, new PlatformDataKeyProtector()), NullLogger<HostAccountService>.Instance)
             .GetAllAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal("work-profile", stored.ProfileId);

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -184,11 +183,11 @@ public sealed class SubmodulesPageViewModel : PageViewModelBase
         _operations = operations;
         _logger = logger;
 
-        OpenCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.OpenAsync(row!.Submodule), row => row?.CanOpen == true);
-        UpdateCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.UpdateAsync([row!.Path]), row => row?.CanUpdate == true);
-        OpenFolderCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.OpenFolderAsync(row!.Submodule), row => row is not null);
-        OpenTerminalCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.OpenTerminalAsync(row!.Submodule), row => row?.CanOpen == true);
-        CopyPathCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.CopyPathAsync(row!.Submodule), row => row is not null);
+        OpenCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenAsync(row.Submodule), row => row?.CanOpen == true);
+        UpdateCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.UpdateAsync([row.Path]), row => row?.CanUpdate == true);
+        OpenFolderCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenFolderAsync(row.Submodule), row => row is not null);
+        OpenTerminalCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenTerminalAsync(row.Submodule), row => row?.CanOpen == true);
+        CopyPathCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.CopyPathAsync(row.Submodule), row => row is not null);
         UpdateAllCommand = new AsyncRelayCommand(() => _operations.UpdateAsync(null), () => Rows.Count > 0);
     }
 
@@ -196,7 +195,7 @@ public sealed class SubmodulesPageViewModel : PageViewModelBase
     public string Title => "Submodules";
 
     /// <summary>Gets every submodule, each followed by the ones nested in it.</summary>
-    public ObservableCollection<SubmoduleRowViewModel> Rows { get; } = [];
+    public RangeObservableCollection<SubmoduleRowViewModel> Rows { get; } = [];
 
     /// <summary>Gets a value indicating whether there is nothing to list.</summary>
     public bool IsEmpty => Rows.Count == 0;
@@ -312,17 +311,18 @@ public sealed class SubmodulesPageViewModel : PageViewModelBase
 
     private void Show(IReadOnlyList<GitSubmodule> submodules, string error)
     {
-        Rows.Clear();
-
         Dictionary<string, int> depths = new(StringComparer.Ordinal);
+        List<SubmoduleRowViewModel> rows = new(submodules.Count);
 
         foreach (GitSubmodule submodule in submodules)
         {
             int depth = submodule.ParentPath is { } parent && depths.TryGetValue(parent, out int parentDepth) ? parentDepth + 1 : 0;
             depths[submodule.Path] = depth;
 
-            Rows.Add(new SubmoduleRowViewModel(this, submodule, depth));
+            rows.Add(new SubmoduleRowViewModel(this, submodule, depth));
         }
+
+        Rows.ReplaceWith(rows);
 
         LoadError = error;
 

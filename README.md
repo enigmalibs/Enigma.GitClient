@@ -10,16 +10,17 @@ Two things matter more than everything else in this app:
 2. **The diff viewer** — colour-coded additions, deletions and intra-line changes, unified or
    side-by-side.
 
-> **What's new in 6.19** — submodules: the *Submodules* dialog, beside *Worktrees*, lists them and
-> where each one stands; a clone downloads them, and they follow every checkout, pull, merge, reset,
-> revert or squash the app performs (*Update submodules automatically* in Settings turns that off); a
-> band says when one is not downloaded or behind; a submodule's change says which way it goes, a
-> commit that moves one back asks first, and a push never publishes a submodule commit no remote has.
-> 6.18 before it: a repository tile on the start window has a menu, opened by a right-click, with what
-> its buttons do, *Copy repository path*, and *Choose an icon…*, which gives the repository a picture
-> or an SVG of its own in place of the folder glyph; the History's search has a bar of its own, under
-> the commands, shown by the *Search* toggle or Ctrl+F; and a disabled menu item's glyph greys with
-> its title.
+> **What's new in 6.20** — fixes from a full review of the code: git, the terminal and the file
+> manager are started by their full path, never looked for in the repository's folder; a changed file
+> that would run is shown in the file manager rather than opened; the tokens, their key and the
+> accounts list are written in one step, and a list that cannot be read is kept aside; a log file, one
+> a day, which the *Something went wrong* dialog names; the conflict page folds long unchanged
+> stretches; and the create and clone dialogs check the disk without stalling.
+> 6.19 before it: submodules: the *Submodules* dialog, beside *Worktrees*, lists them and where each
+> one stands; a clone downloads them, and they follow every checkout, pull, merge, reset, revert or
+> squash the app performs (*Update submodules automatically* in Settings turns that off); a band says
+> when one is not downloaded or behind; a submodule's change says which way it goes, a commit that
+> moves one back asks first, and a push never publishes a submodule commit no remote has.
 > Coming from 5.9? The buttons on the
 > branches', tags' and remotes' rows moved into each line's menu in 6.0, and the automatic refresh
 > runs every 60 seconds: read *Upgrading from 5.9* under 6.0.0. Coming from 5.1.0? The program was
@@ -231,6 +232,15 @@ Everything the client remembers about you lives in one per-user directory —
 | `identity-profiles.json` | Your profiles: a label each, and the name and email it sets, if any |
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 | `repository-icons/` | A copy of each icon you chose for a repository's tile |
+| `logs/` | The application's log, one file a day (`enigma-gitclient-<yyyyMMdd>.log`, UTC), the last 7 days kept — the file to attach to a bug report |
+
+The log records what the client did at the *Information* level, with credentials redacted from every
+line. The *Something went wrong* dialog says where it is. For more detail — every git command it runs,
+for instance — put an `appsettings.json` beside the executable:
+
+```json
+{ "Logging": { "LogLevel": { "Default": "Debug" } } }
+```
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email, make a profile active on the

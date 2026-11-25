@@ -555,19 +555,19 @@ public sealed class CommitRowViewModel : ViewModelBase
             // commit on a detached HEAD is lost at the next checkout.
             if (ResetBranch is { } current)
             {
-                bool resets = commands.ResetSoft is not null && commands.ResetHard is not null;
+                bool resets = commands is { ResetSoft: not null, ResetHard: not null };
 
                 if (resets || commands.Revert is not null)
                 {
                     entries.Add(HistoryMenuEntry.Separator);
                 }
 
-                if (resets)
+                if (commands is { ResetSoft: { } resetSoft, ResetHard: { } resetHard })
                 {
                     HistoryResetRequest request = new(this, current);
 
-                    entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), commands.ResetSoft!, request, PhosphorIcon.ArrowUUpLeft));
-                    entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), commands.ResetHard!, request, PhosphorIcon.ArrowUUpLeft));
+                    entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Soft), resetSoft, request, PhosphorIcon.ArrowUUpLeft));
+                    entries.Add(new HistoryMenuEntry(ResetHeader(current, ResetMode.Hard), resetHard, request, PhosphorIcon.ArrowUUpLeft));
                 }
 
                 if (commands.Revert is { } revert)

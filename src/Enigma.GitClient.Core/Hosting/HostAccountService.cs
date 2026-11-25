@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Security;
+using Microsoft.Extensions.Logging;
 
 namespace Enigma.GitClient.Core.Hosting;
 
@@ -108,6 +109,7 @@ public sealed class HostAccountService : IHostAccountService
 
     private readonly IAppPaths _paths;
     private readonly ITokenStore _tokens;
+    private readonly ILogger<HostAccountService> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <summary>
@@ -115,14 +117,23 @@ public sealed class HostAccountService : IHostAccountService
     /// </summary>
     /// <param name="paths">Where the configuration directory is.</param>
     /// <param name="tokens">Where the tokens are kept.</param>
-    public HostAccountService(IAppPaths paths, ITokenStore tokens)
+    /// <param name="logger">Receives an unreadable list, and where it was kept.</param>
+    public HostAccountService(IAppPaths paths, ITokenStore tokens, ILogger<HostAccountService> logger)
     {
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(tokens);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _paths = paths;
         _tokens = tokens;
+        _logger = logger;
     }
+
+    /// <summary>
+    /// Gets the path the accounts file was moved to when it could not be read, or
+    /// <see langword="null"/> when that has not happened.
+    /// </summary>
+    public string? BackupPath { get; private set; }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<HostAccount>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -342,11 +353,45 @@ public sealed class HostAccountService : IHostAccountService
 
             return document?.Accounts is null ? [] : document.Accounts;
         }
-        catch (JsonException)
+        catch (JsonException exception)
         {
-            // A list that cannot be read is an empty list rather than a broken application: the
-            // tokens are still there, and adding the account again rewrites the file.
+            // A list that cannot be read is an empty list rather than a broken application — but
+            // never a silent one: the next account added would rewrite the file with that account
+            // alone, and every other would be gone for good. The file is moved aside first, so what it
+            // held survives, and the tokens it names are still in the store. A file that cannot be
+            // opened at all is not this: it may be held for an instant by another instance, and moving
+            // it aside would lose a good list, so that failure goes to the caller as before.
+            _logger.LogWarning(exception, "The connected accounts file could not be read; no account is listed");
+
+            Backup(file);
+
             return [];
+        }
+    }
+
+    /// <summary>
+    /// Moves an unreadable accounts file aside rather than letting the next write overwrite it.
+    /// </summary>
+    private void Backup(string file)
+    {
+        try
+        {
+            string stamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+            string backup = Path.Combine(
+                Path.GetDirectoryName(file) ?? string.Empty,
+                $"{Path.GetFileNameWithoutExtension(FileName)}.corrupt-{stamp}.json");
+
+            File.Move(file, backup, overwrite: true);
+
+            BackupPath = backup;
+
+            _logger.LogWarning("The unreadable accounts file was kept as {Backup}", backup);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The list is empty for this session either way; the file stays where it is, and the next
+            // write may replace it — which is said here, where someone looking for the accounts will look.
+            _logger.LogError(exception, "The unreadable accounts file could not be moved aside");
         }
     }
 
@@ -355,24 +400,10 @@ public sealed class HostAccountService : IHostAccountService
         string file = _paths.GetConfigurationFile(FileName);
         string json = JsonSerializer.Serialize(new StoredDocument(CurrentVersion, accounts), SerializerOptions);
 
-        if (OperatingSystem.IsWindows())
-        {
-            File.WriteAllText(file, json);
-            return;
-        }
-
-        // No secrets in here, but it still names the instances a user connects to, which is theirs.
-        using FileStream stream = new(
-            file,
-            new FileStreamOptions
-            {
-                Mode = FileMode.Create,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            });
-
-        stream.Write(Encoding.UTF8.GetBytes(json));
+        // In one step: a write cut short would leave a truncated list, read as no accounts at all.
+        // No secrets in here, but it still names the instances a user connects to, which is theirs —
+        // readable by its owner only, outside Windows.
+        AtomicFile.WriteAllText(file, json, encoding: null, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
 
     /// <summary>

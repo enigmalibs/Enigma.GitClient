@@ -160,7 +160,7 @@ public sealed class RemotesPageViewModel : PageViewModelBase
     public string Title => "Remotes";
 
     /// <summary>Gets the remotes the repository knows about.</summary>
-    public ObservableCollection<RemoteRowViewModel> Remotes { get; } = [];
+    public RangeObservableCollection<RemoteRowViewModel> Remotes { get; } = [];
 
     /// <summary>
     /// Gets or sets the remote the reader has selected.
@@ -263,12 +263,7 @@ public sealed class RemotesPageViewModel : PageViewModelBase
         // Read first, replace after. Clearing before the await lets a second refresh — and one
         // arrives on every state change — interleave with this one and list every remote twice.
         SelectedRemotes.Clear();
-        Remotes.Clear();
-
-        foreach (GitRemote remote in remotes)
-        {
-            Remotes.Add(new RemoteRowViewModel(this, remote, CountBranches(remote.Name)));
-        }
+        Remotes.ReplaceWith(remotes.Select(remote => new RemoteRowViewModel(this, remote, CountBranches(remote.Name))));
 
         SelectedRemote = selected is null
             ? null

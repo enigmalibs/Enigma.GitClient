@@ -6,7 +6,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Enigma.GitClient.Desktop.Services;
 using Enigma.GitClient.Desktop.ViewModels.Pages;
@@ -125,7 +124,7 @@ public partial class RepositoriesPageView : UserControl
     /// </summary>
     private static readonly Cursor Carrying = new(StandardCursorType.DragMove);
 
-    private readonly DispatcherTimer _autoScroll;
+    private readonly EdgeAutoScroll _edgeScroll;
 
     private PendingDrag? _pending;
     private PendingDrag? _dragging;
@@ -136,7 +135,6 @@ public partial class RepositoriesPageView : UserControl
     private double _grab;
     private double _ghostHeight;
     private Point _lastPointer;
-    private double _autoScrollBy;
     private TopLevel? _window;
 
     /// <summary>
@@ -153,10 +151,8 @@ public partial class RepositoriesPageView : UserControl
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerCaptureLostEvent, OnPointerCaptureLost, RoutingStrategies.Tunnel);
 
-        // A timer, because the pointer stops reporting while it is held still — and a row held at the
-        // bottom of a long list is exactly the gesture that has to keep scrolling.
-        _autoScroll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
-        _autoScroll.Tick += (_, _) => ScrollTowardsTheEdge();
+        // After each step, the dashed tile follows the pointer as the rows go by.
+        _edgeScroll = new EdgeAutoScroll(() => RepositoryScroll, OpenTheGap);
     }
 
     /// <summary>
@@ -322,7 +318,7 @@ public partial class RepositoriesPageView : UserControl
         _dragging = null;
 
         Mark(null, before: true);
-        StopScrolling();
+        _edgeScroll.Stop();
 
         DragGhost.IsVisible = false;
         DragGhost.ItemsSource = null;
@@ -393,16 +389,7 @@ public partial class RepositoriesPageView : UserControl
         OpenTheGap();
         MoveTheGhost(pointer);
 
-        _autoScrollBy = BranchDragGesture.ScrollFor(pointer.Y, RepositoryScroll.Bounds.Height);
-
-        if (_autoScrollBy == 0)
-        {
-            StopScrolling();
-        }
-        else if (!_autoScroll.IsEnabled)
-        {
-            _autoScroll.Start();
-        }
+        _edgeScroll.Follow(pointer.Y, RepositoryScroll.Bounds.Height);
     }
 
     /// <summary>
@@ -492,31 +479,6 @@ public partial class RepositoriesPageView : UserControl
         _marked = row;
 
         _marked?.Classes.Set(before ? "insertbefore" : "insertafter", true);
-    }
-
-    private void StopScrolling()
-    {
-        _autoScrollBy = 0;
-        _autoScroll.Stop();
-    }
-
-    /// <summary>
-    /// Moves the list by one tick's worth, and keeps the dashed tile under the pointer as the rows go by.
-    /// </summary>
-    private void ScrollTowardsTheEdge()
-    {
-        double furthest = Math.Max(0, RepositoryScroll.Extent.Height - RepositoryScroll.Viewport.Height);
-        double moved = Math.Clamp(RepositoryScroll.Offset.Y + _autoScrollBy, 0, furthest);
-
-        if (moved == RepositoryScroll.Offset.Y)
-        {
-            return;
-        }
-
-        RepositoryScroll.Offset = new Vector(RepositoryScroll.Offset.X, moved);
-        RepositoryScroll.UpdateLayout();
-
-        OpenTheGap();
     }
 
     /// <summary>

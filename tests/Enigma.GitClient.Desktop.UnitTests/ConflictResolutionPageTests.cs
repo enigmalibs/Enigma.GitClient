@@ -252,6 +252,51 @@ public sealed class ConflictResolutionPageTests
     }
 
     [Fact]
+    public void ALongFile_ShowsOnlyTheContextAroundItsConflict_AndIsWrittenBackWhole()
+    {
+        _fixture.RunAsync(async () =>
+        {
+            using TestServices services = TestServices.Build(useRealRefReader: true);
+            RepositoryHandle repository = await BuildRepositoryAsync(services);
+
+            // 40 agreed lines on either side of the one line both sides changed.
+            string before = string.Concat(Enumerable.Range(1, 40).Select(index => $"before {index}\n"));
+            string after = string.Concat(Enumerable.Range(1, 40).Select(index => $"after {index}\n"));
+            Write(repository, "src/app.txt", before + "middle\n" + after);
+            await CommitAllAsync(repository, "A long file");
+
+            await GitAsync(repository, "checkout", "-b", "theirs");
+            Write(repository, "src/app.txt", before + "their middle\n" + after);
+            await CommitAllAsync(repository, "Their version");
+
+            await GitAsync(repository, "checkout", "main");
+            Write(repository, "src/app.txt", before + "our middle\n" + after);
+            await CommitAllAsync(repository, "Our version");
+
+            await services.Get<IRepositoryContext>().OpenAsync(repository);
+            await services.Get<IMergeOperations>().MergeAsync("theirs");
+            await services.Get<IRepositoryContext>().RefreshAsync();
+
+            ConflictResolutionPageViewModel page = await OpenAsync(services);
+
+            // The diff's three lines of context, on the side of the conflict only.
+            ConflictRegionViewModel start = page.Regions.First();
+            ConflictRegionViewModel end = page.Regions.Last();
+            Assert.True(start.IsStable && end.IsStable);
+            Assert.Empty(start.StableLines);
+            Assert.Equal(["before 38", "before 39", "before 40"], start.StableTailLines.Select(line => line.Text));
+            Assert.Equal("37 unchanged lines", start.FoldedText);
+            Assert.Equal(["after 1", "after 2", "after 3"], end.StableLines.Select(line => line.Text));
+            Assert.Empty(end.StableTailLines);
+
+            page.TakeOursCommand.Execute(FirstConflict(page));
+            await page.SaveCommand.ExecuteAsync(null);
+
+            Assert.Equal(before + "our middle\n" + after, Read(repository, "src/app.txt"));
+        });
+    }
+
+    [Fact]
     public void TakeOurs_KeepsOurVersionAndSaysSo()
     {
         _fixture.RunAsync(async () =>

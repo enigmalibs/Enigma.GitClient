@@ -58,7 +58,7 @@ public sealed class WorkingTreeChangedEventArgs(bool Committed) : EventArgs
 /// a panel nobody is looking at has no reason to run <c>git status</c> at every refresh.
 /// </para>
 /// </remarks>
-public sealed class WorkingTreePanelViewModel : ViewModelBase
+public sealed class WorkingTreePanelViewModel : ViewModelBase, IDisposable
 {
     /// <summary>
     /// How long a subject line should be before it stops reading as a summary.
@@ -214,6 +214,15 @@ public sealed class WorkingTreePanelViewModel : ViewModelBase
 
     /// <summary>Gets the panel holding everything that is.</summary>
     public ChangedFilesPanelViewModel Staged { get; }
+
+    /// <summary>
+    /// Lets go of the two lists it built, which follow the settings until they are disposed.
+    /// </summary>
+    public void Dispose()
+    {
+        Unstaged.Dispose();
+        Staged.Dispose();
+    }
 
     /// <summary>
     /// Gets or sets the commit message.

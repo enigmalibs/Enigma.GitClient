@@ -1,7 +1,9 @@
-using System;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.Primitives;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Enigma.GitClient.Desktop.Controls.Graph;
 
 namespace Enigma.GitClient.Desktop.Controls;
 
@@ -18,19 +20,17 @@ namespace Enigma.GitClient.Desktop.Controls;
 public sealed class AuthorAvatar : TemplatedControl
 {
     /// <summary>
-    /// The palette monograms are tinted from. The same seed always lands on the same colour.
+    /// The graph lanes monograms are tinted from. The same seed always lands on the same lane. The
+    /// colours are the theme's (<c>Themes/Graph.axaml</c>), so an author's colour sits in the history's
+    /// own palette and follows the theme with it. The yellow and the grey lanes are left out: neither
+    /// reads as a person's colour.
     /// </summary>
-    private static readonly Color[] Palette =
-    [
-        Color.Parse("#4E9BF5"),
-        Color.Parse("#57C77E"),
-        Color.Parse("#E8A33D"),
-        Color.Parse("#C77DE0"),
-        Color.Parse("#F2725B"),
-        Color.Parse("#45C2C2"),
-        Color.Parse("#8A9BF5"),
-        Color.Parse("#EF87B5"),
-    ];
+    private static readonly int[] Lanes = [0, 1, 2, 3, 4, 5, 7, 8];
+
+    /// <summary>
+    /// The tint while the theme cannot be reached: a monogram drawn outside the application's resources.
+    /// </summary>
+    private static readonly IBrush NoTheme = Brushes.Gray;
 
     /// <summary>
     /// Defines the <see cref="Initials"/> property.
@@ -50,7 +50,7 @@ public sealed class AuthorAvatar : TemplatedControl
     public static readonly DirectProperty<AuthorAvatar, IBrush> TintProperty =
         AvaloniaProperty.RegisterDirect<AuthorAvatar, IBrush>(nameof(Tint), avatar => avatar.Tint);
 
-    private IBrush _tint = new SolidColorBrush(Palette[0]);
+    private IBrush _tint = NoTheme;
 
     static AuthorAvatar()
         => SeedProperty.Changed.AddClassHandler<AuthorAvatar>((avatar, _) => avatar.UpdateTint());
@@ -103,8 +103,24 @@ public sealed class AuthorAvatar : TemplatedControl
             hash = (hash ^ character) * 16777619;
         }
 
-        return (int)(hash % (uint)Palette.Length);
+        return (int)(hash % (uint)Lanes.Length);
     }
 
-    private void UpdateTint() => Tint = new SolidColorBrush(Palette[IndexFor(Seed)]);
+    /// <inheritdoc />
+    /// <remarks>Where the theme's resources first become reachable.</remarks>
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        UpdateTint();
+    }
+
+    /// <summary>
+    /// Takes the lane brush itself, whose colour follows the theme variant, so a theme switch recolours
+    /// the monogram with nothing to look up again.
+    /// </summary>
+    private void UpdateTint()
+    {
+        string key = "GraphLane" + Lanes[IndexFor(Seed)].ToString(CultureInfo.InvariantCulture) + "Brush";
+        Tint = GraphPalette.Find(this, key) ?? NoTheme;
+    }
 }

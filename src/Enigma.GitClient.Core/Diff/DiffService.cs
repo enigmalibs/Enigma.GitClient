@@ -319,6 +319,13 @@ public sealed class DiffService : IDiffService
     /// The commit a stash entry keeps its untracked files in: its third parent, a root commit whose
     /// tree holds only them. Read as a commit, every file in it is an addition.
     /// </summary>
+    /// <summary>
+    /// The commit a target names, which <see cref="DiffTarget"/>'s factories always set for the kinds
+    /// that name one.
+    /// </summary>
+    private static string Named(string? reference)
+        => reference ?? throw new InvalidOperationException("A commit, range or stash target always names its commits.");
+
     private static DiffTarget UntrackedHalf(DiffTarget stash)
         => DiffTarget.Commit($"{stash.From}^3");
 
@@ -487,24 +494,24 @@ public sealed class DiffService : IDiffService
         switch (target.Kind)
         {
             case DiffTargetKind.Commit when useShow:
-                arguments.Add(target.From!);
+                arguments.Add(Named(target.From));
                 break;
 
             case DiffTargetKind.Commit:
                 arguments.Add($"{target.From}^{(target.ParentIndex + 1).ToString(CultureInfo.InvariantCulture)}");
-                arguments.Add(target.From!);
+                arguments.Add(Named(target.From));
                 break;
 
             case DiffTargetKind.Range:
-                arguments.Add(target.From!);
-                arguments.Add(target.To!);
+                arguments.Add(Named(target.From));
+                arguments.Add(Named(target.To));
                 break;
 
             // The tracked half: the work tree the entry recorded, against the commit it was made on.
             // Its untracked files are read from its third parent, as a commit of their own.
             case DiffTargetKind.Stash:
                 arguments.Add($"{target.From}^1");
-                arguments.Add(target.From!);
+                arguments.Add(Named(target.From));
                 break;
 
             case DiffTargetKind.Staged:

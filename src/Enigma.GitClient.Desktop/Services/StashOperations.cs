@@ -69,7 +69,7 @@ public sealed class StashOperations : IStashOperations
     private readonly IRepositoryContext _context;
     private readonly IStashService _stashes;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<StashOperations> _logger;
 
     /// <summary>
@@ -77,26 +77,23 @@ public sealed class StashOperations : IStashOperations
     /// </summary>
     /// <param name="context">The open repository.</param>
     /// <param name="stashes">The stash engine.</param>
-    /// <param name="dialogs">Asks the questions.</param>
-    /// <param name="infoBar">Says how it went.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Records what failed.</param>
     public StashOperations(
         IRepositoryContext context,
         IStashService stashes,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<StashOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(stashes);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _stashes = stashes;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -145,11 +142,11 @@ public sealed class StashOperations : IStashOperations
 
         if (!stashed)
         {
-            _infoBar.Notify("Nothing to stash", "There are no uncommitted changes to put aside.", InfoBarSeverity.Warning);
+            _feedback.Report("Nothing to stash", "There are no uncommitted changes to put aside.", InfoBarSeverity.Warning);
             return false;
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "Changes stashed",
             "Your uncommitted work is on the stash as \"stash@{0}\", and the working tree is clean.",
             InfoBarSeverity.Success);
@@ -223,7 +220,7 @@ public sealed class StashOperations : IStashOperations
 
         if (result == StashApplyResult.Conflicted)
         {
-            _infoBar.Notify(
+            _feedback.Report(
                 "The stash applied with conflicts",
                 $"Some changes of \"{name}\" conflict with the files as they are. Resolve them from the history's uncommitted line; the stash is kept, so none of its work is lost.",
                 InfoBarSeverity.Warning);
@@ -231,7 +228,7 @@ public sealed class StashOperations : IStashOperations
             return true;
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             pop ? "Stash popped" : "Stash applied",
             pop
                 ? $"The changes of \"{name}\" are uncommitted changes again, and the stash is gone."
@@ -258,13 +255,13 @@ public sealed class StashOperations : IStashOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            _infoBar.Notify(failureTitle, refusal.Message, InfoBarSeverity.Warning);
+            _feedback.Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            _infoBar.Notify(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(failureTitle, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -272,19 +269,5 @@ public sealed class StashOperations : IStashOperations
         }
 
         return false;
-    }
-
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -399,14 +400,32 @@ public sealed class TokenStoreTests : IDisposable
     {
         await _store.SetAsync("host:one", new SecretString("lost"), TestContext.Current.CancellationToken);
         byte[] oldKey = File.ReadAllBytes(KeyFile);
-        FileTokenStore refusing = Refusing();
 
-        await refusing.ResetAsync(TestContext.Current.CancellationToken);
-        await refusing.SetAsync("host:one", new SecretString("typed again"), TestContext.Current.CancellationToken);
+        // The store that cannot open its key is the one reset: that is the situation the reset is for.
+        await Refusing().ResetAsync(TestContext.Current.CancellationToken);
+
+        // The secret typed again is sealed and read by the same, real protector — DPAPI on Windows, so
+        // the key is never one a fake protector left unsealed (TEST-02).
+        await _store.SetAsync("host:one", new SecretString("typed again"), TestContext.Current.CancellationToken);
 
         // A fresh key: the one the refusing store could not open is gone.
         Assert.NotEqual(oldKey, File.ReadAllBytes(KeyFile));
-        Assert.Equal("typed again", (await _store.TryGetAsync("host:one", TestContext.Current.CancellationToken))!.Reveal());
+        SecretString secret = Assert.IsType<SecretString>(await _store.TryGetAsync("host:one", TestContext.Current.CancellationToken));
+        Assert.Equal("typed again", secret.Reveal());
+    }
+
+    [Fact]
+    public async Task TheKeyAndTheSecrets_AreReplacedInOneStep_LeavingNothingBeside()
+    {
+        await _store.SetAsync("host:one", new SecretString("first"), TestContext.Current.CancellationToken);
+        await _store.SetAsync("host:two", new SecretString("second"), TestContext.Current.CancellationToken);
+
+        // Written through a temporary file that is moved into place: no partial file, and no
+        // temporary left behind once it has been.
+        Assert.Equal(
+            [TokenFile, KeyFile],
+            Directory.GetFiles(_root).Order(StringComparer.Ordinal));
+        Assert.Equal("second", (await _store.TryGetAsync("host:two", TestContext.Current.CancellationToken))!.Reveal());
     }
 
     [Fact]

@@ -48,6 +48,7 @@
               </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Open file"
+                      IsVisible="{Binding !IsRunnable}"
                       Command="{Binding OpenFileCommand}"
                       CommandParameter="{Binding}">
               <MenuItem.Icon>
@@ -165,8 +166,7 @@
         <TextBlock Grid.Column="0"
                    Text="{Binding Summary}"
                    VerticalAlignment="Center"
-                   FontSize="12"
-                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                   Classes="fieldlabel" />
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
           <!-- The tree's own: a list has no folders to open or close. -->

@@ -1341,7 +1341,7 @@ public sealed class RepositoriesPageTests
     [Fact]
     public void CloneDialog_ValidatesTheUrlAndSuggestsTheDirectoryName()
     {
-        _fixture.Run(() =>
+        _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
 
@@ -1353,6 +1353,7 @@ public sealed class RepositoriesPageTests
             Assert.False(model.IsValid);
 
             model.Url = "https://github.com/owner/repository.git";
+            await model.ValidateNowAsync();
 
             Assert.Equal("repository", model.DirectoryName);
             Assert.True(model.IsValid);
@@ -1439,7 +1440,7 @@ public sealed class RepositoriesPageTests
     [Fact]
     public void CloneDialog_RefusesADirectoryThatAlreadyHasContent()
     {
-        _fixture.Run(() =>
+        _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
 
@@ -1456,6 +1457,8 @@ public sealed class RepositoriesPageTests
                 DirectoryName = "occupied",
             };
 
+            await model.ValidateNowAsync();
+
             Assert.False(model.IsValid);
             Assert.Contains("not empty", model.ValidationMessage, StringComparison.OrdinalIgnoreCase);
         });
@@ -1464,7 +1467,7 @@ public sealed class RepositoriesPageTests
     [Fact]
     public void InitDialog_ValidatesTheBranchName()
     {
-        _fixture.Run(() =>
+        _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
 
@@ -1475,13 +1478,17 @@ public sealed class RepositoriesPageTests
                 DirectoryName = "my-project",
             };
 
+            await model.ValidateNowAsync();
             Assert.True(model.IsValid);
             Assert.Equal("main", model.InitialBranch);
 
+            // A field problem is said at once, with no disk check to wait for.
             model.InitialBranch = "has a space";
             Assert.False(model.IsValid);
+            Assert.Equal("That is not a valid branch name.", model.ValidationMessage);
 
             model.InitialBranch = "feature/nested-name";
+            await model.ValidateNowAsync();
             Assert.True(model.IsValid);
         });
     }
@@ -1512,7 +1519,7 @@ public sealed class RepositoriesPageTests
     [Fact]
     public void InitDialog_RefusesADirectoryThatIsAlreadyARepository()
     {
-        _fixture.Run(() =>
+        _fixture.RunAsync(async () =>
         {
             using TestServices services = TestServices.Build();
 
@@ -1525,6 +1532,8 @@ public sealed class RepositoriesPageTests
             {
                 DirectoryName = "already",
             };
+
+            await model.ValidateNowAsync();
 
             Assert.False(model.IsValid);
             Assert.Contains("already a git repository", model.ValidationMessage, StringComparison.OrdinalIgnoreCase);

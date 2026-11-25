@@ -86,7 +86,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
     private readonly IFolderDialogService _folderDialogs;
     private readonly IInstanceLauncher _launcher;
     private readonly ISystemInterop _interop;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ISubmoduleOperations? _submodules;
     private readonly ILogger<WorktreeOperations> _logger;
 
@@ -96,43 +96,40 @@ public sealed class WorktreeOperations : IWorktreeOperations
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="worktrees">Creates, probes and removes the worktree.</param>
     /// <param name="branches">Reads whether a worktree's branch is merged, and deletes it when asked.</param>
-    /// <param name="dialogs">Raises the form and the confirmation.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="folderDialogs">Raises the form's folder picker.</param>
     /// <param name="launcher">Opens a worktree in another instance.</param>
     /// <param name="interop">Opens a worktree's folder or a terminal in it.</param>
-    /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     /// <param name="submodules">Downloads a new worktree's submodules before its window opens.</param>
     public WorktreeOperations(
         IRepositoryContext context,
         IWorktreeService worktrees,
         IBranchService branches,
-        IContentDialogService dialogs,
+        IOperationFeedback feedback,
         IFolderDialogService folderDialogs,
         IInstanceLauncher launcher,
         ISystemInterop interop,
-        IInfoBarService infoBar,
         ILogger<WorktreeOperations> logger,
         ISubmoduleOperations? submodules = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(worktrees);
         ArgumentNullException.ThrowIfNull(branches);
-        ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(interop);
-        ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _worktrees = worktrees;
         _branches = branches;
-        _dialogs = dialogs;
+        _dialogs = feedback.Dialogs;
         _folderDialogs = folderDialogs;
         _launcher = launcher;
         _interop = interop;
-        _infoBar = infoBar;
+        _feedback = feedback;
         _logger = logger;
         _submodules = submodules;
     }
@@ -211,14 +208,14 @@ public sealed class WorktreeOperations : IWorktreeOperations
 
         if (open && !_launcher.Launch(folder))
         {
-            _infoBar.Notify(
+            _feedback.Report(
                 "No new window",
                 $"The worktree is in '{folder}', but another instance of Enigma.GitClient could not be started to open it.",
                 InfoBarSeverity.Error);
         }
         else
         {
-            _infoBar.Notify("Worktree created", $"\"{branch}\" is checked out in '{folder}'.", InfoBarSeverity.Success);
+            _feedback.Report("Worktree created", $"\"{branch}\" is checked out in '{folder}'.", InfoBarSeverity.Success);
         }
 
         return true;
@@ -246,7 +243,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            _infoBar.Notify(failureTitle, refusal.Message, InfoBarSeverity.Warning);
+            _feedback.Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
             return false;
         }
 
@@ -294,14 +291,14 @@ public sealed class WorktreeOperations : IWorktreeOperations
 
         if (branch is not null && branchFailure is not null)
         {
-            _infoBar.Notify(
+            _feedback.Report(
                 "Worktree removed",
                 $"'{worktree.Path}' is gone, but the branch \"{branch}\" was not deleted: {branchFailure}",
                 InfoBarSeverity.Warning);
         }
         else
         {
-            _infoBar.Notify(
+            _feedback.Report(
                 "Worktree removed",
                 branch is null ? $"'{worktree.Path}' is gone." : $"'{worktree.Path}' is gone and \"{branch}\" is deleted.",
                 InfoBarSeverity.Success);
@@ -340,7 +337,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Reading the worktree at {Path} failed", worktree.Path);
-            _infoBar.Notify(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(failureTitle, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
             return null;
         }
         catch (OperationCanceledException)
@@ -388,7 +385,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Deleting {Branch} after removing its worktree failed", branch);
-            return FirstLine(exception.StandardError);
+            return OperationFeedback.FirstLine(exception.StandardError);
         }
     }
 
@@ -404,7 +401,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
             return Task.FromResult(true);
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "No new window",
             $"Another instance of Enigma.GitClient could not be started to open '{worktree.Path}'.",
             InfoBarSeverity.Error);
@@ -423,7 +420,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
             return true;
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "The folder did not open",
             $"Nothing on this desktop opened '{worktree.Path}'.",
             InfoBarSeverity.Warning);
@@ -441,7 +438,7 @@ public sealed class WorktreeOperations : IWorktreeOperations
             return true;
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "No terminal started",
             $"No terminal could be started in '{worktree.Path}'.",
             InfoBarSeverity.Warning);
@@ -481,13 +478,13 @@ public sealed class WorktreeOperations : IWorktreeOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            _infoBar.Notify(failureTitle, refusal.Message, InfoBarSeverity.Warning);
+            _feedback.Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            _infoBar.Notify(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(failureTitle, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -495,20 +492,6 @@ public sealed class WorktreeOperations : IWorktreeOperations
         }
 
         return false;
-    }
-
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
     }
 
     /// <summary>

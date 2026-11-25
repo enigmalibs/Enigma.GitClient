@@ -52,17 +52,10 @@ public sealed class GitProcessRunner : IGitProcessRunner
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        (int exitCode, string standardOutput, string standardError, TimeSpan duration) =
-            await RunCoreAsync(command, cancellationToken).ConfigureAwait(false);
+        GitRun<string> run = await RunProcessAsync(command, ReadOutputAsync, ReadErrorAsync, cancellationToken)
+            .ConfigureAwait(false);
 
-        GitResult result = new(exitCode, standardOutput, standardError, duration);
-
-        if (throwOnError && !result.IsSuccess)
-        {
-            throw new GitCommandException(command, exitCode, standardError, standardOutput);
-        }
-
-        return result;
+        return ToResult(command, run, throwOnError);
     }
 
     /// <inheritdoc />
@@ -73,14 +66,14 @@ public sealed class GitProcessRunner : IGitProcessRunner
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        (int exitCode, byte[] standardOutput, string standardError, TimeSpan duration) =
-            await RunRawCoreAsync(command, cancellationToken).ConfigureAwait(false);
+        GitRun<byte[]> run = await RunProcessAsync(command, ReadOutputBytesAsync, ReadErrorAsync, cancellationToken)
+            .ConfigureAwait(false);
 
-        GitRawResult result = new(exitCode, standardOutput, standardError, duration);
+        GitRawResult result = new(run.ExitCode, run.StandardOutput, run.StandardError, run.Duration);
 
         if (throwOnError && !result.IsSuccess)
         {
-            throw new GitCommandException(command, exitCode, standardError, string.Empty);
+            throw new GitCommandException(command, run.ExitCode, run.StandardError, string.Empty);
         }
 
         return result;
@@ -95,37 +88,14 @@ public sealed class GitProcessRunner : IGitProcessRunner
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        long startedAt = Stopwatch.GetTimestamp();
-        using Process process = StartProcess(command);
+        GitRun<string> run = await RunProcessAsync(
+                command,
+                ReadOutputAsync,
+                (process, token) => ReadChunksAsync(process.StandardError, standardErrorChunks, token),
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        try
-        {
-            Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            Task<string> errorTask = ReadChunksAsync(process.StandardError, standardErrorChunks, cancellationToken);
-
-            await WriteStandardInputAsync(process, command, cancellationToken).ConfigureAwait(false);
-
-            string standardOutput = await outputTask.ConfigureAwait(false);
-            string standardError = await errorTask.ConfigureAwait(false);
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-            TimeSpan duration = Stopwatch.GetElapsedTime(startedAt);
-            LogCompletion(command, process.ExitCode, duration);
-
-            GitResult result = new(process.ExitCode, standardOutput, standardError, duration);
-
-            if (throwOnError && !result.IsSuccess)
-            {
-                throw new GitCommandException(command, process.ExitCode, standardError, standardOutput);
-            }
-
-            return result;
-        }
-        catch (OperationCanceledException)
-        {
-            KillQuietly(process);
-            throw;
-        }
+        return ToResult(command, run, throwOnError);
     }
 
     /// <summary>
@@ -192,8 +162,26 @@ public sealed class GitProcessRunner : IGitProcessRunner
         return result.SplitOutput(separator);
     }
 
-    private async Task<(int ExitCode, string StandardOutput, string StandardError, TimeSpan Duration)> RunCoreAsync(
+    /// <summary>
+    /// Runs git once: starts it, hands its standard input over, reads both of its outputs to the end,
+    /// waits for it to exit and logs how it went — and kills it when the run is cancelled.
+    /// </summary>
+    /// <typeparam name="TOutput">What the standard output is read as: text, or the raw bytes.</typeparam>
+    /// <param name="command">The command.</param>
+    /// <param name="readOutput">Reads the standard output to its end.</param>
+    /// <param name="readError">Reads the standard error to its end.</param>
+    /// <param name="cancellationToken">Cancels the run, and kills the process.</param>
+    /// <returns>What the run came to.</returns>
+    /// <remarks>
+    /// Every public entry point goes through here and differs only in its two readers, so the shared
+    /// part — the hand-over of standard input, the kill on cancellation, the completion log — exists
+    /// once. Both readers start before standard input is written: a process that fills a pipe nobody
+    /// reads blocks, and with it the write.
+    /// </remarks>
+    private async Task<GitRun<TOutput>> RunProcessAsync<TOutput>(
         GitCommand command,
+        Func<Process, CancellationToken, Task<TOutput>> readOutput,
+        Func<Process, CancellationToken, Task<string>> readError,
         CancellationToken cancellationToken)
     {
         long startedAt = Stopwatch.GetTimestamp();
@@ -201,19 +189,19 @@ public sealed class GitProcessRunner : IGitProcessRunner
 
         try
         {
-            Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            Task<TOutput> outputTask = readOutput(process, cancellationToken);
+            Task<string> errorTask = readError(process, cancellationToken);
 
             await WriteStandardInputAsync(process, command, cancellationToken).ConfigureAwait(false);
 
-            string standardOutput = await outputTask.ConfigureAwait(false);
+            TOutput standardOutput = await outputTask.ConfigureAwait(false);
             string standardError = await errorTask.ConfigureAwait(false);
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
             TimeSpan duration = Stopwatch.GetElapsedTime(startedAt);
             LogCompletion(command, process.ExitCode, duration);
 
-            return (process.ExitCode, standardOutput, standardError, duration);
+            return new GitRun<TOutput>(process.ExitCode, standardOutput, standardError, duration);
         }
         catch (OperationCanceledException)
         {
@@ -222,36 +210,40 @@ public sealed class GitProcessRunner : IGitProcessRunner
         }
     }
 
-    private async Task<(int ExitCode, byte[] StandardOutput, string StandardError, TimeSpan Duration)> RunRawCoreAsync(
-        GitCommand command,
-        CancellationToken cancellationToken)
+    private static Task<string> ReadOutputAsync(Process process, CancellationToken cancellationToken)
+        => process.StandardOutput.ReadToEndAsync(cancellationToken);
+
+    private static Task<string> ReadErrorAsync(Process process, CancellationToken cancellationToken)
+        => process.StandardError.ReadToEndAsync(cancellationToken);
+
+    private static async Task<byte[]> ReadOutputBytesAsync(Process process, CancellationToken cancellationToken)
     {
-        long startedAt = Stopwatch.GetTimestamp();
-        using Process process = StartProcess(command);
+        using MemoryStream buffer = new();
+        await process.StandardOutput.BaseStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
 
-        try
-        {
-            using MemoryStream buffer = new();
-            Task copyTask = process.StandardOutput.BaseStream.CopyToAsync(buffer, cancellationToken);
-            Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-            await WriteStandardInputAsync(process, command, cancellationToken).ConfigureAwait(false);
-
-            await copyTask.ConfigureAwait(false);
-            string standardError = await errorTask.ConfigureAwait(false);
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-
-            TimeSpan duration = Stopwatch.GetElapsedTime(startedAt);
-            LogCompletion(command, process.ExitCode, duration);
-
-            return (process.ExitCode, buffer.ToArray(), standardError, duration);
-        }
-        catch (OperationCanceledException)
-        {
-            KillQuietly(process);
-            throw;
-        }
+        return buffer.ToArray();
     }
+
+    /// <summary>
+    /// The text result of a run, or the exception that says it failed.
+    /// </summary>
+    private static GitResult ToResult(GitCommand command, GitRun<string> run, bool throwOnError)
+    {
+        GitResult result = new(run.ExitCode, run.StandardOutput, run.StandardError, run.Duration);
+
+        if (throwOnError && !result.IsSuccess)
+        {
+            throw new GitCommandException(command, run.ExitCode, run.StandardError, run.StandardOutput);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// What one run of git came to, before it is shaped into a result.
+    /// </summary>
+    /// <typeparam name="TOutput">What the standard output was read as.</typeparam>
+    private readonly record struct GitRun<TOutput>(int ExitCode, TOutput StandardOutput, string StandardError, TimeSpan Duration);
 
     private Process StartProcess(GitCommand command)
     {
@@ -286,8 +278,11 @@ public sealed class GitProcessRunner : IGitProcessRunner
         }
         catch (Win32Exception exception)
         {
+            // The native error goes along as the inner exception: "not found", "access denied" and
+            // "not a program" are three different fixes, and only its code tells them apart.
             throw new GitNotFoundException(
-                $"The git executable at '{_executable.Path}' could not be started: {exception.Message}");
+                $"The git executable at '{_executable.Path}' could not be started: {exception.Message}",
+                exception);
         }
     }
 

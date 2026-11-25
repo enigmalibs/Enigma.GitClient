@@ -69,7 +69,7 @@ public sealed class SquashOperations : ISquashOperations
     private readonly ISquashService _squash;
     private readonly IStatusService _status;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<SquashOperations> _logger;
 
     /// <summary>
@@ -78,29 +78,26 @@ public sealed class SquashOperations : ISquashOperations
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="squash">Reads the range and performs the squash.</param>
     /// <param name="status">Says whether conflicts are waiting to be resolved.</param>
-    /// <param name="dialogs">Shows the squash dialog.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public SquashOperations(
         IRepositoryContext context,
         ISquashService squash,
         IStatusService status,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<SquashOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(squash);
         ArgumentNullException.ThrowIfNull(status);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _squash = squash;
         _status = status;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -116,7 +113,7 @@ public sealed class SquashOperations : ISquashOperations
 
         if (Refuse(_context.Head) is { } refusal)
         {
-            Report(Failure, refusal, InfoBarSeverity.Warning);
+            _feedback.Report(Failure, refusal, InfoBarSeverity.Warning);
             return null;
         }
 
@@ -152,13 +149,13 @@ public sealed class SquashOperations : ISquashOperations
         }
         catch (GitOperationRefusedException exception)
         {
-            Report(Failure, exception.Message, InfoBarSeverity.Warning);
+            _feedback.Report(Failure, exception.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Squashing {Base}..{Tip} onto {Branch} failed", preview.BaseSha, preview.TipSha, request.BranchName);
 
-            Report(Failure, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(Failure, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -201,7 +198,7 @@ public sealed class SquashOperations : ISquashOperations
 
             if (status.HasConflicts)
             {
-                Report(Failure, "This repository has unresolved conflicts. Resolve them first.", InfoBarSeverity.Warning);
+                _feedback.Report(Failure, "This repository has unresolved conflicts. Resolve them first.", InfoBarSeverity.Warning);
                 return null;
             }
 
@@ -211,13 +208,13 @@ public sealed class SquashOperations : ISquashOperations
         }
         catch (GitOperationRefusedException exception)
         {
-            Report(Failure, exception.Message, InfoBarSeverity.Warning);
+            _feedback.Report(Failure, exception.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Reading the squash range {Base}..{Tip} failed", candidate.Base.Sha, candidate.Tip.Sha);
 
-            Report(Failure, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(Failure, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -236,7 +233,7 @@ public sealed class SquashOperations : ISquashOperations
             : $"\"{candidate.TipBranches[0]}\" is untouched and still holds them; deleting it later warns about unmerged commits — that is expected.";
         string switched = outcome.CheckedOut ? $" You are on \"{outcome.BranchName}\" now." : string.Empty;
 
-        Report($"Squashed into \"{outcome.BranchName}\"", $"{replaced} {original}{switched}", InfoBarSeverity.Success);
+        _feedback.Report($"Squashed into \"{outcome.BranchName}\"", $"{replaced} {original}{switched}", InfoBarSeverity.Success);
     }
 
     private List<string> ExistingNames()
@@ -287,20 +284,4 @@ public sealed class SquashOperations : ISquashOperations
     private static string CountCommits(int commits)
         => commits == 1 ? "1 commit" : $"{commits.ToString(CultureInfo.CurrentCulture)} commits";
 
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
-    }
-
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 }

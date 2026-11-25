@@ -18,6 +18,7 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
 {
     private readonly IFolderDialogService _folderDialogs;
     private readonly IRepositoryService _repositories;
+    private readonly DebouncedProbe<string> _targetProbe;
 
     /// <summary>
     /// Initialises a new instance.
@@ -29,15 +30,37 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
         IFolderDialogService folderDialogs,
         IRepositoryService repositories,
         string defaultParentDirectory)
+        : this(folderDialogs, repositories, defaultParentDirectory, TimeProvider.System, ProbeTarget)
+    {
+    }
+
+    /// <summary>
+    /// Initialises a new instance with its own clock and disk check, for the tests.
+    /// </summary>
+    /// <param name="folderDialogs">Raises the "choose a folder" picker.</param>
+    /// <param name="repositories">Validates the URL.</param>
+    /// <param name="defaultParentDirectory">Where the clone is created unless the user changes it.</param>
+    /// <param name="time">Measures the delay before the disk check.</param>
+    /// <param name="probe">Checks the target on disk: the reason it cannot be used, or an empty string.</param>
+    internal CloneRepositoryDialogViewModel(
+        IFolderDialogService folderDialogs,
+        IRepositoryService repositories,
+        string defaultParentDirectory,
+        TimeProvider time,
+        Func<string, string> probe)
     {
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(repositories);
 
         _folderDialogs = folderDialogs;
         _repositories = repositories;
+        _targetProbe = new DebouncedProbe<string>(probe, time);
 
         ParentDirectory = defaultParentDirectory;
         BrowseCommand = new AsyncRelayCommand(OnBrowseAsync);
+
+        // Also when the default left the parent directory as it was, which raised nothing.
+        Revalidate();
     }
 
     /// <summary>
@@ -50,14 +73,15 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref field, value))
             {
-                RaiseValidation();
-
-                // Keep the suggested directory name in step with the URL until the user types one.
+                // Keep the suggested directory name in step with the URL until the user types one —
+                // before the check, so the fields are checked as they now stand.
                 if (!_directoryNameEdited)
                 {
                     DirectoryName = value.Trim().Length == 0 ? string.Empty : CloneRequest.DeriveDirectoryName(value);
                     _directoryNameEdited = false;
                 }
+
+                Revalidate();
             }
         }
     } = string.Empty;
@@ -72,7 +96,7 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
         {
             if (SetProperty(ref field, value))
             {
-                RaiseValidation();
+                Revalidate();
             }
         }
     } = string.Empty;
@@ -88,7 +112,7 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
             if (SetProperty(ref field, value))
             {
                 _directoryNameEdited = true;
-                RaiseValidation();
+                Revalidate();
             }
         }
     } = string.Empty;
@@ -130,41 +154,14 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
     public bool RecurseSubmodules { get; set => SetProperty(ref field, value); } = true;
 
     /// <summary>
-    /// Gets the reason the dialog cannot be confirmed, empty when it can.
+    /// Gets the reason the dialog cannot be confirmed, empty when it can, while the disk is checked, or
+    /// before a URL is typed.
     /// </summary>
-    public string ValidationMessage
-    {
-        get
-        {
-            RemoteUrlValidation validation = _repositories.ValidateCloneUrl(Url);
-
-            if (!validation.IsValid)
-            {
-                return Url.Trim().Length == 0 ? string.Empty : validation.Message;
-            }
-
-            if (ParentDirectory.Trim().Length == 0)
-            {
-                return "Choose where the clone should be created.";
-            }
-
-            if (DirectoryName.Trim().Length == 0)
-            {
-                return "Give the new directory a name.";
-            }
-
-            if (DirectoryName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            {
-                return "That directory name contains characters the file system does not allow.";
-            }
-
-            string target = Path.Combine(ParentDirectory, DirectoryName);
-
-            return Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()
-                ? $"'{target}' already exists and is not empty."
-                : string.Empty;
-        }
-    }
+    /// <remarks>
+    /// Worked out once per change of a field. The fields are checked at once; the target on disk is
+    /// checked off the UI thread, a short while after the last change.
+    /// </remarks>
+    public string ValidationMessage { get; private set; } = string.Empty;
 
     /// <summary>
     /// Gets a value indicating whether there is something to show in the validation line.
@@ -172,10 +169,10 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
     public bool HasValidationMessage => ValidationMessage.Length > 0;
 
     /// <summary>
-    /// Gets a value indicating whether the dialog can be confirmed.
+    /// Gets a value indicating whether the dialog can be confirmed: the fields are usable and the disk
+    /// check has answered that the target is too.
     /// </summary>
-    public bool IsValid
-        => _repositories.ValidateCloneUrl(Url).IsValid && ValidationMessage.Length == 0;
+    public bool IsValid { get; private set; }
 
     /// <summary>
     /// Gets the absolute path the clone will occupy, shown under the fields so there is no surprise.
@@ -213,8 +210,80 @@ public sealed class CloneRepositoryDialogViewModel : ViewModelBase
 
     private bool _directoryNameEdited;
 
-    private void RaiseValidation()
+    /// <summary>
+    /// Runs the pending disk check now and waits for its answer, after which <see cref="IsValid"/> is
+    /// final. The confirm path awaits it, so a fast Enter cannot skip the check.
+    /// </summary>
+    /// <returns>A task that completes once no check is pending.</returns>
+    public Task ValidateNowAsync() => _targetProbe.FlushAsync();
+
+    /// <summary>
+    /// The disk check: whether the target already holds something. Runs on the thread pool.
+    /// </summary>
+    private static string ProbeTarget(string target)
     {
+        try
+        {
+            return Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any()
+                ? $"'{target}' already exists and is not empty."
+                : string.Empty;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return $"'{target}' exists but cannot be read.";
+        }
+    }
+
+    /// <summary>
+    /// What is wrong with the fields themselves, if anything.
+    /// </summary>
+    /// <returns>
+    /// <see langword="null"/> when the fields are usable; otherwise the message to show, which is empty
+    /// for a URL not typed yet.
+    /// </returns>
+    private string? FieldProblem()
+    {
+        RemoteUrlValidation validation = _repositories.ValidateCloneUrl(Url);
+
+        if (!validation.IsValid)
+        {
+            return Url.Trim().Length == 0 ? string.Empty : validation.Message;
+        }
+
+        if (ParentDirectory.Trim().Length == 0)
+        {
+            return "Choose where the clone should be created.";
+        }
+
+        if (DirectoryName.Trim().Length == 0)
+        {
+            return "Give the new directory a name.";
+        }
+
+        return DirectoryName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            ? "That directory name contains characters the file system does not allow."
+            : null;
+    }
+
+    private void Revalidate()
+    {
+        if (FieldProblem() is { } problem)
+        {
+            _targetProbe.Cancel();
+            Publish(problem, isValid: false);
+            return;
+        }
+
+        // Until the disk answers, the dialog cannot be confirmed, and says nothing about a target that
+        // is no longer the one typed.
+        Publish(string.Empty, isValid: false);
+        _targetProbe.Start(Path.Combine(ParentDirectory, DirectoryName), answer => Publish(answer, isValid: answer.Length == 0));
+    }
+
+    private void Publish(string message, bool isValid)
+    {
+        ValidationMessage = message;
+        IsValid = isValid;
         OnPropertyChanged(nameof(ValidationMessage));
         OnPropertyChanged(nameof(HasValidationMessage));
         OnPropertyChanged(nameof(IsValid));

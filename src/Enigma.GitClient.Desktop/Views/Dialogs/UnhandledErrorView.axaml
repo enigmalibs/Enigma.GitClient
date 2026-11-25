@@ -38,6 +38,15 @@
                HorizontalAlignment="Left"
                Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
 
+    <!-- Selectable, so the folder can be copied into a file manager's address bar. -->
+    <SelectableTextBlock Name="LogText"
+                         Text="{Binding LogText}"
+                         IsVisible="{Binding HasLogText}"
+                         TextWrapping="Wrap"
+                         MaxWidth="560"
+                         HorizontalAlignment="Left"
+                         Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+
     <!-- Collapsed: the details are for a bug report, not for reading. Selectable, so a part of them
          can be copied too, and bounded, so a long stack scrolls inside the dialog. -->
     <Expander Name="DetailsExpander"

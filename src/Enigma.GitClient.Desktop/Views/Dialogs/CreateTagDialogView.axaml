@@ -9,8 +9,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Tag name"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox x:Name="NameBox"
                Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                PlaceholderText="1.0.0"
@@ -19,8 +18,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Point it at"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <ComboBox ItemsSource="{Binding Targets}"
                 SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"
                 HorizontalAlignment="Stretch"
@@ -43,8 +41,7 @@
 
     <StackPanel Spacing="4">
       <TextBlock Text="Message (optional)"
-                 FontSize="12"
-                 Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                 Classes="fieldlabel" />
       <TextBox Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                AcceptsReturn="True"
                TextWrapping="Wrap"
@@ -63,9 +60,7 @@
       <ei:Icon Kind="Warning" Size="14" VerticalAlignment="Top"
                Foreground="{DynamicResource EnigmaErrorBrush}" />
       <TextBlock Text="{Binding ValidationMessage}"
-                 FontSize="12"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource EnigmaErrorBrush}" />
+                 Classes="validation" />
     </StackPanel>
   </StackPanel>
 </UserControl>

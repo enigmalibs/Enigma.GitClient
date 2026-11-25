@@ -126,7 +126,7 @@ public static class FileTreeBuilder
     {
         if (!node.IsDirectory)
         {
-            ChangedFile change = node.Change!;
+            ChangedFile change = node.Change ?? throw new InvalidOperationException("A file node always carries its change.");
             return new FileTreeNode(node.Name, node.FullPath, false, [], change, FileTreeCounts.ForFile(change));
         }
 

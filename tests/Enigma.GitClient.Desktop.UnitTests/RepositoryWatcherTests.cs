@@ -292,12 +292,19 @@ public sealed class RepositoryWatcherTests
         {
             using Harness harness = Harness.Create(watch: false);
 
+            // The watcher decides on the repository's event, which has run once the dispatcher is idle.
             await harness.Context.OpenAsync(Handle("watched"));
-            await Task.Delay(50);
             harness.Settle();
 
             Assert.Equal(0, harness.Source.Attempts);
             Assert.False(harness.Watcher.IsWatching);
+
+            // The same repository is watched as soon as the setting allows it: the setting alone kept
+            // the watch from starting, not a decision still to come.
+            harness.Services.Get<ISettingsService>().Update(current => current with { WatchFileSystem = true });
+            await harness.UntilAsync(() => harness.Watcher.IsWatching);
+
+            Assert.Equal(1, harness.Source.Attempts);
         });
     }
 
@@ -374,6 +381,10 @@ public sealed class RepositoryWatcherTests
                 Source,
                 services.Clock,
                 Logger);
+
+            // As the application's host does: nothing is watched until it is started (ASYNC-02). The
+            // start subscribes and schedules, synchronously.
+            Watcher.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
 
         public TestServices Services { get; }

@@ -28,7 +28,7 @@ public enum HostAccountTokenState
 /// </summary>
 public sealed class HostAccountRowViewModel : ViewModelBase
 {
-    private readonly ProfilesPageViewModel _owner;
+    private readonly HostAccountsViewModel _owner;
 
     /// <summary>
     /// Initialises a new instance.
@@ -42,7 +42,7 @@ public sealed class HostAccountRowViewModel : ViewModelBase
     /// </param>
     /// <param name="tokenState">Whether its token is there, and can be read.</param>
     public HostAccountRowViewModel(
-        ProfilesPageViewModel owner,
+        HostAccountsViewModel owner,
         HostAccount account,
         IRepositoryHostProvider? provider,
         IReadOnlyList<IdentityProfile>? moveTargets = null,

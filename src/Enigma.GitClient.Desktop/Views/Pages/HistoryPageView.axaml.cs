@@ -22,7 +22,7 @@ public partial class HistoryPageView : UserControl
 {
     private static readonly Cursor Carrying = new(StandardCursorType.DragMove);
 
-    private readonly DispatcherTimer _autoScroll;
+    private readonly EdgeAutoScroll _edgeScroll;
 
     private HistoryPageViewModel? _page;
     private ScrollViewer? _listScroll;
@@ -36,7 +36,6 @@ public partial class HistoryPageView : UserControl
     private IPointer? _captured;
     private Cursor? _listCursor;
     private RefBadge? _highlighted;
-    private double _autoScrollBy;
 
     // A plain press on the line that is already selected, which lets go of it when it is released on
     // the same line without having become a drag.
@@ -84,10 +83,7 @@ public partial class HistoryPageView : UserControl
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerCaptureLostEvent, OnPointerCaptureLost, RoutingStrategies.Tunnel);
 
-        // The pointer stops reporting while it is held still, and a branch held over the bottom of the
-        // list is exactly the gesture that has to keep scrolling.
-        _autoScroll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
-        _autoScroll.Tick += (_, _) => ScrollTowardsTheEdge();
+        _edgeScroll = new EdgeAutoScroll(() => _listScroll);
     }
 
     /// <summary>
@@ -537,7 +533,7 @@ public partial class HistoryPageView : UserControl
         RefBadge? badge = BadgeUnder(e);
 
         Highlight(DropFor(badge) is not null ? badge : null);
-        FollowTheEdge(e);
+        _edgeScroll.Follow(e);
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -592,7 +588,7 @@ public partial class HistoryPageView : UserControl
         _dragging = null;
 
         Highlight(null);
-        StopScrolling();
+        _edgeScroll.Stop();
 
         CommitList.Cursor = _listCursor;
         _listCursor = null;
@@ -680,51 +676,6 @@ public partial class HistoryPageView : UserControl
         _highlighted?.Classes.Set("droptarget", false);
         _highlighted = badge;
         _highlighted?.Classes.Set("droptarget", true);
-    }
-
-    private void FollowTheEdge(PointerEventArgs e)
-    {
-        if (_listScroll is not { } scroll)
-        {
-            StopScrolling();
-            return;
-        }
-
-        _autoScrollBy = BranchDragGesture.ScrollFor(e.GetPosition(scroll).Y, scroll.Viewport.Height);
-
-        if (_autoScrollBy == 0)
-        {
-            StopScrolling();
-            return;
-        }
-
-        if (!_autoScroll.IsEnabled)
-        {
-            _autoScroll.Start();
-        }
-    }
-
-    private void StopScrolling()
-    {
-        _autoScrollBy = 0;
-        _autoScroll.Stop();
-    }
-
-    private void ScrollTowardsTheEdge()
-    {
-        if (_listScroll is not { } scroll)
-        {
-            StopScrolling();
-            return;
-        }
-
-        double furthest = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-        double moved = Math.Clamp(scroll.Offset.Y + _autoScrollBy, 0, furthest);
-
-        if (moved != scroll.Offset.Y)
-        {
-            scroll.Offset = new Vector(scroll.Offset.X, moved);
-        }
     }
 
     /// <summary>

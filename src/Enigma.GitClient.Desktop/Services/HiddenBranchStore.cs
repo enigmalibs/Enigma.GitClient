@@ -200,7 +200,7 @@ public sealed class HiddenBranchStore : IHiddenBranchStore
            && value.AsSpan().IndexOfAny("*?[ \t\n") < 0;
 
     private static IReadOnlySet<string> ToSet(IEnumerable<string?> entries)
-        => entries.Where(IsRefName).Select(entry => entry!).ToHashSet(StringComparer.Ordinal);
+        => entries.OfType<string>().Where(IsRefName).ToHashSet(StringComparer.Ordinal);
 
     private static string Normalise(string path)
         => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
