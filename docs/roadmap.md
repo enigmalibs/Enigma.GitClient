@@ -453,7 +453,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE21        | [Medium] STYLE-01 Null-forgiving removed | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE22        | [Medium] SOLID-03 Split SubmoduleService | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE23        | [Medium] SOLID-02 Shared clone flow      | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE24        | [Medium] SOLID-02 History ref commands   | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE24        | [Medium] SOLID-02 History ref commands   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE25        | [Medium] SOLID-02 History row commands   | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE26        | [Medium] SOLID-03 History search, stash  | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE27        | [Medium] SOLID-02 Profiles page split    | TODO        | (in CODE-REVIEW-6E56.md)      |

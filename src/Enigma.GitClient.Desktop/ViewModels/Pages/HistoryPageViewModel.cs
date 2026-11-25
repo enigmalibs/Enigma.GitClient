@@ -36,21 +36,18 @@ namespace Enigma.GitClient.Desktop.ViewModels.Pages;
 /// which is the query's own default scope, with every parent of every merge followed: there is no
 /// switch to narrow it to the current branch or to first parents.
 /// </remarks>
-public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
+public sealed class HistoryPageViewModel : PageViewModelBase, IHistoryRefHost, IDisposable
 {
     private readonly ICommitLogReader _reader;
     private readonly IWorkingTreeProbe _workingTree;
     private readonly IDiffService _diffs;
     private readonly IBranchOperations _branchOperations;
     private readonly IWorktreeOperations _worktreeOperations;
-    private readonly ITagOperations _tagOperations;
     private readonly IRemoteTags _remoteTags;
     private readonly ICheckoutOperations _checkoutOperations;
     private readonly IResetOperations _resetOperations;
     private readonly IRevertOperations _revertOperations;
     private readonly ISquashOperations _squashOperations;
-    private readonly IBranchDropOperations _dropOperations;
-    private readonly ISyncOperations _syncOperations;
     private readonly IHostLinkService _links;
     private readonly ISettingsService _settings;
     private readonly IToolDialogService _tools;
@@ -119,8 +116,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
     /// <param name="resetOperations">Moves the branch that is checked out to a line's commit.</param>
     /// <param name="revertOperations">Records a commit undoing a line's commit on the branch that is checked out.</param>
     /// <param name="squashOperations">Squashes the commits since the squash base onto a new branch.</param>
-    /// <param name="dropOperations">Merges one branch into another, checking the destination out first.</param>
-    /// <param name="syncOperations">Pulls and pushes a branch from its badge, and pushes a tag from its own.</param>
+    /// <param name="branchActions">What a branch badge's menu does, and the drop of one badge on another.</param>
+    /// <param name="tagActions">Creates a tag on a line; pushes and deletes one from its badge.</param>
     /// <param name="tools">Opens the branches, tags and remotes over the history.</param>
     /// <param name="hidden">The branches left out of the graph, and their badges with them.</param>
     /// <param name="details">Shows a commit's title, description, author, date and hash.</param>
@@ -140,13 +137,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         ISystemInterop interop,
         IBranchOperations branchOperations,
         IWorktreeOperations worktreeOperations,
-        ITagOperations tagOperations,
         ICheckoutOperations checkoutOperations,
         IResetOperations resetOperations,
         IRevertOperations revertOperations,
         ISquashOperations squashOperations,
-        IBranchDropOperations dropOperations,
-        ISyncOperations syncOperations,
+        HistoryBranchActions branchActions,
+        HistoryTagActions tagActions,
         IHostLinkService links,
         ISettingsService settings,
         Func<DiffViewerViewModel> diffViewers,
@@ -168,13 +164,12 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(branchOperations);
         ArgumentNullException.ThrowIfNull(worktreeOperations);
-        ArgumentNullException.ThrowIfNull(tagOperations);
         ArgumentNullException.ThrowIfNull(checkoutOperations);
         ArgumentNullException.ThrowIfNull(resetOperations);
         ArgumentNullException.ThrowIfNull(revertOperations);
         ArgumentNullException.ThrowIfNull(squashOperations);
-        ArgumentNullException.ThrowIfNull(dropOperations);
-        ArgumentNullException.ThrowIfNull(syncOperations);
+        ArgumentNullException.ThrowIfNull(branchActions);
+        ArgumentNullException.ThrowIfNull(tagActions);
         ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(diffViewers);
@@ -196,13 +191,10 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         Diff = diffViewers();
         _branchOperations = branchOperations;
         _worktreeOperations = worktreeOperations;
-        _tagOperations = tagOperations;
         _checkoutOperations = checkoutOperations;
         _resetOperations = resetOperations;
         _revertOperations = revertOperations;
         _squashOperations = squashOperations;
-        _dropOperations = dropOperations;
-        _syncOperations = syncOperations;
         _links = links;
         _settings = settings;
         _tools = tools;
@@ -236,52 +228,16 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
 
         ClearMergeSourceCommand = new RelayCommand(() => MergeSource = null, () => MergeSource is not null);
 
-        BranchCommands = new HistoryBranchCommands(
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnCheckoutBranchAsync, branch => branch?.CanCheckout == true),
-            new RelayCommand<HistoryBranchViewModel>(OnSetMergeSource, branch => branch?.CanSetAsMergeSource == true),
+        BranchCommands = branchActions.CreateCommands(
+            this,
             ClearMergeSourceCommand,
-            // "Merge" records a merge commit even when a fast-forward would do, which is what sets it
-            // apart from the fast-forward-only item beside it.
-            new AsyncRelayCommand<HistoryBranchViewModel>(
-                branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.Never),
-                branch => branch?.CanMergeInto == true),
-            new AsyncRelayCommand<HistoryBranchViewModel>(
-                branch => OnMergeIntoAsync(branch, Core.Merging.FastForwardMode.Only),
-                branch => branch?.CanMergeInto == true),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnMergeIntoCurrentAsync, branch => branch?.CanMergeIntoCurrent == true),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnDeleteBranchAsync, branch => branch?.CanDelete == true),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnPullBranchAsync, branch => branch?.CanSynchronise == true),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnPushBranchAsync, branch => branch?.CanSynchronise == true),
-            () => MergeSource,
             () => RepositoryContext.Head is { IsDetached: false } head ? head.BranchName : null,
             CopyCommand,
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnCreateWorktreeFromBranchAsync, branch => branch is not null),
-
-            // The worktree that has the branch: opened anywhere but where its folder has gone, and
-            // removed unless it is the main working tree.
-            new HistoryWorktreeCommands(
-                RepositoryContext.WorktreeOf,
-                new AsyncRelayCommand<HistoryBranchViewModel>(
-                    branch => branch is { Worktree: { } worktree } ? _worktreeOperations.OpenAsync(worktree) : Task.CompletedTask,
-                    branch => branch?.Worktree is { IsMissing: false }),
-                new AsyncRelayCommand<HistoryBranchViewModel>(
-                    branch => branch is { Worktree: { } worktree } ? _worktreeOperations.OpenFolderAsync(worktree) : Task.CompletedTask,
-                    branch => branch?.Worktree is { IsMissing: false }),
-                new AsyncRelayCommand<HistoryBranchViewModel>(
-                    branch => branch is { Worktree: { } worktree } ? _worktreeOperations.OpenTerminalAsync(worktree) : Task.CompletedTask,
-                    branch => branch?.Worktree is { IsMissing: false }),
-                new AsyncRelayCommand<HistoryBranchViewModel>(
-                    OnRemoveWorktreeAsync,
-                    branch => branch?.CanRemoveWorktree == true)),
-            new AsyncRelayCommand<HistoryBranchViewModel>(OnRenameBranchAsync, branch => branch?.CanRename == true),
-
-            // Both or neither: git refuses to delete the branch HEAD is on, and deleting only its
-            // remote is the item above it.
-            new AsyncRelayCommand<HistoryBranchViewModel>(
-                OnDeleteBranchWithRemoteAsync,
-                branch => branch is { CanDeleteWithRemote: true, CanDelete: true }));
+            RepositoryContext.WorktreeOf);
 
         ClearSquashBaseCommand = new RelayCommand(() => SquashBase = null, () => SquashBase is not null);
+
+        HistoryTagCommands tags = tagActions.CreateCommands(this);
 
         // A stash is not a commit anyone builds on, so it is no base; the squash itself is offered only
         // where the base is on the line's first-parent line, which the loaded lines answer at once.
@@ -297,7 +253,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         RowCommands = new HistoryRowCommands(
             new AsyncRelayCommand<CommitRowViewModel>(OnCreateBranchHereAsync, HasCommit),
             new AsyncRelayCommand<CommitRowViewModel>(OnCheckoutCommitAsync, HasCommit),
-            new AsyncRelayCommand<CommitRowViewModel>(OnCreateTagHereAsync, HasCommit),
+            tags.CreateHere,
             new RelayCommand<CommitRowViewModel>(OnShowChanges, row => row is not null),
             new AsyncRelayCommand<CommitRowViewModel>(OnOpenOnHostAsync, HasCommit),
             () => _links.HostName,
@@ -322,9 +278,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
             DiscardUncommitted: new AsyncRelayCommand<CommitRowViewModel>(
                 _ => OnDiscardUncommittedAsync(),
                 row => row is { IsUncommitted: true } && _discards.CanDiscardUncommitted),
-            PushTag: new AsyncRelayCommand<string>(OnPushTagAsync, tag => !string.IsNullOrEmpty(tag)),
-            DeleteTag: new AsyncRelayCommand<string>(OnDeleteTagAsync, tag => !string.IsNullOrEmpty(tag)),
-            DeleteRemoteTag: new AsyncRelayCommand<string>(OnDeleteRemoteTagAsync, tag => !string.IsNullOrEmpty(tag)),
+            PushTag: tags.Push,
+            DeleteTag: tags.Delete,
+            DeleteRemoteTag: tags.DeleteRemote,
             Revert: new AsyncRelayCommand<CommitRowViewModel>(OnRevertAsync, HasCommit),
             CreateWorktreeHere: new AsyncRelayCommand<CommitRowViewModel>(OnCreateWorktreeHereAsync, HasCommit),
             Squash: SquashCommands);
@@ -333,12 +289,8 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
 
         // "Merge" records a merge commit even when a fast-forward would do; "fast-forward only" beside
         // it is how a branch is moved without one — the two items of the drop menu.
-        MergeDropCommand = new AsyncRelayCommand<HistoryBranchDrop>(
-            drop => OnDropAsync(drop, Core.Merging.FastForwardMode.Never),
-            drop => drop?.CanDrop == true);
-        FastForwardDropCommand = new AsyncRelayCommand<HistoryBranchDrop>(
-            drop => OnDropAsync(drop, Core.Merging.FastForwardMode.Only),
-            drop => drop?.CanDrop == true);
+        MergeDropCommand = branchActions.CreateDropCommand(this, Core.Merging.FastForwardMode.Never);
+        FastForwardDropCommand = branchActions.CreateDropCommand(this, Core.Merging.FastForwardMode.Only);
 
         Files = new ChangedFilesPanelViewModel(interop, settings)
         {
@@ -2326,155 +2278,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         }
     }
 
-    // ---------------------------------------------------------------- a branch's own menu
-
-    private async Task OnCreateWorktreeFromBranchAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is null)
-        {
-            return;
-        }
-
-        if (await _worktreeOperations.CreateAsync(branch.Name, branch.Name).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Removes the worktree that has a branch checked out, and reloads the history as a branch
-    /// deletion does: its badge loses the tree, and the branch may be gone with it.
-    /// </summary>
-    private async Task OnRemoveWorktreeAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch?.Worktree is not { } worktree)
-        {
-            return;
-        }
-
-        if (await _worktreeOperations.RemoveAsync(worktree).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnCheckoutBranchAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is null)
-        {
-            return;
-        }
-
-        if (await _branchOperations.CheckoutAsync(branch.Name, branch.IsRemote).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnRenameBranchAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is not { CanRename: true })
-        {
-            return;
-        }
-
-        if (await _branchOperations.RenameAsync(branch.Name).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnDeleteBranchAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is null)
-        {
-            return;
-        }
-
-        if (await _branchOperations.DeleteAsync(branch.Name, branch.IsRemote).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Deletes a branch and the upstream its badge draws with it, as one batch: one question naming both
-    /// and whatever would be lost, then both deletes, one reading of the repository and one report.
-    /// </summary>
-    private async Task OnDeleteBranchWithRemoteAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is not { CanDeleteWithRemote: true, Remote: { } remote })
-        {
-            return;
-        }
-
-        BranchToDelete[] both = [new(branch.Name, IsRemote: false), new(remote.Name, IsRemote: true)];
-
-        if (await _branchOperations.DeleteAsync(both).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnPullBranchAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is { CanSynchronise: true } && await _syncOperations.PullBranchAsync(branch.Name).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnPushBranchAsync(HistoryBranchViewModel? branch)
-    {
-        // A push moves the remote-tracking branch, which the graph draws too.
-        if (branch is { CanSynchronise: true } && await _syncOperations.PushBranchAsync(branch.Name).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Pushes a tag from its badge, then asks the remote again so the badge draws its cloud.
-    /// </summary>
-    /// <remarks>
-    /// No reload afterwards: a pushed tag moves nothing the graph draws — there is no remote-tracking
-    /// reference for a tag — and the operation re-reads the repository's state as every exclusive
-    /// operation does.
-    /// </remarks>
-    private async Task OnPushTagAsync(string? tag)
-    {
-        if (tag is { Length: > 0 } && await _syncOperations.PushTagAsync(tag).ConfigureAwait(true))
-        {
-            await _remoteTags.RefreshAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Deletes a tag here, from its badge, and re-reads the history so the badge goes.
-    /// </summary>
-    private async Task OnDeleteTagAsync(string? tag)
-    {
-        if (tag is { Length: > 0 } && await _tagOperations.DeleteAsync(tag).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Deletes a tag from the remote, from its badge, then asks the remote again so the badge loses its
-    /// cloud.
-    /// </summary>
-    /// <remarks>
-    /// No reload, as for the push: the tag here stays.
-    /// </remarks>
-    private async Task OnDeleteRemoteTagAsync(string? tag)
-    {
-        if (tag is { Length: > 0 } && await _tagOperations.DeleteRemoteAsync(tag).ConfigureAwait(true))
-        {
-            await _remoteTags.RefreshAsync().ConfigureAwait(true);
-        }
-    }
-
     /// <summary>
     /// Draws every loaded tag badge with what the remote now says, and measures the Refs column again:
     /// a cloud makes a badge wider.
@@ -2491,63 +2294,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         if (changed)
         {
             RecalculateRefColumnWidth();
-        }
-    }
-
-    private void OnSetMergeSource(HistoryBranchViewModel? branch)
-    {
-        if (branch is not null)
-        {
-            MergeSource = new MergeSource(branch.Name, branch.IsRemote);
-        }
-    }
-
-    /// <summary>
-    /// Merges the merge source into a branch, through the same flow as dropping one branch on another:
-    /// the branch is checked out first when it is not the current one.
-    /// </summary>
-    private async Task OnMergeIntoAsync(HistoryBranchViewModel? branch, Core.Merging.FastForwardMode fastForward)
-    {
-        if (branch?.MergeRequest is not { } request || !BranchDropOperations.CanDrop(request))
-        {
-            return;
-        }
-
-        if (await _dropOperations.DropAsync(request, fastForward).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    /// <summary>
-    /// Merges a branch into the one checked out — the question the row's menu used to be able to ask of
-    /// only one branch per line.
-    /// </summary>
-    private async Task OnDropAsync(HistoryBranchDrop? drop, Core.Merging.FastForwardMode fastForward)
-    {
-        if (drop is not { CanDrop: true })
-        {
-            return;
-        }
-
-        if (await _dropOperations.DropAsync(drop.Request, fastForward).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-    }
-
-    private async Task OnMergeIntoCurrentAsync(HistoryBranchViewModel? branch)
-    {
-        if (branch is null || !branch.CanMergeIntoCurrent || BranchCommands.CurrentBranch() is not { } current)
-        {
-            return;
-        }
-
-        BranchDropRequest request = new(branch.Name, branch.IsRemote, current, false, true);
-
-        if (await _dropOperations.DropAsync(request, Core.Merging.FastForwardMode.Never).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
         }
     }
 
@@ -2780,19 +2526,6 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         }
 
         SquashBase = null;
-    }
-
-    private async Task OnCreateTagHereAsync(CommitRowViewModel? row)
-    {
-        if (row?.Commit is null)
-        {
-            return;
-        }
-
-        if (await _tagOperations.CreateAsync(row.Sha, row.ShortSha).ConfigureAwait(true))
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
     }
 
     /// <summary>

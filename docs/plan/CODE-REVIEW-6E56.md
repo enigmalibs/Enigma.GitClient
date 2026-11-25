@@ -590,7 +590,7 @@ Locations: `RepositoriesPageViewModel.cs:106`, `ProfilesPageViewModel.cs:205`.
 ## PHASE24 — [Medium] SOLID-02 History ref commands
 
 **Branch:** `review/code-review-6e56-phase24-history-ref-commands`
-**Status:** TODO
+**Status:** DONE
 
 Location: `HistoryPageViewModel.cs:132`, the branch-badge and tag commands.
 

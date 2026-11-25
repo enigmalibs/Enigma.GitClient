@@ -251,6 +251,23 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
+    public void TheHistorysRefActions_AreItsCollaborators_AndItNoLongerTakesTheirOperations()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.Same(provider.GetRequiredService<HistoryBranchActions>(), provider.GetRequiredService<HistoryBranchActions>());
+        Assert.Same(provider.GetRequiredService<HistoryTagActions>(), provider.GetRequiredService<HistoryTagActions>());
+
+        Type[] taken = [.. typeof(HistoryPageViewModel).GetConstructors().Single().GetParameters().Select(parameter => parameter.ParameterType)];
+
+        Assert.Contains(typeof(HistoryBranchActions), taken);
+        Assert.Contains(typeof(HistoryTagActions), taken);
+        Assert.DoesNotContain(typeof(ITagOperations), taken);
+        Assert.DoesNotContain(typeof(IBranchDropOperations), taken);
+        Assert.DoesNotContain(typeof(ISyncOperations), taken);
+    }
+
+    [Fact]
     public void TheCloner_IsOneSharedService()
     {
         using ServiceProvider provider = BuildProvider();
