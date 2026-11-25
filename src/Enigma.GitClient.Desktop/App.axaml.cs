@@ -11,6 +11,7 @@ using Enigma.GitClient.Desktop.Controls.Diff;
 using Enigma.GitClient.Desktop.DependencyInjection;
 using Enigma.GitClient.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -141,11 +142,29 @@ public partial class App : Application
             ContentRootPath = AppContext.BaseDirectory,
         });
 
-        builder.Logging.SetMinimumLevel(LogLevel.Information);
-
+        ConfigureLogging(builder.Logging);
         ConfigureServices(builder.Services);
 
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Sets the application's logging up: <see cref="LogLevel.Information"/> unless the
+    /// configuration's <c>Logging</c> section says otherwise, and the log files.
+    /// </summary>
+    /// <param name="logging">The host's logging builder.</param>
+    /// <remarks>
+    /// The configuration is an <c>appsettings.json</c> beside the executable, read by the host
+    /// builder. The files are the one sink a user can reach: a WinExe's console goes nowhere, and no
+    /// debugger is attached in the field. They are set up here and not in
+    /// <see cref="ConfigureServices"/>, so a test container never writes log files.
+    /// </remarks>
+    internal static void ConfigureLogging(ILoggingBuilder logging)
+    {
+        ArgumentNullException.ThrowIfNull(logging);
+
+        logging.SetMinimumLevel(LogLevel.Information);
+        logging.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, FileLoggerProvider>());
     }
 
     /// <summary>

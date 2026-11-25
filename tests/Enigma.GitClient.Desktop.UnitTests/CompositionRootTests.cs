@@ -233,4 +233,18 @@ public sealed class CompositionRootTests
         Assert.NotNull(host.Services.GetRequiredService<IRepositoryContext>());
         Assert.NotNull(host.Services.GetRequiredService<IGitEnvironment>());
     }
+
+    [Fact]
+    public void TheApplicationLogsToAFile_AndATestContainerNever()
+    {
+        // The descriptors only: a provider resolved here would aim at the developer's own
+        // configuration directory.
+        ServiceCollection application = new();
+        application.AddLogging(App.ConfigureLogging);
+        ServiceCollection services = new();
+        App.ConfigureServices(services);
+
+        Assert.Contains(application, descriptor => descriptor.ServiceType == typeof(ILoggerProvider) && descriptor.ImplementationType == typeof(FileLoggerProvider));
+        Assert.DoesNotContain(services, descriptor => descriptor.ImplementationType == typeof(FileLoggerProvider));
+    }
 }

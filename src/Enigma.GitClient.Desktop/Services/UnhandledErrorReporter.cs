@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Security;
 using Enigma.GitClient.Desktop.ViewModels.Dialogs;
 using Enigma.GitClient.Desktop.Views.Dialogs;
@@ -61,6 +62,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
     private readonly IContentDialogService _dialogs;
     private readonly ISystemInterop _interop;
     private readonly ITokenRecovery _recovery;
+    private readonly IAppPaths _paths;
     private readonly ILogger<UnhandledErrorReporter> _logger;
     private readonly UnhandledErrorPolicy _policy;
 
@@ -82,6 +84,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
     /// <param name="dialogs">Shows the dialog on that window.</param>
     /// <param name="interop">Copies the details to the clipboard.</param>
     /// <param name="recovery">Offers the reset when the error is stored tokens that cannot be read.</param>
+    /// <param name="paths">Where the log files are, which the dialog says.</param>
     /// <param name="time">Measures how long ago an error was seen.</param>
     /// <param name="logger">Receives every exception, in full.</param>
     public UnhandledErrorReporter(
@@ -89,6 +92,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
         IContentDialogService dialogs,
         ISystemInterop interop,
         ITokenRecovery recovery,
+        IAppPaths paths,
         TimeProvider time,
         ILogger<UnhandledErrorReporter> logger)
     {
@@ -96,6 +100,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(interop);
         ArgumentNullException.ThrowIfNull(recovery);
+        ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -103,6 +108,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
         _dialogs = dialogs;
         _interop = interop;
         _recovery = recovery;
+        _paths = paths;
         _logger = logger;
         _policy = new UnhandledErrorPolicy(time);
 
@@ -182,7 +188,11 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
         {
             UnhandledErrorView view = new()
             {
-                DataContext = new UnhandledErrorViewModel(batch, _interop, tokens is null ? null : _recovery.Describe(tokens)),
+                DataContext = new UnhandledErrorViewModel(
+                    batch,
+                    _interop,
+                    tokens is null ? null : _recovery.Describe(tokens),
+                    FileLoggerProvider.DirectoryIn(_paths)),
             };
 
             answer = await _dialogs.ShowAsync(dialog =>

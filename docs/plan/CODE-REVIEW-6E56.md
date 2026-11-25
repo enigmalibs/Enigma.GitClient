@@ -338,7 +338,7 @@ Locations: `AutoRefreshService.cs:147`, `:295`, `RepositoryWatcher.cs:126`, `:19
 ## PHASE13 — [Medium] LOG-01 Rolling log file
 
 **Branch:** `review/code-review-6e56-phase13-rolling-log-file`
-**Status:** TODO
+**Status:** DONE
 
 Location: `Desktop/App.axaml.cs:137-148`.
 

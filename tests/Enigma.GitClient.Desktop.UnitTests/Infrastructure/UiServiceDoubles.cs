@@ -7,6 +7,7 @@ using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Screens;
 using Enigma.GitClient.Desktop.Services;
 
@@ -556,4 +557,23 @@ public sealed class RecordingTokenRecovery : ITokenRecovery
     /// <inheritdoc />
     public Task<Enigma.GitClient.Core.Security.TokenStoreStatus> CheckAsync(System.Threading.CancellationToken cancellationToken = default)
         => Task.FromResult(Status);
+}
+
+/// <summary>
+/// An <see cref="IAppPaths"/> at a fixed directory that is never created, for a test that only needs
+/// to know where things would be.
+/// </summary>
+public sealed class FixedAppPaths : IAppPaths
+{
+    /// <summary>
+    /// Initialises a new instance.
+    /// </summary>
+    /// <param name="configurationDirectory">The directory to report.</param>
+    public FixedAppPaths(string configurationDirectory) => ConfigurationDirectory = configurationDirectory;
+
+    /// <inheritdoc />
+    public string ConfigurationDirectory { get; }
+
+    /// <inheritdoc />
+    public string GetConfigurationFile(string fileName) => System.IO.Path.Combine(ConfigurationDirectory, fileName);
 }

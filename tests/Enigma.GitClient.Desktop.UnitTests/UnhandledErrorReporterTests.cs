@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -40,8 +41,10 @@ public sealed class UnhandledErrorReporterTests
 
         public RecordingTokenRecovery Recovery { get; } = new();
 
+        public FixedAppPaths Paths { get; } = new(Path.Combine(Path.GetTempPath(), "enigma-config"));
+
         public UnhandledErrorReporter Build(IContentDialogService? dialogs = null)
-            => new(Windows, dialogs ?? Dialogs, Interop, Recovery, Clock, Logger);
+            => new(Windows, dialogs ?? Dialogs, Interop, Recovery, Paths, Clock, Logger);
     }
 
     private static Exception Thrown(string message)
@@ -87,6 +90,35 @@ public sealed class UnhandledErrorReporterTests
             Assert.Contains("still running", model.Lead, StringComparison.Ordinal);
             Assert.False(model.HasMore);
         });
+    }
+
+    [Fact]
+    public void TheDialog_SaysWhereTheLogFilesAre()
+    {
+        _fixture.Run(() =>
+        {
+            Harness harness = new();
+            UnhandledErrorReporter reporter = harness.Build();
+            harness.Windows.SetCurrentWindow(new StartWindow());
+
+            reporter.Report(Thrown("worth a report"), UnhandledErrorSource.Dispatcher);
+            Settle();
+
+            ContentDialog dialog = Assert.Single(harness.Dialogs.Shown);
+            UnhandledErrorView view = Assert.IsType<UnhandledErrorView>(dialog.Content);
+            UnhandledErrorViewModel model = Assert.IsType<UnhandledErrorViewModel>(view.DataContext);
+            Assert.True(model.HasLogText);
+            Assert.Contains(Path.Combine(harness.Paths.ConfigurationDirectory, "logs"), model.LogText, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void WithNoLogDirectory_TheDialogSaysNothingAboutTheLog()
+    {
+        UnhandledErrorViewModel model = new(new UnhandledErrorBatch(Thrown("no log")), new RecordingSystemInterop());
+
+        Assert.False(model.HasLogText);
+        Assert.Empty(model.LogText);
     }
 
     [Fact]

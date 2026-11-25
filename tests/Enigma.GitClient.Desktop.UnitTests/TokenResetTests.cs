@@ -248,7 +248,7 @@ public sealed class TokenResetTests
             RecordingAppWindows windows = new();
             ScriptedContentDialogService dialogs = new();
             RecordingTokenRecovery recovery = new();
-            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
+            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new FixedAppPaths(Path.Combine(Path.GetTempPath(), "enigma-config")), new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
             windows.SetCurrentWindow(new StartWindow());
             dialogs.Script(DialogResult.Primary);
 
@@ -274,7 +274,7 @@ public sealed class TokenResetTests
             RecordingAppWindows windows = new();
             ScriptedContentDialogService dialogs = new();
             RecordingTokenRecovery recovery = new();
-            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
+            UnhandledErrorReporter reporter = new(windows, dialogs, new RecordingSystemInterop(), recovery, new FixedAppPaths(Path.Combine(Path.GetTempPath(), "enigma-config")), new ManualTimeProvider(), new RecordingLogger<UnhandledErrorReporter>());
             windows.SetCurrentWindow(new StartWindow());
             dialogs.Script(DialogResult.Primary);
 

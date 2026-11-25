@@ -231,6 +231,15 @@ Everything the client remembers about you lives in one per-user directory —
 | `identity-profiles.json` | Your profiles: a label each, and the name and email it sets, if any |
 | `hidden-branches.json` | The branches you hid from the history, per repository |
 | `repository-icons/` | A copy of each icon you chose for a repository's tile |
+| `logs/` | The application's log, one file a day (`enigma-gitclient-<yyyyMMdd>.log`, UTC), the last 7 days kept — the file to attach to a bug report |
+
+The log records what the client did at the *Information* level, with credentials redacted from every
+line. The *Something went wrong* dialog says where it is. For more detail — every git command it runs,
+for instance — put an `appsettings.json` beside the executable:
+
+```json
+{ "Logging": { "LogLevel": { "Default": "Debug" } } }
+```
 
 Nothing else is written anywhere — apart from git's own configuration (your global one, or a
 repository's), and only when you save or remove a name and email, make a profile active on the
