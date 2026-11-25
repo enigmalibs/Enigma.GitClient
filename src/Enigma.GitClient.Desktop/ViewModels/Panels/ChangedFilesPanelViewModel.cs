@@ -206,6 +206,13 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     public bool IsSubmodule => File?.IsSubmodule == true;
 
     /// <summary>
+    /// Gets a value indicating whether opening the file would run it — a program, a script, a
+    /// shortcut (<see cref="RunnableFiles"/>). Such a file has no "Open" on its menu: it is shown in the
+    /// file manager instead, since a commit's files are somebody else's content.
+    /// </summary>
+    public bool IsRunnable => !IsDirectory && RunnableFiles.IsRunnable(Path);
+
+    /// <summary>
     /// Gets what a submodule's line says of it — "other commit checked out, modified content" — or an
     /// empty string for any other line.
     /// </summary>
@@ -1084,7 +1091,9 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase
 
         string full = System.IO.Path.Combine(WorkTreePath, node!.Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
 
-        if (reveal)
+        // A file that would run is shown, never opened, whichever way the request came: from a commit,
+        // "open" would mean running whatever somebody else committed (SEC-03).
+        if (reveal || node.IsRunnable)
         {
             await _interop.RevealPathAsync(full);
         }

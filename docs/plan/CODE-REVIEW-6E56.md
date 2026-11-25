@@ -180,7 +180,7 @@ rule forbids running the Desktop suite in a `/vibe` run.
 ## PHASE06 — [Medium] SEC-03 Open never runs a file
 
 **Branch:** `review/code-review-6e56-phase06-open-never-runs`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `ChangedFilesPanelViewModel.cs:1085-1093`, `SystemInterop.cs:112`.
 

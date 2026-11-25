@@ -48,6 +48,7 @@
               </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Open file"
+                      IsVisible="{Binding !IsRunnable}"
                       Command="{Binding OpenFileCommand}"
                       CommandParameter="{Binding}">
               <MenuItem.Icon>

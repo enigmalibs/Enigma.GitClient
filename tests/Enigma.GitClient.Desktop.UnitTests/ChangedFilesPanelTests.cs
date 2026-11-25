@@ -525,6 +525,36 @@ public sealed class ChangedFilesPanelTests
     }
 
     [Fact]
+    public void Panel_ShowsAFileThatWouldRun_InsteadOfOpeningIt()
+    {
+        // A script somebody committed is one click from running if "Open" hands it to the desktop
+        // (SEC-03): it is revealed instead, and its menu offers no "Open".
+        string script = OperatingSystem.IsWindows() ? "tools/build.cmd" : "tools/build.sh";
+        RecordingSystemInterop interop = new();
+        ChangedFilesPanelViewModel panel = new(interop) { WorkTreePath = OperatingSystem.IsWindows() ? @"C:\src\client" : "/src/client" };
+        panel.SetFiles([new ChangedFile { Path = script, ChangeKind = FileChangeKind.Added }]);
+        panel.ViewMode = ChangedFilesViewMode.List;
+
+        ChangedFileNodeViewModel row = panel.Nodes.Single(node => node.Path == script);
+
+        Assert.True(row.IsRunnable);
+
+        row.OpenFileCommand.Execute(row);
+
+        Assert.Empty(interop.Opened);
+        Assert.Equal([Path.Combine(panel.WorkTreePath, "tools", Path.GetFileName(script))], interop.Revealed);
+    }
+
+    [Fact]
+    public void Panel_ADocument_IsNotRunnable()
+    {
+        ChangedFilesPanelViewModel panel = Loaded();
+        panel.ViewMode = ChangedFilesViewMode.List;
+
+        Assert.All(panel.Nodes, node => Assert.False(node.IsRunnable));
+    }
+
+    [Fact]
     public void Panel_WillNotOpenSomethingThatIsNotOnDisk()
     {
         RecordingSystemInterop interop = new();

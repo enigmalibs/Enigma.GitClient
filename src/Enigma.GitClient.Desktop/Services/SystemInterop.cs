@@ -71,7 +71,8 @@ public interface ISystemInterop
     Task CopyTextAsync(string text);
 
     /// <summary>
-    /// Opens a file or a directory with whatever the desktop has associated with it.
+    /// Opens a file or a directory with whatever the desktop has associated with it — except a file
+    /// that would run (<see cref="RunnableFiles"/>), which is shown in the file manager instead.
     /// </summary>
     /// <param name="path">The absolute path to open.</param>
     /// <returns><see langword="true"/> when something was launched.</returns>
@@ -133,6 +134,13 @@ public sealed class SystemInterop : ISystemInterop
         if (!File.Exists(path) && !Directory.Exists(path))
         {
             return Task.FromResult(false);
+        }
+
+        // Opening a program, a script or a shortcut runs it. Whatever asked, the desktop is only asked
+        // to show it: the caller's own gate is not the only one (SEC-03).
+        if (File.Exists(path) && RunnableFiles.IsRunnable(path))
+        {
+            return RevealPathAsync(path);
         }
 
         // UseShellExecute is what makes this one call work on all three platforms: it goes through

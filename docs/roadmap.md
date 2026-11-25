@@ -435,7 +435,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE03        | [High] EXC-01 Corrupt accounts backed up | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE04        | [High] SOLID-01 No service locator       | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE05        | [High] TEST-01 Desktop suite on Windows  | ABANDONED   | (in CODE-REVIEW-6E56.md)      |
-| - PHASE06        | [Medium] SEC-03 Open never runs a file   | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE06        | [Medium] SEC-03 Open never runs a file   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE07        | [Medium] TEST-02 Token test on Windows   | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE08        | [Medium] EXC-02 Git start keeps cause    | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE09        | [Medium] ASYNC-01 No blocking at startup | TODO        | (in CODE-REVIEW-6E56.md)      |
