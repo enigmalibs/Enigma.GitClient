@@ -87,7 +87,7 @@ public sealed class ProfileIntegrationsTests
             DisplayName = displayName,
         };
 
-        await page.ConnectAsync(Profile(page, profile), dialog);
+        await page.Accounts.ConnectAsync(Profile(page, profile), dialog);
     }
 
     /// <summary>
@@ -220,7 +220,7 @@ public sealed class ProfileIntegrationsTests
 
             // Only the profile it was connected to has it.
             Assert.Empty(Profile(page, "Home").Integrations);
-            Assert.False(page.HasEarlierIntegrations);
+            Assert.False(page.Accounts.HasEarlierIntegrations);
 
             // The token was handed to the host to check before anything was stored.
             Assert.Equal("ghp_token", Assert.Single(provider.TokensSeen).Reveal());
@@ -342,10 +342,10 @@ public sealed class ProfileIntegrationsTests
 
             // Nothing guesses whose an account is: one without a profile, and one whose profile is
             // gone, wait for the user to place them.
-            Assert.True(page.HasEarlierIntegrations);
-            Assert.Equal(["earlier-account", "orphan-account"], page.EarlierIntegrations.Select(row => row.DisplayName));
+            Assert.True(page.Accounts.HasEarlierIntegrations);
+            Assert.Equal(["earlier-account", "orphan-account"], page.Accounts.EarlierIntegrations.Select(row => row.DisplayName));
 
-            HostAccountRowViewModel earlier = page.EarlierIntegrations[0];
+            HostAccountRowViewModel earlier = page.Accounts.EarlierIntegrations[0];
             Assert.True(earlier.HasMoveTargets);
             Assert.Equal(["Work", "Home"], earlier.MoveTargets.Select(target => target.Header));
         });
@@ -362,11 +362,11 @@ public sealed class ProfileIntegrationsTests
             HostAccount earlier = await StoredAsync(services, "earlier-account", null);
             ProfilesPageViewModel page = await PageAsync(services, ("Work", Work), ("Home", Home));
 
-            AccountMoveTargetViewModel toHome = page.EarlierIntegrations.Single().MoveTargets.Single(target => target.Header == "Home");
+            AccountMoveTargetViewModel toHome = page.Accounts.EarlierIntegrations.Single().MoveTargets.Single(target => target.Header == "Home");
 
             await toHome.Command.ExecuteAsync(toHome);
 
-            Assert.False(page.HasEarlierIntegrations);
+            Assert.False(page.Accounts.HasEarlierIntegrations);
             Assert.Equal("earlier-account", Assert.Single(Profile(page, "Home").Integrations).DisplayName);
             Assert.Empty(Profile(page, "Work").Integrations);
             Assert.Contains(services.InfoBar.Shown, note => note.Title == "earlier-account belongs to Home");
@@ -391,7 +391,7 @@ public sealed class ProfileIntegrationsTests
             ProfilesPageViewModel page = await PageAsync(services);
 
             Assert.False(page.HasProfiles);
-            HostAccountRowViewModel earlier = Assert.Single(page.EarlierIntegrations);
+            HostAccountRowViewModel earlier = Assert.Single(page.Accounts.EarlierIntegrations);
             Assert.False(earlier.HasMoveTargets);
         });
     }
@@ -415,7 +415,7 @@ public sealed class ProfileIntegrationsTests
             await page.AddProfileCommand.ExecuteAsync(null);
 
             // Offered, not given: it is still the user's to move.
-            HostAccountRowViewModel earlier = Assert.Single(page.EarlierIntegrations);
+            HostAccountRowViewModel earlier = Assert.Single(page.Accounts.EarlierIntegrations);
             Assert.Equal(["Work"], earlier.MoveTargets.Select(target => target.Header));
             Assert.Empty(Profile(page, "Work").Integrations);
         });
@@ -640,7 +640,7 @@ public sealed class ProfileIntegrationsTests
 
             Assert.Equal(["Home"], page.Profiles.Select(row => row.Label));
             Assert.Equal("Home GitHub", Assert.Single(Profile(page, "Home").Integrations).DisplayName);
-            Assert.Equal("earlier-account", Assert.Single(page.EarlierIntegrations).DisplayName);
+            Assert.Equal("earlier-account", Assert.Single(page.Accounts.EarlierIntegrations).DisplayName);
 
             IReadOnlyList<HostAccount> left = await services.Get<IHostAccountService>().GetAllAsync();
             Assert.Equal(["Home GitHub", "earlier-account"], left.Select(account => account.DisplayName));
@@ -662,7 +662,7 @@ public sealed class ProfileIntegrationsTests
             await page.LoadAsync();
 
             Assert.Single(Profile(page, "Work").Integrations);
-            Assert.False(page.HasEarlierIntegrations);
+            Assert.False(page.Accounts.HasEarlierIntegrations);
         });
     }
 
@@ -679,7 +679,7 @@ public sealed class ProfileIntegrationsTests
 
             await ConnectAsync(services, page, "Work", displayName: "Work GitHub");
             await StoredAsync(services, "earlier-account", null);
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
             ProfilesPageView view = services.Get<ProfilesPageView>();
             view.DataContext = page;
@@ -738,7 +738,7 @@ public sealed class ProfileIntegrationsTests
             ProfilesPageViewModel page = await PageAsync(services, ("Work", Work));
 
             await ConnectAsync(services, page, "Work", displayName: "Work GitHub");
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
             ProfilesPageView view = services.Get<ProfilesPageView>();
             view.DataContext = page;

@@ -152,6 +152,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<WorktreesPageViewModel>();
             services.AddSingleton<SubmodulesPageViewModel>();
             services.AddSingleton<ConflictResolutionPageViewModel>();
+            services.AddSingleton<HostAccountsViewModel>();
             services.AddSingleton<ProfilesPageViewModel>();
             services.AddSingleton<SettingsPageViewModel>();
 

@@ -58,7 +58,7 @@ public sealed class TokenStateOnProfilesTests
     {
         provider.Identity = new HostIdentity(userName, userName);
 
-        return page.ConnectAsync(
+        return page.Accounts.ConnectAsync(
             WorkRow(page),
             new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers) { Token = "ghp_" + userName });
     }
@@ -95,7 +95,7 @@ public sealed class TokenStateOnProfilesTests
 
             await ConnectAsync(services, page, provider, "octocat");
 
-            Assert.False(page.IsTokenStoreUnreadable);
+            Assert.False(page.Accounts.IsTokenStoreUnreadable);
             Assert.Equal(HostAccountTokenState.Stored, Line(page, "octocat").TokenState);
             Assert.False(Line(page, "octocat").HasTokenProblem);
         });
@@ -112,18 +112,18 @@ public sealed class TokenStateOnProfilesTests
             await ConnectAsync(services, page, provider, "octocat");
 
             BreakTheKey(services);
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
             // Said before anything fails, with what fixes it.
-            Assert.True(page.IsTokenStoreUnreadable);
-            Assert.Contains("Reset the stored tokens", page.TokenStoreProblem, StringComparison.Ordinal);
+            Assert.True(page.Accounts.IsTokenStoreUnreadable);
+            Assert.Contains("Reset the stored tokens", page.Accounts.TokenStoreProblem, StringComparison.Ordinal);
             Assert.Equal(HostAccountTokenState.Unreadable, Line(page, "octocat").TokenState);
 
             services.Dialogs.Script(DialogResult.Primary);
-            await page.ResetStoredTokensCommand.ExecuteAsync(null);
+            await page.Accounts.ResetStoredTokensCommand.ExecuteAsync(null);
 
             Assert.Equal(TokenRecovery.ResetLabel, Assert.Single(services.Dialogs.Shown).Title);
-            Assert.False(page.IsTokenStoreUnreadable);
+            Assert.False(page.Accounts.IsTokenStoreUnreadable);
             Assert.False(File.Exists(KeyFile(services)));
 
             HostAccountRowViewModel line = Line(page, "octocat");
@@ -142,12 +142,12 @@ public sealed class TokenStateOnProfilesTests
             ProfilesPageViewModel page = await PageAsync(services);
             await ConnectAsync(services, page, provider, "octocat");
             BreakTheKey(services);
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
             services.Dialogs.Script(DialogResult.Close);
-            await page.ResetStoredTokensCommand.ExecuteAsync(null);
+            await page.Accounts.ResetStoredTokensCommand.ExecuteAsync(null);
 
-            Assert.True(page.IsTokenStoreUnreadable);
+            Assert.True(page.Accounts.IsTokenStoreUnreadable);
             Assert.Equal([1, 2, 3], File.ReadAllBytes(KeyFile(services)));
         });
     }
@@ -164,9 +164,9 @@ public sealed class TokenStateOnProfilesTests
             await ConnectAsync(services, page, provider, "hubot");
 
             DamageTheEntryOf(services, await StoredAsync(services, "hubot"));
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
-            Assert.False(page.IsTokenStoreUnreadable);
+            Assert.False(page.Accounts.IsTokenStoreUnreadable);
             Assert.Equal(HostAccountTokenState.Stored, Line(page, "octocat").TokenState);
             Assert.Equal(HostAccountTokenState.Unreadable, Line(page, "hubot").TokenState);
             Assert.Contains("cannot be read", Line(page, "hubot").TokenProblem, StringComparison.Ordinal);
@@ -186,7 +186,7 @@ public sealed class TokenStateOnProfilesTests
             await ConnectAsync(services, page, provider, "octocat");
             HostAccount before = await StoredAsync(services, "octocat");
             DamageTheEntryOf(services, before);
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
             AddHostAccountDialogViewModel? asked = null;
             services.Dialogs.OnShown = dialog =>
@@ -225,7 +225,7 @@ public sealed class TokenStateOnProfilesTests
             ProfilesPageViewModel page = await PageAsync(services);
             await ConnectAsync(services, page, provider, "octocat");
             BreakTheKey(services);
-            await page.LoadIntegrationsAsync();
+            await page.Accounts.LoadIntegrationsAsync();
 
             services.Dialogs.OnShown = dialog =>
             {
@@ -241,7 +241,7 @@ public sealed class TokenStateOnProfilesTests
             Assert.Equal(TokenRecovery.ResetLabel, services.Dialogs.Shown[1].Title);
             HostAccount after = Assert.Single(await services.Get<IHostAccountService>().GetAllAsync());
             Assert.Equal("ghp_after_reset", (await services.Get<IHostAccountService>().GetTokenAsync(after))!.Reveal());
-            Assert.False(page.IsTokenStoreUnreadable);
+            Assert.False(page.Accounts.IsTokenStoreUnreadable);
         });
     }
 

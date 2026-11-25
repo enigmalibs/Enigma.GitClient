@@ -65,7 +65,7 @@ public sealed class TokenResetTests
         => page.Profiles.Single(row => row.Label == label);
 
     private static Task ConnectAsync(TestServices services, ProfilesPageViewModel page, string profile = "Work", string token = "ghp_token", string displayName = "")
-        => page.ConnectAsync(
+        => page.Accounts.ConnectAsync(
             Profile(page, profile),
             new AddHostAccountDialogViewModel(services.Get<IHostProviderRegistry>().Providers)
             {

@@ -292,6 +292,30 @@ public sealed class CompositionRootTests
     }
 
     [Fact]
+    public void TheProfilesPage_ShowsTheAccountsSingleton_AndNoLongerTakesWhatTheyUse()
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        ProfilesPageViewModel page = provider.GetRequiredService<ProfilesPageViewModel>();
+
+        Assert.Same(provider.GetRequiredService<HostAccountsViewModel>(), page.Accounts);
+
+        Type[] taken = [.. typeof(ProfilesPageViewModel).GetConstructors().Single().GetParameters().Select(parameter => parameter.ParameterType)];
+
+        Assert.Contains(typeof(HostAccountsViewModel), taken);
+
+        foreach (Type moved in new[]
+        {
+            typeof(Core.Hosting.IHostAccountService), typeof(Core.Hosting.IHostProviderRegistry), typeof(IHostLinkService),
+            typeof(IHostRepositoryBrowser), typeof(ITokenRecovery), typeof(IRepositoryCloner),
+            typeof(Func<Views.Dialogs.AddHostAccountDialogView>),
+        })
+        {
+            Assert.DoesNotContain(moved, taken);
+        }
+    }
+
+    [Fact]
     public void TheCloner_IsOneSharedService()
     {
         using ServiceProvider provider = BuildProvider();

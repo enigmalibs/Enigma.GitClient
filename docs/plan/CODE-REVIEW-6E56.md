@@ -655,7 +655,7 @@ Location: `HistoryPageViewModel.cs:40`, the search and the stash folding.
 ## PHASE27 — [Medium] SOLID-02 Profiles page split
 
 **Branch:** `review/code-review-6e56-phase27-profiles-page-split`
-**Status:** TODO
+**Status:** DONE
 
 Location: `ProfilesPageViewModel.cs:168` / `:205`.
 
