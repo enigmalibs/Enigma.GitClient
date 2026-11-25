@@ -544,7 +544,7 @@ Locations: the 55 operators at the 34 sites in the review.
 ## PHASE22 — [Medium] SOLID-03 Split SubmoduleService
 
 **Branch:** `review/code-review-6e56-phase22-split-submodule-service`
-**Status:** TODO
+**Status:** DONE
 
 Location: `Core/Submodules/SubmoduleService.cs:228` (1,475 lines).
 
