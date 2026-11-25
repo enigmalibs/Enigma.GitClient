@@ -109,7 +109,7 @@ Locations: `Core/Security/TokenStore.cs:657`, `:663-673`, `:709`, `:713-723`,
 ## PHASE03 — [High] EXC-01 Corrupt accounts backed up
 
 **Branch:** `review/code-review-6e56-phase03-corrupt-accounts-backup`
-**Status:** TODO
+**Status:** DONE
 
 Location: `Core/Hosting/HostAccountService.cs:346-351`.
 
