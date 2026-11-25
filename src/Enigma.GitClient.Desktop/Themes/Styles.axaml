@@ -239,6 +239,20 @@
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundTertiaryBrush}" />
   </Style>
 
+  <!-- A form's field label, above or beside the field it names: every dialog and page form reads the
+       same, and a change to how labels look is made here once. -->
+  <Style Selector="TextBlock.fieldlabel">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+  </Style>
+
+  <!-- The line under a form that says why it cannot be confirmed yet. -->
+  <Style Selector="TextBlock.validation">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="{DynamicResource EnigmaErrorBrush}" />
+  </Style>
+
   <Style Selector="ei|Icon.dim">
     <Setter Property="Foreground" Value="{DynamicResource EnigmaForegroundSecondaryBrush}" />
   </Style>

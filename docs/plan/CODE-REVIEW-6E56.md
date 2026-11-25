@@ -460,7 +460,7 @@ Locations: `RepositoryWatcherTests.cs:296`, `FileSystemRepositoryEventSourceTest
 ## PHASE18 — [Medium] XAML-01 Field label styles
 
 **Branch:** `review/code-review-6e56-phase18-field-label-styles`
-**Status:** TODO
+**Status:** DONE
 
 Locations: the 52 sites in the review, in 16 views.
 

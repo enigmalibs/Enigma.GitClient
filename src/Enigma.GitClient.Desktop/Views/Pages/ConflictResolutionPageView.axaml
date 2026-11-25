@@ -262,8 +262,7 @@
         <TextBlock Grid.Column="1"
                    Text="{Binding Progress}"
                    VerticalAlignment="Center"
-                   FontSize="12"
-                   Foreground="{DynamicResource EnigmaForegroundSecondaryBrush}" />
+                   Classes="fieldlabel" />
 
         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
 
