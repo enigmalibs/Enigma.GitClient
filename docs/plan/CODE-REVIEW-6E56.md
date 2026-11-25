@@ -268,7 +268,7 @@ Location: `Desktop/App.axaml.cs:74`.
 ## PHASE10 — [Medium] SOLID-05 One git run sequence
 
 **Branch:** `review/code-review-6e56-phase10-one-git-run-sequence`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `Core/Git/GitProcessRunner.cs:90-129`, `:195-223`, `:225-254`.
 
