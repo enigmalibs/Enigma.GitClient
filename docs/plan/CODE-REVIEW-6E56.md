@@ -480,7 +480,7 @@ Locations: the 52 sites in the review, in 16 views.
 ## PHASE19 — [Medium] XAML-02 One edge auto-scroll
 
 **Branch:** `review/code-review-6e56-phase19-edge-auto-scroll`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `BranchesPageView.axaml.cs:558-606`, `HistoryPageView.axaml.cs:685-728`,
 `RepositoriesPageView.axaml.cs:497-520`.
