@@ -63,8 +63,12 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IStartNavigation, StartNavigation>();
             services.AddSingleton<IScreenReader, AvaloniaScreenReader>();
             services.AddSingleton<IWindowPlacer, WindowPlacer>();
+            services.AddSingleton<WindowHostBinder>();
             services.AddSingleton<IAppWindows, AppWindows>();
             services.AddSingleton<IRepositoryOpener, RepositoryOpener>();
+            // The launcher reaches the window service only when it launches, through a factory: taking
+            // it in its constructor closes a cycle through the operations that launch (BUG-FACC).
+            services.AddSingleton<Func<IAppWindows>>(provider => provider.GetRequiredService<IAppWindows>);
             services.AddSingleton<IInstanceLauncher, InstanceLauncher>();
             services.AddSingleton<IToolDialogService, ToolDialogService>();
             services.AddSingleton<IAboutDialogService, AboutDialogService>();
@@ -154,6 +158,14 @@ public static class ServiceCollectionExtensions
             services.AddTransient<AddHostAccountDialogView>();
             services.AddTransient<HostRepositoriesDialogView>();
             services.AddTransient<IdentityProfileDialogView>();
+
+            // The singletons that show those dialogs build each view through a factory: a fresh one per
+            // showing, and a constructor that says which views it shows.
+            services.AddSingleton<Func<CloneRepositoryDialogView>>(provider => provider.GetRequiredService<CloneRepositoryDialogView>);
+            services.AddSingleton<Func<InitRepositoryDialogView>>(provider => provider.GetRequiredService<InitRepositoryDialogView>);
+            services.AddSingleton<Func<AddHostAccountDialogView>>(provider => provider.GetRequiredService<AddHostAccountDialogView>);
+            services.AddSingleton<Func<HostRepositoriesDialogView>>(provider => provider.GetRequiredService<HostRepositoriesDialogView>);
+            services.AddSingleton<Func<IdentityProfileDialogView>>(provider => provider.GetRequiredService<IdentityProfileDialogView>);
 
             // The diff viewer is per-consumer: two places showing a diff must not share a scroll
             // position, a view mode or a selection.

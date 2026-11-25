@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Enigma.Avalonia.Desktop.Services;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.History;
@@ -44,6 +45,44 @@ public sealed class CompositionRootTests
         using ServiceProvider provider = BuildProvider();
 
         Assert.NotNull(provider);
+    }
+
+    [Fact]
+    public void OnlyTheFactories_TakeTheContainer()
+    {
+        // A class that asks for the container no longer says what it needs (SOLID-01): the ones that
+        // build windows, pages and tool dialogs by type are factories, and nothing else is.
+        Type[] factories =
+        [
+            typeof(AppWindows),
+            typeof(ToolDialogService),
+            typeof(Navigation.ContainerPageFactory),
+            typeof(Navigation.ShellNavigation),
+            typeof(Navigation.StartNavigation),
+        ];
+
+        // The application's own types: the XAML compiler's generated context takes a provider of its own.
+        IEnumerable<Type> locators = typeof(App).Assembly.GetTypes()
+            .Where(type => type.Namespace?.StartsWith("Enigma.GitClient.Desktop", StringComparison.Ordinal) == true)
+            .Where(type => type.GetConstructors().Any(constructor =>
+                constructor.GetParameters().Any(parameter => parameter.ParameterType == typeof(IServiceProvider))))
+            .Except(factories);
+
+        Assert.Empty(locators);
+    }
+
+    [Theory]
+    [InlineData(typeof(Func<IAppWindows>))]
+    [InlineData(typeof(Func<Views.Dialogs.CloneRepositoryDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.InitRepositoryDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.AddHostAccountDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.HostRepositoriesDialogView>))]
+    [InlineData(typeof(Func<Views.Dialogs.IdentityProfileDialogView>))]
+    public void Container_ResolvesEveryViewFactory(Type factoryType)
+    {
+        using ServiceProvider provider = BuildProvider();
+
+        Assert.IsAssignableFrom<Delegate>(provider.GetRequiredService(factoryType));
     }
 
     [Theory]

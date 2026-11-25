@@ -433,7 +433,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE01        | [High] SEC-01 System programs by path    | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE02        | [High] SEC-02 Atomic token and key files | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE03        | [High] EXC-01 Corrupt accounts backed up | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE04        | [High] SOLID-01 No service locator       | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE04        | [High] SOLID-01 No service locator       | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE05        | [High] TEST-01 Desktop suite on Windows  | ABANDONED   | (in CODE-REVIEW-6E56.md)      |
 | - PHASE06        | [Medium] SEC-03 Open never runs a file   | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE07        | [Medium] TEST-02 Token test on Windows   | TODO        | (in CODE-REVIEW-6E56.md)      |

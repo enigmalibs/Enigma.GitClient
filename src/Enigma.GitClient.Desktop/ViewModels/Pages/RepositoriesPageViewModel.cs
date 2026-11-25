@@ -61,7 +61,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     private readonly IAboutDialogService _about;
     private readonly IThemeSwitcher _theme;
     private readonly ISystemInterop _interop;
-    private readonly IServiceProvider _services;
+    private readonly Func<InitRepositoryDialogView> _initDialogs;
+    private readonly Func<CloneRepositoryDialogView> _cloneDialogs;
     private readonly ILogger<RepositoriesPageViewModel> _logger;
 
     // The selected profile's whole list, in the stored order; Repositories shows what the filter keeps.
@@ -101,7 +102,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <param name="interop">
     /// Opens a listed repository's folder in the file manager and a terminal in it, and copies its path.
     /// </param>
-    /// <param name="services">Resolves the dialog views.</param>
+    /// <param name="initDialogs">Builds the create dialog's view, a fresh one each time.</param>
+    /// <param name="cloneDialogs">Builds the clone dialog's view, a fresh one each time.</param>
     /// <param name="logger">Receives the detail behind a reported failure.</param>
     public RepositoriesPageViewModel(
         IRepositoryContext repositoryContext,
@@ -123,7 +125,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IAboutDialogService about,
         IThemeSwitcher theme,
         ISystemInterop interop,
-        IServiceProvider services,
+        Func<InitRepositoryDialogView> initDialogs,
+        Func<CloneRepositoryDialogView> cloneDialogs,
         ILogger<RepositoriesPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -145,7 +148,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(about);
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(interop);
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(initDialogs);
+        ArgumentNullException.ThrowIfNull(cloneDialogs);
         ArgumentNullException.ThrowIfNull(logger);
 
         _repositories = repositories;
@@ -166,7 +170,8 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         _about = about;
         _theme = theme;
         _interop = interop;
-        _services = services;
+        _initDialogs = initDialogs;
+        _cloneDialogs = cloneDialogs;
         _logger = logger;
 
         OpenCommand = new AsyncRelayCommand(OnOpenAsync, () => IsNotBusy);
@@ -614,8 +619,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IdentityProfile profile = await SelectedProfileNowAsync().ConfigureAwait(true);
 
         InitRepositoryDialogViewModel model = new(_folderDialogs, BaseDirectoryOf(profile) ?? DefaultParentDirectory());
-        InitRepositoryDialogView view = _services.GetService(typeof(InitRepositoryDialogView)) as InitRepositoryDialogView
-            ?? new InitRepositoryDialogView();
+        InitRepositoryDialogView view = _initDialogs();
         view.DataContext = model;
 
         DialogResult result = await ShowFormAsync(
@@ -727,8 +731,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
         IdentityProfile profile = await SelectedProfileNowAsync().ConfigureAwait(true);
 
         CloneRepositoryDialogViewModel model = new(_folderDialogs, _repositories, CloneParentDirectory(profile));
-        CloneRepositoryDialogView view = _services.GetService(typeof(CloneRepositoryDialogView)) as CloneRepositoryDialogView
-            ?? new CloneRepositoryDialogView();
+        CloneRepositoryDialogView view = _cloneDialogs();
         view.DataContext = model;
 
         DialogResult result = await ShowFormAsync(

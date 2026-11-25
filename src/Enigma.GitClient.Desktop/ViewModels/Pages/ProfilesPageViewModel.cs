@@ -180,7 +180,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     private readonly IContentDialogService _dialogs;
     private readonly IFolderDialogService _folderDialogs;
     private readonly IInfoBarService _infoBar;
-    private readonly IServiceProvider _services;
+    private readonly Func<IdentityProfileDialogView> _profileDialogs;
+    private readonly Func<AddHostAccountDialogView> _accountDialogs;
     private readonly ILogger<ProfilesPageViewModel> _logger;
 
     /// <summary>
@@ -200,7 +201,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <param name="dialogs">Raises the profile and account dialogs and the confirmations.</param>
     /// <param name="folderDialogs">Raises the folder picker the profile dialog chooses a base directory in.</param>
     /// <param name="infoBar">Reports what happened.</param>
-    /// <param name="services">Resolves the dialog's view.</param>
+    /// <param name="profileDialogs">Builds the profile dialog's view, a fresh one each time.</param>
+    /// <param name="accountDialogs">Builds the account dialog's view, a fresh one each time.</param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
     public ProfilesPageViewModel(
         IRepositoryContext repositoryContext,
@@ -217,7 +219,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         IContentDialogService dialogs,
         IFolderDialogService folderDialogs,
         IInfoBarService infoBar,
-        IServiceProvider services,
+        Func<IdentityProfileDialogView> profileDialogs,
+        Func<AddHostAccountDialogView> accountDialogs,
         ILogger<ProfilesPageViewModel> logger)
         : base(repositoryContext)
     {
@@ -234,7 +237,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(folderDialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(profileDialogs);
+        ArgumentNullException.ThrowIfNull(accountDialogs);
         ArgumentNullException.ThrowIfNull(logger);
 
         _identity = identity;
@@ -250,7 +254,8 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
         _dialogs = dialogs;
         _folderDialogs = folderDialogs;
         _infoBar = infoBar;
-        _services = services;
+        _profileDialogs = profileDialogs;
+        _accountDialogs = accountDialogs;
         _logger = logger;
 
         SaveGlobalCommand = new AsyncRelayCommand(OnSaveGlobalAsync, CanSaveGlobal);
@@ -1037,9 +1042,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <returns><see langword="true"/> when it was confirmed with valid fields.</returns>
     private async Task<bool> ShowProfileDialogAsync(IdentityProfileDialogViewModel model, string title, string primary)
     {
-        IdentityProfileDialogView view =
-            _services.GetService(typeof(IdentityProfileDialogView)) as IdentityProfileDialogView
-            ?? new IdentityProfileDialogView();
+        IdentityProfileDialogView view = _profileDialogs();
 
         view.DataContext = model;
 
@@ -1157,9 +1160,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// <returns><see langword="true"/> when it was filled in and confirmed.</returns>
     private async Task<bool> AskForTokenAsync(AddHostAccountDialogViewModel model, string title, string primary)
     {
-        AddHostAccountDialogView view =
-            _services.GetService(typeof(AddHostAccountDialogView)) as AddHostAccountDialogView
-            ?? new AddHostAccountDialogView();
+        AddHostAccountDialogView view = _accountDialogs();
 
         view.DataContext = model;
 

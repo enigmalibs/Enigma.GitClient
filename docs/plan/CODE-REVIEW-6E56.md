@@ -132,7 +132,7 @@ Location: `Core/Hosting/HostAccountService.cs:346-351`.
 ## PHASE04 — [High] SOLID-01 No service locator
 
 **Branch:** `review/code-review-6e56-phase04-no-service-locator`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `ProfilesPageViewModel.cs:1041`, `:1161`, `RepositoriesPageViewModel.cs:617`, `:730`,
 `HostRepositoryBrowser.cs:118`, `InstanceLauncher.cs:70`, `AppWindows.cs:231`, `:377-388`, `:421`.

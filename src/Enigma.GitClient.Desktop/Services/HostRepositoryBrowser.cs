@@ -42,7 +42,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
     private readonly ITokenRecovery _recovery;
     private readonly IContentDialogService _dialogs;
     private readonly IInfoBarService _infoBar;
-    private readonly IServiceProvider _services;
+    private readonly Func<HostRepositoriesDialogView> _views;
     private readonly ILogger<HostRepositoryBrowser> _logger;
 
     /// <summary>
@@ -55,7 +55,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
     /// <param name="recovery">Offers the reset when the stored tokens cannot be read.</param>
     /// <param name="dialogs">Shows the dialog.</param>
     /// <param name="infoBar">Reports what went wrong.</param>
-    /// <param name="services">Resolves the dialog's view.</param>
+    /// <param name="views">Builds the dialog's view, a fresh one each time.</param>
     /// <param name="logger">Receives failures reported to the user another way.</param>
     public HostRepositoryBrowser(
         IRepositoryContext context,
@@ -65,7 +65,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
         ITokenRecovery recovery,
         IContentDialogService dialogs,
         IInfoBarService infoBar,
-        IServiceProvider services,
+        Func<HostRepositoriesDialogView> views,
         ILogger<HostRepositoryBrowser> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -75,7 +75,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
         ArgumentNullException.ThrowIfNull(recovery);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(infoBar);
-        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(views);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
@@ -85,7 +85,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
         _recovery = recovery;
         _dialogs = dialogs;
         _infoBar = infoBar;
-        _services = services;
+        _views = views;
         _logger = logger;
     }
 
@@ -114,9 +114,7 @@ public sealed class HostRepositoryBrowser : IHostRepositoryBrowser
             _logger,
             _context.RepositoryLifetime);
 
-        HostRepositoriesDialogView view =
-            _services.GetService(typeof(HostRepositoriesDialogView)) as HostRepositoriesDialogView
-            ?? new HostRepositoriesDialogView();
+        HostRepositoriesDialogView view = _views();
 
         view.DataContext = model;
 
