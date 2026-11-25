@@ -445,7 +445,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE13        | [Medium] LOG-01 Rolling log file         | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE14        | [Medium] PERF-03 Validation off UI       | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE15        | [Medium] PERF-01 Bulk collection refills | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE16        | [Medium] PERF-02 Folded conflict context | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE16        | [Medium] PERF-02 Folded conflict context | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE17        | [Medium] TEST-03 No fixed test delays    | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE18        | [Medium] XAML-01 Field label styles      | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE19        | [Medium] XAML-02 One edge auto-scroll    | TODO        | (in CODE-REVIEW-6E56.md)      |

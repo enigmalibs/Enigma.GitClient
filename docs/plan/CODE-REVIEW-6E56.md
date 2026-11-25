@@ -412,7 +412,7 @@ Locations: the 14 sites in the review (tags, repositories ×2, history, branches
 ## PHASE16 — [Medium] PERF-02 Folded conflict context
 
 **Branch:** `review/code-review-6e56-phase16-folded-conflict-context`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `ConflictResolutionPageView.axaml:33`, `:165`, `:180`, `:188`,
 `ConflictResolutionPageViewModel.cs:87-90`.

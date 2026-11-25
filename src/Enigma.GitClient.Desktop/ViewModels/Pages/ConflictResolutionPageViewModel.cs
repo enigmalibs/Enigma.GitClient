@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
 using Enigma.Avalonia.Desktop.Services;
+using Enigma.GitClient.Core.Configuration;
 using Enigma.GitClient.Core.Git;
 using Enigma.GitClient.Core.Merging;
 using Enigma.GitClient.Core.Refs;
@@ -57,6 +58,7 @@ public sealed class ConflictLineViewModel
 public sealed class ConflictRegionViewModel : ViewModelBase
 {
     private readonly ConflictResolutionPageViewModel _owner;
+    private readonly int _ourLine;
 
     /// <summary>
     /// Initialises a new instance.
@@ -67,27 +69,49 @@ public sealed class ConflictRegionViewModel : ViewModelBase
     /// <param name="ourLine">How many lines of our side come before this region.</param>
     /// <param name="baseLine">How many lines of the base come before this region.</param>
     /// <param name="theirLine">How many lines of their side come before this region.</param>
+    /// <param name="context">
+    /// How many agreed lines are shown next to a conflict before the rest is folded away, or a negative
+    /// number for agreed text that is never folded.
+    /// </param>
+    /// <param name="conflictBefore">Whether a conflict comes before this region in the file.</param>
+    /// <param name="conflictAfter">Whether a conflict comes after this region in the file.</param>
     public ConflictRegionViewModel(
         ConflictResolutionPageViewModel owner,
         ConflictRegion region,
         int number,
         int ourLine = 0,
         int baseLine = 0,
-        int theirLine = 0)
+        int theirLine = 0,
+        int context = -1,
+        bool conflictBefore = true,
+        bool conflictAfter = true)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(region);
 
         _owner = owner;
+        _ourLine = ourLine;
         Region = region;
         Number = number;
 
         // Each side is numbered as its own file, because that is what each pane is showing: the
         // line numbers a reader would find if they opened that version in an editor.
-        StableLines = Build(region.Stable, ourLine);
         OurLines = Build(region.OurLines, ourLine);
         BaseLines = Build(region.BaseLines, baseLine);
         TheirLines = Build(region.TheirLines, theirLine);
+
+        // Agreed text longer than the context on both sides is folded to the lines next to the
+        // conflicts. Only the lines shown are built: the rest wait for the expand row.
+        int count = region.Stable.Count;
+        bool folds = context >= 0 && count > 2 * context;
+        int head = folds ? (conflictBefore ? context : 0) : count;
+        int tail = folds ? (conflictAfter ? context : 0) : 0;
+
+        StableLines = Build(region.Stable, 0, head, ourLine);
+        StableTailLines = Build(region.Stable, count - tail, tail, ourLine);
+        FoldedLineCount = count - head - tail;
+
+        ExpandCommand = new RelayCommand(Expand, () => IsFolded);
     }
 
     /// <summary>Gets the region this row stands for.</summary>
@@ -106,8 +130,29 @@ public sealed class ConflictRegionViewModel : ViewModelBase
     public string Title
         => $"Conflict {Number.ToString(CultureInfo.CurrentCulture)}";
 
-    /// <summary>Gets the agreed lines, empty for a conflicted region.</summary>
-    public IReadOnlyList<ConflictLineViewModel> StableLines { get; }
+    /// <summary>
+    /// Gets the agreed lines shown above the folded ones: every agreed line when nothing is folded, and
+    /// none for a conflicted region.
+    /// </summary>
+    public IReadOnlyList<ConflictLineViewModel> StableLines { get; private set; }
+
+    /// <summary>Gets the agreed lines shown below the folded ones, empty when nothing is folded.</summary>
+    public IReadOnlyList<ConflictLineViewModel> StableTailLines { get; private set; }
+
+    /// <summary>Gets how many agreed lines are folded away, zero when none are.</summary>
+    public int FoldedLineCount { get; private set; }
+
+    /// <summary>Gets a value indicating whether agreed lines are folded away behind the expand row.</summary>
+    public bool IsFolded => FoldedLineCount > 0;
+
+    /// <summary>Gets what the expand row says.</summary>
+    public string FoldedText
+        => FoldedLineCount == 1
+            ? "1 unchanged line"
+            : $"{FoldedLineCount.ToString(CultureInfo.CurrentCulture)} unchanged lines";
+
+    /// <summary>Gets the command that shows every agreed line of the region.</summary>
+    public RelayCommand ExpandCommand { get; }
 
     /// <summary>Gets our version's lines.</summary>
     public IReadOnlyList<ConflictLineViewModel> OurLines { get; }
@@ -260,20 +305,49 @@ public sealed class ConflictRegionViewModel : ViewModelBase
     public override string ToString() => IsConflicted ? $"{Title}: {ChoiceLabel}" : "agreed text";
 
     private static IReadOnlyList<ConflictLineViewModel> Build(IReadOnlyList<string> lines, int before)
+        => Build(lines, 0, lines.Count, before);
+
+    /// <summary>
+    /// Builds the rows of part of a side.
+    /// </summary>
+    /// <param name="lines">The side's lines.</param>
+    /// <param name="start">The first line to build, counting from zero within the side.</param>
+    /// <param name="count">How many lines to build.</param>
+    /// <param name="before">How many lines of the file come before the side.</param>
+    private static IReadOnlyList<ConflictLineViewModel> Build(IReadOnlyList<string> lines, int start, int count, int before)
     {
-        if (lines.Count == 0)
+        if (count <= 0)
         {
             return [];
         }
 
-        List<ConflictLineViewModel> rows = new(lines.Count);
+        List<ConflictLineViewModel> rows = new(count);
 
-        for (int index = 0; index < lines.Count; index++)
+        for (int index = start; index < start + count; index++)
         {
             rows.Add(new ConflictLineViewModel(before + index + 1, lines[index]));
         }
 
         return rows;
+    }
+
+    private void Expand()
+    {
+        if (!IsFolded)
+        {
+            return;
+        }
+
+        StableLines = Build(Region.Stable, _ourLine);
+        StableTailLines = [];
+        FoldedLineCount = 0;
+
+        OnPropertyChanged(nameof(StableLines));
+        OnPropertyChanged(nameof(StableTailLines));
+        OnPropertyChanged(nameof(FoldedLineCount));
+        OnPropertyChanged(nameof(IsFolded));
+        OnPropertyChanged(nameof(FoldedText));
+        ExpandCommand.NotifyCanExecuteChanged();
     }
 }
 
@@ -406,6 +480,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
     private readonly ILogger<ConflictResolutionPageViewModel> _logger;
     private readonly ISubmoduleService? _submodules;
     private readonly IInstanceLauncher? _launcher;
+    private readonly ISettingsService? _settings;
 
     private readonly Dictionary<string, ConflictFile> _seen = [];
     private readonly HashSet<string> _resolvedPaths = [];
@@ -425,6 +500,9 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
     /// <param name="dialogs">Raises the confirmations this page asks itself.</param>
     /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
+    /// <param name="submodules">Describes the two pins of a conflicted submodule.</param>
+    /// <param name="launcher">Opens a conflicted submodule in a window of its own.</param>
+    /// <param name="settings">Says how many agreed lines are shown next to a conflict.</param>
     public ConflictResolutionPageViewModel(
         IRepositoryContext repositoryContext,
         IConflictService conflicts,
@@ -434,7 +512,8 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         IInfoBarService infoBar,
         ILogger<ConflictResolutionPageViewModel> logger,
         ISubmoduleService? submodules = null,
-        IInstanceLauncher? launcher = null)
+        IInstanceLauncher? launcher = null,
+        ISettingsService? settings = null)
         : base(repositoryContext)
     {
         ArgumentNullException.ThrowIfNull(conflicts);
@@ -470,6 +549,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         SaveCommand = new AsyncRelayCommand(OnSaveAsync, () => CanSave);
         _submodules = submodules;
         _launcher = launcher;
+        _settings = settings;
 
         KeepOursCommand = new AsyncRelayCommand(() => OnKeepSideAsync(ConflictSide.Ours), () => HasSelection && !IsSubmoduleTerminalOnly);
         KeepTheirsCommand = new AsyncRelayCommand(() => OnKeepSideAsync(ConflictSide.Theirs), () => HasSelection && !IsSubmoduleTerminalOnly);
@@ -1060,16 +1140,23 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
             int ourLine = 0;
             int baseLine = 0;
             int theirLine = 0;
+            int context = _settings?.Current.DiffContextLines ?? AppSettings.Defaults.DiffContextLines;
+            IReadOnlyList<ConflictRegion> regions = document.Regions;
 
-            foreach (ConflictRegion region in document.Regions)
+            for (int index = 0; index < regions.Count; index++)
             {
+                ConflictRegion region = regions[index];
+
                 Regions.Add(new ConflictRegionViewModel(
                     this,
                     region,
                     region.IsConflicted ? ++number : 0,
                     ourLine,
                     baseLine,
-                    theirLine));
+                    theirLine,
+                    context,
+                    conflictBefore: HasConflict(regions, 0, index),
+                    conflictAfter: HasConflict(regions, index + 1, regions.Count)));
 
                 if (region.IsConflicted)
                 {
@@ -1093,6 +1180,19 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
     }
 
     private void UpdatePreview() => Preview = _document?.RenderPreview() ?? string.Empty;
+
+    private static bool HasConflict(IReadOnlyList<ConflictRegion> regions, int start, int end)
+    {
+        for (int index = start; index < end; index++)
+        {
+            if (regions[index].IsConflicted)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void NotifyDocument()
     {

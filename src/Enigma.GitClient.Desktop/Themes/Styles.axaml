@@ -802,6 +802,20 @@
     <Setter Property="Padding" Value="10,5" />
   </Style>
 
+  <!-- The agreed lines folded away between two conflicts: a band in the diff viewer's hunk colours,
+       across the whole width, so it reads as the same thing it is there. -->
+  <Style Selector="Button.conflictfold">
+    <Setter Property="Background" Value="{DynamicResource DiffHunkBandBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource DiffHunkForegroundBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="Margin" Value="0,2" />
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+
   <Style Selector="Border.conflictside">
     <Setter Property="Padding" Value="0,0,0,4" />
   </Style>
