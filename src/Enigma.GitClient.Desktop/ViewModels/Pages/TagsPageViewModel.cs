@@ -221,7 +221,7 @@ public sealed class TagsPageViewModel : PageViewModelBase
     public string Title => "Tags";
 
     /// <summary>Gets the tags the repository holds, filtered by the search box.</summary>
-    public ObservableCollection<TagRowViewModel> Tags { get; } = [];
+    public RangeObservableCollection<TagRowViewModel> Tags { get; } = [];
 
     /// <summary>Gets what the filter box says it filters.</summary>
     public string SearchPlaceholder => "Filter tags";
@@ -455,14 +455,12 @@ public sealed class TagsPageViewModel : PageViewModelBase
         HashSet<string> selectedNames = [.. SelectedTags.Select(row => row.Name)];
 
         SelectedTags.Clear();
-        Tags.Clear();
 
         IEnumerable<GitTag> matching = RepositoryContext.Refs.Tags.Where(tag => Matches(tag.ShortName));
 
-        foreach (GitTag tag in RefSort.Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection))
-        {
-            Tags.Add(new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand, DeleteRemoteCommand, Selection));
-        }
+        Tags.ReplaceWith(RefSort
+            .Order(matching, tag => tag.ShortName, tag => tag.TargetDate, SortKey, SortDirection)
+            .Select(tag => new TagRowViewModel(tag, CheckoutCommand, DeleteCommand, SelectInHistoryCommand, PushCommand, DeleteRemoteCommand, Selection)));
 
         SelectedTag = selected is null
             ? null

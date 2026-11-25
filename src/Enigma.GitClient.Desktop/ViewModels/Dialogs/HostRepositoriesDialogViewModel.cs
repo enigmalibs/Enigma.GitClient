@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -170,7 +170,7 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
     public string Title => $"{Account.DisplayName} on {_provider.DisplayName}";
 
     /// <summary>Gets the repositories read, filtered by the search box.</summary>
-    public ObservableCollection<HostRepositoryRowViewModel> Repositories { get; } = [];
+    public RangeObservableCollection<HostRepositoryRowViewModel> Repositories { get; } = [];
 
     /// <summary>Gets the repository picked to clone, or <see langword="null"/> while none is.</summary>
     public HostRepository? Picked { get; private set; }
@@ -388,17 +388,10 @@ public sealed class HostRepositoriesDialogViewModel : ViewModelBase
     {
         string term = Search.Trim();
 
-        Repositories.Clear();
-
-        foreach (HostRepositoryRowViewModel row in _all)
-        {
-            if (term.Length == 0
-                || row.Repository.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
-                || row.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
-            {
-                Repositories.Add(row);
-            }
-        }
+        Repositories.ReplaceWith(_all.Where(row =>
+            term.Length == 0
+            || row.Repository.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || row.Description.Contains(term, StringComparison.OrdinalIgnoreCase)));
 
         OnPropertyChanged(nameof(HasRepositories));
     }

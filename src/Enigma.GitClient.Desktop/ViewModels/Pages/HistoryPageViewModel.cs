@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -377,7 +376,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
     /// <summary>
     /// Gets the rows the list shows, newest first.
     /// </summary>
-    public ObservableCollection<CommitRowViewModel> Rows { get; } = [];
+    public RangeObservableCollection<CommitRowViewModel> Rows { get; } = [];
 
     /// <summary>
     /// Gets or sets what to look for in the commits: their messages, their SHAs and their authors
@@ -1743,10 +1742,11 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         _drawnWithoutState |= RepositoryContext.Head is null;
 
         int first = 0;
+        List<CommitRowViewModel> rows = new(commits.Count + 1);
 
         if (withWorkingTree)
         {
-            Rows.Add(CommitRowViewModel.Uncommitted(layout.Rows[0], RowCommands));
+            rows.Add(CommitRowViewModel.Uncommitted(layout.Rows[0], RowCommands));
             first = 1;
         }
 
@@ -1754,7 +1754,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
         {
             GitCommit commit = commits[index];
 
-            Rows.Add(new CommitRowViewModel(
+            rows.Add(new CommitRowViewModel(
                 commit,
                 layout.Rows[first + index],
                 WithoutStashRef(WithoutHidden(decorations.GetRefs(commit.Sha), excluded)),
@@ -1766,6 +1766,9 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
                 WorktreeTipOf,
                 _remoteTags.RemoteOf));
         }
+
+        // The page in one go: one notification for the list, however many rows it brings.
+        Rows.AddRange(rows);
 
         _query = _query with { Skip = _query.Skip + page.Commits.Count };
         HasMore = page.HasMore;

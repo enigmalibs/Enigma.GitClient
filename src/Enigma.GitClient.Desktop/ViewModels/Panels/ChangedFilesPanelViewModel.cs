@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -515,7 +514,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// Gets the rows currently shown, in whichever shape the user picked.
     /// </summary>
-    public ObservableCollection<ChangedFileNodeViewModel> Nodes { get; } = [];
+    public RangeObservableCollection<ChangedFileNodeViewModel> Nodes { get; } = [];
 
     /// <summary>
     /// Gets or sets how the files are arranged. A tree until the preference says otherwise, which is
@@ -956,7 +955,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
             _expanded.Clear();
         }
 
-        Nodes.Clear();
+        List<ChangedFileNodeViewModel> nodes = [];
 
         if (ViewMode == ChangedFilesViewMode.List)
         {
@@ -965,7 +964,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
                 // The name alone. Two files of the same name in different directories are told
                 // apart by the row's tooltip, which is the whole path — a column repeating it on
                 // every row costs the name the width it needs to be read at all.
-                Nodes.Add(new ChangedFileNodeViewModel(this, file, file.Name));
+                nodes.Add(new ChangedFileNodeViewModel(this, file, file.Name));
             }
         }
         else
@@ -978,9 +977,11 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
 
             foreach (FileTreeNode node in tree)
             {
-                Nodes.Add(Convert(node, expand));
+                nodes.Add(Convert(node, expand));
             }
         }
+
+        Nodes.ReplaceWith(nodes);
 
         OnPropertyChanged(nameof(IsEmpty));
         ExpandAllCommand.NotifyCanExecuteChanged();

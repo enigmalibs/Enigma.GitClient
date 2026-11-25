@@ -388,7 +388,7 @@ Locations: `CloneRepositoryDialogViewModel.cs:161-165`, `InitRepositoryDialogVie
 ## PHASE15 — [Medium] PERF-01 Bulk collection refills
 
 **Branch:** `review/code-review-6e56-phase15-bulk-collection-refills`
-**Status:** TODO
+**Status:** DONE
 
 Locations: the 14 sites in the review (tags, repositories ×2, history, branches, conflicts, profiles
 ×3, remotes, submodules, worktrees, changed files, host repositories).

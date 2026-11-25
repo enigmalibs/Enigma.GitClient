@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -197,7 +196,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <summary>
     /// Gets every profile, for the picker in the page's header.
     /// </summary>
-    public ObservableCollection<IdentityProfile> Profiles { get; } = [];
+    public RangeObservableCollection<IdentityProfile> Profiles { get; } = [];
 
     /// <summary>
     /// Gets or sets the profile whose repositories are listed.
@@ -239,7 +238,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
     /// <summary>
     /// Gets the selected profile's repositories that the filter keeps, in the user's order.
     /// </summary>
-    public ObservableCollection<ListedRepository> Repositories { get; } = [];
+    public RangeObservableCollection<ListedRepository> Repositories { get; } = [];
 
     /// <summary>
     /// Gets a value indicating whether the selected profile lists any repository at all, filtered out
@@ -1185,12 +1184,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
             // selection on every showing of the page.
             if (!Profiles.SequenceEqual(choice.Profiles))
             {
-                Profiles.Clear();
-
-                foreach (IdentityProfile profile in choice.Profiles)
-                {
-                    Profiles.Add(profile);
-                }
+                Profiles.ReplaceWith(choice.Profiles);
             }
 
             SelectedProfile = choice.Selected;
@@ -1308,15 +1302,7 @@ public sealed class RepositoriesPageViewModel : PageViewModelBase
 
     private void ApplyFilter()
     {
-        Repositories.Clear();
-
-        foreach (ListedRepository entry in _all)
-        {
-            if (Matches(entry, SearchText))
-            {
-                Repositories.Add(entry);
-            }
-        }
+        Repositories.ReplaceWith(_all.Where(entry => Matches(entry, SearchText)));
 
         OnPropertyChanged(nameof(HasNoMatch));
     }

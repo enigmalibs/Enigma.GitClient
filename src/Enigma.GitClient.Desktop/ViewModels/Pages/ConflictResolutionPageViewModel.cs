@@ -494,7 +494,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
     public string Title => "Resolve conflicts";
 
     /// <summary>Gets the conflicted files, in path order.</summary>
-    public ObservableCollection<ConflictFileRowViewModel> Files { get; } = [];
+    public RangeObservableCollection<ConflictFileRowViewModel> Files { get; } = [];
 
     /// <summary>Gets the selected file's regions, in file order.</summary>
     public ObservableCollection<ConflictRegionViewModel> Regions { get; } = [];
@@ -944,12 +944,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         // Read first, replace after: clearing before the rows are built lets a second refresh
         // interleave and show the same file twice.
-        Files.Clear();
-
-        foreach (ConflictFileRowViewModel row in rows)
-        {
-            Files.Add(row);
-        }
+        Files.ReplaceWith(rows);
 
         NotifyCounts();
 

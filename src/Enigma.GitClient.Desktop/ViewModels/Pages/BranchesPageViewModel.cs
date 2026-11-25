@@ -805,13 +805,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
     /// From the whole repository, not from the filtered list: the filter box narrows what the list
     /// shows, and a merge source is chosen by name here.
     /// </remarks>
-    public ObservableCollection<string> MergeSources { get; } = [];
+    public RangeObservableCollection<string> MergeSources { get; } = [];
 
     /// <summary>
     /// Gets every branch the manual merge can write to — local ones only: a remote branch is changed
     /// by pushing, not by merging into it here.
     /// </summary>
-    public ObservableCollection<string> MergeDestinations { get; } = [];
+    public RangeObservableCollection<string> MergeDestinations { get; } = [];
 
     /// <summary>Gets or sets the branch whose work the manual merge brings over.</summary>
     public string? SelectedMergeSource
@@ -1185,21 +1185,24 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         string? destination = SelectedMergeDestination;
 
         _branchesByName = new Dictionary<string, GitBranch>(StringComparer.Ordinal);
-        MergeSources.Clear();
-        MergeDestinations.Clear();
+        List<string> sources = [];
+        List<string> destinations = [];
 
         foreach (GitBranch branch in refs.LocalBranches)
         {
             _branchesByName.TryAdd(branch.ShortName, branch);
-            MergeSources.Add(branch.ShortName);
-            MergeDestinations.Add(branch.ShortName);
+            sources.Add(branch.ShortName);
+            destinations.Add(branch.ShortName);
         }
 
         foreach (GitBranch branch in refs.RemoteBranches)
         {
             _branchesByName.TryAdd(branch.ShortName, branch);
-            MergeSources.Add(branch.ShortName);
+            sources.Add(branch.ShortName);
         }
+
+        MergeSources.ReplaceWith(sources);
+        MergeDestinations.ReplaceWith(destinations);
 
         SelectedMergeSource = source is not null && MergeSources.Contains(source) ? source : null;
         SelectedMergeDestination = destination is not null && MergeDestinations.Contains(destination) ? destination : null;

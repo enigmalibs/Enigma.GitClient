@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -155,7 +154,7 @@ public sealed class WorktreesPageViewModel : PageViewModelBase
     public string Title => "Worktrees";
 
     /// <summary>Gets every working tree, the main one first, then the others by folder.</summary>
-    public ObservableCollection<WorktreeRowViewModel> Rows { get; } = [];
+    public RangeObservableCollection<WorktreeRowViewModel> Rows { get; } = [];
 
     /// <summary>
     /// Gets a value indicating whether there is nothing to list but the main working tree — or nothing
@@ -203,8 +202,6 @@ public sealed class WorktreesPageViewModel : PageViewModelBase
     /// </summary>
     private void Rebuild()
     {
-        Rows.Clear();
-
         string? open = RepositoryContext.Repository?.WorkTreePath;
         StringComparer paths = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
@@ -212,10 +209,8 @@ public sealed class WorktreesPageViewModel : PageViewModelBase
             .OrderBy(worktree => worktree.IsMain ? 0 : 1)
             .ThenBy(worktree => worktree.Path, paths);
 
-        foreach (GitWorktree worktree in ordered)
-        {
-            Rows.Add(new WorktreeRowViewModel(this, worktree, open is not null && paths.Equals(worktree.Path, open)));
-        }
+        Rows.ReplaceWith(ordered.Select(worktree =>
+            new WorktreeRowViewModel(this, worktree, open is not null && paths.Equals(worktree.Path, open))));
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyMessage));

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -102,7 +101,7 @@ public sealed class ProfileRowViewModel : ViewModelBase
     public AsyncRelayCommand<ProfileRowViewModel> ConnectCommand => _owner.ConnectAccountCommand;
 
     /// <summary>Gets the accounts this profile is connected to, in the order they were added.</summary>
-    public ObservableCollection<HostAccountRowViewModel> Integrations { get; } = [];
+    public RangeObservableCollection<HostAccountRowViewModel> Integrations { get; } = [];
 
     /// <summary>Gets a value indicating whether the profile has any integration.</summary>
     public bool HasIntegrations => Integrations.Count > 0;
@@ -113,12 +112,7 @@ public sealed class ProfileRowViewModel : ViewModelBase
     /// <param name="rows">The profile's integrations.</param>
     internal void ShowIntegrations(IEnumerable<HostAccountRowViewModel> rows)
     {
-        Integrations.Clear();
-
-        foreach (HostAccountRowViewModel row in rows)
-        {
-            Integrations.Add(row);
-        }
+        Integrations.ReplaceWith(rows);
 
         OnPropertyChanged(nameof(HasIntegrations));
     }
@@ -362,7 +356,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     // ---------------------------------------------------------------- profiles
 
     /// <summary>Gets the identity profiles, in the order they were added.</summary>
-    public ObservableCollection<ProfileRowViewModel> Profiles { get; } = [];
+    public RangeObservableCollection<ProfileRowViewModel> Profiles { get; } = [];
 
     /// <summary>Gets a value indicating whether there is any profile.</summary>
     public bool HasProfiles => Profiles.Count > 0;
@@ -405,7 +399,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
     /// Gets the integrations that belong to no profile: connected before integrations belonged to
     /// profiles, or left behind by a profile that no longer exists.
     /// </summary>
-    public ObservableCollection<HostAccountRowViewModel> EarlierIntegrations { get; } = [];
+    public RangeObservableCollection<HostAccountRowViewModel> EarlierIntegrations { get; } = [];
 
     /// <summary>Gets a value indicating whether there is any earlier integration to place.</summary>
     public bool HasEarlierIntegrations => EarlierIntegrations.Count > 0;
@@ -651,12 +645,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             rows.Add(new ProfileRowViewModel(this, profile));
         }
 
-        Profiles.Clear();
-
-        foreach (ProfileRowViewModel row in rows)
-        {
-            Profiles.Add(row);
-        }
+        Profiles.ReplaceWith(rows);
 
         OnPropertyChanged(nameof(HasProfiles));
         UpdateCurrentProfile();
@@ -729,12 +718,7 @@ public sealed class ProfilesPageViewModel : PageViewModelBase
             }
         }
 
-        EarlierIntegrations.Clear();
-
-        foreach (HostAccountRowViewModel row in earlier)
-        {
-            EarlierIntegrations.Add(row);
-        }
+        EarlierIntegrations.ReplaceWith(earlier);
 
         OnPropertyChanged(nameof(HasEarlierIntegrations));
     }
