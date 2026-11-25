@@ -156,7 +156,7 @@ public sealed class AtomicFileTests : IDisposable
         using (OpenLikeAReader())
         {
             writing = Task.Run(() => AtomicFile.WriteAllText(Target, "new"), TestContext.Current.CancellationToken);
-            await Task.Delay(50, TestContext.Current.CancellationToken);
+            await WriterReachesTheTargetAsync(writing, "new".Length);
         }
 
         await writing;
@@ -174,7 +174,7 @@ public sealed class AtomicFileTests : IDisposable
         using (OpenLikeAReader())
         {
             writing = AtomicFile.WriteAllTextAsync(Target, "new", null, TestContext.Current.CancellationToken);
-            await Task.Delay(50, TestContext.Current.CancellationToken);
+            await WriterReachesTheTargetAsync(writing, "new".Length);
         }
 
         await writing;
@@ -257,4 +257,45 @@ public sealed class AtomicFileTests : IDisposable
     /// which is what makes Windows refuse to replace it.
     /// </summary>
     private FileStream OpenLikeAReader() => new(Target, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    /// <summary>
+    /// Waits for the writer to reach the held file: its temporary file written in full and closed,
+    /// after which the only thing left for it to do is to move it over the target. Or the write already
+    /// over, which is what happens outside Windows, where a file held open is renamed over all the
+    /// same. The writer's own progress, not a guess at how long it takes.
+    /// </summary>
+    private async Task WriterReachesTheTargetAsync(Task writing, int length)
+    {
+        while (!writing.IsCompleted && !HasAWrittenTemporary(length))
+        {
+            await Task.Delay(1, TestContext.Current.CancellationToken);
+        }
+    }
+
+    private bool HasAWrittenTemporary(int length)
+    {
+        foreach (string path in Directory.EnumerateFiles(_root, "*.tmp"))
+        {
+            try
+            {
+                // The writer creates its temporary file unshared, so this opens only once it has closed
+                // it. Shared for deletion: the look never stands in the way of the move.
+                using FileStream look = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+                if (look.Length == length)
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+                // Still being written, or moved away in the meantime.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return false;
+    }
 }

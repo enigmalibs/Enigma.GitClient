@@ -438,7 +438,7 @@ Locations: `ConflictResolutionPageView.axaml:33`, `:165`, `:180`, `:188`,
 ## PHASE17 — [Medium] TEST-03 No fixed test delays
 
 **Branch:** `review/code-review-6e56-phase17-no-fixed-test-delays`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `RepositoryWatcherTests.cs:296`, `FileSystemRepositoryEventSourceTests.cs:165`,
 `DiffSyntaxHighlightingTests.cs:89`, `AtomicFileTests.cs:159`, `:177`.

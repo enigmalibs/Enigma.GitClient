@@ -161,8 +161,13 @@ public sealed class FileSystemRepositoryEventSourceTests : IDisposable
         IDisposable watch = new FileSystemRepositoryEventSource().Watch(repository, sink);
         watch.Dispose();
 
+        // A live watch of the same repository is the witness: once it has reported the change, the
+        // operating system has delivered it, and the disposed watch would have reported it by now too.
+        RecordingSink witness = new();
+        using IDisposable live = new FileSystemRepositoryEventSource().Watch(repository, witness);
+
         await File.WriteAllTextAsync(Path.Combine(repository.WorkTreePath, "late.txt"), "x", TestContext.Current.CancellationToken);
-        await Task.Delay(300, TestContext.Current.CancellationToken);
+        await witness.UntilAsync(RepositoryChanges.WorkingTree);
 
         Assert.Empty(sink.Changes);
     }
