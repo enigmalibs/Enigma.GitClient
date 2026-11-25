@@ -1,5 +1,157 @@
 # Release notes
 
+## 6.20.0 — 2026-11-25
+
+A minor release, made of the fixes from a full review of the code. Most of it is out of sight. It
+makes the app safer with what a repository holds and with your accounts, gives it a log you can attach
+to a bug report, and keeps it quick on large files and slow disks:
+
+- **programs are started by their full path**: git, the terminal and the file manager are never
+  looked for in the repository's folder, where a repository could have put a program of the same name;
+- **a changed file that would run is shown, never opened**: a program, a script or a shortcut that a
+  commit holds has no *Open file*, and is shown in the file manager instead;
+- **your tokens and accounts survive a crash**: the tokens, their key and the list of accounts are
+  replaced in one step, and a list that cannot be read is kept aside rather than overwritten;
+- **a log file**, one a day, which the *Something went wrong* dialog names;
+- **the conflict page folds long unchanged stretches** between conflicts, behind a row that shows them;
+- **the create and clone dialogs check the disk without stalling** while you type;
+- **the light theme draws the avatars in its own colours**.
+
+### Programs by their full path
+
+- **The terminal, the file manager and git are started by their full path**, never by a bare name.
+  The system looks for a bare name in the current folder first, and through the shell on Windows in
+  the working folder too: often a repository, where a `cmd.exe` committed at the root would have run
+  in place of the real one.
+- **On Windows**, `cmd.exe` comes from the system folder, `explorer.exe` from the Windows folder, and
+  `wt.exe` from the per-user `Microsoft\WindowsApps` folder. **Everywhere else**, and for every other
+  program, the app looks only in the `PATH`'s full paths: an entry such as `.` or a relative folder is
+  skipped.
+- **A terminal that is not installed is not tried.** *Open a terminal* starts the first of the usual
+  ones that is there. `$TERMINAL` is honoured when it names a program on the `PATH`, or a full path to
+  one.
+- **git is found the same way.** When it is on none of the `PATH`'s full paths and in none of the usual
+  installation folders, the app says git is required, rather than starting a bare `git` and hoping.
+  A path set in Settings → Git → *Path to git* is used as it is.
+
+### Files that would run
+
+- **A changed file that would run when opened has no *Open file*** on its menu in the list of changed
+  files; *Show in file manager* stays. A commit's files are somebody else's content, and opening a
+  program, a script or a shortcut runs it.
+- **What counts:** on Windows, the `PATHEXT` extensions, scripts (`.ps1`, `.vbs`, `.js`, …),
+  installers (`.msi`, …) and shortcuts (`.lnk`, `.url`, …); on Linux, launchers and scripts
+  (`.desktop`, `.sh`, `.AppImage`, …), so a `.js` file still opens in an editor there.
+- **However it is asked to open**, such a file is shown in the file manager, never opened.
+
+### Your accounts and tokens
+
+- **Written in one step.** The tokens (`tokens.json`), their key (`tokens.key`) and the connected
+  accounts (`host-accounts.json`) are written to a file beside them, then moved into place. A crash, a
+  killed process or a full disk in the middle of a write leaves the previous file whole, where it could
+  leave a cut-off one that made every token unreadable, or listed no account at all.
+- **An accounts list that cannot be read is kept.** It used to read as no accounts, silently, and the
+  next account you connected rewrote the file with that one alone. It is now moved aside to
+  `host-accounts.corrupt-<yyyyMMdd-HHmmss>.json` in the configuration directory, and the log says so.
+  The tokens it named are still in the store.
+
+### A log file
+
+- **The app keeps a log**: `logs/enigma-gitclient-<yyyyMMdd>.log` in the configuration directory, one
+  file per day (UTC), the last 7 days kept. It records what the app did at the *Information* level,
+  with credentials redacted from every line.
+- **The *Something went wrong* dialog says where it is**: "The log is kept in <folder>, one file a day.
+  Attach the most recent one to a bug report."
+- **More detail on demand**: an `appsettings.json` beside the executable with
+  `{ "Logging": { "LogLevel": { "Default": "Debug" } } }` records every git command the app runs.
+- **Logging never waits for the disk**, and two windows of the app write to the same file without
+  mixing their lines.
+
+### Conflicts
+
+- **Long unchanged stretches are folded.** Between two conflicts, the page shows the lines next to
+  each conflict, then a row, "N unchanged lines", then the lines before the next one. The row shows
+  the rest, numbered as before. Before the first conflict only the last lines are shown, and after the
+  last one only the first.
+- **How many lines are shown** next to a conflict is the diff's setting, Settings → Diff → *Context
+  lines* (3 by default).
+- **A large file opens at once.** Only the lines shown are built: a 10,000-line lock file with one
+  conflict no longer builds every agreed line before it draws.
+
+### Creating and cloning
+
+- **The folder is checked a moment after you stop typing** (250 ms), away from the window, so a
+  network share or a sleeping disk no longer stalls each keystroke. The fields themselves are checked
+  at once.
+- **Create and Clone wait for the last check** before they act, so a click in the same moment as the
+  last keystroke cannot skip it.
+- **A clone's folder that exists but cannot be read** says "'<folder>' exists but cannot be read."
+  where the dialog used to fail.
+
+### The light theme
+
+- **The avatars take the light theme's colours.** Their tints are the graph's lane colours of the
+  theme in use, and follow a switch between dark and light; their initials are white on the light
+  theme's deeper colours.
+- **The warning icon** of the *git is required* and *Something went wrong* dialogs is the theme's
+  warning colour.
+
+### Under the hood
+
+- **Faster lists.** A list that is filled again — the tags, the repositories and their filter, every
+  page of the history, the branches' merge pickers, the conflict files, the profiles and their
+  accounts, the remotes, the submodules, the worktrees, the changed files — tells the window once,
+  where it told it once per line.
+- **Smaller parts.** The History page hands its branch, tag, line and stash commands, its stash
+  drawing and its search to parts of their own; the Profiles page hands the connected accounts to
+  theirs; the repositories and profiles pages share one clone; the submodule service is split into
+  reading, pins and updating; the twelve operations share one way to report and ask.
+- **Cleaner start and stop.** Startup no longer blocks on a task; the automatic refresh and the file
+  watcher start and stop with the application; a diff viewer lets go of the settings when it goes; no
+  service looks others up in the container.
+- **Clearer failures.** When git cannot be started, the log keeps the system's own reason. A command
+  given nothing to act on does nothing.
+- The form labels and error lines share two styles, and the three lists that scroll at the edge while
+  you drag share one way to do it.
+
+### Upgrading from 6.19
+
+- **On Windows, install the 6.20.0 MSI**: `packaging\windows\buildmsi.ps1` builds
+  `artifacts\Enigma.GitClient.6.20.0.msi`, which replaces 6.19.0.
+- **On Linux, run `packaging/linux/install.sh` again.**
+- **No stored format changes.** `settings.json` stays at version 7, `repository-lists.json` at
+  version 1, and the integrations (`host-accounts.json`) and the tokens (`tokens.json`) keep their
+  format.
+- **Going back to 6.19 keeps everything.** 6.19 does not read the `logs` folder or a
+  `host-accounts.corrupt-…` file, and leaves both alone.
+- **One new folder**, `logs`, in the configuration directory.
+- **Some things now behave differently:**
+  - a git found only through a relative `PATH` entry (`.`, or a relative folder) is no longer used:
+    put its folder on the `PATH` as a full path, or set Settings → Git → *Path to git*;
+  - a terminal that is not installed is no longer tried, and a `$TERMINAL` that names a relative
+    path with a folder in it is ignored;
+  - a changed file that would run has no *Open file*: use *Show in file manager*.
+
+### Dependencies
+
+- **Microsoft.Extensions.Hosting, Microsoft.Extensions.Http and
+  System.Security.Cryptography.ProtectedData 10.0.14 → 10.0.15**, the .NET 10 servicing patch. Their
+  11.0.0 belongs to .NET 11 and is not taken.
+- **The Avalonia set stays at 12.1.4**, with Enigma.Avalonia.Desktop **1.3.0**. Avalonia 12.2.0 is
+  out, but Enigma.Avalonia.Desktop 1.3.0, still the latest, is built against 12.1.4, and the set moves
+  only with it. Nothing else is outdated (`dotnet list package --outdated`, 2026-11-25).
+- The installer build still uses Enigma.Msi 1.7.0's worker, on WixSharp_wix4 2.14.2.
+
+### Version
+
+- **6.20.0** is a minor release under Semantic Versioning. It adds the log file and the conflict
+  fold, hardens how programs are started and how secrets are written, and keeps every stored format.
+  Core gains `ExecutableSearch`, a public `GitExecutable.Resolve`, `AtomicFile.WriteAllBytes` and a
+  Unix file mode on `AtomicFile.WriteAllText`, `ISettingsService.Load`, the standard constructors of
+  `GitNotFoundException` and `HostAccountService.BackupPath`; `HostAccountService` takes a logger,
+  which the application supplies. The application's dependencies move by the .NET 10 servicing
+  patch only.
+
 ## 6.19.0 — 2026-11-10
 
 A minor release, about submodules. The app now follows them and shows them, and it keeps the three

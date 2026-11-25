@@ -1,6 +1,6 @@
 # FEATURE-A173 — Release 6.20.0
 
-**Status:** TODO
+**Status:** DONE
 **Type:** FEATURE
 **Branch:** `feature/feature-a173-release-6-20-0`
 **Run:** feature/2026-11-25-release-6-20-0

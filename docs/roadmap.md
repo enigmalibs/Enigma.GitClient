@@ -458,7 +458,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE26        | [Medium] SOLID-03 History search, stash  | DONE      | (in CODE-REVIEW-6E56.md)      |
 | - PHASE27        | [Medium] SOLID-02 Profiles page split    | DONE      | (in CODE-REVIEW-6E56.md)      |
 | - PHASE28        | [Medium] SOLID-02 Operation reporter     | DONE      | (in CODE-REVIEW-6E56.md)      |
-| FEATURE-A173     | Release 6.20.0                           | TODO      | docs/plan/FEATURE-A173.md     |
+| FEATURE-A173     | Release 6.20.0                           | DONE      | docs/plan/FEATURE-A173.md     |
 
 > `BUG-6EAA` abandoned at the user's request: out of the run's scope. Its unverified work (a Windows retry in
 > `AtomicFile`, Windows-safe App test cleanup) is on the unmerged branch `bugfix/bug-6eaa-windows-test-suite`.
