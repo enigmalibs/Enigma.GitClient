@@ -93,7 +93,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
     private readonly IOverlayService _overlay;
     private readonly IInstanceLauncher _launcher;
     private readonly ISystemInterop _interop;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<SubmoduleOperations> _logger;
 
     private CancellationTokenSource? _cancellation;
@@ -105,40 +105,37 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
     /// <param name="submodules">Updates the submodules.</param>
     /// <param name="locator">Opens a new worktree, to download its submodules.</param>
     /// <param name="settings">Says whether a new worktree's submodules are downloaded.</param>
-    /// <param name="overlay">Shows the progress card.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="launcher">Opens a submodule in another instance.</param>
     /// <param name="interop">Opens a submodule's folder or a terminal in it, and copies its path.</param>
-    /// <param name="infoBar">Reports what happened.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public SubmoduleOperations(
         IRepositoryContext context,
         ISubmoduleService submodules,
         IRepositoryLocator locator,
         ISettingsService settings,
-        IOverlayService overlay,
+        IOperationFeedback feedback,
         IInstanceLauncher launcher,
         ISystemInterop interop,
-        IInfoBarService infoBar,
         ILogger<SubmoduleOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(submodules);
         ArgumentNullException.ThrowIfNull(locator);
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(overlay);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(interop);
-        ArgumentNullException.ThrowIfNull(infoBar);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _submodules = submodules;
         _locator = locator;
         _settings = settings;
-        _overlay = overlay;
+        _overlay = feedback.Overlay;
         _launcher = launcher;
         _interop = interop;
-        _infoBar = infoBar;
+        _feedback = feedback;
         _logger = logger;
 
         CancelCommand = new RelayCommand(() => _cancellation?.Cancel());
@@ -186,13 +183,13 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
         }
         catch (OperationCanceledException)
         {
-            _infoBar.Notify($"{UpdateTitle} cancelled", "What was already updated stays updated.", InfoBarSeverity.Info);
+            _feedback.Report($"{UpdateTitle} cancelled", "What was already updated stays updated.", InfoBarSeverity.Info);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "The submodules could not be updated");
 
-            _infoBar.Notify($"{UpdateTitle} failed", FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report($"{UpdateTitle} failed", FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         finally
         {
@@ -255,12 +252,12 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
 
             if (DescribeProblems(result) is { } problems)
             {
-                _infoBar.Notify(problems.Title, problems.Message, InfoBarSeverity.Warning);
+                _feedback.Report(problems.Title, problems.Message, InfoBarSeverity.Warning);
             }
         }
         catch (OperationCanceledException)
         {
-            _infoBar.Notify(
+            _feedback.Report(
                 "Submodule download cancelled",
                 $"The worktree is in '{workTreePath}'; its submodules not downloaded yet can be from its own window.",
                 InfoBarSeverity.Info);
@@ -268,7 +265,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
         catch (GitCommandException exception)
         {
             _logger.LogWarning(exception, "The submodules of the worktree {Folder} could not be downloaded", workTreePath);
-            _infoBar.Notify("The worktree's submodules were not downloaded", FirstLine(exception.StandardError), InfoBarSeverity.Warning);
+            _feedback.Report("The worktree's submodules were not downloaded", FirstLine(exception.StandardError), InfoBarSeverity.Warning);
         }
         finally
         {
@@ -287,7 +284,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
             return Task.FromResult(true);
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "No new window",
             $"Another instance of Enigma.GitClient could not be started to open '{submodule.FullPath}'.",
             InfoBarSeverity.Error);
@@ -305,7 +302,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
             return true;
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "The folder did not open",
             $"Nothing on this desktop opened '{submodule.FullPath}'.",
             InfoBarSeverity.Warning);
@@ -323,7 +320,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
             return true;
         }
 
-        _infoBar.Notify(
+        _feedback.Report(
             "No terminal started",
             $"No terminal could be started in '{submodule.FullPath}'.",
             InfoBarSeverity.Warning);
@@ -387,7 +384,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
     {
         if (DescribeProblems(result) is { } problems)
         {
-            _infoBar.Notify(problems.Title, problems.Message, InfoBarSeverity.Warning);
+            _feedback.Report(problems.Title, problems.Message, InfoBarSeverity.Warning);
             return;
         }
 
@@ -398,7 +395,7 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
             _ => $"{result.Updated.Count} submodules are on the commits this repository expects.",
         };
 
-        _infoBar.Notify("Submodules updated", message, InfoBarSeverity.Success);
+        _feedback.Report("Submodules updated", message, InfoBarSeverity.Success);
     }
 
     private static string FirstLine(string text)

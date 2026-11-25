@@ -1,6 +1,6 @@
 # CODE-REVIEW-6E56 — Fixes from review 2026-11-19
 
-**Status:** IN PROGRESS
+**Status:** DONE
 **Type:** CODE-REVIEW
 **Branch:** one per phase, see below
 **Run:** review/2026-11-19-solution-review-fixes
@@ -677,7 +677,7 @@ Location: `ProfilesPageViewModel.cs:168` / `:205`.
 ## PHASE28 — [Medium] SOLID-02 Operation reporter
 
 **Branch:** `review/code-review-6e56-phase28-operation-reporter`
-**Status:** TODO
+**Status:** DONE
 
 Locations: the `*Operations` classes in the review (5–7 parameters each).
 

@@ -45,7 +45,7 @@ public sealed class RevertOperations : IRevertOperations
     private readonly IRepositoryContext _context;
     private readonly IRevertService _revert;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<RevertOperations> _logger;
 
     /// <summary>
@@ -53,26 +53,23 @@ public sealed class RevertOperations : IRevertOperations
     /// </summary>
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="revert">Performs the revert.</param>
-    /// <param name="dialogs">Raises the question before the revert.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public RevertOperations(
         IRepositoryContext context,
         IRevertService revert,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<RevertOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(revert);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _revert = revert;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -90,7 +87,7 @@ public sealed class RevertOperations : IRevertOperations
 
         if (Refuse(_context.Head) is { } refusal)
         {
-            Report($"Could not revert {target}", refusal, InfoBarSeverity.Warning);
+            _feedback.Report($"Could not revert {target}", refusal, InfoBarSeverity.Warning);
             return false;
         }
 
@@ -114,13 +111,13 @@ public sealed class RevertOperations : IRevertOperations
         }
         catch (GitOperationRefusedException exception)
         {
-            Report($"Could not revert {target}", exception.Message, InfoBarSeverity.Warning);
+            _feedback.Report($"Could not revert {target}", exception.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "Reverting {Revision} failed", sha);
 
-            Report($"Could not revert {target}", FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report($"Could not revert {target}", OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -178,18 +175,18 @@ public sealed class RevertOperations : IRevertOperations
             case RevertResultKind.Reverted:
                 string commit = outcome.CommitSha[..Math.Min(7, outcome.CommitSha.Length)];
 
-                Report(
+                _feedback.Report(
                     $"{target} reverted",
                     $"{commit} on \"{branch}\" undoes what it changed.",
                     InfoBarSeverity.Success);
                 return true;
 
             case RevertResultKind.NothingToRevert:
-                Report($"Nothing to revert in {target}", outcome.Message, InfoBarSeverity.Info);
+                _feedback.Report($"Nothing to revert in {target}", outcome.Message, InfoBarSeverity.Info);
                 return false;
 
             case RevertResultKind.Conflicted:
-                Report(
+                _feedback.Report(
                     $"Could not revert {target}",
                     outcome.ConflictedPaths.Count switch
                     {
@@ -203,7 +200,7 @@ public sealed class RevertOperations : IRevertOperations
             default:
                 _logger.LogWarning("Reverting {Revision} was refused: {Detail}", target, outcome.Detail);
 
-                Report($"Could not revert {target}", outcome.Message, InfoBarSeverity.Warning);
+                _feedback.Report($"Could not revert {target}", outcome.Message, InfoBarSeverity.Warning);
                 return false;
         }
     }
@@ -223,20 +220,4 @@ public sealed class RevertOperations : IRevertOperations
         }
     }
 
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
-    }
-
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 }

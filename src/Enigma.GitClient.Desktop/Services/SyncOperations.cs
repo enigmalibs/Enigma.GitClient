@@ -115,7 +115,7 @@ public sealed class SyncOperations : ISyncOperations
     private readonly IPushGuard _pushGuard;
     private readonly ISettingsService _settings;
     private readonly IOverlayService _overlay;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly IContentDialogService _dialogs;
     private readonly ILogger<SyncOperations> _logger;
     private readonly IRepositoryLocator? _locator;
@@ -132,9 +132,7 @@ public sealed class SyncOperations : ISyncOperations
     /// <param name="branches">Counts the commits a force push would take off the remote.</param>
     /// <param name="pushGuard">Says whether the repository's profile may push to the remote.</param>
     /// <param name="settings">Supplies the pull strategy.</param>
-    /// <param name="overlay">Shows the progress.</param>
-    /// <param name="infoBar">Reports what happened.</param>
-    /// <param name="dialogs">Asks, in red, before a push is forced.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public SyncOperations(
         IRepositoryContext context,
@@ -142,9 +140,7 @@ public sealed class SyncOperations : ISyncOperations
         IBranchService branches,
         IPushGuard pushGuard,
         ISettingsService settings,
-        IOverlayService overlay,
-        IInfoBarService infoBar,
-        IContentDialogService dialogs,
+        IOperationFeedback feedback,
         ILogger<SyncOperations> logger,
         IRepositoryLocator? locator = null,
         IRefReader? refReader = null,
@@ -155,9 +151,7 @@ public sealed class SyncOperations : ISyncOperations
         ArgumentNullException.ThrowIfNull(branches);
         ArgumentNullException.ThrowIfNull(pushGuard);
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(overlay);
-        ArgumentNullException.ThrowIfNull(infoBar);
-        ArgumentNullException.ThrowIfNull(dialogs);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
@@ -165,9 +159,9 @@ public sealed class SyncOperations : ISyncOperations
         _branches = branches;
         _pushGuard = pushGuard;
         _settings = settings;
-        _overlay = overlay;
-        _infoBar = infoBar;
-        _dialogs = dialogs;
+        _overlay = feedback.Overlay;
+        _feedback = feedback;
+        _dialogs = feedback.Dialogs;
         _logger = logger;
         _locator = locator;
         _refReader = refReader;
@@ -235,7 +229,7 @@ public sealed class SyncOperations : ISyncOperations
 
         if (local.UpstreamShortName is not { Length: > 0 } upstream || local.Tracking.IsUpstreamGone)
         {
-            Report(
+            _feedback.Report(
                 $"Nothing to pull into \"{branch}\"",
                 $"\"{branch}\" has no upstream to pull from. Give it one with \"Set upstream\" in the branches, or push it once.",
                 InfoBarSeverity.Info);
@@ -458,7 +452,7 @@ public sealed class SyncOperations : ISyncOperations
     {
         if (_context.Repository is not { } repository || _locator is null || _refReader is null)
         {
-            Report($"{title} failed", rejection.Message, InfoBarSeverity.Warning);
+            _feedback.Report($"{title} failed", rejection.Message, InfoBarSeverity.Warning);
             return false;
         }
 
@@ -540,7 +534,7 @@ public sealed class SyncOperations : ISyncOperations
             if (!permission.IsAllowed)
             {
                 (string refusedTitle, string refusedMessage) = DescribeRefusal(permission);
-                Report(refusedTitle, $"{push.Path}: {refusedMessage}", InfoBarSeverity.Warning);
+                _feedback.Report(refusedTitle, $"{push.Path}: {refusedMessage}", InfoBarSeverity.Warning);
                 return false;
             }
         }
@@ -593,7 +587,7 @@ public sealed class SyncOperations : ISyncOperations
         // nobody can be asked to throw away commits they have not seen.
         if (replaced is not { } remoteSide)
         {
-            Report(
+            _feedback.Report(
                 $"{title} failed",
                 $"The remote has commits this repository has not fetched, so \"{branch}\" was not pushed. "
                 + "Fetch, look at what arrived, then push again.",
@@ -703,7 +697,7 @@ public sealed class SyncOperations : ISyncOperations
         }
 
         (string title, string message) = DescribeRefusal(permission);
-        Report(title, message, InfoBarSeverity.Warning);
+        _feedback.Report(title, message, InfoBarSeverity.Warning);
 
         return false;
     }
@@ -829,12 +823,12 @@ public sealed class SyncOperations : ISyncOperations
                 .RunExclusiveAsync((handle, token) => operation(handle, progress, token), true, cancellation.Token)
                 .ConfigureAwait(true);
 
-            Report(successTitle, successMessage, InfoBarSeverity.Success);
+            _feedback.Report(successTitle, successMessage, InfoBarSeverity.Success);
             return (true, null);
         }
         catch (OperationCanceledException)
         {
-            Report($"{title} cancelled", "The transfer was stopped.", InfoBarSeverity.Info);
+            _feedback.Report($"{title} cancelled", "The transfer was stopped.", InfoBarSeverity.Info);
         }
         catch (SyncException exception) when (handOver?.Invoke(exception.Failure) == true)
         {
@@ -846,7 +840,7 @@ public sealed class SyncOperations : ISyncOperations
         {
             _logger.LogWarning(exception, "{Title} failed: {Kind}", title, exception.Failure.Kind);
 
-            Report(
+            _feedback.Report(
                 $"{title} failed",
                 explain?.Invoke(exception.Failure) ?? exception.Failure.Message,
 
@@ -858,7 +852,7 @@ public sealed class SyncOperations : ISyncOperations
         {
             _logger.LogError(exception, "{Title} failed", title);
 
-            Report($"{title} failed", SyncErrorMapper.FirstMeaningfulLine(exception.StandardError),
+            _feedback.Report($"{title} failed", SyncErrorMapper.FirstMeaningfulLine(exception.StandardError),
                 InfoBarSeverity.Error);
         }
         finally
@@ -891,6 +885,4 @@ public sealed class SyncOperations : ISyncOperations
         }
     }
 
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 }

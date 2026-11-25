@@ -125,7 +125,7 @@ public sealed class BranchOperations : IBranchOperations
     private readonly IBranchService _branches;
     private readonly IWorktreeGuard _worktreeGuard;
     private readonly IContentDialogService _dialogs;
-    private readonly IInfoBarService _infoBar;
+    private readonly IOperationFeedback _feedback;
     private readonly ILogger<BranchOperations> _logger;
 
     /// <summary>
@@ -134,29 +134,26 @@ public sealed class BranchOperations : IBranchOperations
     /// <param name="context">The repository the application is looking at.</param>
     /// <param name="branches">Performs the branch operations.</param>
     /// <param name="worktreeGuard">Refuses a checkout of a branch another working tree has.</param>
-    /// <param name="dialogs">Raises the confirmations and the forms.</param>
-    /// <param name="infoBar">Reports what happened.</param>
+    /// <param name="feedback">Reports, asks, and shows the progress of a long operation.</param>
     /// <param name="logger">Receives failures that are reported to the user another way.</param>
     public BranchOperations(
         IRepositoryContext context,
         IBranchService branches,
         IWorktreeGuard worktreeGuard,
-        IContentDialogService dialogs,
-        IInfoBarService infoBar,
+        IOperationFeedback feedback,
         ILogger<BranchOperations> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(branches);
         ArgumentNullException.ThrowIfNull(worktreeGuard);
-        ArgumentNullException.ThrowIfNull(dialogs);
-        ArgumentNullException.ThrowIfNull(infoBar);
+        ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(logger);
 
         _context = context;
         _branches = branches;
         _worktreeGuard = worktreeGuard;
-        _dialogs = dialogs;
-        _infoBar = infoBar;
+        _dialogs = feedback.Dialogs;
+        _feedback = feedback;
         _logger = logger;
     }
 
@@ -316,7 +313,7 @@ public sealed class BranchOperations : IBranchOperations
         }
         else
         {
-            Report(outcome.Summarise("Deleted", "branch", "branches"));
+            _feedback.Report(outcome.Summarise("Deleted", "branch", "branches"));
         }
 
         return outcome.Deleted.Count > 0;
@@ -332,7 +329,7 @@ public sealed class BranchOperations : IBranchOperations
         {
             string name = skipped[0].Name;
 
-            Report(
+            _feedback.Report(
                 $"Could not delete \"{name}\"",
                 _context.WorktreeOf(name) is { } worktree && skipped[0].SkipReason != CheckedOutReason
                     ? WhyNotInWorktree(name, worktree)
@@ -355,7 +352,7 @@ public sealed class BranchOperations : IBranchOperations
         (string title, string message, _) = outcome.Summarise("Deleted", "branch", "branches");
 
         // A refusal, not a failure: nothing was tried.
-        Report(title, message, InfoBarSeverity.Warning);
+        _feedback.Report(title, message, InfoBarSeverity.Warning);
     }
 
     /// <summary>
@@ -538,7 +535,7 @@ public sealed class BranchOperations : IBranchOperations
 
         if (done && created.Length > 0)
         {
-            Report("Branch created", $"\"{created}\" now tracks \"{name}\".", InfoBarSeverity.Success);
+            _feedback.Report("Branch created", $"\"{created}\" now tracks \"{name}\".", InfoBarSeverity.Success);
         }
 
         return done;
@@ -608,7 +605,7 @@ public sealed class BranchOperations : IBranchOperations
         {
             if (local.IsCurrent)
             {
-                Report("Already checked out", $"\"{name}\" is checked out, on the same commit as \"{remote.ShortName}\".", InfoBarSeverity.Info);
+                _feedback.Report("Already checked out", $"\"{name}\" is checked out, on the same commit as \"{remote.ShortName}\".", InfoBarSeverity.Info);
                 return false;
             }
 
@@ -676,7 +673,7 @@ public sealed class BranchOperations : IBranchOperations
 
         if (reset)
         {
-            Report(
+            _feedback.Report(
                 $"\"{name}\" reset to \"{remote.ShortName}\"",
                 $"\"{name}\" is checked out, on {ShortSha(remote.TargetSha)}.",
                 InfoBarSeverity.Success);
@@ -865,13 +862,13 @@ public sealed class BranchOperations : IBranchOperations
         }
         catch (GitOperationRefusedException refusal)
         {
-            Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
+            _feedback.Report(failureTitle, refusal.Message, InfoBarSeverity.Warning);
         }
         catch (GitCommandException exception)
         {
             _logger.LogError(exception, "{Title}", failureTitle);
 
-            Report(failureTitle, FirstLine(exception.StandardError), InfoBarSeverity.Error);
+            _feedback.Report(failureTitle, OperationFeedback.FirstLine(exception.StandardError), InfoBarSeverity.Error);
         }
         catch (OperationCanceledException)
         {
@@ -881,20 +878,6 @@ public sealed class BranchOperations : IBranchOperations
         return false;
     }
 
-    private static string FirstLine(string text)
-    {
-        string trimmed = text.Trim();
-
-        if (trimmed.Length == 0)
-        {
-            return "git reported no reason.";
-        }
-
-        int newline = trimmed.IndexOf('\n', StringComparison.Ordinal);
-
-        return newline < 0 ? trimmed : trimmed[..newline].TrimEnd('\r');
-    }
-
     /// <summary>
     /// Says why the one branch of a batch of one did not go, as a single delete always has.
     /// </summary>
@@ -902,15 +885,9 @@ public sealed class BranchOperations : IBranchOperations
     {
         if (outcome.NotDeleted.Count == 1)
         {
-            Report(title, outcome.NotDeleted[0].Reason, outcome.HasErrors ? InfoBarSeverity.Error : InfoBarSeverity.Warning);
+            _feedback.Report(title, outcome.NotDeleted[0].Reason, outcome.HasErrors ? InfoBarSeverity.Error : InfoBarSeverity.Warning);
         }
     }
-
-    private void Report((string Title, string Message, InfoBarSeverity Severity) note)
-        => Report(note.Title, note.Message, note.Severity);
-
-    private void Report(string title, string message, InfoBarSeverity severity)
-        => _infoBar.Notify(title, message, severity);
 
     /// <summary>
     /// One branch of a delete, as its question describes it and its batch deletes it.

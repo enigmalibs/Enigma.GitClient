@@ -100,6 +100,7 @@ public static class ServiceCollectionExtensions
             services.AddHostedService(provider => provider.GetRequiredService<RepositoryWatcher>());
             services.AddSingleton<ISystemInterop, SystemInterop>();
             services.AddSingleton<IWorktreeGuard, WorktreeGuard>();
+            services.AddSingleton<IOperationFeedback, OperationFeedback>();
             services.AddSingleton<IBranchOperations, BranchOperations>();
             services.AddSingleton<IWorktreeOperations, WorktreeOperations>();
             services.AddSingleton<ISubmoduleOperations, SubmoduleOperations>();
