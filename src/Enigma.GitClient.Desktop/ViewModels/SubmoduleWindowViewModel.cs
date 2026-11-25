@@ -159,10 +159,10 @@ public sealed class SubmoduleWindowViewModel : ViewModelBase
 
     private void UpdateBand()
     {
-        HeadState? head = _context.Head;
-        bool detached = IsSubmodule && head is { IsDetached: true, IsUnborn: false };
+        HeadState? detachedHead = IsSubmodule && _context.Head is { IsDetached: true, IsUnborn: false } head ? head : null;
+        bool detached = detachedHead is not null;
 
-        _branchAtHead = detached ? FindBranchAt(head!.Sha) : null;
+        _branchAtHead = detachedHead is null ? null : FindBranchAt(detachedHead.Sha);
         CheckoutBranchHeader = _branchAtHead is { } branch ? $"Check out {branch.ShortName}" : string.Empty;
         IsDetachedBandVisible = detached;
 

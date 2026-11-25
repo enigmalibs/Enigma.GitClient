@@ -183,11 +183,11 @@ public sealed class SubmodulesPageViewModel : PageViewModelBase
         _operations = operations;
         _logger = logger;
 
-        OpenCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.OpenAsync(row!.Submodule), row => row?.CanOpen == true);
-        UpdateCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.UpdateAsync([row!.Path]), row => row?.CanUpdate == true);
-        OpenFolderCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.OpenFolderAsync(row!.Submodule), row => row is not null);
-        OpenTerminalCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.OpenTerminalAsync(row!.Submodule), row => row?.CanOpen == true);
-        CopyPathCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => _operations.CopyPathAsync(row!.Submodule), row => row is not null);
+        OpenCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenAsync(row.Submodule), row => row?.CanOpen == true);
+        UpdateCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.UpdateAsync([row.Path]), row => row?.CanUpdate == true);
+        OpenFolderCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenFolderAsync(row.Submodule), row => row is not null);
+        OpenTerminalCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenTerminalAsync(row.Submodule), row => row?.CanOpen == true);
+        CopyPathCommand = new AsyncRelayCommand<SubmoduleRowViewModel>(row => row is null ? Task.CompletedTask : _operations.CopyPathAsync(row.Submodule), row => row is not null);
         UpdateAllCommand = new AsyncRelayCommand(() => _operations.UpdateAsync(null), () => Rows.Count > 0);
     }
 

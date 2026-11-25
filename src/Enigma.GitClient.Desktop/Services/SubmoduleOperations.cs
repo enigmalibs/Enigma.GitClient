@@ -377,9 +377,9 @@ public sealed class SubmoduleOperations : ISubmoduleOperations
         card.Message = report.Description;
         card.IsIndeterminate = !report.Step.IsDeterminate;
 
-        if (report.Step.IsDeterminate)
+        if (report.Step is { IsDeterminate: true, Percent: { } percent })
         {
-            card.Progress = report.Step.Percent!.Value;
+            card.Progress = percent;
         }
     }
 

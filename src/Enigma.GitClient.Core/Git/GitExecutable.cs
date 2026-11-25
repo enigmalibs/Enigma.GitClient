@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Options;
 using IOPath = System.IO.Path;
 
@@ -34,7 +35,7 @@ public sealed class GitExecutable : IGitExecutable
         {
             if (TryResolve(out string? path))
             {
-                return path!;
+                return path;
             }
 
             throw new GitNotFoundException(
@@ -44,7 +45,7 @@ public sealed class GitExecutable : IGitExecutable
     }
 
     /// <inheritdoc />
-    public bool TryResolve(out string? path)
+    public bool TryResolve([NotNullWhen(true)] out string? path)
     {
         lock (_gate)
         {

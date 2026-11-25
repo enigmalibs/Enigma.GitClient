@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -263,7 +264,7 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     /// <summary>
     /// Gets the full path a moved file came from, shown as the rename label's tooltip.
     /// </summary>
-    public string RenameSource => File?.IsRenamed == true ? File.OldPath! : string.Empty;
+    public string RenameSource => File is { IsRenamed: true, OldPath: { } oldPath } ? oldPath : string.Empty;
 
     /// <summary>
     /// Gets the rename arrow shown for a moved file.
@@ -277,16 +278,15 @@ public sealed class ChangedFileNodeViewModel : ViewModelBase
     {
         get
         {
-            if (File?.IsRenamed != true)
+            if (File is not { IsRenamed: true, OldPath: { } oldPath } file)
             {
                 return string.Empty;
             }
 
-            string oldPath = File.OldPath!;
             int separator = oldPath.LastIndexOf('/');
             string oldDirectory = separator < 0 ? string.Empty : oldPath.Substring(0, separator);
 
-            return string.Equals(oldDirectory, File.DirectoryPath, StringComparison.Ordinal)
+            return string.Equals(oldDirectory, file.DirectoryPath, StringComparison.Ordinal)
                 ? $"← {oldPath.Substring(separator + 1)}"
                 : $"← {oldPath}";
         }
@@ -1019,9 +1019,9 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
 
     private ChangedFileNodeViewModel Convert(FileTreeNode node, bool expand)
     {
-        if (!node.IsDirectory)
+        if (node is { IsDirectory: false, Change: { } change })
         {
-            return new ChangedFileNodeViewModel(this, node.Change!, node.Name);
+            return new ChangedFileNodeViewModel(this, change, node.Name);
         }
 
         List<ChangedFileNodeViewModel> children = new(node.Children.Count);
@@ -1080,7 +1080,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
     /// <summary>Gets the command that opens a submodule's line in a new window.</summary>
     public AsyncRelayCommand<ChangedFileNodeViewModel> OpenSubmoduleCommand { get; }
 
-    private bool CanReachOnDisk(ChangedFileNodeViewModel? node)
+    private bool CanReachOnDisk([NotNullWhen(true)] ChangedFileNodeViewModel? node)
         => node is { IsDirectory: false, IsDeleted: false } && WorkTreePath.Length > 0;
 
     private async Task OpenAsync(ChangedFileNodeViewModel? node, bool reveal)
@@ -1090,7 +1090,7 @@ public sealed class ChangedFilesPanelViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        string full = System.IO.Path.Combine(WorkTreePath, node!.Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        string full = System.IO.Path.Combine(WorkTreePath, node.Path.Replace('/', System.IO.Path.DirectorySeparatorChar));
 
         // A file that would run is shown, never opened, whichever way the request came: from a commit,
         // "open" would mean running whatever somebody else committed (SEC-03).

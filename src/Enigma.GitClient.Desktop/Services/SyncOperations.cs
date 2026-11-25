@@ -406,9 +406,12 @@ public sealed class SyncOperations : ISyncOperations
             return pushed;
         }
 
+        // Only a named branch's refusal is handed over (above), so the force push always has its branch.
         return rejection.Kind == SyncFailureKind.UnpushedSubmodule
             ? await OfferSubmodulePushAsync(request, rejection, title, successMessage).ConfigureAwait(true)
-            : await OfferForcePushAsync(request, request.Branch!, title).ConfigureAwait(true);
+            : request.Branch is { Length: > 0 } refusedBranch
+                ? await OfferForcePushAsync(request, refusedBranch, title).ConfigureAwait(true)
+                : pushed;
     }
 
     /// <summary>
@@ -568,9 +571,10 @@ public sealed class SyncOperations : ISyncOperations
                 handOver: failure => failure.Kind == SyncFailureKind.NonFastForward && request.Branch is { Length: > 0 })
             .ConfigureAwait(true);
 
-        return refused is null
-            ? pushed
-            : await OfferForcePushAsync(request, request.Branch!, title).ConfigureAwait(true);
+        // Only a named branch's refusal is handed over (above), so the force push always has its branch.
+        return refused is not null && request.Branch is { Length: > 0 } refusedBranch
+            ? await OfferForcePushAsync(request, refusedBranch, title).ConfigureAwait(true)
+            : pushed;
     }
 
     /// <summary>
@@ -881,9 +885,9 @@ public sealed class SyncOperations : ISyncOperations
         card.Message = report.Description;
         card.IsIndeterminate = !report.IsDeterminate;
 
-        if (report.IsDeterminate)
+        if (report is { IsDeterminate: true, Percent: { } percent })
         {
-            card.Progress = report.Percent!.Value;
+            card.Progress = percent;
         }
     }
 

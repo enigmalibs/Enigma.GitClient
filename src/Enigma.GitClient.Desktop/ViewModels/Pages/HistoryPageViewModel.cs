@@ -228,7 +228,7 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
 
         // Everything a line or a badge copies — a hash, a branch's name, a tag's — is plain text.
         CopyCommand = new AsyncRelayCommand<string>(
-            text => _interop.CopyTextAsync(text!),
+            text => text is { Length: > 0 } ? _interop.CopyTextAsync(text) : Task.CompletedTask,
             text => !string.IsNullOrEmpty(text));
 
         ApplySettings(settings.Current);
@@ -262,13 +262,13 @@ public sealed class HistoryPageViewModel : PageViewModelBase, IDisposable
             new HistoryWorktreeCommands(
                 RepositoryContext.WorktreeOf,
                 new AsyncRelayCommand<HistoryBranchViewModel>(
-                    branch => _worktreeOperations.OpenAsync(branch!.Worktree!),
+                    branch => branch is { Worktree: { } worktree } ? _worktreeOperations.OpenAsync(worktree) : Task.CompletedTask,
                     branch => branch?.Worktree is { IsMissing: false }),
                 new AsyncRelayCommand<HistoryBranchViewModel>(
-                    branch => _worktreeOperations.OpenFolderAsync(branch!.Worktree!),
+                    branch => branch is { Worktree: { } worktree } ? _worktreeOperations.OpenFolderAsync(worktree) : Task.CompletedTask,
                     branch => branch?.Worktree is { IsMissing: false }),
                 new AsyncRelayCommand<HistoryBranchViewModel>(
-                    branch => _worktreeOperations.OpenTerminalAsync(branch!.Worktree!),
+                    branch => branch is { Worktree: { } worktree } ? _worktreeOperations.OpenTerminalAsync(worktree) : Task.CompletedTask,
                     branch => branch?.Worktree is { IsMissing: false }),
                 new AsyncRelayCommand<HistoryBranchViewModel>(
                     OnRemoveWorktreeAsync,

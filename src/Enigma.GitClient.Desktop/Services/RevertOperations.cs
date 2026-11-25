@@ -96,7 +96,8 @@ public sealed class RevertOperations : IRevertOperations
 
         // Refuse has made sure HEAD is on a branch; it is the one named in the question, read now
         // rather than when the menu opened, because it is where the commit is about to land.
-        string branch = _context.Head!.BranchName!;
+        string branch = _context.Head?.BranchName
+            ?? throw new InvalidOperationException("Refuse lets only a HEAD on a branch through.");
 
         if (!await ConfirmAsync(branch, target, subject ?? string.Empty, isMerge).ConfigureAwait(true))
         {

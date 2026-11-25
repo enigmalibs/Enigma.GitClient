@@ -450,7 +450,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE18        | [Medium] XAML-01 Field label styles      | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE19        | [Medium] XAML-02 One edge auto-scroll    | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE20        | [Medium] XAML-03 Theme colour resources  | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE21        | [Medium] STYLE-01 Null-forgiving removed | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE21        | [Medium] STYLE-01 Null-forgiving removed | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE22        | [Medium] SOLID-03 Split SubmoduleService | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE23        | [Medium] SOLID-02 Shared clone flow      | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE24        | [Medium] SOLID-02 History ref commands   | TODO        | (in CODE-REVIEW-6E56.md)      |

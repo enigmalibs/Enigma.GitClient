@@ -195,7 +195,13 @@ public sealed class TagsPageViewModel : PageViewModelBase
 
         // The history is under the dialog: selecting a line there closes it.
         SelectInHistoryCommand = new RelayCommand<TagRowViewModel>(
-            row => _tools.RevealInHistory(row!.Tag.TargetSha),
+            row =>
+            {
+                if (row is { Tag.TargetSha: { Length: > 0 } sha })
+                {
+                    _tools.RevealInHistory(sha);
+                }
+            },
             row => row is { Tag.TargetSha.Length: > 0 });
 
         // The order the reader chose last time — the tags' own, apart from the branches'.

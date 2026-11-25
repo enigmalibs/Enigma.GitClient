@@ -445,7 +445,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
 
         // The history is under the dialog: selecting a line there closes it.
         SelectInHistoryCommand = new RelayCommand<BranchRowViewModel>(
-            row => _tools.RevealInHistory(row!.Branch.TargetSha),
+            row =>
+            {
+                if (row is { Branch.TargetSha: { Length: > 0 } sha })
+                {
+                    _tools.RevealInHistory(sha);
+                }
+            },
             row => row is { Branch.TargetSha.Length: > 0 });
 
         // The order the reader chose last time, and any change made to it since — the tags dialog's is
@@ -457,7 +463,13 @@ public sealed class BranchesPageViewModel : PageViewModelBase
             : SortDirection.Ascending);
 
         ToggleVisibilityCommand = new RelayCommand<BranchRowViewModel>(
-            row => _hidden.SetHidden(row!.Branch.FullName, !row.IsHiddenInHistory),
+            row =>
+            {
+                if (row is not null)
+                {
+                    _hidden.SetHidden(row.Branch.FullName, !row.IsHiddenInHistory);
+                }
+            },
             row => row?.CanChangeVisibility == true);
 
         _hidden.Changed += (_, _) => NotifyVisibility();
@@ -472,16 +484,16 @@ public sealed class BranchesPageViewModel : PageViewModelBase
         // The worktree that has the branch: opened anywhere but where its folder has gone, and removed
         // unless it is the main working tree.
         OpenWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(
-            row => _worktreeOperations.OpenAsync(row!.Worktree!),
+            row => row is { Worktree: { } worktree } ? _worktreeOperations.OpenAsync(worktree) : Task.CompletedTask,
             HasWorktreeFolder);
         OpenWorktreeFolderCommand = new AsyncRelayCommand<BranchRowViewModel>(
-            row => _worktreeOperations.OpenFolderAsync(row!.Worktree!),
+            row => row is { Worktree: { } worktree } ? _worktreeOperations.OpenFolderAsync(worktree) : Task.CompletedTask,
             HasWorktreeFolder);
         OpenWorktreeTerminalCommand = new AsyncRelayCommand<BranchRowViewModel>(
-            row => _worktreeOperations.OpenTerminalAsync(row!.Worktree!),
+            row => row is { Worktree: { } worktree } ? _worktreeOperations.OpenTerminalAsync(worktree) : Task.CompletedTask,
             HasWorktreeFolder);
         RemoveWorktreeCommand = new AsyncRelayCommand<BranchRowViewModel>(
-            row => Run(() => _worktreeOperations.RemoveAsync(row!.Worktree!)),
+            row => row is { Worktree: { } worktree } ? Run(() => _worktreeOperations.RemoveAsync(worktree)) : Task.CompletedTask,
             row => row?.CanRemoveWorktree == true);
         DeleteCommand = new AsyncRelayCommand<BranchRowViewModel>(OnDeleteAsync, CanDelete);
         DeleteSelectionCommand = new AsyncRelayCommand(OnDeleteSelectionAsync, CanDeleteSelection);

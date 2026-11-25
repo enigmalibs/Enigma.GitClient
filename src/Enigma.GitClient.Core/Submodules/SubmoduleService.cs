@@ -1279,8 +1279,10 @@ public sealed class SubmoduleService : ISubmoduleService
                 {
                     run.Skip(new SubmoduleSkip(submodule.Path, SubmoduleSkipReason.UncommittedChanges, submodule.CheckedOutSha));
                 }
+                // With nothing checked out, no commit can be left on no branch.
                 else if (!run.LeavesUnreferencedCommits
-                    && !await IsOnAnyRefAsync(submodule, submodule.CheckedOutSha!, cancellationToken).ConfigureAwait(false))
+                    && submodule.CheckedOutSha is { } checkedOut
+                    && !await IsOnAnyRefAsync(submodule, checkedOut, cancellationToken).ConfigureAwait(false))
                 {
                     run.Skip(new SubmoduleSkip(submodule.Path, SubmoduleSkipReason.CommitOnNoBranch, submodule.CheckedOutSha));
                 }

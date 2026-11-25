@@ -304,7 +304,10 @@ public sealed class BranchOperations : IBranchOperations
 
         foreach (DeletionItem skipped in plan.Skipped)
         {
-            outcome.Failed(skipped.Name, skipped.SkipReason!);
+            if (skipped.SkipReason is { } reason)
+            {
+                outcome.Failed(skipped.Name, reason);
+            }
         }
 
         if (items.Count == 1)
@@ -343,7 +346,10 @@ public sealed class BranchOperations : IBranchOperations
 
         foreach (DeletionItem item in skipped)
         {
-            outcome.Failed(item.Name, item.SkipReason!);
+            if (item.SkipReason is { } reason)
+            {
+                outcome.Failed(item.Name, reason);
+            }
         }
 
         (string title, string message, _) = outcome.Summarise("Deleted", "branch", "branches");

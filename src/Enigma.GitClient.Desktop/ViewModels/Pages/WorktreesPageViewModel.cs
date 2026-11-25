@@ -144,9 +144,9 @@ public sealed class WorktreesPageViewModel : PageViewModelBase
 
         _operations = operations;
 
-        OpenCommand = new AsyncRelayCommand<WorktreeRowViewModel>(row => _operations.OpenAsync(row!.Worktree), row => row?.CanOpen == true);
-        OpenFolderCommand = new AsyncRelayCommand<WorktreeRowViewModel>(row => _operations.OpenFolderAsync(row!.Worktree), row => row?.CanOpen == true);
-        OpenTerminalCommand = new AsyncRelayCommand<WorktreeRowViewModel>(row => _operations.OpenTerminalAsync(row!.Worktree), row => row?.CanOpen == true);
+        OpenCommand = new AsyncRelayCommand<WorktreeRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenAsync(row.Worktree), row => row?.CanOpen == true);
+        OpenFolderCommand = new AsyncRelayCommand<WorktreeRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenFolderAsync(row.Worktree), row => row?.CanOpen == true);
+        OpenTerminalCommand = new AsyncRelayCommand<WorktreeRowViewModel>(row => row is null ? Task.CompletedTask : _operations.OpenTerminalAsync(row.Worktree), row => row?.CanOpen == true);
         RemoveCommand = new AsyncRelayCommand<WorktreeRowViewModel>(OnRemoveAsync, row => row?.CanRemove == true);
     }
 

@@ -525,7 +525,7 @@ Locations: `Themes/Controls.axaml:152`, `:216`, `AppWindows.cs:431`,
 ## PHASE21 — [Medium] STYLE-01 Null-forgiving removed
 
 **Branch:** `review/code-review-6e56-phase21-null-forgiving`
-**Status:** TODO
+**Status:** DONE
 
 Locations: the 55 operators at the 34 sites in the review.
 

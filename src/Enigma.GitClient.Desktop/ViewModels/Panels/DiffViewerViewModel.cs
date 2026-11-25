@@ -955,8 +955,8 @@ public sealed class DiffViewerViewModel : ViewModelBase, IDisposable
         {
             foreach (DiffRow row in DiffRowBuilder.BuildUnified(patch))
             {
-                unified.Add(row.Kind == DiffRowKind.HunkHeader
-                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = unified.Count }
+                unified.Add(row is { Kind: DiffRowKind.HunkHeader, Hunk: { } hunk }
+                    ? new DiffRowViewModel(hunk, Render, ExpandContextCommand) { Index = unified.Count }
                     : new DiffRowViewModel(new DiffCellViewModel(row.Line, Render), null, null, Render)
                     {
                         Index = unified.Count,
@@ -965,8 +965,8 @@ public sealed class DiffViewerViewModel : ViewModelBase, IDisposable
 
             foreach (DiffPairRow row in DiffRowBuilder.BuildSideBySide(patch))
             {
-                sideBySide.Add(row.Kind == DiffRowKind.HunkHeader
-                    ? new DiffRowViewModel(row.Hunk!, Render, ExpandContextCommand) { Index = sideBySide.Count }
+                sideBySide.Add(row is { Kind: DiffRowKind.HunkHeader, Hunk: { } hunk }
+                    ? new DiffRowViewModel(hunk, Render, ExpandContextCommand) { Index = sideBySide.Count }
                     : new DiffRowViewModel(
                         null,
                         new DiffCellViewModel(row.Left, Render, showOldNumber: true, showNewNumber: false),

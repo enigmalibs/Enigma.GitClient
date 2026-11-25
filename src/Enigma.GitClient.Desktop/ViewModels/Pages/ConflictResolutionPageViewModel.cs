@@ -1116,9 +1116,9 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
             return;
         }
 
-        if (row.File.IsPinConflict)
+        if (row.File is { IsPinConflict: true, OursSha: { } oursSha, TheirsSha: { } theirsSha })
         {
-            await DescribePinSidesAsync(repository, row.File, generation).ConfigureAwait(true);
+            await DescribePinSidesAsync(repository, row.File.Path, oursSha, theirsSha, generation).ConfigureAwait(true);
 
             if (generation != _loadGeneration)
             {
@@ -1377,9 +1377,9 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
 
         string path = row.Path;
 
-        if (row.File.IsPinConflict)
+        if (row.File is { IsPinConflict: true, OursSha: { } ours, TheirsSha: { } theirs })
         {
-            await KeepPinAsync(path, side == ConflictSide.Ours ? row.File.OursSha! : row.File.TheirsSha!, side).ConfigureAwait(true);
+            await KeepPinAsync(path, side == ConflictSide.Ours ? ours : theirs, side).ConfigureAwait(true);
             return;
         }
 
@@ -1423,7 +1423,7 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         Report("Submodule resolved", $"{path} is on {which} commit, {PinChange.Short(sha)}.", InfoBarSeverity.Success);
     }
 
-    private async Task DescribePinSidesAsync(RepositoryHandle repository, ConflictFile file, int generation)
+    private async Task DescribePinSidesAsync(RepositoryHandle repository, string path, string oursSha, string theirsSha, int generation)
     {
         PinCommit? ours = null;
         PinCommit? theirs = null;
@@ -1432,19 +1432,19 @@ public sealed class ConflictResolutionPageViewModel : PageViewModelBase
         {
             try
             {
-                ours = await _submodules.DescribeCommitAsync(repository, file.Path, file.OursSha!, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
-                theirs = await _submodules.DescribeCommitAsync(repository, file.Path, file.TheirsSha!, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+                ours = await _submodules.DescribeCommitAsync(repository, path, oursSha, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
+                theirs = await _submodules.DescribeCommitAsync(repository, path, theirsSha, RepositoryContext.RepositoryLifetime).ConfigureAwait(true);
             }
             catch (GitCommandException exception)
             {
-                _logger.LogWarning(exception, "The commits of the conflicted submodule {Path} could not be read", file.Path);
+                _logger.LogWarning(exception, "The commits of the conflicted submodule {Path} could not be read", path);
             }
         }
 
         if (generation == _loadGeneration)
         {
-            OursPin = DescribePinSide("Ours", file.OursSha!, ours);
-            TheirsPin = DescribePinSide("Theirs", file.TheirsSha!, theirs);
+            OursPin = DescribePinSide("Ours", oursSha, ours);
+            TheirsPin = DescribePinSide("Theirs", theirsSha, theirs);
         }
     }
 
