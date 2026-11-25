@@ -286,8 +286,11 @@ public sealed class GitProcessRunner : IGitProcessRunner
         }
         catch (Win32Exception exception)
         {
+            // The native error goes along as the inner exception: "not found", "access denied" and
+            // "not a program" are three different fixes, and only its code tells them apart.
             throw new GitNotFoundException(
-                $"The git executable at '{_executable.Path}' could not be started: {exception.Message}");
+                $"The git executable at '{_executable.Path}' could not be started: {exception.Message}",
+                exception);
         }
     }
 

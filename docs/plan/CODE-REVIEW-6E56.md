@@ -224,7 +224,7 @@ Location: `tests/Enigma.GitClient.Core.UnitTests/Security/TokenStoreTests.cs:398
 ## PHASE08 — [Medium] EXC-02 Git start keeps its cause
 
 **Branch:** `review/code-review-6e56-phase08-git-start-inner-exception`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `Core/Git/GitProcessRunner.cs:287-291`, `Core/Git/GitNotFoundException.cs:9`.
 
