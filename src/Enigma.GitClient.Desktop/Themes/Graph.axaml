@@ -34,6 +34,16 @@
       <Color x:Key="RefBadgeStashColor">#33373D</Color>
       <Color x:Key="RefBadgeForegroundColor">#E6E8EC</Color>
 
+      <!-- The checked-out branch's text, white on its strong blue in both variants. -->
+      <Color x:Key="RefBadgeHeadForegroundColor">#FFFFFF</Color>
+
+      <!--
+        An author's monogram is tinted with a lane colour (AuthorAvatar). Its letters are dark ink on
+        this variant's light lanes, and white on the light variant's deeper ones, which out-contrasts
+        dark ink there.
+      -->
+      <Color x:Key="AuthorAvatarInitialsColor">#12151A</Color>
+
       <!--
         The status chips beside a changed file: a pastel fill per kind — mint, sky, rose, lavender,
         apricot — and one dark letter that reads on every one of them, in both variants.
@@ -154,6 +164,9 @@
       <Color x:Key="RefBadgeStashColor">#E4E7EB</Color>
       <Color x:Key="RefBadgeForegroundColor">#1A1D21</Color>
 
+      <Color x:Key="RefBadgeHeadForegroundColor">#FFFFFF</Color>
+      <Color x:Key="AuthorAvatarInitialsColor">#FFFFFF</Color>
+
       <Color x:Key="DiffStatusAddedColor">#83C594</Color>
       <Color x:Key="DiffStatusModifiedColor">#6DBEF5</Color>
       <Color x:Key="DiffStatusDeletedColor">#F79E9C</Color>
@@ -229,6 +242,8 @@
   <SolidColorBrush x:Key="RefBadgeTagBrush" Color="{DynamicResource RefBadgeTagColor}" />
   <SolidColorBrush x:Key="RefBadgeStashBrush" Color="{DynamicResource RefBadgeStashColor}" />
   <SolidColorBrush x:Key="RefBadgeForegroundBrush" Color="{DynamicResource RefBadgeForegroundColor}" />
+  <SolidColorBrush x:Key="RefBadgeHeadForegroundBrush" Color="{DynamicResource RefBadgeHeadForegroundColor}" />
+  <SolidColorBrush x:Key="AuthorAvatarInitialsBrush" Color="{DynamicResource AuthorAvatarInitialsColor}" />
 
   <SolidColorBrush x:Key="DiffStatusAddedBrush" Color="{DynamicResource DiffStatusAddedColor}" />
   <SolidColorBrush x:Key="DiffStatusModifiedBrush" Color="{DynamicResource DiffStatusModifiedColor}" />

@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
 using Enigma.Avalonia.Desktop.Controls;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Controls.InfoBar;
@@ -423,7 +422,7 @@ public sealed class AppWindows : IAppWindows
             dialog.IconData = PhosphorIconSet.Instance
                 .GetGlyph(PhosphorIcon.Warning, PhosphorWeight.Regular)
                 .ToGeometry();
-            dialog.IconBrush = new SolidColorBrush(Color.Parse("#E8A33D"));
+            dialog.IconBrush = ThemeBrushes.Warning;
             dialog.CloseButtonText = "Close";
         }).ConfigureAwait(true);
     }

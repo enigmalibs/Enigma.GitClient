@@ -502,7 +502,7 @@ Locations: `BranchesPageView.axaml.cs:558-606`, `HistoryPageView.axaml.cs:685-72
 ## PHASE20 — [Medium] XAML-03 Theme colour resources
 
 **Branch:** `review/code-review-6e56-phase20-theme-colour-resources`
-**Status:** TODO
+**Status:** DONE
 
 Locations: `Themes/Controls.axaml:152`, `:216`, `AppWindows.cs:431`,
 `UnhandledErrorReporter.cs:198`, `Controls/AuthorAvatar.cs:25-32`.

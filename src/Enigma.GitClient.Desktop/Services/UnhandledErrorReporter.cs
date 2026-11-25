@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Avalonia.Media;
 using Avalonia.Threading;
 using Enigma.Avalonia.Desktop.Controls.ContentDialog;
 using Enigma.Avalonia.Desktop.Services;
@@ -205,7 +204,7 @@ public sealed class UnhandledErrorReporter : IUnhandledErrorReporter
                 dialog.IconData = PhosphorIconSet.Instance
                     .GetGlyph(PhosphorIcon.Warning, PhosphorWeight.Regular)
                     .ToGeometry();
-                dialog.IconBrush = new SolidColorBrush(Color.Parse("#E8A33D"));
+                dialog.IconBrush = ThemeBrushes.Warning;
             }).ConfigureAwait(true);
         }
         catch (Exception exception)
