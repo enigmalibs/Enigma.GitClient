@@ -245,7 +245,7 @@ Locations: `Core/Git/GitProcessRunner.cs:287-291`, `Core/Git/GitNotFoundExceptio
 ## PHASE09 — [Medium] ASYNC-01 No blocking at startup
 
 **Branch:** `review/code-review-6e56-phase09-sync-settings-load`
-**Status:** TODO
+**Status:** DONE
 
 Location: `Desktop/App.axaml.cs:74`.
 

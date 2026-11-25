@@ -69,9 +69,10 @@ public partial class App : Application
             desktop.ShutdownRequested += (_, _) => errors.ShutdownStarted();
 
             // Before the window: the theme is a preference, and a window that paints dark and then
-            // flips to light is a worse first impression than one that starts right.
+            // flips to light is a worse first impression than one that starts right. Read on this
+            // thread, never by blocking on a task: this is the UI thread, with its context installed.
             ISettingsService settings = services.GetRequiredService<ISettingsService>();
-            settings.LoadAsync().GetAwaiter().GetResult();
+            settings.Load();
             ApplyTheme(settings.Current.Theme);
             DiffTypography.Apply(settings.Current);
             settings.Changed += (_, e) => ApplyTheme(e.Settings.Theme);

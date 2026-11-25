@@ -438,7 +438,7 @@ completion records live in `docs/done/<ID>.md`.
 | - PHASE06        | [Medium] SEC-03 Open never runs a file   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE07        | [Medium] TEST-02 Token test on Windows   | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE08        | [Medium] EXC-02 Git start keeps cause    | DONE        | (in CODE-REVIEW-6E56.md)      |
-| - PHASE09        | [Medium] ASYNC-01 No blocking at startup | TODO        | (in CODE-REVIEW-6E56.md)      |
+| - PHASE09        | [Medium] ASYNC-01 No blocking at startup | DONE        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE10        | [Medium] SOLID-05 One git run sequence   | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE11        | [Medium] SOLID-04 Diff viewer lifetime   | TODO        | (in CODE-REVIEW-6E56.md)      |
 | - PHASE12        | [Medium] ASYNC-02 Hosted refresh loops   | TODO        | (in CODE-REVIEW-6E56.md)      |

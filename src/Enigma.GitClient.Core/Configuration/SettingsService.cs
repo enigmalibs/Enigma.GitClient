@@ -32,6 +32,17 @@ public interface ISettingsService
     event EventHandler<SettingsChangedEventArgs>? Changed;
 
     /// <summary>
+    /// Reads the settings from disk, once, at startup, on the calling thread.
+    /// </summary>
+    /// <returns>The settings that were read.</returns>
+    /// <remarks>
+    /// For the one caller that needs them before anything else can run — the application, which
+    /// paints its first window in the chosen theme — and must not block on asynchronous code to get
+    /// them. The read is one small local file, which is synchronous underneath either way.
+    /// </remarks>
+    AppSettings Load();
+
+    /// <summary>
     /// Reads the settings from disk, once, at startup.
     /// </summary>
     /// <param name="cancellationToken">Cancels the read.</param>
@@ -132,10 +143,26 @@ public sealed class SettingsService : ISettingsService, IDisposable
     public string? BackupPath { get; private set; }
 
     /// <inheritdoc />
+    public AppSettings Load()
+    {
+        _gate.Wait();
+
+        return ReadHoldingTheGate();
+    }
+
+    /// <inheritdoc />
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
+        return ReadHoldingTheGate();
+    }
+
+    /// <summary>
+    /// Reads the file while the caller holds the gate, lets the gate go, and tells the listeners.
+    /// </summary>
+    private AppSettings ReadHoldingTheGate()
+    {
         try
         {
             Current = Read();

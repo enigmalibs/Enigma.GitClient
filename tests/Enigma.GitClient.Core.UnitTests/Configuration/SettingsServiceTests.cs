@@ -456,6 +456,45 @@ public sealed class SettingsServiceTests : IDisposable
     // ---------------------------------------------------------------- unreadable and future files
 
     [Fact]
+    public async Task Load_ReadsTheFileOnTheCallingThread_AndTellsTheListenersOnce()
+    {
+        using (SettingsService first = Build())
+        {
+            first.Update(current => current with { Theme = ThemePreference.Dark });
+            await first.FlushAsync(TestContext.Current.CancellationToken);
+        }
+
+        using SettingsService settings = Build();
+        int changes = 0;
+        settings.Changed += (_, e) =>
+        {
+            changes++;
+            Assert.Equal(ThemePreference.Dark, e.Settings.Theme);
+        };
+
+        AppSettings loaded = settings.Load();
+
+        Assert.Equal(ThemePreference.Dark, loaded.Theme);
+        Assert.Same(loaded, settings.Current);
+        Assert.Equal(1, changes);
+    }
+
+    [Fact]
+    public void Load_KeepsACorruptFileAside_AsLoadAsyncDoes()
+    {
+        Directory.CreateDirectory(_root);
+        System.IO.File.WriteAllText(File_, "{ this is not json");
+
+        using SettingsService settings = Build();
+
+        Assert.Equal(AppSettings.Defaults, settings.Load());
+
+        string backup = Assert.IsType<string>(settings.BackupPath);
+        Assert.Contains("this is not json", System.IO.File.ReadAllText(backup), StringComparison.Ordinal);
+        Assert.False(System.IO.File.Exists(File_));
+    }
+
+    [Fact]
     public async Task ACorruptFileIsKeptAndTheDefaultsLoad()
     {
         Directory.CreateDirectory(_root);
